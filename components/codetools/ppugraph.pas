@@ -30,7 +30,11 @@ unit PPUGraph;
 interface
 
 uses
-  Classes, SysUtils, dynlibs, PPUParser, CodeTree, AVL_Tree, FileProcs,
+  Classes, SysUtils, 
+{$ifndef AROS}
+  dynlibs,
+{$endif}
+  PPUParser, CodeTree, AVL_Tree, FileProcs,
   BasicCodeTools, CodeGraph, CodeToolManager, CodeToolsStructs;
 
 const
@@ -476,7 +480,11 @@ var
   RegisterFPLibProcName: String;
 begin
   Result:=true;
+{$ifdef AROS}  
+  LibName:=Name;
+{$else}
   LibName:=Name+'.'+SharedSuffix;
+{$endif}  
   // needed groups in topological order
   if Groups.GroupGraph.GetGraphNode(KeyNode,false)=nil then
     raise Exception.Create('inconsistency');

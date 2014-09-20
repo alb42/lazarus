@@ -1,4 +1,4 @@
-{  $Id$  }
+{  $Id: lclintf.pas 42446 2013-08-22 11:56:14Z juha $  }
 {
  /***************************************************************************
                                 LCLIntf.pas
@@ -204,6 +204,9 @@ end;
 // System APIs which have an operating-system specific implementation
 // They should be moved to FPC eventually
 {$I sysenvapis.inc}
+{$ifdef aros}
+  {$I sysenvapis_aros.inc}
+{$endif}
 {$ifdef Windows}
   {$I sysenvapis_win.inc}
 {$endif}

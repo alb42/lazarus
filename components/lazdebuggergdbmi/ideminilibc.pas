@@ -61,6 +61,18 @@ type
     c_ospeed : speed_t;
   end;
 
+{$ifdef AROS}
+function tcgetattr(__fd:cint; __termios_p: Ptermios):cint;
+function tcsetattr(__fd:cint; __optional_actions:cint; __termios_p: Ptermios):cint;
+function __read(Handle: cint; var Buffer; Count: size_t): ssize_t;
+function __write(Handle: cint; const Buffer; Count: size_t): ssize_t;
+function __close(Handle: cint): cint;
+function getpt:cint;
+function grantpt(__fd:cint):cint;
+function unlockpt(__fd:cint):cint;
+function ptsname_r(__fd:cint; __buf:Pchar; __buflen:size_t):cint;
+function fcntl(Handle: cint; Command: cint; Arg: clong): cint;
+{$else}
 function tcgetattr(__fd:cint; __termios_p: Ptermios):cint;cdecl;external clib name 'tcgetattr';
 function tcsetattr(__fd:cint; __optional_actions:cint; __termios_p: Ptermios):cint;cdecl;external clib name 'tcsetattr';
 function __read(Handle: cint; var Buffer; Count: size_t): ssize_t; cdecl;external clib name 'read';
@@ -71,8 +83,51 @@ function grantpt(__fd:cint):cint;cdecl;external clib name 'grantpt';
 function unlockpt(__fd:cint):cint;cdecl;external clib name 'unlockpt';
 function ptsname_r(__fd:cint; __buf:Pchar; __buflen:size_t):cint;cdecl;external clib name 'ptsname_r';
 function fcntl(Handle: cint; Command: cint; Arg: clong): cint; cdecl;external clib name 'fcntl';
-
+{$endif}
 implementation
+
+{$ifdef AROS}
+function tcgetattr(__fd:cint; __termios_p: Ptermios):cint;
+begin
+  Result := 0;
+end;
+function tcsetattr(__fd:cint; __optional_actions:cint; __termios_p: Ptermios):cint;
+begin
+  Result := 0;
+end;
+function __read(Handle: cint; var Buffer; Count: size_t): ssize_t;
+begin
+  Result := 0;
+end;
+function __write(Handle: cint; const Buffer; Count: size_t): ssize_t;
+begin
+  Result := 0;
+end;
+function __close(Handle: cint): cint;
+begin
+  Result := 0;
+end;
+function getpt:cint;
+begin
+  Result := 0;
+end;
+function grantpt(__fd:cint):cint;
+begin
+  Result := 0;
+end;
+function unlockpt(__fd:cint):cint;
+begin
+  Result := 0;
+end;
+function ptsname_r(__fd:cint; __buf:Pchar; __buflen:size_t):cint;
+begin
+  Result := 0;
+end;
+function fcntl(Handle: cint; Command: cint; Arg: clong): cint;
+begin
+  Result := 0;
+end;
+{$endif}
 
 end.
 

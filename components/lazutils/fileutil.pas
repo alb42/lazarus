@@ -34,7 +34,7 @@ interface
 uses
   Classes, SysUtils, Masks, LazUTF8, LazFileUtils;
   
-{$if defined(Windows) or defined(darwin)}
+{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -278,17 +278,25 @@ function SysErrorMessageUTF8(ErrorCode: Integer): String; inline;
 implementation
 
 uses
-{$IFDEF windows}
-  Windows;
+{$IFDEF AROS}
+  dos;
 {$ELSE}
-  Unix;
+  {$IFDEF windows}
+    Windows;
+  {$ELSE}
+    Unix;
+  {$ENDIF}
 {$ENDIF}
 
 {$I fileutil.inc}
-{$IFDEF windows}
-  {$i winfileutil.inc}
-{$ELSE}
-  {$i unixfileutil.inc}
+{$IFDEF AROS}
+  {$i arosfileutil.inc}
+{$ELSE}  
+  {$IFDEF windows}
+    {$i winfileutil.inc}
+  {$ELSE}
+    {$i unixfileutil.inc}
+{$ENDIF}
 {$ENDIF}
 
 end.

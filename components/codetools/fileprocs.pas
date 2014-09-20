@@ -44,7 +44,7 @@ type
   TFPCMemStreamSeekType = integer;
   PCharZ = Pointer;
 
-{$if defined(Windows) or defined(darwin)}
+{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -348,13 +348,17 @@ implementation
 
 // to get more detailed error messages consider the os
 uses
-{$IFDEF Windows}
-  Windows;
+{$IFDEF AROS}
+  dos;
 {$ELSE}
-  {$IFDEF darwin}
-  MacOSAll,
+  {$IFDEF Windows}
+    Windows;
+  {$ELSE}
+    {$IFDEF darwin}
+    MacOSAll,
+    {$ENDIF}
+    Unix, BaseUnix;
   {$ENDIF}
-  Unix, BaseUnix;
 {$ENDIF}
 
 procedure RaiseCatchableException(const Msg: string);

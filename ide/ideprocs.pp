@@ -265,7 +265,7 @@ function CheckGroupItemChecked(CheckGroup: TCheckGroup; const Caption: string): 
 implementation
 
 
-{$IfNdef MSWindows}
+{$If Not defined(MSWindows) and not defined(HASAMIGA)}
 // to get more detailed error messages consider the os
 uses
   Unix, BaseUnix;
@@ -1436,7 +1436,7 @@ function BackupFile(const Filename, BackupFilename: string): boolean;
 
 var
   FHandle: THandle;
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr: Longint;
   {$ELSE}
   OldInfo: Stat;
@@ -1445,7 +1445,7 @@ begin
   Result := False;
 
   // store file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr := FileGetAttrUTF8(Filename);
   {$ELSE}
   FpStat(Filename, OldInfo{%H-});
@@ -1465,7 +1465,7 @@ begin
   if not CopyFile(Filename, BackupFilename) then exit;
 
   // restore file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   FileSetAttrUTF8(FileName, OldAttr);
   {$ELSE}
   FpChmod(Filename, OldInfo.st_Mode and (STAT_IRWXO+STAT_IRWXG+STAT_IRWXU
@@ -2387,7 +2387,7 @@ function CopyFileWithMethods(const SrcFilename, DestFilename: string;
   OnCopyError: TOnCopyErrorMethod; Data: TObject): boolean;
 var
   SrcFileStream, DestFileStream: TFileStreamUTF8;
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr: Longint;
   {$ELSE}
   OldInfo: Stat;
@@ -2397,7 +2397,7 @@ begin
   if CompareFilenames(SrcFilename,DestFilename)=0 then exit;
   
   // read file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr:=FileGetAttrUTF8(SrcFilename);
   {$ELSE}
   FpStat(SrcFilename,OldInfo{%H-});
@@ -2422,7 +2422,7 @@ begin
   end;
   
   // copy file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   FileSetAttrUTF8(DestFileName,OldAttr);
   {$ELSE}
   FpChmod(DestFilename, OldInfo.st_Mode and (STAT_IRWXO+STAT_IRWXG+STAT_IRWXU

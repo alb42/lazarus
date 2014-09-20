@@ -500,7 +500,7 @@ begin
     if Copy(ParamStrUTF8(i),1,1) <> '-' then
     begin
       case index of
-        1: SourceDirectory:=ChompPathDelim(ParamStrUTF8(i));
+        1: SourceDirectory:=ChompPathDelim(ExpandFileNameUTF8(ParamStrUTF8(i)));
         2: RevisionIncFileName := ExpandFileNameUTF8(ParamStrUTF8(i));
       end;
       Inc(index);

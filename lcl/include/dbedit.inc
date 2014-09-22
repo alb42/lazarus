@@ -14,6 +14,7 @@
 }
 
 // included by dbctrls.pp
+{.$define UpdDisplay}
 
 { Private Methods }
 
@@ -31,7 +32,7 @@ begin
 
     //if we are focused its possible to edit,
     //if the field is currently modifiable
-    if Focused and FDataLink.CanModify then begin
+    if FFocusedDisplay and FDatalink.CanModify then begin
       //display the real text since we can modify it
       RestoreMask(DatalinkField.Text);
     end else
@@ -112,9 +113,12 @@ begin
   case key of
     VK_ESCAPE:
       begin
-       //cancel out of editing by reset on esc
-       FDataLink.Reset;
-       SelectAll;
+        //cancel out of editing by reset on esc, but only when in editing mode
+        if FDataLink.Editing then begin
+          FDataLink.Reset;
+          SelectAll;
+          Key := VK_UNKNOWN;
+        end;
       end;
     VK_DELETE, VK_BACK:
       begin
@@ -194,6 +198,9 @@ procedure TDBEdit.WMSetFocus(var Message: TLMSetFocus);
 begin
   inherited WMSetFocus(Message);
   // some widgetsets do not notify clipboard actions properly. Put at edit state at entry
+  if FFocusedDisplay then
+    exit;
+  FFocusedDisplay := true;
   if WidgetSet.GetLCLCapability(lcReceivesLMClearCutCopyPasteReliably) = LCL_CAPABILITY_YES then
     FDataLink.Reset
   else
@@ -203,6 +210,9 @@ end;
 procedure TDBEdit.WMKillFocus(var Message: TLMKillFocus);
 begin
   inherited WMKillFocus(Message);
+
+  FFocusedDisplay := False;
+
   if FDatalink.Editing then
   begin
     FDatalink.UpdateRecord;

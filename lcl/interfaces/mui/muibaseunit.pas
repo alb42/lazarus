@@ -35,7 +35,7 @@ type
     function GetAttObj(obje: pObject_; tag: LongWord): LongWord;
       // DoMethod(Params = [MethodID, Parameter for Method ...])
     function DoMethodObj(Obje: pObject_; const Params : Array Of Const): LongInt;
-    function DoMethod(const Params : Array Of Const): LongInt;
+    function DoMethod(const Params : Array Of IPTR): LongInt;
       //
     procedure AddChild(Child: TMUIObject); virtual;
     procedure RemoveChild(Child: TMUIObject); virtual;
@@ -124,25 +124,27 @@ procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('btndown');
+  writeln('-->btndown');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
   end;
+  writeln('<--btndown');
 end;
 
 procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('btnup');
+  writeln('-->btnup');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
+  writeln('<--btnup');
 end;
 
 
@@ -200,8 +202,11 @@ begin
 end;
 
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags : Array Of Const);
+var
+  TagList: TTagsList;
 begin
-   SetAttrsA(obje, ReadInTags(Tags));
+  AddTags(TagList, Tags);
+  SetAttrsA(obje, GetTagPtr(TagList));
 end;
 
 function TMUIObject.GetAttObj(obje: pObject_; tag: LongWord): LongWord;
@@ -214,13 +219,19 @@ end;
 
 function TMUIObject.DoMethodObj(Obje: pObject_;
   const Params: array of const): LongInt;
+var
+  Tags: TTagsList;  
 begin
-  Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, ReadInLongs(Params));
+  AddTags(Tags, Params);
+  Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, GetTagPtr(Tags));
 end;
 
 procedure TMUIObject.SetAttribute(const Tags: array of const);
+var
+  TagList: TTagsList; 
 begin
-  SetAttrsA(FObject, ReadInTags(Tags));
+  AddTags(TagList, Tags);
+  SetAttrsA(FObject, GetTagPtr(TagList));
 end;
 
 function TMUIObject.GetAttribute(tag: LongWord): LongWord;
@@ -231,19 +242,19 @@ begin
   Result := Res;
 end;
 
-function TMUIObject.DoMethod(const Params : Array Of Const): LongInt;
+function TMUIObject.DoMethod(const Params : Array Of IPTR): LongInt;
 begin
-  Result := CallHookPkt(PHook(OCLASS(FObject)), FObject, ReadInLongs(Params));
+  Result := CallHookPkt(PHook(OCLASS(FObject)), FObject, @(Params[0]));
 end;
 
 procedure TMUIObject.AddChild(Child: TMUIObject);
 begin
-  DoMethod([OM_ADDMEMBER, Child.obj]);
+  DoMethod([IPTR(OM_ADDMEMBER), IPTR(Child.obj)]);
 end;
 
 procedure TMUIObject.RemoveChild(Child: TMUIObject);
 begin
-  DoMethod([OM_REMMEMBER, Child.obj]);
+  DoMethod([IPTR(OM_REMMEMBER), IPTR(Child.obj)]);
 end;
 
 constructor TMUIObject.Create(ObjType: LongInt; const Params: array of const);
@@ -265,13 +276,13 @@ begin
     LongInt(MUIA_Pressed), LongInt(True),
     LongInt(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), @ButtonDown
+    LongInt(MUIM_CallHook), IPTR(@ButtonDown)
     ]);
   DoMethod([LongInt(MUIM_Notify),
     LongInt(MUIA_Pressed), LongInt(False),
     LongInt(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), @ButtonUp
+    LongInt(MUIM_CallHook), IPTR(@ButtonUp)
     ]);
 end;
 
@@ -350,12 +361,12 @@ end;
 
 function TMuiApplication.NewInput(Signals: PLongword): LongWord;
 begin
-  Result := DoMethod([Signals]);
+  Result := DoMethod([IPTR(Signals)]);
 end;
 
 procedure TMuiApplication.ProcessMessages;
 begin
-  if Integer(DoMethod([LongInt(MUIM_Application_NewInput), @FSignals])) = MUIV_Application_ReturnID_Quit then
+  if Integer(DoMethod([LongInt(MUIM_Application_NewInput), IPTR(@FSignals)])) = MUIV_Application_ReturnID_Quit then
   begin
     Application.Terminate;
     Exit;
@@ -364,7 +375,7 @@ end;
 
 procedure TMuiApplication.WaitMessages;
 begin
-  if DoMethod([LongInt(MUIM_Application_NewInput), @FSignals]) = MUIV_Application_ReturnID_Quit then
+  if DoMethod([LongInt(MUIM_Application_NewInput), IPTR(@FSignals)]) = MUIV_Application_ReturnID_Quit then
   begin
     Application.Terminate;
     Exit;

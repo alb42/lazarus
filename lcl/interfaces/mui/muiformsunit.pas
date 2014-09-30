@@ -257,7 +257,7 @@ begin
   DoMethod([LongInt(MUIM_Notify), LongInt(MUIA_Menuitem_Trigger), LongInt(MUIV_EveryTime),
       LongInt(MUIV_Notify_Self),
       2,
-      LongInt(MUIM_CallHook), @MenuChoosed
+      LongInt(MUIM_CallHook), IPTR(@MenuChoosed)
       ])
 end;
 
@@ -265,17 +265,17 @@ end;
 
 procedure TMuiFamily.AddHead(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_AddHead), AChild.Obj]);
+  DoMethod([LongInt(MUIM_Family_AddHead), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.AddTail(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_AddTail), AChild.Obj]);
+  DoMethod([LongInt(MUIM_Family_AddTail), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.Remove(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_Remove), AChild.Obj]);
+  DoMethod([LongInt(MUIM_Family_Remove), IPTR(AChild.Obj)]);
 end;
 
 

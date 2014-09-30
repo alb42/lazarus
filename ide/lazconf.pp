@@ -63,7 +63,8 @@ const
       'fpGUI (alpha)',
       'NoGUI',
       'cocoa (alpha)',
-      'customdraw (alpha)'
+      'customdraw (alpha)',
+      'mui (alpha)'
     );
 
 function CompareLazarusVersion(V1, V2: string): integer;

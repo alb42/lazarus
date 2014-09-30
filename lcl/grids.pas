@@ -1364,8 +1364,11 @@ type
     property OnKeyPress;
     property OnKeyUp;
     property OnMouseDown;
+    property OnMouseEnter;
+    property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
     property OnPickListSelect;
@@ -1473,6 +1476,7 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
     property OnPickListSelect;
@@ -5571,9 +5575,13 @@ begin
   Result:=false;
   with FGCache do begin
     if IsCol then begin
+      if index>ColCount-1 then
+        exit;
       StartPos:=integer(PtrUInt(AccumWidth[index]));
       Dim:=GetColWidths(index);
     end else begin
+      if index>RowCount-1 then
+        exit;
       StartPos:=integer(PtrUInt(AccumHeight[index]));
       Dim:= GetRowHeights(index);
     end;
@@ -7197,8 +7205,15 @@ var
 }
 begin
   if goRowSelect in Options then begin
-    aRect.Left := FGCache.FixedWidth + 1;
-    aRect.Right := FGCache.MaxClientXY.x;
+
+    if UseRightToLeftAlignment then begin
+      aRect.Left := GCache.ClientWidth - GCache.MaxClientXY.x;
+      aRect.Right := GCache.ClientWidth - GCache.FixedWidth;
+    end else begin
+      aRect.Left := GCache.FixedWidth + 1;
+      aRect.Right := GCache.MaxClientXY.x;
+    end;
+
     FlipRect(aRect);
   end;
   if goHorzLine in Options then dec(aRect.Bottom, 1);

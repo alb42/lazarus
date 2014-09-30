@@ -6,12 +6,10 @@ interface
 
 uses
   Classes, SysUtils, Types, FileUtil, Forms, Controls, Graphics, Dialogs,
+  {$ifndef POCHECKERSTANDALONE} LazIDEIntf, {$endif}
   ExtCtrls, PoFamilies, PoCheckerConsts, LCLProc, StdCtrls, ComCtrls;
 
 
-{$ifndef windows}
-{$define lv_}
-{$endif}
 type
 
   { TGraphStatForm }
@@ -32,6 +30,8 @@ type
     procedure FormShow(Sender: TObject);
     procedure ListViewMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
+    procedure ListViewMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   private
     { private declarations }
     FPoFamilyStats: TPoFamilyStats;
@@ -88,18 +88,18 @@ end;
 procedure TGraphStatForm.ListViewMouseMove(Sender: TObject; Shift: TShiftState;
   X, Y: Integer);
 var
-  Pt: types.TPoint;
   Item: TListItem;
   Index: Integer;
   AStat: TStat;
 begin
-  Pt:= Listview.ScreenToClient(Mouse.CursorPos );
-  Item := Listview.GetItemAt(Pt.X, Pt.Y);
+  Item := Listview.GetItemAt(X, Y);
   if Assigned(Item) then
   begin
     Index := Item.Index;
     AStat := FPoFamilyStats.Items[Index];
-    ListView.Hint := Format(sStatHint,[AStat.PercTranslated, AStat.PercUnTranslated, AStat.PercFuzzy]);
+    ListView.Hint := Format(sStatHint,[AStat.NrTranslated, AStat.PercTranslated,
+                                       AStat.NrUnTranslated, AStat.PercUnTranslated,
+                                       AStat.NrFuzzy, AStat.PercFuzzy, AStat.NrErrors]);
   end
   else
   begin
@@ -109,6 +109,37 @@ begin
 
 end;
 
+procedure TGraphStatForm.ListViewMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+{$ifndef POCHECKERSTANDALONE}
+var
+  anItem: TListItem;
+  anIndex: Integer;
+  AStat: TStat;
+  PageIndex,WindowIndex: Integer;
+  OpenFlags: TOpenFlags;
+  mr: TModalResult;
+{$endif}
+begin
+  {$ifndef POCHECKERSTANDALONE}
+  anItem := Listview.GetItemAt(X, Y);
+  if Assigned(anItem) then begin
+    anIndex := anItem.Index;
+    AStat := FPoFamilyStats.Items[anIndex];
+    PageIndex:= -1;
+    WindowIndex:= -1;
+    OpenFlags:= [ofOnlyIfExists,ofAddToRecent,ofRegularFile,ofConvertMacros];
+    mr := LazarusIde.DoOpenEditorFile(AStat.PoName,PageIndex,WindowIndex,OpenFlags);
+    if mr = mrOk then begin
+      if MessageDlg('PoChecker',Format(sOpenFile,[AStat.PoName]),
+         mtConfirmation,mbOKCancel,0) = mrOk then begin
+           ModalResult:= mrOpenEditorFile; //To let caller know what we want to do
+         end;
+      end
+    else ShowMessage(Format(SOpenFail,[AStat.PoName]));
+  end;
+  {$endif}
+end;
 
 procedure TGraphStatForm.FormCreate(Sender: TObject);
 begin
@@ -143,13 +174,16 @@ end;
 function TGraphStatForm.CreateBitmap(AStat: TStat): TBitmap;
 const
   FullCircle = 16 * 360;
+  QMark = ' ? ';
 var
   Bmp: TBitmap;
   Translated16Angle, UnTranslated16Angle, Fuzzy16Angle: Integer;
   PieRect: TRect;
+  TextSize: TSize;
 begin
   Bmp := TBitmap.Create;
   Bmp.SetSize(BmpWH,BmpWH);
+  Bmp.Canvas.AntialiasingMode := amOn; // currently effective only with Qt
   PieRect := Rect(0,0,BmpWH, BmpWH);
   with Bmp do
   begin
@@ -188,6 +222,17 @@ begin
       else
         Canvas.RadialPie(PieRect.Left,PieRect.Top,PieRect.Right,PieRect.Bottom,Translated16Angle+UnTranslated16Angle,Fuzzy16Angle);
     end;
+    if AStat.NrErrors <> 0 then begin
+      Bmp.Canvas.Font := Font;
+      Canvas.Font.Size := BmpWH div 6;
+      Canvas.Font.Style:= [fsBold];
+      Canvas.Font.Color:= clRed;
+      TextSize := Bmp.Canvas.TextExtent(QMark);
+      Canvas.Brush.Color:= clBlack;
+      Canvas.Rectangle(0,PieRect.Bottom-TextSize.cy-4,TextSize.cx+4,PieRect.Bottom);
+      Canvas.Brush.Color:= clYellow;
+      Canvas.TextOut(2,PieRect.Bottom-TextSize.cy-2,QMark);
+    end;
   end;
   Result := Bmp;
 end;
@@ -199,7 +244,7 @@ var
 begin
   ImgIndex := FImgList.AddMasked(ABmp, clBackGround);
   ListItem := ListView.Items.Add;
-  ListItem.Caption := AStat.PoName;
+  ListItem.Caption := AStat.ShortPoName;
   ListItem.ImageIndex := ImgIndex;
 end;
 

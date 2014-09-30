@@ -217,6 +217,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDock;
     property OnStartDrag;
@@ -449,8 +452,11 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
-    property OnStartDrag;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnSelect;
+    property OnStartDrag;
     property OnUTF8KeyPress;
     property ParentBidiMode;
     property ParentColor;
@@ -586,10 +592,10 @@ type
     property OnKeyUp;
     property OnMeasureItem: TMeasureItemEvent read FOnMeasureItem write FOnMeasureItem;
     property OnMouseDown;
-    property OnMouseMove;
-    property OnMouseUp;
     property OnMouseEnter;
     property OnMouseLeave;
+    property OnMouseMove;
+    property OnMouseUp;
     property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
@@ -652,11 +658,11 @@ type
     property OnKeyDown;
     property OnKeyUp;
     property OnMeasureItem;
-    property OnMouseMove;
     property OnMouseDown;
-    property OnMouseUp;
     property OnMouseEnter;
     property OnMouseLeave;
+    property OnMouseMove;
+    property OnMouseUp;
     property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
@@ -816,6 +822,7 @@ type
     procedure RealSetText(const Value: TCaption); override;
     function GetCachedText(var CachedText: TCaption): boolean; override;
     function GetCaretPos: TPoint; override;
+    procedure KeyUpAfterInterface(var Key: Word; Shift: TShiftState); override;
     procedure SetCaretPos(const Value: TPoint); override;
     procedure SetLines(const Value: TStrings);
     procedure SetSelText(const Val: string); override;
@@ -890,6 +897,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property OnUTF8KeyPress;
@@ -1033,6 +1043,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property ParentBidiMode;
@@ -1175,6 +1188,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property OnUTF8KeyPress;
@@ -1272,6 +1288,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property OnUTF8KeyPress;
@@ -1324,6 +1343,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnStartDrag;
     property ParentBidiMode;
     property ParentFont;
@@ -1382,6 +1404,9 @@ type
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property ParentBidiMode;
@@ -1492,18 +1517,21 @@ type
     property Transparent;
     property Visible;
     property WordWrap;
+    property OnChangeBounds;
     property OnClick;
+    property OnContextPopup;
     property OnDblClick;
     property OnDragDrop;
     property OnDragOver;
     property OnEndDrag;
     property OnMouseDown;
-    property OnMouseMove;
-    property OnMouseUp;
     property OnMouseEnter;
     property OnMouseLeave;
-    property OnChangeBounds;
-    property OnContextPopup;
+    property OnMouseMove;
+    property OnMouseUp;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property OnResize;
     property OnStartDrag;
     property OptimalFill;
@@ -1594,4 +1622,3 @@ end;
 {$I customstatictext.inc}
 
 end.
-

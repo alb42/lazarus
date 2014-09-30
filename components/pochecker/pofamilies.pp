@@ -68,7 +68,7 @@ Type
     procedure CheckMissingIdentifiers(out ErrorCount: Integer; ErrorLog: TStrings);
     procedure CheckMismatchedOriginals(out ErrorCount: Integer; ErrorLog: TStrings);
     procedure CheckDuplicateOriginals(out WarningCount: Integer; ErrorLog: TStrings);
-    procedure CheckStatistics;
+    procedure CheckStatistics(ErrorCnt: Integer);
 
   public
     procedure RunTests(const TestTypes: TPoTestTypes; const TestOptions: TPoTestOptions;
@@ -96,13 +96,16 @@ Type
     FNrTranslated: Integer;
     FNrUnTranslated: Integer;
     FNrFuzzy: Integer;
+    FNrErrors: Integer;
   public
-    constructor Create(APoName: String; ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy: Integer);
+    constructor Create(APoName: String; ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy, ANrErrors: Integer);
+    function ShortPoName: String;
     property PoName: string read FPoName;
     property NrTotal: Integer read FNrTotal;
     property NrTranslated: Integer read FNrTranslated;
     property NrUnTranslated: Integer read FNrUnTranslated;
     property NrFuzzy: Integer read FNrFuzzy;
+    property NrErrors: Integer read FNrErrors;
     function PercTranslated: Double; inline;
     function PercUnTranslated: Double; inline;
     function PercFuzzy: Double; inline;
@@ -118,7 +121,7 @@ Type
     function GetItems(Index: Integer): TStat;
   public
     procedure Clear;
-    procedure Add(AName: String; ANrTotal, ANrTranslated, ANrUnTranslated, ANrFuzzy: Integer);
+    procedure Add(AName: String; ANrTotal, ANrTranslated, ANrUnTranslated, ANrFuzzy, ANrErrors: Integer);
     constructor Create;
     destructor Destroy; override;
     procedure AddStatisticsToLog(ALog: TStrings);
@@ -319,13 +322,19 @@ end;
 
 { TStat }
 
-constructor TStat.Create(APoName: String; ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy: Integer);
+constructor TStat.Create(APoName: String; ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy, ANrErrors: Integer);
 begin
   FPoName := APoName;
   FNrTotal := ANrTotal;
   FNrTranslated := ANrTranslated;
   FNrUntranslated := ANrUntranslated;
   FNrFuzzy := ANrFuzzy;
+  FNrErrors := ANrErrors;
+end;
+
+function TStat.ShortPoName: String;
+begin
+  Result := ExtractFilename(FPoName);
 end;
 
 function TStat.PercTranslated: Double;
@@ -375,9 +384,9 @@ begin
   FList.Clear;
 end;
 
-procedure TPoFamilyStats.Add(AName: String; ANrTotal, ANrTranslated, ANrUnTranslated, ANrFuzzy: Integer);
+procedure TPoFamilyStats.Add(AName: String; ANrTotal, ANrTranslated, ANrUnTranslated, ANrFuzzy, ANrErrors: Integer);
 begin
-  FList.Add(TStat.Create(AName, ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy));
+  FList.Add(TStat.Create(AName, ANrTotal, ANrTranslated, ANrUntranslated, ANrFuzzy, ANrErrors));
 end;
 
 constructor TPoFamilyStats.Create;
@@ -752,7 +761,7 @@ begin
   //debugln('TPoFamily.CheckDuplicateOriginals: ',Dbgs(WarningCount),' Errors');
 end;
 
-procedure TPoFamily.CheckStatistics;
+procedure TPoFamily.CheckStatistics(ErrorCnt: Integer);
 var
   i: Integer;
   CPoItem: TPOFileItem;
@@ -785,7 +794,7 @@ begin
   NrTotal := NrTranslated + NrUntranslated + NrFuzzy;
   if (NrTotal > 0) then
   begin
-    FPoFamilyStats.Add(ShortChildName, NrTotal, NrTranslated, NrUntranslated, NrFuzzy);
+    FPoFamilyStats.Add(ChildName, NrTotal, NrTranslated, NrUntranslated, NrFuzzy, ErrorCnt);
   end;
   DoTestEnd(PoTestTypeNames[pttCheckFormatArgs], 0);
   //debugln('TPoFamily.CheckIncompatibleFormatArgs: ',Dbgs(ErrorCount),' Errors');
@@ -801,7 +810,7 @@ procedure TPoFamily.RunTests(const TestTypes: TPoTestTypes;  const TestOptions: 
                              out ErrorCount, WarningCount: Integer; ErrorLog: TStrings);
 var
   SL: TStringList;
-  CurrErrCnt, CurrWarnCnt: Integer;
+  CurrErrCnt, CurrWarnCnt, ThisErrCnt: Integer;
   i: Integer;
   CurrChildName: String;
   S: String;
@@ -891,6 +900,7 @@ begin
     //then iterate all Children
     for i := 0 to SL.Count - 1 do
     begin
+      ThisErrCnt:= 0;
       CurrChildName := SL.Strings[i];
       //debugln('TPoFamily.RunTests: setting ChildName to ',CurrChildName);
       SetChildName(CurrChildName);
@@ -899,12 +909,14 @@ begin
       begin
         CheckNrOfItems(CurrErrCnt, ErrorLog);
         ErrorCount := CurrErrCnt + ErrorCount;
+        ThisErrCnt := ThisErrCnt + CurrErrCnt;
       end;
 
       if (pttCheckFormatArgs in TestTypes) then
       begin
         CheckFormatArgs(CurrErrCnt, ErrorLog, (ptoIgnoreFuzzyStrings in TestOptions));
         ErrorCount := CurrErrCnt + ErrorCount;
+        ThisErrCnt := ThisErrCnt + CurrErrCnt;
       end;
 
 
@@ -912,19 +924,21 @@ begin
       begin
         CheckMissingIdentifiers(CurrErrCnt, ErrorLog);
         ErrorCount := CurrErrCnt + ErrorCount;
+        ThisErrCnt := ThisErrCnt + CurrErrCnt;
       end;
 
       if (pttCheckMismatchedOriginals in TestTypes) then
       begin
         CheckMismatchedOriginals(CurrErrCnt, ErrorLog);
         ErrorCount := CurrErrCnt + ErrorCount;
+        ThisErrCnt := ThisErrCnt + CurrErrCnt;
       end;
 
 
       //Always run this as the last test please
       if (pttCheckStatistics in TestTypes) then
       begin
-        CheckStatistics;
+        CheckStatistics(ThisErrCnt);
       end;
        {
         if (ptt in TestTypes) then

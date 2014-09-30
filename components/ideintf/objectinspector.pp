@@ -280,11 +280,11 @@ type
     FNameFont, FDefaultValueFont, FValueFont, FHighlightFont: TFont;
     FNewComboBoxItems: TStringList;
     FOnModified: TNotifyEvent;
-    FPreferredSplitterX: integer; // best splitter position
-    FPropertyEditorHook: TPropertyEditorHook;
     FRows: TFPList;// list of TOIPropertyGridRow
     FSelection: TPersistentSelectionList;
     FNotificationComponents: TFPList;
+    FPropertyEditorHook: TPropertyEditorHook;
+    FPreferredSplitterX: integer; // best splitter position
     FSplitterX: integer; // current splitter position
     FStates: TOIPropertyGridStates;
     FTopY: integer;
@@ -483,8 +483,6 @@ type
     property OnOIKeyDown: TKeyEvent read FOnOIKeyDown write FOnOIKeyDown;
     property OnSelectionChange: TNotifyEvent read FOnSelectionChange write FOnSelectionChange;
     property OnPropertyHint: TOIPropertyHint read FOnPropertyHint write FOnPropertyHint;
-    property PreferredSplitterX: integer read FPreferredSplitterX
-                                         write FPreferredSplitterX default 100;
     property PropertyEditorHook: TPropertyEditorHook read FPropertyEditorHook
                                                     write SetPropertyEditorHook;
     property RowCount: integer read GetRowCount;
@@ -493,6 +491,8 @@ type
     property Selection: TPersistentSelectionList read FSelection
                                                  write SetSelection;
     property ShowGutter: Boolean read FShowGutter write SetShowGutter default True;
+    property PreferredSplitterX: integer read FPreferredSplitterX
+                                         write FPreferredSplitterX default 100;
     property SplitterX: integer read FSplitterX write SetSplitterX default 100;
     property TopY: integer read FTopY write SetTopY default 0;
     property Favorites: TOIFavoriteProperties read FFavorites
@@ -657,7 +657,6 @@ type
     FOnUpdateRestricted: TNotifyEvent;
     FOnViewRestricted: TNotifyEvent;
     FSelection: TPersistentSelectionList;
-    FComponentTreeHeight: integer;
     FDefaultItemHeight: integer;
     FFlags: TOIFlags;
     FOnShowOptions: TNotifyEvent;
@@ -674,10 +673,12 @@ type
     FUpdatingAvailComboBox: Boolean;
     FComponentEditor: TBaseComponentEditor;
     FOnNodeGetImageIndex: TOnOINodeGetImageEvent;
+    procedure CreateTopSplitter;
+    procedure CreateBottomSplitter;
     function GetGridControl(Page: TObjectInspectorPage): TOICustomPropertyGrid;
     procedure SetComponentEditor(const AValue: TBaseComponentEditor);
     procedure SetFavorites(const AValue: TOIFavoriteProperties);
-    procedure SetComponentTreeHeight(const AValue: integer);
+    procedure SetComponentPanelHeight(const AValue: integer);
     procedure SetDefaultItemHeight(const AValue: integer);
     procedure SetInfoBoxHeight(const AValue: integer);
     procedure SetRestricted(const AValue: TOIRestrictedProperties);
@@ -699,7 +700,7 @@ type
     FEnableHookGetSelection: boolean;
     FInSelection: Boolean;
     FOnAutoShow: TNotifyEvent;
-    function GetComponentTreeHeight: integer;
+    function GetComponentPanelHeight: integer;
     function GetInfoBoxHeight: integer;
     procedure SetEnableHookGetSelection(AValue: boolean);
   protected
@@ -713,7 +714,6 @@ type
     procedure SetAvailComboBoxText;
     procedure HookGetSelection(const ASelection: TPersistentSelectionList);
     procedure HookSetSelection(const ASelection: TPersistentSelectionList);
-    procedure CreateSplitter(TopSplitter: Boolean);
     procedure DestroyNoteBook;
     procedure CreateNoteBook;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
@@ -741,8 +741,8 @@ type
     procedure FocusGrid(Grid: TOICustomPropertyGrid = nil);
 
     property AutoShow: Boolean read FAutoShow write FAutoShow;
-    property ComponentTreeHeight: integer read GetComponentTreeHeight
-                                          write SetComponentTreeHeight;
+    property ComponentPanelHeight: integer read GetComponentPanelHeight
+                                          write SetComponentPanelHeight;
     property DefaultItemHeight: integer read FDefaultItemHeight
                                         write SetDefaultItemHeight;
     property EnableHookGetSelection: Boolean read FEnableHookGetSelection
@@ -3799,7 +3799,7 @@ begin
       FGridSplitterX[Page]:=AnObjInspector.GridControl[Page].PreferredSplitterX;
   FDefaultItemHeight:=AnObjInspector.DefaultItemHeight;
   FShowComponentTree:=AnObjInspector.ShowComponentTree;
-  FComponentTreeHeight:=AnObjInspector.ComponentTreeHeight;
+  FComponentTreeHeight:=AnObjInspector.ComponentPanelHeight;
 
   FGridBackgroundColor:=AnObjInspector.PropertyGrid.BackgroundColor;
   FSubPropertiesColor:=AnObjInspector.PropertyGrid.SubPropertiesColor;
@@ -3845,7 +3845,7 @@ begin
   AnObjInspector.DefaultItemHeight := DefaultItemHeight;
   AnObjInspector.ShowComponentTree := ShowComponentTree;
   AnObjInspector.ShowInfoBox := ShowInfoBox;
-  AnObjInspector.ComponentTreeHeight := ComponentTreeHeight;
+  AnObjInspector.ComponentPanelHeight := ComponentTreeHeight;
   AnObjInspector.InfoBoxHeight := InfoBoxHeight;
   AnObjInspector.AutoShow := AutoShow;
   AnObjInspector.ShowStatusBar := ShowStatusBar;
@@ -3927,7 +3927,7 @@ begin
   FAutoShow := True;
   FUpdatingAvailComboBox:=false;
   FDefaultItemHeight := 22;
-  FComponentTreeHeight := 160;
+  ComponentPanelHeight := 160;
   FShowComponentTree := True;
   FShowFavorites := False;
   FShowRestricted := False;
@@ -4012,7 +4012,6 @@ begin
   with ComponentTree do
   begin
     Name := 'ComponentTree';
-    Constraints.MinHeight := 16;
     Parent := ComponentPanel;
     AnchorSideTop.Control := CompFilterEdit;
     AnchorSideTop.Side := asrBottom;
@@ -4035,7 +4034,7 @@ begin
   end;
 
   // ComponentPanel encapsulates TreeFilterEdit and ComponentTree
-  ComponentPanel.Height := ComponentTreeHeight;
+  ComponentPanel.Constraints.MinHeight := 8;
   ComponentPanel.Visible := FShowComponentTree;
   CompFilterEdit.FilteredTreeview:=ComponentTree;
 
@@ -4043,7 +4042,7 @@ begin
   with InfoPanel do
   begin
     Name := 'InfoPanel';
-//    Constraints.MinHeight := 16;   Should there be MinHeight?
+    Constraints.MinHeight := 8;
     Caption := '';
     Height := InfoBoxHeight;
     Parent := Self;
@@ -4054,9 +4053,9 @@ begin
   end;
 
   if ShowComponentTree then
-    CreateSplitter(True);
+    CreateTopSplitter;
   if ShowInfoBox then
-    CreateSplitter(False);
+    CreateBottomSplitter;
 
   CreateNoteBook;
 end;
@@ -4120,14 +4119,10 @@ begin
     Result:=APersistent.ClassName;
 end;
 
-procedure TObjectInspectorDlg.SetComponentTreeHeight(const AValue: integer);
+procedure TObjectInspectorDlg.SetComponentPanelHeight(const AValue: integer);
 begin
-  if FComponentTreeHeight <> AValue then
-  begin
-    FComponentTreeHeight := AValue;
-    Assert(Assigned(ComponentTree), 'TObjectInspectorDlg.SetComponentTreeHeight: ComponentTree=nil');
+  if ComponentPanel.Height <> AValue then
     ComponentPanel.Height := AValue;
-  end;
 end;
 
 procedure TObjectInspectorDlg.SetDefaultItemHeight(const AValue: integer);
@@ -4711,29 +4706,16 @@ begin
   BeginUpdate;
   try
     ShowComponentTreePopupMenuItem.Checked := FShowComponentTree;
-    // hide controls while rebuilding
-    if Splitter1 <> nil then
-      Splitter1.Visible := False;
-    ComponentPanel.Visible := False;
-    AvailPersistentComboBox.Visible := False;
-    // rebuild controls
-    ComponentPanel.Height := ComponentTreeHeight;
-    if FShowComponentTree then
-      CreateSplitter(True)
-    else
-      FreeAndNil(Splitter1);
+    // hide / show / rebuild controls
     AvailPersistentComboBox.Visible := not FShowComponentTree;
     ComponentPanel.Visible := FShowComponentTree;
+    if FShowComponentTree then
+      CreateTopSplitter
+    else
+      FreeAndNil(Splitter1);
   finally
     EndUpdate;
   end;
-end;
-
-procedure TObjectInspectorDlg.SetShowFavorites(const AValue: Boolean);
-begin
-  if FShowFavorites = AValue then exit;
-  FShowFavorites := AValue;
-  NoteBook.Page[2].TabVisible := AValue;
 end;
 
 procedure TObjectInspectorDlg.SetShowInfoBox(const AValue: Boolean);
@@ -4743,9 +4725,33 @@ begin
   ShowInfoBoxPopupMenuItem.Checked := AValue;
   InfoPanel.Visible := AValue;
   if AValue then
-    CreateSplitter(False)
+    CreateBottomSplitter
   else
     FreeAndNil(Splitter2);
+end;
+
+procedure TObjectInspectorDlg.SetShowStatusBar(const AValue: Boolean);
+var
+  HideInfoBox: Boolean;
+begin
+  if FShowStatusBar = AValue then exit;
+  FShowStatusBar := AValue;
+  ShowStatusBarPopupMenuItem.Checked := AValue;
+  HideInfoBox := AValue and ShowInfoBox;
+  // StatusBar was maybe hidden, before showing must hide InfoPanel temporarily.
+  if HideInfoBox then
+    ShowInfoBox := False; // Deletes the splitter.
+  StatusBar.Align := alBottom;
+  StatusBar.Visible := AValue;
+  if HideInfoBox then
+    ShowInfoBox := True;  // Show InfoBox again, creates the splitter.
+end;
+
+procedure TObjectInspectorDlg.SetShowFavorites(const AValue: Boolean);
+begin
+  if FShowFavorites = AValue then exit;
+  FShowFavorites := AValue;
+  NoteBook.Page[2].TabVisible := AValue;
 end;
 
 procedure TObjectInspectorDlg.SetShowRestricted(const AValue: Boolean);
@@ -4753,14 +4759,6 @@ begin
   if FShowRestricted = AValue then exit;
   FShowRestricted := AValue;
   NoteBook.Page[3].TabVisible := AValue;
-end;
-
-procedure TObjectInspectorDlg.SetShowStatusBar(const AValue: Boolean);
-begin
-  if FShowStatusBar = AValue then exit;
-  FShowStatusBar := AValue;
-  ShowStatusBarPopupMenuItem.Checked := AValue;
-  StatusBar.Visible := AValue;
 end;
 
 procedure TObjectInspectorDlg.ShowNextPage(Delta: integer);
@@ -4781,7 +4779,6 @@ begin
     end;
   until NewPageIndex = NoteBook.PageIndex;
 end;
-
 
 procedure TObjectInspectorDlg.RestrictedPageShow(Sender: TObject);
 begin
@@ -4854,32 +4851,31 @@ begin
   RestrictedPaint(ComponentRestrictedBox, WidgetSetRestrictions);
 end;
 
-procedure TObjectInspectorDlg.CreateSplitter(TopSplitter: Boolean);
+procedure TObjectInspectorDlg.CreateTopSplitter;
+// vertical splitter between component tree and notebook
 begin
-  // vertical splitter between component tree and notebook
-  if TopSplitter then
+  Splitter1 := TSplitter.Create(Self);
+  with Splitter1 do
   begin
-    Splitter1 := TSplitter.Create(Self);
-    with Splitter1 do
-    begin
-      Name := 'Splitter1';
-      Parent := Self;
-      Align := alTop;
-      Top := ComponentTreeHeight;
-      Height := 5;
-    end;
-  end
-  else
+    Name := 'Splitter1';
+    Parent := Self;
+    Align := alTop;
+    Top := ComponentPanelHeight;
+    Height := 5;
+  end;
+end;
+
+procedure TObjectInspectorDlg.CreateBottomSplitter;
+// vertical splitter between notebook and info panel
+begin
+  Splitter2 := TSplitter.Create(Self);
+  with Splitter2 do
   begin
-    Splitter2 := TSplitter.Create(Self);
-    with Splitter2 do
-    begin
-      Name := 'Splitter2';
-      Parent := Self;
-      Align := alBottom;
-      Top := InfoPanel.Top - 1;
-      Height := 5;
-    end;
+    Name := 'Splitter2';
+    Parent := Self;
+    Align := alBottom;
+    Top := InfoPanel.Top - 1;
+    Height := 5;
   end;
 end;
 
@@ -5363,13 +5359,9 @@ begin
   DoModified(Self);
 end;
 
-function TObjectInspectorDlg.GetComponentTreeHeight: integer;
+function TObjectInspectorDlg.GetComponentPanelHeight: integer;
 begin
-  if Assigned(ComponentTree) then
-    Result := ComponentPanel.Height
-  else        // Will never happen, remove later. JuMa
-    raise Exception.Create('ComponentTree=nil in TObjectInspectorDlg.GetComponentTreeHeight');
-    //Result := FComponentTreeHeight;
+  Result := ComponentPanel.Height
 end;
 
 function TObjectInspectorDlg.GetInfoBoxHeight: integer;

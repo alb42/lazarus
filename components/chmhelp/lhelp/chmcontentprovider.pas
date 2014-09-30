@@ -18,7 +18,7 @@ interface
 
 uses
   Classes, SysUtils, Laz2_XMLCfg,
-  FileUtil, Forms, StdCtrls, ExtCtrls, ComCtrls, Controls, Buttons, Menus,
+  LCLIntf, FileUtil, Forms, StdCtrls, ExtCtrls, ComCtrls, Controls, Menus,
   BaseContentProvider, FileContentProvider, IpHtml, ChmReader, ChmDataProvider;
 
 type
@@ -71,6 +71,7 @@ type
     procedure FillTOC(Data: PtrInt);
     procedure IpHtmlPanelDocumentOpen(Sender: TObject);
     procedure IpHtmlPanelHotChange(Sender: TObject);
+    procedure IpHtmlPanelHotClick(Sender: TObject);
     procedure PopupCopyClick(Sender: TObject);
     procedure ContentsTreeSelectionChanged(Sender: TObject);
     procedure IndexViewDblClick(Sender: TObject);
@@ -566,6 +567,11 @@ begin
   fStatusBar.SimpleText := fHtml.HotURL;
 end;
 
+procedure TChmContentProvider.IpHtmlPanelHotClick(Sender: TObject);
+begin
+  OpenURL(fHtml.HotURL);
+end;
+
 procedure TChmContentProvider.PopupCopyClick(Sender: TObject);
 begin
   fHtml.CopyToClipboard;
@@ -871,7 +877,7 @@ var
   k: Integer;
   Item: TContentTreeNode;
 begin
-//  if fKeywordCombo.Text = '' then Exit;
+  //  if fKeywordCombo.Text = '' then Exit;
   SearchWords := TStringList.Create;
   SearchWords.Delimiter := ' ';
   Searchwords.DelimitedText := fKeywordCombo.Text;
@@ -1239,6 +1245,7 @@ begin
     TIpChmDataProvider(DataProvider).OnGetHtmlPage:=@LoadingHTMLStream;
     OnDocumentOpen := @IpHtmlPanelDocumentOpen;
     OnHotChange := @IpHtmlPanelHotChange;
+    OnHotClick := @IpHtmlPanelHotClick;
     Parent := AParent;
     Align := alClient;
   end;

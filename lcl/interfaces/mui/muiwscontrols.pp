@@ -158,8 +158,11 @@ end;
 class procedure TMuiWSWinControl.DestroyHandle(const AWinControl: TWinControl);
 begin
   //TMuiPrivateWidget(AWinControl.Handle).Free;
-  TMuiObject(AWinControl.Handle).Free;
-  AWinControl.Handle := 0;
+  if Assigned(AWinControl) then
+  begin
+    TMuiObject(AWinControl.Handle).Free;
+    AWinControl.Handle := 0;
+  end;  
 end;
 (*
 {------------------------------------------------------------------------------
@@ -198,9 +201,10 @@ class procedure TMuiWSWinControl.GetPreferredSize(
   const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
   WithThemeSpace: Boolean);
 begin
+  writeln('Preffered Size',100,',',100);
   //Mui widgets does not have a default size (maybe later).
-  PreferredHeight:=0;
-  PreferredWidth:=0;
+  PreferredHeight:=100;
+  PreferredWidth:=100;
 end;
 
 class procedure TMuiWSWinControl.PaintTo(const AWinControl: TWinControl;
@@ -223,6 +227,8 @@ end;
 class procedure TMuiWSWinControl.SetBounds(const AWinControl: TWinControl;
   const ALeft, ATop, AWidth, AHeight: Integer);
 begin
+  if not Assigned(AWincontrol) then
+    Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
   begin
     TMuiObject(AWinControl.Handle).SetPos(ALeft,ATop);
@@ -241,6 +247,8 @@ end;
 class procedure TMuiWSWinControl.SetPos(const AWinControl: TWinControl;
   const ALeft, ATop: Integer);
 begin
+  if not Assigned(AWincontrol) then
+    Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
     TMuiObject(AWinControl.Handle).SetPos(ALeft,ATop);
 end;
@@ -256,6 +264,8 @@ end;
 class procedure TMuiWSWinControl.SetSize(const AWinControl: TWinControl;
   const AWidth, AHeight: Integer);
 begin
+  if not Assigned(AWincontrol) then
+    Exit;
   //writeln(AWincontrol.classname,' got resize: ', AWidth);
   if TObject(AWinControl.Handle) is TMuiObject then
     TMuiObject(AWinControl.Handle).SetSize(AWidth,AHeight);
@@ -272,6 +282,8 @@ class procedure TMuiWSWinControl.ShowHide(const AWinControl: TWinControl);
 var
   MuiObject: TMUIObject;
 begin
+  if not Assigned(AWincontrol) then
+    Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
     MuiObject := TMuiObject(AWinControl.Handle);
       MuiObject.Visible := AWinControl.Visible;

@@ -82,6 +82,7 @@ type
     procedure SetVisible(const AValue: Boolean); override;
     procedure AddChild(Child: TMUIObject); override;
     procedure RemoveChild(Child: TMUIObject); override;
+    procedure SetPos(ALeft, ATop: LongInt); override;
   public
     constructor Create; overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -327,6 +328,12 @@ begin
   Width := GetAttribute(MUIA_Window_Width);
   Height := GetAttribute(MUIA_Window_Height);
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
+end;
+
+procedure TMuiWindow.SetPos(ALeft, ATop: LongInt);
+begin
+  inherited;
+  SetAttribute([MUIA_Window_LeftEdge, ALeft, MUIA_Window_TopEdge, ATop]);
 end;
 
 function TMuiWindow.GetCaption: string;

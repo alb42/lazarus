@@ -124,27 +124,27 @@ procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('-->btndown');
+  //writeln('-->btndown');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
   end;
-  writeln('<--btndown');
+  //writeln('<--btndown');
 end;
 
 procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('-->btnup');
+  //writeln('-->btnup');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
-  writeln('<--btnup');
+  //writeln('<--btnup');
 end;
 
 

@@ -121,8 +121,6 @@ type
   public
   end;
 
-var
-  GlobalMsgPort: pMsgPort;
 implementation
 
 
@@ -146,8 +144,9 @@ begin
   MuiForm := TMuiWindow.create;
   With Muiform do
   begin
-    Left := AParams.X;
-    Top := AParams.Y;
+    SetPos(AParams.X, AParams.Y);
+    //Left := AParams.X;
+    //Top := AParams.Y;
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;

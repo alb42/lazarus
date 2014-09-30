@@ -73,6 +73,7 @@ type
 
   TMuiWindow = class(TMUIObject)
   private
+    CloseWinHook: THook;
     FMainMenu: TMuiMenuStrip;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
@@ -279,6 +280,17 @@ begin
 end;
 
 
+function CloseWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+var
+  MuiObject: TMuiWindow;
+begin
+  if TObject(Hook^.h_Data) is TMuiWindow then
+  begin
+    MuiObject := TMuiWindow(Hook^.h_Data);
+    Result := LCLSendCloseQueryMsg(MuiObject.pasobject);
+  end;
+end;
+
 constructor TMuiWindow.Create;
 begin
   FMainMenu := TMuiMenuStrip.Create([TAG_END]);
@@ -291,6 +303,14 @@ begin
   inherited Create(MUIC_Window, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj, TAG_END]);
   //
   Self.Parent := MUIApp;
+  CloseWinHook.h_Entry := IPTR(@CloseWinFunc);
+  CloseWinHook.h_SubEntry := 0;
+  CloseWinHook.h_Data := Self;
+  DoMethod([LongInt(MUIM_Notify), LongInt(MUIA_Window_CloseRequest), LTrue,
+      LongWord(FObject), 2,
+      LongInt(MUIM_CallHook), IPTR(@CloseWinHook)
+      ]);
+  
 end;
 
 destructor TMuiWindow.Destroy;

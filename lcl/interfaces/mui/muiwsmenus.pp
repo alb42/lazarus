@@ -28,7 +28,7 @@ interface
 
 uses
   // Bindings
-  Mui, utility, MuiFormsUnit,
+  Mui, utility, MuiFormsUnit, tagsarray,
   // LCL
   SysUtils, Classes, Types, LCLType, LCLProc, Graphics, Controls, Forms, Menus,
   // Widgetset
@@ -130,6 +130,7 @@ end;
 class function TMuiWSMenuItem.CreateHandle(const AMenuItem: TMenuItem): HMENU;
 var
   Menu: TMuiMenuItem;
+  Tags: TTagsList;
 begin
   //write('->Create MenuItem..', AMenuItem.MenuIndex,' ', AMenuItem.Caption);
   case AMenuItem.MenuIndex of
@@ -138,11 +139,12 @@ begin
     end;
     else
     begin
-      Menu := TMuiMenuItem.Create([
+      AddTags(Tags, [
         {LongInt(MUIA_Menuitem_CheckIt), LongInt(TRUE),
         LongInt(MUIA_Menuitem_Checked), LongInt(TRUE),
         LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE),}
         TAG_END]);
+      Menu := TMuiMenuItem.Create(Tags);
       Menu.Title := AMenuItem.Caption;
       Menu.PasObject := TControl(TObject(AMenuItem));
       Result := HMENU(Menu);

@@ -128,9 +128,9 @@ class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
 var
   MuiLabel: TMuiArea;
 begin
-  writeln('-->Create GraphicControl');
+  //writeln('-->Create GraphicControl');
 
-  MuiLabel := TMuiArea.Create(MUIC_Area, [TAG_END]);
+  MuiLabel := TMuiArea.Create(MUIC_Area, nil);
   With MuiLabel do
   begin
     Left := AParams.X;

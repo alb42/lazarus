@@ -9,7 +9,7 @@ uses
   Mui, Forms, LCLMessageGlue;
 
 type
-
+  TEventFunc = procedure (Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
   { TMUIObject }
 
   TMUIObject = class(TObject)
@@ -44,7 +44,7 @@ type
   public
     FObject: pObject_;
     constructor Create(ObjType : LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
-    constructor Create(AClassName : PChar; const Tags : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(AClassName : PChar; Tags: PTagItem); overload; reintroduce; virtual;
     destructor Destroy; override;
     //
     procedure SetOwnSize; virtual;
@@ -100,7 +100,7 @@ type
     procedure AddChild(Child: TMUIObject); override;
     procedure RemoveChild(Child: TMUIObject); override;
   public
-    constructor Create(const Tags : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(Tags: PTagItem); overload; reintroduce; virtual;
     function NewInput(Signals: PLongword):LongWord;
     procedure ProcessMessages;
     procedure WaitMessages;
@@ -124,27 +124,27 @@ procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('-->btndown');
+  //writeln('-->btndown');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
   end;
-  writeln('<--btndown');
+  //writeln('<--btndown');
 end;
 
 procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  writeln('-->btnup');
+  //writeln('-->btnup');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
-  writeln('<--btnup');
+  //writeln('<--btnup');
 end;
 
 
@@ -166,7 +166,7 @@ begin
   end;  
   if Assigned(AValue) then
   begin
-    //write('  New: ', AValue.Classname);
+    //write('  New: ', AValue.Classname, ' assigned: ', Assigned(AValue.FObjects));
     AValue.FObjects.Add(Self);
     AValue.AddChild(Self);
     FParent := AValue;
@@ -291,14 +291,15 @@ begin
     2,
     LongInt(MUIM_CallHook), IPTR(@ButtonUp)
     ]);
+   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));  
 end;
 
-constructor TMUIObject.Create(AClassName: PChar; const Tags: array of const);
+constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
   FObjects := TObjectList.create(False);
   FParent := NIL;
-  FObject := MUI_NewObject(AClassName, Tags);
+  FObject := MUI_NewObjectA(AClassName, Tags);
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
@@ -363,7 +364,7 @@ begin
   end;
 end;
 
-constructor TMuiApplication.Create(const Tags: array of const);
+constructor TMuiApplication.Create(Tags: PTagItem);
 begin
   inherited Create(MUIC_Application, Tags);
   FSignals := 0;

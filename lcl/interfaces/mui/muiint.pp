@@ -36,7 +36,7 @@ uses
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes,
   //AROS
   //Aroswinunit,
-  MUIBaseUnit, exec, intuition, gadtools, mui, utility, AmigaDos,
+  MUIBaseUnit, exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray,
   // widgetset
   WSLCLClasses, LCLMessageGlue;
 
@@ -140,6 +140,7 @@ var
   Info: TVersionInfo;
   FinalVers, Vers, CopyR, Comment, prgName: string;
   i,j: Integer;
+  TagList: TTagsList;
 
   function PV2Str(PV: TVerArray): String;
    begin
@@ -178,12 +179,13 @@ begin
   except
   end;
   FinalVers := PrgName + ' ' + Vers;
-  MUIApp := TMuiApplication.create([
+  AddTags(TagList, [
     LongInt(MUIA_Application_Title), PChar(Application.title),
     LongInt(MUIA_Application_Version), PChar(FinalVers),
     LongInt(MUIA_Application_Copyright), PChar(CopyR),
-    LongInt(MUIA_Application_Description), PChar(Comment),
-    TAG_END]);
+    LongInt(MUIA_Application_Description), PChar(Comment)
+    ]);
+  MUIApp := TMuiApplication.create(GetTagPtr(TagList));
 end;
 
 procedure TMUIWidgetSet.AppProcessMessages;

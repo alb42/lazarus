@@ -30,6 +30,7 @@ uses
   sysutils, Intuition, exec, utility, gadtools,
   // LCL
   MUIBaseUnit, MuiFormsUnit, Mui, Classes, Forms, LCLType, Controls, Graphics,
+  tagsarray,
   // Widgetset
   WSForms, WSLCLClasses;
 
@@ -138,10 +139,33 @@ class function TMUIWSCustomForm.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIForm: TMuiWindow;
-
+  TagList: TTagsList;
+  Sizeable: Boolean;
 begin
   //writeln('--> Create Form');
-  MuiForm := TMuiWindow.create;
+  Sizeable := True;
+  case TCustomForm(AWincontrol).BorderStyle of
+    bsNone: begin
+      Sizeable := False;
+      AddTags(TagList, [MUIA_Window_Borderless, True]);
+    end;
+    bsDialog: begin
+      AddTags(TagList, [MUIA_Window_CloseGadget, False, MUIA_Window_SizeRight, False, MUIA_Window_SizeGadget, False]);
+      Sizeable := False; 
+    end;
+    bsSingle: begin
+      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+    end;
+    bsToolWindow: begin
+      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+      Sizeable := False;
+    end;
+    bsSizeToolWin: begin
+      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+    end;
+  end;
+  MuiForm := TMuiWindow.create(TagList);
+  MuiForm.Sizeable := Sizeable;
   With Muiform do
   begin
     SetPos(AParams.X, AParams.Y);

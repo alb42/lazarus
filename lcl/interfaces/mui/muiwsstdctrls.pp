@@ -28,7 +28,7 @@ interface
 
 uses
   // Bindings
-  exec, intuition, agraphics, gadtools, utility,
+  exec, intuition, agraphics, gadtools, utility, tagsarray,
   // LCL
   Classes, StdCtrls, Controls, LCLType, sysutils,
   //
@@ -272,10 +272,11 @@ class function TMUIWSCustomStaticText.CreateHandle(const AWinControl: TWinContro
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiLabel: TMuiText;
+  TagList: TTagsList;
 begin
   //writeln('-->Create Label');
 
-  MuiLabel := TMuiText.Create([TAG_END]);
+  MuiLabel := TMuiText.Create(TagList);
   With MuiLabel do
   begin
     Left := AParams.X;
@@ -724,9 +725,10 @@ class function TMUIWSCustomMemo.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiTEdit: TMuiTextEdit;
+  TagList: TTagsList;
 begin
   //writeln('-->Create TextEdit NOW');
-  MuiTEdit := TMuiTextEdit.Create(TCustomMemo(AWinControl).Lines, [TAG_END]);
+  MuiTEdit := TMuiTextEdit.Create(TCustomMemo(AWinControl).Lines, TagList);
   With MuiTEdit do
   begin
     Left := AParams.X;
@@ -781,9 +783,10 @@ class function TMUIWSCustomListBox.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiList: TMuiListView;
+  TagList: TTagsList;
 begin
   //writeln('-->Create ListView');
-  MuiList := TMuiListView.Create(TCustomListBox(AWinControl).items, []);
+  MuiList := TMuiListView.Create(TCustomListBox(AWinControl).items, TagList);
   With MuiList do
   begin
     Left := AParams.X;

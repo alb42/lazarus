@@ -6,6 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
+  tagsarray,
   MuiBaseUnit, StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
 
   { TMuiButton }
@@ -20,7 +21,7 @@ type
 
   TMuiText = class(TMuiArea)
   public
-    constructor Create(const Tags : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
   end;
 
   { TMuiCheckMark }
@@ -93,7 +94,7 @@ type
     FStrings: TFlowString;
     FTextObj: pObject_;
   public
-    constructor Create(AStrings: TStrings; const Tags : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(AStrings: TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
     Destructor Destroy; override;
     property Strings: TFlowString read FStrings write FStrings;
     property TextObj: pObject_ read FTextObj write FTextObj;
@@ -103,20 +104,22 @@ type
 
   TFloatText = class(TMuiArea)
   public
-    constructor Create(const Tags: array of Const); overload; reintroduce; virtual;
+    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
   end;
 
   { TMuiListView }
 
   TMuiListView = class(TMuiArea)
   private
+    ListChangeHook: THook;
+    DoubleClickHook: THook;
     FFloatText: TFloatText;
     FStrings: TStringList;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
     procedure TextChanged(Sender: TObject);
   public
-    constructor Create(AStrings:TStrings; const Tags: array of Const); overload; reintroduce; virtual;
+    constructor Create(AStrings:TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     property Strings: TStringList read FStrings;
     property Active: LongInt read GetActive write SetActive;
@@ -125,30 +128,86 @@ type
 
 implementation
 
-uses
-  tagsarray;
-
 { TFloatText }
 
-constructor TFloatText.Create(const Tags: array of const);
+constructor TFloatText.Create(var Tags: TTagsList);
 begin
-  inherited Create(MUIC_FloatText, Tags);
+  inherited Create(MUIC_FloatText, GetTagPtr(Tags));
 end;
+
+
+procedure ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiListView;
+  Idx: Integer;
+begin
+  if TObject(Hook^.h_Data) is TMuiListView then
+  begin
+    MuiObject := TMuiListView(Hook^.h_Data);
+    Idx := MuiObject.Active;
+    // LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
+    if Idx > 0 then
+      LCLSendChangedMsg(TControl(MuiObject.PasObject), Idx);    
+    //LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
+    LCLSendClickedMsg(TControl(MuiObject.PasObject));
+  end;
+end;
+
+procedure DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiListView;
+  Idx: Integer;
+begin
+  if TObject(Hook^.h_Data) is TMuiListView then
+  begin
+    MuiObject := TMuiListView(Hook^.h_Data);
+    Idx := MuiObject.Active;
+    //LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
+    //if Idx > 0 then
+    //  LCLSendChangedMsg(TControl(MuiObject.PasObject), Idx);
+    LCLSendMouseMultiClickMsg(TControl(MuiObject.PasObject), 0, 0, mbLeft, 2);
+    //LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
+    //LCLSendClickedMsg(TControl(MuiObject.PasObject));
+  end;
+end;
+
 
 { TMuiListView }
 
-constructor TMuiListView.Create(AStrings:TStrings; const Tags: array of const);
+constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
 var
   FText: PChar;
+  MenuTags: TTagsList;
 begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
   FText := FStrings.GetText;
-  FFloatText := TFloatText.create([TAG_END]);
-  inherited Create(MUIC_ListView, [MUIA_Listview_List, FloatText.Obj ,TAG_DONE]);
+  FFloatText := TFloatText.create(MenuTags);
+  AddTags(Tags, [MUIA_Listview_List, FloatText.Obj ,TAG_DONE]);
+  inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
+  ListChangeHook.h_Entry := IPTR(@ListChangeFunc);
+  ListChangeHook.h_SubEntry := 0;
+  ListChangeHook.h_Data := Self;
+  //
+  DoubleClickHook.h_Entry := IPTR(@DoubleClickFunc);
+  DoubleClickHook.h_SubEntry := 0;
+  DoubleClickHook.h_Data := Self;
   
+  DoMethod([LongInt(MUIM_Notify),
+    IPTR(MUIA_List_Active), IPTR(MUIV_EveryTime),
+    LongInt(MUIV_Notify_Self),
+    2,
+    LongInt(MUIM_CallHook), IPTR(@ListChangeHook)
+    ]);
+    
+  DoMethod([LongInt(MUIM_Notify),
+    IPTR(MUIA_ListView_DoubleClick), IPTR(True),
+    LongInt(MUIV_Notify_Self),
+    2,
+    LongInt(MUIM_CallHook), IPTR(@DoubleClickHook)
+    ]);  
 end;
 
 destructor TMuiListView.Destroy;
@@ -162,31 +221,47 @@ end;
 procedure TMuiListView.TextChanged(Sender: TObject);
 var
   FText: PChar;
+  TagList: TTagsList;
 begin
   FText := FStrings.GetText;
-  SetAttrsA(FloatText.Obj, ReadInTags([LongInt(MUIA_FloatText_Text), FText, TAG_END]));
+  AddTags(TagList, [LongInt(MUIA_FloatText_Text), FText, TAG_END]);
+  SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
 end;
 
 function TMuiListView.GetActive: LongInt;
 var
   Res: LongInt;
 begin
+  Result := 0;
   GetAttr(LongInt(MUIA_List_Active), FloatText.Obj, @Res);
   if Res = MUIV_List_Active_Off then
-    Result := -1
+    Result := 0
   else
-    Result := Res;
+  begin
+    if (Res >= 0) and (Res < Strings.Count) then
+      Result := Res
+    else
+    begin
+      if (Res < 0) then
+        Result := 0
+      else
+        Result := Strings.Count - 1;  
+      SetActive(Result);  
+    end;  
+  end  
 end;
 
 procedure TMuiListView.SetActive(const AValue: LongInt);
 var
   Res: LongInt;
+  TagList: TTagsList;
 begin
   if AValue = -1 then
     Res := MUIV_List_Active_Off
   else
     Res := AValue;
-  SetAttrsA(FloatText.Obj, ReadInTags([LongInt(MUIA_List_Active), Res, TAG_END]));
+  AddTags(TagList, [LongInt(MUIA_List_Active), Res, TAG_END]);  
+  SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
 end;
 
 { TMuiButton }
@@ -198,9 +273,9 @@ end;
 
 { TMuiText }
 
-constructor TMuiText.Create(const Tags: array of const);
+constructor TMuiText.Create(var Tags: TTagsList);
 begin
-  inherited Create(MUIC_Text, Tags);
+  inherited Create(MUIC_Text, GetTagPtr(Tags));
 end;
 
 { TMuiCheckMark }
@@ -324,16 +399,18 @@ end;
 
 { TMuiTextEdit }
 
-constructor TMuiTextEdit.Create(AStrings: TStrings; const Tags: array of const);
+constructor TMuiTextEdit.Create(AStrings: TStrings; var Tags: TTagsList);
 var
   i: Integer;
   scroll: pObject_;
+  CreateTags: TTagsList;
 begin
   FStrings := TFlowString.create;
   FStrings.FMuiObject := self;
-  FTextObj := MUI_NewObject(PChar('TextEditor.mcc'), Tags);
+  FTextObj := MUI_NewObjectA(PChar('TextEditor.mcc'), GetTagPtr(Tags));
   scroll := MUI_NewObjectA(MUIC_ScrollBar, NIL);
-  inherited Create(MUIC_Group, [MUIA_Group_Horiz, True, MUIA_Group_Child, FTextObj, MUIA_Group_Child, scroll, TAG_END]);
+  AddTags(CreateTags, [MUIA_Group_Horiz, True, MUIA_Group_Child, FTextObj, MUIA_Group_Child, scroll, TAG_END]);
+  inherited Create(MUIC_Group, GetTagPtr(CreateTags));
   SetAttObj(FTextObj, [$ad00001a, scroll, TAG_END]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;

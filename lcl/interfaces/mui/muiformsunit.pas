@@ -35,7 +35,7 @@ type
     procedure SetShortCut(const AValue: string);
     procedure SetTitle(const AValue: string);
   public
-    constructor Create(tags: array of Const);
+    constructor Create(var tags: TTagsList);
     property Checked: Boolean read GetChecked write SetChecked;
     property CheckIt: Boolean read GetCheckIt write SetCheckIt;
     property Enabled: Boolean read GetEnabled write SetEnabled;
@@ -52,7 +52,7 @@ type
     procedure SetEnabled(const AValue: Boolean);
     procedure SetTitle(const AValue: string);
   public
-    constructor Create(tags: array of Const);
+    constructor Create(var tags: TTagsList);
     property Enabled: Boolean read GetEnabled write SetEnabled;
     property Title: string read GetTitle write SetTitle;
   end;
@@ -64,7 +64,7 @@ type
     function GetEnabled: Boolean;
     procedure SetEnabled(const AValue: Boolean);
   public
-    constructor Create(tags: array of Const);
+    constructor Create(var tags: TTagsList);
     Destructor Destroy; override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
@@ -75,6 +75,7 @@ type
   private
     CloseWinHook: THook;
     FMainMenu: TMuiMenuStrip;
+    FSizeable: Boolean;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
   protected
@@ -84,11 +85,12 @@ type
     procedure RemoveChild(Child: TMUIObject); override;
     procedure SetPos(ALeft, ATop: LongInt); override;
   public
-    constructor Create; overload; reintroduce; virtual;
+    constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
+    property Sizeable: Boolean read FSizeable write FSizeable;
   end;
 
   { TMuiGroup }
@@ -97,7 +99,7 @@ type
   private
 
   public
-    constructor Create(const Tags : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(var tags: TTagsList); overload; reintroduce; virtual;
   end;
 
 implementation
@@ -115,12 +117,21 @@ begin
   Win := TMuiWindow(Hook^.h_Data);
   case LMsg^.lm_type of
     MUILM_MINMAX: begin
-      LMsg^.lm_MinMax.MinWidth := 100;
-      LMsg^.lm_MinMax.MinHeight := 100;
+      if Win.Sizeable then
+      begin
+        LMsg^.lm_MinMax.MinWidth := 100;
+        LMsg^.lm_MinMax.MinHeight := 100;
+        LMsg^.lm_MinMax.MaxWidth := 10000;
+        LMsg^.lm_MinMax.MaxHeight := 10000;
+      end else
+      begin
+        LMsg^.lm_MinMax.MinWidth := Win.Width;
+        LMsg^.lm_MinMax.MinHeight := Win.Height;
+        LMsg^.lm_MinMax.MaxWidth := Win.Width;
+        LMsg^.lm_MinMax.MaxHeight := Win.Height;
+      end;    
       LMsg^.lm_MinMax.DefWidth :=  Win.Width;
       LMsg^.lm_MinMax.DefHeight := Win.Height;
-      LMsg^.lm_MinMax.MaxWidth := 10000;
-      LMsg^.lm_MinMax.MaxHeight := 10000;
       TWinControl(Win.PasObject).Realign;
     end;
     MUILM_LAYOUT:
@@ -146,9 +157,9 @@ begin
   SetAttribute([LongInt(MUIA_Menuitem_Enabled), AValue, TAG_END]);
 end;
 
-constructor TMuiMenuStrip.Create(tags: array of const);
+constructor TMuiMenuStrip.Create(var tags: TTagsList);
 begin
-  inherited Create(MUIC_MenuStrip, tags);
+  inherited Create(MUIC_MenuStrip, GetTagPtr(tags));
 end;
 
 destructor TMuiMenuStrip.Destroy;
@@ -178,9 +189,9 @@ begin
   SetAttribute([LongInt(MUIA_Menuitem_Title), PChar(AValue), TAG_END]);
 end;
 
-constructor TMuiMenu.Create(tags: array of const);
+constructor TMuiMenu.Create(var tags: TTagsList);
 begin
-  inherited Create(MUIC_Menu, tags);
+  inherited Create(MUIC_Menu, GetTagPtr(tags));
 end;
 
 { TMuiMenuItem }
@@ -250,9 +261,9 @@ begin
   end;
 end;
 
-constructor TMuiMenuItem.Create(tags: array of const);
+constructor TMuiMenuItem.Create(var tags: TTagsList);
 begin
-  inherited Create(MUIC_MenuItem, tags);
+  inherited Create(MUIC_MenuItem, GetTagPtr(tags));
   MenuChoosed.h_Entry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_SubEntry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_Data := Self;
@@ -292,16 +303,19 @@ begin
   end;
 end;
 
-constructor TMuiWindow.Create;
+constructor TMuiWindow.Create(var TagList: TTagsList);
+var
+  LT: TTagsList;
 begin
-  FMainMenu := TMuiMenuStrip.Create([TAG_END]);
+  FMainMenu := TMuiMenuStrip.Create(LT);
   FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
   //
   LayoutHook.h_Entry := IPTR(@LayoutFunc);
   LayoutHook.h_SubEntry := IPTR(@LayoutFunc);
   LayoutHook.h_Data := Self;
   //
-  inherited Create(MUIC_Window, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj, TAG_END]);
+  AddTags(TagList, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj]);
+  inherited Create(MUIC_Window, GetTagPtr(TagList));
   //
   Self.Parent := MUIApp;
   CloseWinHook.h_Entry := IPTR(@CloseWinFunc);
@@ -311,7 +325,6 @@ begin
       LongWord(FObject), 2,
       LongInt(MUIM_CallHook), IPTR(@CloseWinHook)
       ]);
-  
 end;
 
 destructor TMuiWindow.Destroy;
@@ -378,10 +391,9 @@ end;
 
 { TMuiGroup }
 
-constructor TMuiGroup.Create(const Tags: array of const);
+constructor TMuiGroup.Create(var tags: TTagsList);
 begin
-  inherited Create(MUIC_Group, Tags);
-
+  inherited Create(MUIC_Group, GetTagPtr(Tags));
 end;
 
 end.

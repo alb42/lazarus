@@ -124,27 +124,27 @@ procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  //writeln('-->btndown');
+  writeln('-->btndown');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
   end;
-  //writeln('<--btndown');
+  writeln('<--btndown');
 end;
 
 procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  //writeln('-->btnup');
+  writeln('-->btnup');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
-  //writeln('<--btnup');
+  writeln('<--btnup');
 end;
 
 
@@ -152,7 +152,7 @@ end;
 
 procedure TMUIObject.SetParent(const AValue: TMUIObject);
 begin
-  //Writeln('Set Parent: ');
+  //Writeln(self.classname, 'Set Parent: ', HexStr(AValue));
   if FParent = AValue then
   begin
     //writeln('same');
@@ -160,11 +160,10 @@ begin
   end;
   if Assigned(FParent) then
   begin
-    //write('old: ', FParent.Classname);
-    FParent.FObjects.Remove(Self);
     FParent.RemoveChild(Self);
+    FParent.FObjects.Remove(Self);
     FParent := nil;
-  end;
+  end;  
   if Assigned(AValue) then
   begin
     //write('  New: ', AValue.Classname);
@@ -249,12 +248,20 @@ end;
 
 procedure TMUIObject.AddChild(Child: TMUIObject);
 begin
-  DoMethod([IPTR(OM_ADDMEMBER), IPTR(Child.obj)]);
+  if Assigned(Child.Obj) then
+  begin
+    DoMethod([IPTR(MUIM_Group_InitChange)]);
+    DoMethod([IPTR(OM_ADDMEMBER), IPTR(Child.obj)]);
+    DoMethod([IPTR(MUIM_Group_ExitChange)]);
+  end;  
 end;
 
 procedure TMUIObject.RemoveChild(Child: TMUIObject);
 begin
-  DoMethod([IPTR(OM_REMMEMBER), IPTR(Child.obj)]);
+  if Assigned(Child.obj) then
+  begin
+    DoMethod([IPTR(OM_REMMEMBER), IPTR(Child.obj)]);
+  end;  
 end;
 
 constructor TMUIObject.Create(ObjType: LongInt; const Params: array of const);
@@ -297,18 +304,21 @@ end;
 
 destructor TMUIObject.Destroy;
 begin
-  //writeln('destroy');
+  //writeln(self.classname, '--> muiobject destroy');
   SetParent(nil);
   MUI_DisposeObject(FObject);
   FObjects.Free;
   inherited Destroy;
+  //writeln(self.classname, '<-- muiobject destroy');
 end;
 
 procedure TMUIObject.SetOwnSize;
 var
   i: LongInt;
 begin
-  //writeln('setsize');
+  if not Assigned(FObject) then
+    Exit;
+  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight);  
   MUI_LayOut(FObject, FLeft, FTop, FWidth, FHeight, 0);
   for i := 0 to FObjects.Count - 1 do
   begin

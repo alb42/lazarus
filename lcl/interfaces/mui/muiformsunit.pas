@@ -361,12 +361,19 @@ end;
 
 procedure TMuiWindow.AddChild(Child: TMUIObject);
 begin
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_InitChange)]);
   CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_ADDMEMBER, Child.obj]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_ExitChange)]);
 end;
 
 procedure TMuiWindow.RemoveChild(Child: TMUIObject);
 begin
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_REMMEMBER, Child.obj]);
+  //writeln('-> window remove child ', HexStr(Child), ' ', HexStr(Child.obj), ' ', HexStr(Self), ' ', HexStr(FGrpObj));
+  if Assigned(FGrpObj) and Assigned(Child) and Assigned(child.obj) then
+  begin
+    CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_REMMEMBER, Child.obj]);
+  end;  
+  //writeln('<-window remove child');  
 end;
 
 { TMuiGroup }

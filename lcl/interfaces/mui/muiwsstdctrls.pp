@@ -787,11 +787,11 @@ begin
   With MuiList do
   begin
     Left := AParams.X;
-    Top := AParams.Y;
+    Top := AParams.Y;    
     Width := AParams.Width;
-    Height := AParams.Height;
+    Height := AParams.Height;    
     PasObject := AWinControl;
-    FloatText.PAsObject := AWinControl;
+    FloatText.PasObject := AWinControl;
   end;
 
   if AWinControl.Parent <> NIL then

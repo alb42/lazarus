@@ -67,9 +67,9 @@ type
     class function  GetDefaultClientRect(const AWinControl: TWinControl;
                              const aLeft, aTop, aWidth, aHeight: integer;
                              var aClientRect: TRect): Boolean; override;
-    //class procedure GetPreferredSize(const AWinControl: TWinControl;
-    //                        var PreferredWidth, PreferredHeight: integer;
-    //                        WithThemeSpace: Boolean); override;
+    class procedure GetPreferredSize(const AWinControl: TWinControl;
+                            var PreferredWidth, PreferredHeight: integer;
+                            WithThemeSpace: Boolean); override;
     //class procedure PaintTo(const AWinControl: TWinControl; ADC: HDC; X, Y: Integer); override;
     class procedure SetBounds(const AWinControl: TWinControl; const ALeft, ATop, AWidth, AHeight: Integer); override;
     class procedure SetPos(const AWinControl: TWinControl; const ALeft, ATop: Integer); override;
@@ -128,7 +128,7 @@ class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
 var
   MuiLabel: TMuiArea;
 begin
-  //writeln('-->Create GraphicControl');
+  writeln('-->Create GraphicControl');
 
   MuiLabel := TMuiArea.Create(MUIC_Area, [TAG_END]);
   With MuiLabel do
@@ -160,7 +160,8 @@ begin
   //TMuiPrivateWidget(AWinControl.Handle).Free;
   if Assigned(AWinControl) then
   begin
-    TMuiObject(AWinControl.Handle).Free;
+    if AWinControl.Handle <> 0 then
+      TMuiObject(AWinControl.Handle).Free;
     AWinControl.Handle := 0;
   end;  
 end;
@@ -190,23 +191,26 @@ class function TMuiWSWinControl.GetDefaultClientRect(
   const AWinControl: TWinControl; const aLeft, aTop, aWidth, aHeight: integer;
   var aClientRect: TRect): Boolean;
 begin
-  AClientRect.top := 0;
-  AClientRect.Left := 0;
-  AClientRect.Right := aWidth - 10;
-  AClientRect.Bottom := AHeight - 10;
+  AClientRect.top := aTop;
+  AClientRect.Left := aLeft;
+  AClientRect.Right := aWidth;
+  AClientRect.Bottom := AHeight;
+  //writeln(AWincontrol.classname,' Get client Default Rect ', AWidth - 10,' ', AHeight - 10);
   Result:=True;
 end;
-(*
+
 class procedure TMuiWSWinControl.GetPreferredSize(
   const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
   WithThemeSpace: Boolean);
 begin
-  writeln('Preffered Size',100,',',100);
-  //Mui widgets does not have a default size (maybe later).
-  PreferredHeight:=100;
-  PreferredWidth:=100;
+  if Assigned(AWinControl) then
+  begin
+    PreferredHeight:=AWinControl.Height;
+    PreferredWidth:=AWinControl.Width;
+  end;  
+  //writeln('Prefered Size',PreferredHeight,',',PreferredWidth);
 end;
-
+(*
 class procedure TMuiWSWinControl.PaintTo(const AWinControl: TWinControl;
   ADC: HDC; X, Y: Integer);
 //var

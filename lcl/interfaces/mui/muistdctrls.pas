@@ -145,15 +145,18 @@ begin
   FStrings.Assign(AStrings);
   FText := FStrings.GetText;
   FFloatText := TFloatText.create([TAG_END]);
-
   inherited Create(MUIC_ListView, [MUIA_Listview_List, FloatText.Obj ,TAG_DONE]);
   FStrings.OnChange := @TextChanged;
+  
+  
 end;
 
 destructor TMuiListView.Destroy;
 begin
-  FFloatText.Free;
   inherited Destroy;
+  // Object ist automatically destroyed by Listview
+  FFloatText.Obj := nil;
+  FFloatText.Free;
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
@@ -314,8 +317,8 @@ begin
 end;
 
 Destructor TMuiCycle.Destroy;
-begin
-  inherited;
+begin  
+  inherited;  
   FStrings.Free;
 end;
 
@@ -339,8 +342,8 @@ end;
 
 Destructor TMuiTextEdit.Destroy;
 begin;
-  FStrings.Free;
   inherited;
+  FStrings.Free;
 end;
 
 { TFlowString }
@@ -354,6 +357,7 @@ end;
 destructor TFlowString.Destroy;
 begin
   SL.Free;
+  inherited;
 end;
 
 function TFlowString.GetCount: Integer;

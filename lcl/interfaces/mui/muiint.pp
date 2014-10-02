@@ -314,7 +314,7 @@ end;
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
 
 begin
-  //writeln('getDC ', inttostr(hwnd));
+  //writeln('getDC ', HexStr(Pointer(hwnd)));
   if TObject(hWnd) is TMUIObject then
   begin
     //writeln('ok is muiboj', TObject(hWnd).classname);

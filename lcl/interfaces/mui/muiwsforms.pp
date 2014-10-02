@@ -168,9 +168,8 @@ begin
   MuiForm.Sizeable := Sizeable;
   With Muiform do
   begin
-    SetPos(AParams.X, AParams.Y);
-    //Left := AParams.X;
-    //Top := AParams.Y;
+    Left := AParams.X;
+    Top := AParams.Y;
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;

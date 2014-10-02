@@ -569,8 +569,13 @@ end;
 class function TMUIWSCustomCheckBox.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 begin
+  Result := False;
+  if AWinControl = nil then
+    Exit;
+  if AWinControl.Handle = 0 then
+    Exit;
+  AText := TMuiCheckMark(AWinControl.Handle).Caption;
   Result := True;
-  AText := TMuiCheckMark(AWinControl.Handle).Caption
 end;
 
 class procedure TMUIWSCustomCheckBox.SetText(const AWinControl: TWinControl;
@@ -595,7 +600,7 @@ var
   MuiCheckMark : TMuiCheckMark;
 begin
   //writeln('create CheckBox');
-  MuiCheckMark := TMuiCheckMark.Create([PChar(AParams.Caption)]);
+  MuiCheckMark := TMuiCheckMark.Create(False, [PChar(AParams.Caption)]);
   With MuiCheckMark do
   begin
     Left := AParams.X;
@@ -608,7 +613,6 @@ begin
   if AWinControl.Parent <> NIL then
   begin
     MuiCheckMark.Parent := TMuiCheckMark(AWinControl.Parent.Handle);
-
   end;
   //
   Result := TLCLIntfHandle(MuiCheckMark);

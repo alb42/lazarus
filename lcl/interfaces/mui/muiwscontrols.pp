@@ -235,8 +235,10 @@ begin
     Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
   begin
-    TMuiObject(AWinControl.Handle).SetPos(ALeft,ATop);
-    TMuiObject(AWinControl.Handle).SetSize(AWidth,AHeight);
+    TMuiObject(AWinControl.Handle).Left := ALeft;
+    TMuiObject(AWinControl.Handle).Top := ATop;
+    TMuiObject(AWinControl.Handle).Width := AWidth;
+    TMuiObject(AWinControl.Handle).Height := AHeight;
   end;
 end;
 
@@ -254,7 +256,10 @@ begin
   if not Assigned(AWincontrol) then
     Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
-    TMuiObject(AWinControl.Handle).SetPos(ALeft,ATop);
+  begin
+    TMuiObject(AWinControl.Handle).Left := ALeft;
+    TMuiObject(AWinControl.Handle).Top := ATop;
+  end;  
 end;
 
 {------------------------------------------------------------------------------
@@ -272,7 +277,10 @@ begin
     Exit;
   //writeln(AWincontrol.classname,' got resize: ', AWidth);
   if TObject(AWinControl.Handle) is TMuiObject then
-    TMuiObject(AWinControl.Handle).SetSize(AWidth,AHeight);
+  begin
+    TMuiObject(AWinControl.Handle).Width := AWidth;
+    TMuiObject(AWinControl.Handle).Height := AHeight;
+  end;  
 end;
 
 {------------------------------------------------------------------------------

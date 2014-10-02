@@ -28,10 +28,24 @@ type
 
   TMuiCheckMark = class(TMuiArea)
   private
+    CheckHook: THook;
+    FullWidth: Integer;
+    CheckLabel: TMuiText;
     function GetChecked: LongBool;
     procedure SetChecked(const AValue: LongBool);
+  protected
+    procedure SetParent(const AValue: TMUIObject); override;
+    function GetCaption: string; override;
+    procedure SetCaption(const AValue: string); override;  
+    procedure SetLeft(ALeft: Integer); override;
+    procedure SetTop(ATop: Integer); override;
+    procedure SetWidth(AWidth: Integer); override;
+    procedure SetHeight(AHeight: Integer); override;
+    function GetWidth(): Integer; override;
+    procedure SetVisible(const AValue: Boolean); override;
   public
-    constructor Create(const Params : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(IsRadio: Boolean; const Params : Array Of Const); overload; reintroduce; virtual;
+    destructor Destroy; override;
     property Checked: LongBool read GetChecked write SetChecked;
   end;
 
@@ -223,9 +237,12 @@ var
   FText: PChar;
   TagList: TTagsList;
 begin
-  FText := FStrings.GetText;
-  AddTags(TagList, [LongInt(MUIA_FloatText_Text), FText, TAG_END]);
-  SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
+  if Assigned(FStrings) then
+  begin
+    FText := FStrings.GetText;
+    AddTags(TagList, [LongInt(MUIA_FloatText_Text), FText, TAG_END]);
+    SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
+  end;  
 end;
 
 function TMuiListView.GetActive: LongInt;
@@ -280,6 +297,16 @@ end;
 
 { TMuiCheckMark }
 
+procedure CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiObject;
+begin
+  if TObject(Hook^.h_Data) is TMuiObject then
+  begin
+    MuiObject := TMuiObject(Hook^.h_Data);
+    LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
+  end;
+end;
 
 function TMuiCheckMark.GetChecked: LongBool;
 begin
@@ -291,9 +318,102 @@ begin
   SetAttribute([LongInt(MUIA_Selected), LongInt(AValue), TAG_END]);
 end;
 
-constructor TMuiCheckMark.Create(const Params: array of const);
+constructor TMuiCheckMark.Create(IsRadio: Boolean; const Params: array of const);
+var
+  TagList: TTagsList;
 begin
-  inherited Create(MUIO_Checkmark, Params);
+  if isRadio then
+    inherited Create(MUIO_Radio, Params)
+  else
+    inherited Create(MUIO_Checkmark, Params);
+  CheckLabel := TMuiText.Create(TagList);
+  
+  CheckHook.h_Entry := IPTR(@CheckFunc);
+  CheckHook.h_SubEntry := 0;
+  CheckHook.h_Data := Self;
+  
+  DoMethod([LongInt(MUIM_Notify),
+    LongInt(MUIA_Selected), IPTR(MUIV_EveryTime),
+    LongInt(MUIV_Notify_Self),
+    2,
+    LongInt(MUIM_CallHook), IPTR(@CheckHook)
+    ]);
+end;
+
+destructor TMuiCheckMark.Destroy;
+begin
+  CheckLabel.Free;
+  CheckLabel := Nil;
+  inherited;  
+end;
+
+function TMuiCheckMark.GetCaption: string;
+begin
+  Result := '';
+  if Assigned(CheckLabel) then
+    Result := CheckLabel.Caption;
+end;
+
+procedure TMuiCheckMark.SetCaption(const AValue: string);
+begin
+  if Assigned(CheckLabel) then
+    CheckLabel.Caption := AValue;
+end;
+
+procedure TMuiCheckMark.SetParent(const AValue: TMUIObject);
+begin
+  inherited;
+  if Assigned(CheckLabel) then
+    CheckLabel.Parent := AValue;
+end;
+
+procedure TMuiCheckMark.SetLeft(ALeft: Integer);
+begin
+  inherited;
+  if Assigned(CheckLabel) then
+  begin
+    CheckLabel.Left := Left + Height + 2;
+  end;
+end;
+
+procedure TMuiCheckMark.SetTop(ATop: Integer);
+begin
+  inherited;
+  if Assigned(CheckLabel) then
+  begin
+    CheckLabel.Top := Top;
+  end;
+end;
+
+procedure TMuiCheckMark.SetWidth(AWidth: Integer);
+begin
+  FullWidth := AWidth;
+  inherited SetWidth(Height);
+  if Assigned(CheckLabel) then
+  begin
+    CheckLabel.Left := Left + Height + 2;
+    CheckLabel.Width := FullWidth - (Height + 2);
+  end;
+end;
+
+procedure TMuiCheckMark.SetHeight(AHeight: Integer);
+begin
+  inherited SetHeight(AHeight);
+  SetWidth(FullWidth);
+  if Assigned(CheckLabel) then
+    CheckLabel.Height := Height;
+end;
+
+function TMuiCheckMark.GetWidth(): Integer;
+begin
+  Result := FullWidth;
+end;
+
+procedure TMuiCheckMark.SetVisible(const AValue: Boolean);
+begin
+  inherited;
+  if Assigned(CheckLabel) then
+    CheckLabel.Visible := AValue;
 end;
 
 { TMuiStringEdit }
@@ -315,8 +435,12 @@ function TMuiStringEdit.GetText: string;
 var
   Pc: PChar;
 begin
-  Pc := PChar(GetAttribute(MUIA_String_Contents));
-  Result := string(Pc);
+  Result := '';
+  if Obj = nil then
+    Exit;   
+  Pc := PChar(GetAttribute(MUIA_String_Contents));     
+  if Assigned(PC) then
+    Result := string(Pc);
 end;
 
 procedure TMuiStringEdit.SetText(const AValue: string);

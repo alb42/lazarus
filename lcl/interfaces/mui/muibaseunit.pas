@@ -23,7 +23,7 @@ type
     FParent: TMUIObject;
     // AWinControl lcl-Object
     FPasObject: TControl;
-    procedure SetParent(const AValue: TMUIObject);
+    
 
   protected
     LayoutHook: THook;
@@ -36,11 +36,20 @@ type
       // DoMethod(Params = [MethodID, Parameter for Method ...])
     function DoMethodObj(Obje: pObject_; const Params : Array Of Const): LongInt;
     function DoMethod(const Params : Array Of IPTR): LongInt;
-      //
+    //
+    procedure SetParent(const AValue: TMUIObject); virtual;
+    //
     procedure AddChild(Child: TMUIObject); virtual;
     procedure RemoveChild(Child: TMUIObject); virtual;
     procedure SetVisible(const AValue: Boolean); virtual;
     function GetVisible: Boolean; virtual;
+    //
+    procedure SetLeft(ALeft: Integer); virtual;
+    procedure SetTop(ATop: Integer); virtual;
+    procedure SetWidth(AWidth: Integer); virtual;
+    procedure SetHeight(AHeight: Integer); virtual;
+    
+    function GetWidth(): Integer; virtual;
   public
     FObject: pObject_;
     constructor Create(ObjType : LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
@@ -48,14 +57,12 @@ type
     destructor Destroy; override;
     //
     procedure SetOwnSize; virtual;
-    procedure SetPos(ALeft, ATop: LongInt); virtual;
-    procedure SetSize(AWidth, AHeight: LongInt); virtual;
     //
     property Parent: TMUIObject read FParent write SetParent;
-    property Left: LongInt read FLeft write FLeft;
-    property Top: LongInt read FTop write FTop;
-    property Width: LongInt read FWidth write FWidth;
-    property Height: LongInt read FHeight write FHeight;
+    property Left: LongInt read FLeft write SetLeft;
+    property Top: LongInt read FTop write SetTop;
+    property Width: LongInt read GetWidth write SetWidth;
+    property Height: LongInt read FHeight write SetHeight;
     property Obj: pObject_ read FObject write FObject;
     property PasObject:TControl read FPasObject write FPasObject;
     property Visible: Boolean read GetVisible write SetVisible;
@@ -64,20 +71,19 @@ type
   { TMuiArea }
 
   TMuiArea = class(TMUIObject)
-  private
-    function GetCaption: string; virtual;
-    function GetDragable: Boolean;
-    function GetDropable: Boolean;
-    function GetEnabled: Boolean;
-    function GetHint: string;
-    function GetSelected: Boolean;
-    procedure SetCaption(const AValue: string); virtual;
-    procedure SetDragable(const AValue: Boolean);
-    procedure SetDropable(const AValue: Boolean);
-    procedure SetEnabled(const AValue: Boolean);
-    procedure SetHint(const AValue: string);
-    procedure SetSelected(const AValue: Boolean);
   protected
+    function GetCaption: string; virtual;
+    function GetDragable: Boolean; virtual;
+    function GetDropable: Boolean; virtual;
+    function GetEnabled: Boolean; virtual;
+    function GetHint: string; virtual;
+    function GetSelected: Boolean; virtual;
+    procedure SetCaption(const AValue: string); virtual;
+    procedure SetDragable(const AValue: Boolean); virtual;
+    procedure SetDropable(const AValue: Boolean); virtual;
+    procedure SetEnabled(const AValue: Boolean); virtual;
+    procedure SetHint(const AValue: string); virtual;
+    procedure SetSelected(const AValue: Boolean); virtual; 
   public
     property Caption: string read GetCaption write SetCaption;
     property Enabled: Boolean read GetEnabled write SetEnabled;
@@ -186,18 +192,29 @@ begin
   SetAttribute([LongInt(MUIA_ShowMe), LongInt(AValue), TAG_END]);
 end;
 
-procedure TMUIObject.SetPos(ALeft, ATop: LongInt);
+procedure TMUIObject.SetLeft(ALeft: Integer);
 begin
-  //writeln('setpos');
   FLeft := ALeft;
+end;
+
+procedure TMUIObject.SetTop(ATop: Integer);
+begin
   FTop :=  ATop;
 end;
 
-procedure TMUIObject.SetSize(AWidth, AHeight: LongInt);
+procedure TMUIObject.SetWidth(AWidth: Integer);
 begin
-  //writeln('setsize');
   FWidth := AWidth;
+end;
+
+procedure TMUIObject.SetHeight(AHeight: Integer);
+begin
   FHeight := AHeight;
+end;
+
+function TMUIObject.GetWidth(): Integer;
+begin
+  Result := FWidth;
 end;
 
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags : Array Of Const);
@@ -408,8 +425,10 @@ function TMuiArea.GetCaption: string;
 var
   Pc: PChar;
 begin
+  Result := '';
   Pc := PChar(GetAttribute(MUIA_Text_Contents));
-  Result := string(Pc);
+  if Assigned(PC) then
+    Result := string(Pc);
 end;
 
 function TMuiArea.GetDragable: Boolean;

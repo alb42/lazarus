@@ -391,7 +391,7 @@ begin
   if ObjType = MUIO_Radio then
   begin
     AddTags(TagList2, [
-      MUIA_InputMode, MUIV_InputMode_Toggle,
+      MUIA_InputMode, MUIV_InputMode_Immediate,
       MUIA_ShowSelState, False,
       MUIA_Image_Spec, MUII_RadioButton]);
     inherited Create(MUIC_Image, GetTagPtr(TagList2));
@@ -458,7 +458,13 @@ end;
 procedure TMuiCheckMark.SetWidth(AWidth: Integer);
 begin
   FullWidth := AWidth;
-  inherited SetWidth(Height);
+  if Self is TMUIRadioButton then
+  begin
+    inherited SetWidth(16);
+  end else
+  begin
+    inherited SetWidth(Height);
+  end;
   if Assigned(CheckLabel) then
   begin
     CheckLabel.Left := Left + Height + 2;
@@ -468,7 +474,13 @@ end;
 
 procedure TMuiCheckMark.SetHeight(AHeight: Integer);
 begin
-  inherited SetHeight(AHeight);
+  if Self is TMUIRadioButton then
+  begin
+    inherited SetHeight(16);
+  end else
+  begin
+    inherited SetHeight(AHeight);
+  end;
   SetWidth(FullWidth);
   if Assigned(CheckLabel) then
     CheckLabel.Height := Height;

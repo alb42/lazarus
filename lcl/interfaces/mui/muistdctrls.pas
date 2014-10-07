@@ -54,6 +54,7 @@ type
   TMuiStringEdit = class(TMuiArea)
   private
     TextChanged: THook;
+    TextDone: THook;
     function GetText: string;
     procedure SetText(const AValue: string);
   public
@@ -418,12 +419,24 @@ end;
 
 { TMuiStringEdit }
 
+procedure TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiObject;
+begin
+  //writeln('editing done');
+  if TObject(Hook^.h_Data) is TMuiObject then
+  begin
+    MuiObject := TMuiObject(Hook^.h_Data);
+    MuiObject.PasObject.EditingDone;
+  end;
+end;
+
 
 procedure TextChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
 begin
-  //writeln('text changed');
+  //writeln('edit text changed');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
@@ -453,13 +466,22 @@ begin
   inherited Create(MUIO_String, Params);
   // Set Event for Changed Text
   TextChanged.h_Entry := IPTR(@TextChangedFunc);
-  TextChanged.h_SubEntry := IPTR(@TextChangedFunc);
+  TextChanged.h_SubEntry := 0;
   TextChanged.h_Data := Self;
+  CallHook(PHook(OCLASS(FObject)), FObject,
+      [LongInt(MUIM_Notify), LongInt(MUIA_String_Contents), LongInt(MUIV_EveryTime),
+      LongInt(MUIV_Notify_Self),
+      2,
+      LongInt(MUIM_CallHook), @TextChanged
+      ]);
+  TextDone.h_Entry := IPTR(@TextDoneFunc);
+  TextDone.h_SubEntry := 0;
+  TextDone.h_Data := Self;
   CallHook(PHook(OCLASS(FObject)), FObject,
       [LongInt(MUIM_Notify), LongInt(MUIA_String_Acknowledge), LongInt(MUIV_EveryTime),
       LongInt(MUIV_Notify_Self),
       2,
-      LongInt(MUIM_CallHook), @TextChanged
+      LongInt(MUIM_CallHook), @TextDone
       ]);
 end;
 

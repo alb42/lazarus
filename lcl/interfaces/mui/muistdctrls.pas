@@ -29,11 +29,11 @@ type
   TMuiCheckMark = class(TMuiArea)
   private
     CheckHook: THook;
+  protected
     FullWidth: Integer;
     CheckLabel: TMuiText;
-    function GetChecked: LongBool;
-    procedure SetChecked(const AValue: LongBool);
-  protected
+    function GetChecked: LongBool; virtual;
+    procedure SetChecked(const AValue: LongBool); virtual;
     procedure SetParent(const AValue: TMUIObject); override;
     function GetCaption: string; override;
     procedure SetCaption(const AValue: string); override;  
@@ -44,9 +44,19 @@ type
     function GetWidth(): Integer; override;
     procedure SetVisible(const AValue: Boolean); override;
   public
-    constructor Create(IsRadio: Boolean; const Params : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
     destructor Destroy; override;
     property Checked: LongBool read GetChecked write SetChecked;
+  end;
+
+  { TMuiRadioButton }
+
+  TMuiRadioButton = class(TMuiCheckMark)
+  protected
+    procedure SetChecked(const AValue: LongBool); override;
+  public
+    procedure MakeOneChecked;
+    procedure RemoveCheck;
   end;
 
   { TMuiStringEdit }
@@ -142,6 +152,55 @@ type
   end;
 
 implementation
+
+{ TMuiRadioButton }
+
+procedure TMuiRadioButton.SetChecked(const AValue: LongBool);
+var
+  i: Integer;
+  RB: TMUIObject;
+begin
+  if Assigned(Parent) then
+  begin
+    for i := 0 to Parent.FObjects.Count - 1 do
+    begin
+      RB := TMUIObject(Parent.FObjects.Items[i]);
+      if (RB is TMuiRadioButton) and (RB <> Self) then
+      begin
+        if TMuiRadioButton(RB).checked then
+          TMuiRadioButton(RB).RemoveCheck;
+      end;
+    end;
+  end;
+  inherited SetChecked(AValue);
+end;
+
+procedure TMuiRadioButton.MakeOneChecked;
+var
+  i: Integer;
+  RB: TMuiObject;
+begin
+  if Assigned(Parent) then
+  begin
+    for i := 0 to Parent.FObjects.Count - 1 do
+    begin
+      RB := TMUIObject(Parent.FObjects.Items[i]);
+      if (RB is TMuiRadioButton) then
+      begin
+        if TMuiRadioButton(RB).checked then
+        begin
+          Exit;
+        end;
+      end;
+    end;
+    Self.Checked := True;
+  end;
+end;
+
+procedure TMuiRadioButton.RemoveCheck;
+begin
+  inherited SetChecked(False);
+end;
 
 { TFloatText }
 
@@ -306,6 +365,12 @@ begin
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
+    if MuiObject is TMUIRadioButton then
+    begin
+      if TMUIRadioButton(MUIObject).Checked then
+        TMUIRadioButton(MUIObject).Checked := TMUIRadioButton(MUIObject).Checked;
+      TMUIRadioButton(MUIObject).MakeOneChecked;
+    end;
   end;
 end;
 
@@ -319,16 +384,21 @@ begin
   SetAttribute([LongInt(MUIA_Selected), LongInt(AValue), TAG_END]);
 end;
 
-constructor TMuiCheckMark.Create(IsRadio: Boolean; const Params: array of const);
+constructor TMuiCheckMark.Create(ObjType : LongInt; const Params: array of const);
 var
   TagList: TTagsList;
+  Taglist2: TTagsList;
 begin
-  if isRadio then
-    inherited Create(MUIO_Radio, Params)
-  else
-    inherited Create(MUIO_Checkmark, Params);
+  if ObjType = MUIO_Radio then
+  begin
+    AddTags(TagList2, [
+      MUIA_InputMode, MUIV_InputMode_Toggle,
+      MUIA_ShowSelState, True,
+      MUIA_Image_Spec, MUII_RadioButton]);
+    inherited Create(MUIC_Image, GetTagPtr(TagList2));
+  end else
+    inherited Create(ObjType, Params);
   CheckLabel := TMuiText.Create(TagList);
-  
   CheckHook.h_Entry := IPTR(@CheckFunc);
   CheckHook.h_SubEntry := 0;
   CheckHook.h_Data := Self;

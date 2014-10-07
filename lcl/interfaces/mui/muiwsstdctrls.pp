@@ -28,7 +28,7 @@ interface
 
 uses
   // Bindings
-  exec, intuition, agraphics, gadtools, utility, tagsarray,
+  exec, intuition, agraphics, gadtools, utility, tagsarray, mui,
   // LCL
   Classes, StdCtrls, Controls, LCLType, sysutils,
   //
@@ -37,8 +37,6 @@ uses
   WSStdCtrls, WSLCLClasses;
 
 type
-
-  TagList = Array [0..31] Of TTagItem;
   { TMUIWSScrollBar }
 
   TMUIWSScrollBar = class(TWSScrollBar)
@@ -600,7 +598,7 @@ var
   MuiCheckMark : TMuiCheckMark;
 begin
   //writeln('create CheckBox');
-  MuiCheckMark := TMuiCheckMark.Create(False, [PChar(AParams.Caption)]);
+  MuiCheckMark := TMuiCheckMark.Create(MUIO_Checkmark, [PChar(AParams.Caption)]);
   With MuiCheckMark do
   begin
     Left := AParams.X;
@@ -631,32 +629,34 @@ end;
 class function TMUIWSRadioButton.RetrieveState(
   const ACustomCheckBox: TCustomCheckBox): TCheckBoxState;
 begin
-  //writeln('getstate ');
-  {if TMuiCheckMark(ACustomCheckBox.Handle).Checked then
+  if TMuiRadioButton(ACustomCheckBox.Handle).Checked then
     Result := cbChecked
   else
     Result := cbUnchecked;
-  }
-
 end;
 
 class procedure TMUIWSRadioButton.SetState(
   const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState);
 begin
-  //writeln('setstate ', newstate);
-  //TMuiCheckMark(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
+  TMuiRadioButton(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
 end;
 
 class function TMUIWSRadioButton.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 begin
   Result := False;
+  if AWinControl = nil then
+    Exit;
+  if AWinControl.Handle = 0 then
+    Exit;
+  AText := TMuiCheckMark(AWinControl.Handle).Caption;
+  Result := True;
 end;
 
 class procedure TMUIWSRadioButton.SetText(const AWinControl: TWinControl;
   const AText: String);
 begin
-  //
+  TMuiRadioButton(AWinControl.Handle).Caption := AText;
 end;
 
 class procedure TMUIWSRadioButton.GetPreferredSize(
@@ -668,58 +668,32 @@ end;
 
 class function TMUIWSRadioButton.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
-{var
-  NewGadget: tnewgadget;
-  gad: pgadget;
-  str: PStringPtrs;
-  ttags: array[0..100] of TTagItem;
-  Tag1: pTagItem;}
+var
+  MUIRadioButton : TMuiRadioButton;
 begin
-  //writeln('create RadioButton');
-  {if AWinControl.Parent <> NIL then
+  //writeln('create CheckBox');
+  MUIRadioButton := TMuiRadioButton.Create(MUIO_Radio, [PChar(AParams.Caption)]);
+  With MUIRadioButton do
   begin
-    gad := (PWindow(AWinControl.Parent.Handle)^.FirstGadget);
-    while gad^.NextGadget <> nil do
-    begin
-      gad := gad^.NextGadget;
-    end;
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
   end;
-  New(str);
-  SetLength(str^, 2);
-  GetMem(str^[0], 10);
-  str^[1] := NIL;
-  StrCopy(str^[0], PChar(AParams.Caption + #0));
-  //
-  ttags[0].ti_Tag := GTMX_Labels;
-  ttags[0].ti_Data := integer(@(str^[0]));
-  ttags[1].ti_Tag := TAG_DONE;
-  tag1 := @ttags[0];
-  //
-  NewGadget.ng_TextAttr := GlobalScreen^.Font;
-  NewGadget.ng_GadgetID := GetUniqueNumber;
-  NewGadget.ng_LeftEdge := AParams.X;
-  NewGadget.ng_TopEdge := AParams.Y;
-  NewGadget.ng_Width := AParams.Width;                   // Breite
-  NewGadget.ng_Height := AParams.Height;                 // Höhe
-  NewGadget.ng_GadgetText := AParams.Caption;
-  NewGadget.ng_VisualInfo := GlobalVisInfo;
-  NewGadget.ng_Flags := PLACETEXT_RIGHT;
-  gad := CreateGadgetA(MX_KIND, gad, @NewGadget, tag1);
-  }
-  Result := TLCLIntfHandle(2222);
-  {if Assigned(gad) then
+
+  if AWinControl.Parent <> NIL then
   begin
-    Gad^.UserData := AWinControl;
-    if AWinControl.Parent <> NIL then
-    begin
-      RefreshGadgets (PWindow(AWinControl.Parent.Handle)^.FirstGadget, PWindow(AWinControl.Parent.Handle), NIL);
-    end;
-  end;}
+    MUIRadioButton.Parent := TMUIRadioButton(AWinControl.Parent.Handle);
+  end;
+  //
+  Result := TLCLIntfHandle(MUIRadioButton);
 end;
 
 class procedure TMUIWSRadioButton.DestroyHandle(const AWinControl: TWinControl);
 begin
   //writeln('Destroy RadioButton');
+  TMuiRadioButton(AWinControl.Handle).Free;
   AWinControl.Handle := 0;
 end;
 

@@ -301,7 +301,8 @@ end;
 
 function RegisterRadioButton: Boolean; alias : 'WSRegisterRadioButton';
 begin
-  Result := False;
+  RegisterWSComponent(TRadioButton, TMUIWSRadioButton);
+  Result := True;
 end;
 
 function RegisterCustomStaticText: Boolean; alias : 'WSRegisterCustomStaticText';

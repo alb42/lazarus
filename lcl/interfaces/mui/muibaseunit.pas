@@ -27,7 +27,7 @@ type
 
   protected
     LayoutHook: THook;
-    FObjects: TObjectList;
+
     FGrpObj: pObject_;
     procedure SetAttribute(const Tags : Array Of Const);
     function GetAttribute(tag: LongWord): LongWord;
@@ -51,6 +51,7 @@ type
     
     function GetWidth(): Integer; virtual;
   public
+    FObjects: TObjectList;
     FObject: pObject_;
     constructor Create(ObjType : LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
     constructor Create(AClassName : PChar; Tags: PTagItem); overload; reintroduce; virtual;

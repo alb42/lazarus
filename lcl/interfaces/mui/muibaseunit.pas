@@ -73,6 +73,8 @@ type
 
   TMuiArea = class(TMUIObject)
   protected
+    function GetChecked: LongBool; virtual;
+    procedure SetChecked(const AValue: LongBool); virtual;
     function GetCaption: string; virtual;
     function GetDragable: Boolean; virtual;
     function GetDropable: Boolean; virtual;
@@ -92,6 +94,7 @@ type
     property Dropable: Boolean read GetDropable write SetDropable;
     property Selected: Boolean read GetSelected write SetSelected;
     property Hint: string read GetHint write SetHint;
+    property Checked: LongBool read GetChecked write SetChecked;
   end;
 
   { TMuiApplication }
@@ -421,6 +424,16 @@ begin
 end;
 
 { TMuiArea }
+
+function TMuiArea.GetChecked: LongBool;
+begin
+  Result := LongBool(GetAttribute(MUIA_Selected));
+end;
+
+procedure TMuiArea.SetChecked(const AValue: LongBool);
+begin
+  SetAttribute([LongInt(MUIA_Selected), LongInt(AValue), TAG_END]);
+end;
 
 function TMuiArea.GetCaption: string;
 var

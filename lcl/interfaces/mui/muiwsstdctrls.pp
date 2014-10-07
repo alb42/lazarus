@@ -215,6 +215,9 @@ type
   private
   protected
   public
+    class function  CreateHandle(const AWinControl: TWinControl;
+      const AParams: TCreateParams): TLCLIntfHandle; override;
+    class procedure DestroyHandle(const AWinControl: TWinControl); override;
   end;
 
   { TMUIWSRadioButton }
@@ -226,15 +229,6 @@ type
     class function  CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
-
-    class function  RetrieveState(const ACustomCheckBox: TCustomCheckBox): TCheckBoxState; override;
-    class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
-
-    class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
-    class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
-    class procedure GetPreferredSize(const AWinControl: TWinControl;
-                             var PreferredWidth, PreferredHeight: integer;
-                             WithThemeSpace: Boolean); override;
   end;
 
   { TMUIWSCustomStaticText }
@@ -552,7 +546,7 @@ end;
 class function TMUIWSCustomCheckBox.RetrieveState(
   const ACustomCheckBox: TCustomCheckBox): TCheckBoxState;
 begin
-  if TMuiCheckMark(ACustomCheckBox.Handle).Checked then
+  if TMuiArea(ACustomCheckBox.Handle).Checked then
     Result := cbChecked
   else
     Result := cbUnchecked;
@@ -561,7 +555,7 @@ end;
 class procedure TMUIWSCustomCheckBox.SetState(
   const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState);
 begin
-  TMuiCheckMark(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
+  TMuiArea(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
 end;
 
 class function TMUIWSCustomCheckBox.GetText(const AWinControl: TWinControl;
@@ -572,7 +566,7 @@ begin
     Exit;
   if AWinControl.Handle = 0 then
     Exit;
-  AText := TMuiCheckMark(AWinControl.Handle).Caption;
+  AText := TMuiArea(AWinControl.Handle).Caption;
   Result := True;
 end;
 
@@ -581,7 +575,7 @@ class procedure TMUIWSCustomCheckBox.SetText(const AWinControl: TWinControl;
 begin
   //
   //writeln('checkmark text: ',AText);
-  TMuiCheckMark(AWinControl.Handle).Caption := AText;
+  TMuiArea(AWinControl.Handle).Caption := AText;
 end;
 
 class procedure TMUIWSCustomCheckBox.GetPreferredSize(
@@ -626,46 +620,6 @@ end;
 
 { TMUIWSRadioButton }
 
-class function TMUIWSRadioButton.RetrieveState(
-  const ACustomCheckBox: TCustomCheckBox): TCheckBoxState;
-begin
-  if TMuiRadioButton(ACustomCheckBox.Handle).Checked then
-    Result := cbChecked
-  else
-    Result := cbUnchecked;
-end;
-
-class procedure TMUIWSRadioButton.SetState(
-  const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState);
-begin
-  TMuiRadioButton(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
-end;
-
-class function TMUIWSRadioButton.GetText(const AWinControl: TWinControl;
-  var AText: String): Boolean;
-begin
-  Result := False;
-  if AWinControl = nil then
-    Exit;
-  if AWinControl.Handle = 0 then
-    Exit;
-  AText := TMuiCheckMark(AWinControl.Handle).Caption;
-  Result := True;
-end;
-
-class procedure TMUIWSRadioButton.SetText(const AWinControl: TWinControl;
-  const AText: String);
-begin
-  TMuiRadioButton(AWinControl.Handle).Caption := AText;
-end;
-
-class procedure TMUIWSRadioButton.GetPreferredSize(
-  const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
-  WithThemeSpace: Boolean);
-begin
-//  TMUIPrivateRadioButton(AWinControl.Handle).GetPreferredSize(PreferredWidth,PreferredHeight,WithThemeSpace);
-end;
-
 class function TMUIWSRadioButton.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
@@ -694,6 +648,35 @@ class procedure TMUIWSRadioButton.DestroyHandle(const AWinControl: TWinControl);
 begin
   //writeln('Destroy RadioButton');
   TMuiRadioButton(AWinControl.Handle).Free;
+  AWinControl.Handle := 0;
+end;
+
+class function TMUIWSToggleBox.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
+var
+  MUIToggleButton : TMuiToggleButton;
+begin
+  //writeln('create ToggleBox');
+  MUIToggleButton := TMuiToggleButton.Create(MUIO_Button, [PChar(AParams.Caption)]);
+  With MUIToggleButton do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+  end;
+
+  if AWinControl.Parent <> NIL then
+  begin
+    MUIToggleButton.Parent := TMUIToggleButton(AWinControl.Parent.Handle);
+  end;
+  //
+  Result := TLCLIntfHandle(MUIToggleButton);
+end;
+
+class procedure TMUIWSToggleBox.DestroyHandle(const AWinControl: TWinControl);
+begin
+  TMuiToggleButton(AWinControl.Handle).Free;
   AWinControl.Handle := 0;
 end;
 

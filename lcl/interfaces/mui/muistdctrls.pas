@@ -32,8 +32,6 @@ type
   protected
     FullWidth: Integer;
     CheckLabel: TMuiText;
-    function GetChecked: LongBool; virtual;
-    procedure SetChecked(const AValue: LongBool); virtual;
     procedure SetParent(const AValue: TMUIObject); override;
     function GetCaption: string; override;
     procedure SetCaption(const AValue: string); override;  
@@ -46,7 +44,6 @@ type
   public
     constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
     destructor Destroy; override;
-    property Checked: LongBool read GetChecked write SetChecked;
   end;
 
   { TMuiRadioButton }
@@ -57,6 +54,16 @@ type
   public
     procedure MakeOneChecked;
     procedure RemoveCheck;
+  end;
+
+
+  { TMuiToggleButton }
+
+  TMuiToggleButton = class(TMuiArea)
+  private
+    CheckHook: THook;
+  public
+    constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
   end;
 
   { TMuiStringEdit }
@@ -152,6 +159,8 @@ type
   end;
 
 implementation
+
+
 
 { TMuiRadioButton }
 
@@ -374,16 +383,6 @@ begin
   end;
 end;
 
-function TMuiCheckMark.GetChecked: LongBool;
-begin
-  Result := LongBool(GetAttribute(MUIA_Selected));
-end;
-
-procedure TMuiCheckMark.SetChecked(const AValue: LongBool);
-begin
-  SetAttribute([LongInt(MUIA_Selected), LongInt(AValue), TAG_END]);
-end;
-
 constructor TMuiCheckMark.Create(ObjType : LongInt; const Params: array of const);
 var
   TagList: TTagsList;
@@ -393,7 +392,7 @@ begin
   begin
     AddTags(TagList2, [
       MUIA_InputMode, MUIV_InputMode_Toggle,
-      MUIA_ShowSelState, True,
+      MUIA_ShowSelState, False,
       MUIA_Image_Spec, MUII_RadioButton]);
     inherited Create(MUIC_Image, GetTagPtr(TagList2));
   end else
@@ -485,6 +484,27 @@ begin
   inherited;
   if Assigned(CheckLabel) then
     CheckLabel.Visible := AValue;
+end;
+
+{ TMuiToggleButton }
+
+constructor TMuiToggleButton.Create(ObjType: LongInt;
+  const Params: array of const);
+var
+  TagList: TTagsList;
+begin
+  inherited Create(MUIO_Button, Params);
+  SetAttribute([MUIA_InputMode, MUIV_InputMode_Toggle]);
+  CheckHook.h_Entry := IPTR(@CheckFunc);
+  CheckHook.h_SubEntry := 0;
+  CheckHook.h_Data := Self;
+
+  DoMethod([LongInt(MUIM_Notify),
+    LongInt(MUIA_Selected), IPTR(MUIV_EveryTime),
+    LongInt(MUIV_Notify_Self),
+    2,
+    LongInt(MUIM_CallHook), IPTR(@CheckHook)
+    ]);
 end;
 
 { TMuiStringEdit }

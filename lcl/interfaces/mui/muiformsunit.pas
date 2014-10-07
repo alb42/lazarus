@@ -89,6 +89,7 @@ type
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
+    procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
     property Sizeable: Boolean read FSizeable write FSizeable;
@@ -342,6 +343,14 @@ begin
   Width := GetAttribute(MUIA_Window_Width);
   Height := GetAttribute(MUIA_Window_Height);
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
+end;
+
+procedure TMuiWindow.Redraw;
+begin
+  if BlockRedraw then
+    Exit;
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_InitChange)]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_ExitChange)]);
 end;
 
 procedure TMuiWindow.SetLeft(ALeft: LongInt);

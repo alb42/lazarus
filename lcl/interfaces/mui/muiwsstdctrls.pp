@@ -215,6 +215,7 @@ type
   private
   protected
   public
+  published
     class function  CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
@@ -298,6 +299,7 @@ end;
 class function TMUIWSCustomStaticText.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 begin
+  Result := True;
   AText := TMuiArea(AWinControl.Handle).Caption;
 end;
 
@@ -729,6 +731,7 @@ end;
 class function TMUIWSCustomMemo.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 begin
+  Result := True;
   AText := TMuiTextEdit(AWinControl.Handle).Strings.Text;
 end;
 

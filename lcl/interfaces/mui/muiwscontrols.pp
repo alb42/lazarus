@@ -126,12 +126,11 @@ implementation
 class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
-  MuiLabel: TMuiArea;
+  MuiPanel: TMuiArea;
 begin
   //writeln('-->Create GraphicControl');
-
-  MuiLabel := TMuiArea.Create(MUIC_Area, nil);
-  With MuiLabel do
+  MuiPanel := TMuiArea.Create(MUIC_Group, nil);
+  With MuiPanel do
   begin
     Left := AParams.X;
     Top := AParams.Y;
@@ -143,11 +142,10 @@ begin
 
   if AWinControl.Parent <> NIL then
   begin
-    MuiLabel.Parent := TMuiObject(AWinControl.Parent.Handle);
+    MuiPanel.Parent := TMuiObject(AWinControl.Parent.Handle);
   end;
   //
-  Result := TLCLIntfHandle(MuiLabel);
-  //
+  Result := TLCLIntfHandle(MuiPanel);
 end;
 
 {------------------------------------------------------------------------------
@@ -230,15 +228,20 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSWinControl.SetBounds(const AWinControl: TWinControl;
   const ALeft, ATop, AWidth, AHeight: Integer);
+var
+  MuiObj: TMuiObject;
 begin
   if not Assigned(AWincontrol) then
     Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
   begin
-    TMuiObject(AWinControl.Handle).Left := ALeft;
-    TMuiObject(AWinControl.Handle).Top := ATop;
-    TMuiObject(AWinControl.Handle).Width := AWidth;
-    TMuiObject(AWinControl.Handle).Height := AHeight;
+    MuiObj := TMuiObject(AWinControl.Handle);
+    MuiObj.BlockRedraw := True;
+    MuiObj.Left := ALeft;
+    MuiObj.Top := ATop;
+    MuiObj.Width := AWidth;
+    MuiObj.BlockRedraw := False;
+    MuiObj.Height := AHeight;
   end;
 end;
 
@@ -252,13 +255,18 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSWinControl.SetPos(const AWinControl: TWinControl;
   const ALeft, ATop: Integer);
+var
+  MuiObj: TMuiObject;
 begin
   if not Assigned(AWincontrol) then
     Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
   begin
-    TMuiObject(AWinControl.Handle).Left := ALeft;
-    TMuiObject(AWinControl.Handle).Top := ATop;
+    MuiObj := TMuiObject(AWinControl.Handle);
+    MuiObj.BlockRedraw := True;
+    MuiObj.Left := ALeft;
+    MuiObj.BlockRedraw := False;
+    MuiObj.Top := ATop;
   end;  
 end;
 
@@ -272,14 +280,19 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSWinControl.SetSize(const AWinControl: TWinControl;
   const AWidth, AHeight: Integer);
+var
+  MuiObj: TMuiObject;
 begin
   if not Assigned(AWincontrol) then
     Exit;
   //writeln(AWincontrol.classname,' got resize: ', AWidth);
   if TObject(AWinControl.Handle) is TMuiObject then
   begin
-    TMuiObject(AWinControl.Handle).Width := AWidth;
-    TMuiObject(AWinControl.Handle).Height := AHeight;
+    MuiObj := TMuiObject(AWinControl.Handle);
+    MuiObj.BlockRedraw := True;
+    MuiObj.Width := AWidth;
+    MuiObj.BlockRedraw := False;
+    MuiObj.Height := AHeight;
   end;  
 end;
 
@@ -297,8 +310,10 @@ begin
   if not Assigned(AWincontrol) then
     Exit;
   if TObject(AWinControl.Handle) is TMuiObject then
+  begin
     MuiObject := TMuiObject(AWinControl.Handle);
-      MuiObject.Visible := AWinControl.Visible;
+    MuiObject.Visible := AWinControl.Visible;
+  end;
 end;
 
 (*

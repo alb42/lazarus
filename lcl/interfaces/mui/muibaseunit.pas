@@ -53,11 +53,13 @@ type
   public
     FObjects: TObjectList;
     FObject: pObject_;
+    BlockRedraw: Boolean;
     constructor Create(ObjType : LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
     constructor Create(AClassName : PChar; Tags: PTagItem); overload; reintroduce; virtual;
     destructor Destroy; override;
     //
     procedure SetOwnSize; virtual;
+    procedure Redraw; virtual;
     //
     property Parent: TMUIObject read FParent write SetParent;
     property Left: LongInt read FLeft write SetLeft;
@@ -95,6 +97,10 @@ type
     property Selected: Boolean read GetSelected write SetSelected;
     property Hint: string read GetHint write SetHint;
     property Checked: LongBool read GetChecked write SetChecked;
+  end;
+
+  TMUIGroup = class(TMUIArea)
+
   end;
 
   { TMuiApplication }
@@ -199,21 +205,29 @@ end;
 procedure TMUIObject.SetLeft(ALeft: Integer);
 begin
   FLeft := ALeft;
+  if Assigned(Parent) then
+    Parent.ReDraw;
 end;
 
 procedure TMUIObject.SetTop(ATop: Integer);
 begin
   FTop :=  ATop;
+  if Assigned(Parent) then
+    Parent.ReDraw;
 end;
 
 procedure TMUIObject.SetWidth(AWidth: Integer);
 begin
   FWidth := AWidth;
+  if Assigned(Parent) then
+    Parent.ReDraw;
 end;
 
 procedure TMUIObject.SetHeight(AHeight: Integer);
 begin
   FHeight := AHeight;
+  if Assigned(Parent) then
+    Parent.ReDraw;
 end;
 
 function TMUIObject.GetWidth(): Integer;
@@ -288,6 +302,7 @@ end;
 constructor TMUIObject.Create(ObjType: LongInt; const Params: array of const);
 begin
   inherited Create;
+  BlockRedraw := False;
   FObjects := TObjectList.create(False);
   FParent := NIL;
   FObject := MUI_MakeObject(ObjType, Params);
@@ -312,12 +327,13 @@ begin
     2,
     LongInt(MUIM_CallHook), IPTR(@ButtonUp)
     ]);
-   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));  
+   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
+  BlockRedraw := False;
   FObjects := TObjectList.create(False);
   FParent := NIL;
   FObject := MUI_NewObjectA(AClassName, Tags);
@@ -326,6 +342,7 @@ end;
 
 destructor TMUIObject.Destroy;
 begin
+  BlockRedraw := True;
   //writeln(self.classname, '--> muiobject destroy');
   SetParent(nil);
   MUI_DisposeObject(FObject);
@@ -338,14 +355,28 @@ procedure TMUIObject.SetOwnSize;
 var
   i: LongInt;
 begin
+  //writeln(self.classname, '-->setownsize');
   if not Assigned(FObject) then
     Exit;
-  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight);  
-  MUI_LayOut(FObject, FLeft, FTop, FWidth, FHeight, 0);
+  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', FObjects.Count, ' obj ', HexStr(FObject));
+  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
+  //writeln(self.classname, '  setsize done');
   for i := 0 to FObjects.Count - 1 do
   begin
+    //writeln(self.classname, '  Child ', i);
     TMuiObject(FObjects.Items[i]).SetOwnSize;
   end;
+  //writeln(self.classname, '<--setownsize');
+end;
+
+procedure TMUIObject.Redraw;
+begin
+  if BlockRedraw then
+  begin
+    Exit;
+  end;
+  DoMethod([IPTR(MUIM_Group_InitChange)]);
+  DoMethod([IPTR(MUIM_Group_ExitChange)]);
 end;
 
 { TMuiApplication }

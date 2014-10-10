@@ -18,6 +18,9 @@ uses
 {$IFDEF darwin}
   {$define CaseInsensitiveFilenames}
 {$ENDIF}
+{$IFDEF HASAMIGA}
+  {$define CaseInsensitiveFilenames}
+{$ENDIF}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
   {$DEFINE NotLiteralFilenames} // e.g. HFS+ normalizes file names
 {$ENDIF}
@@ -149,20 +152,27 @@ implementation
 
 // to get more detailed error messages consider the os
 uses
-{$IFDEF Windows}
-  Windows {$IFnDEF WinCE}, ShlObj, ActiveX, WinDirs{$ENDIF};
+{$IFDEF AROS}
+  Exec, dos;
 {$ELSE}
-  {$IFDEF darwin}
-  MacOSAll,
+  {$IFDEF Windows}
+    Windows {$IFnDEF WinCE}, ShlObj, ActiveX, WinDirs{$ENDIF};
+  {$ELSE}
+    {$IFDEF darwin}
+      MacOSAll,
+    {$ENDIF}
   {$ENDIF}
-  Unix, BaseUnix;
 {$ENDIF}
 
 {$I lazfileutils.inc}
+{$IFDEF AROS}
+  {$I aroslazfileutils.inc}
+{$ELSE}  
 {$IFDEF windows}
   {$I winlazfileutils.inc}
 {$ELSE}
   {$I unixlazfileutils.inc}
+{$ENDIF}
 {$ENDIF}
 
 function CompareFilenames(const Filename1, Filename2: string): integer;

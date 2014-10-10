@@ -139,11 +139,11 @@ begin
     end;
     else
     begin
-      AddTags(Tags, [
+      //AddTags(Tags, [
         {LongInt(MUIA_Menuitem_CheckIt), LongInt(TRUE),
         LongInt(MUIA_Menuitem_Checked), LongInt(TRUE),
         LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE),}
-        TAG_END]);
+      //  TAG_END]);
       Menu := TMuiMenuItem.Create(Tags);
       Menu.Title := AMenuItem.Caption;
       Menu.PasObject := TControl(TObject(AMenuItem));

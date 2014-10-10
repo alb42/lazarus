@@ -36,6 +36,9 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
+  {$IFDEF Windows}
+  Windows,
+  {$ENDIF}
   Classes, SysUtils, LazUTF8, LazDbgLog, LazFileCache, LazFileUtils,
   LazUTF8Classes, LazLogger, AVL_Tree, CodeToolsStrConsts;
 
@@ -44,7 +47,7 @@ type
   TFPCMemStreamSeekType = integer;
   PCharZ = Pointer;
 
-{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
+{$if defined(Windows) or defined(darwin)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -347,18 +350,12 @@ function CompareAddrWithCTLineInfoCacheItem(Addr, Item: Pointer): integer;
 implementation
 
 // to get more detailed error messages consider the os
+{$IFnDEF Windows}
 uses
-{$IFDEF AROS}
-  dos;
-{$ELSE}
-  {$IFDEF Windows}
-    Windows;
-  {$ELSE}
-    {$IFDEF darwin}
-    MacOSAll,
-    {$ENDIF}
-    Unix, BaseUnix;
+  {$IFDEF darwin}
+  MacOSAll,
   {$ENDIF}
+  Unix, BaseUnix;
 {$ENDIF}
 
 procedure RaiseCatchableException(const Msg: string);

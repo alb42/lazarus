@@ -373,6 +373,12 @@ begin
   DragManager.DragStart(Self, Immediate, Threshold);
 end;
 
+procedure TControl.EndDrag(Drop: Boolean);
+begin
+  if Dragging then
+    DragManager.DragStop(Drop);
+end;
+
 {------------------------------------------------------------------------------
        TControl.BeginAutoDrag
 ------------------------------------------------------------------------------}
@@ -2857,7 +2863,9 @@ procedure TControl.DoAllAutoSize;
     begin
       AWinControl := TWinControl(AControl);
       for i := 0 to AWinControl.ControlCount - 1 do
-        if AWinControl.Controls[i].IsControlVisible and not CallAllOnResize(AWinControl.Controls[i]) then Exit;
+        if AWinControl.Controls[i].IsControlVisible
+        and not CallAllOnResize(AWinControl.Controls[i]) then
+          exit;
     end;
     {$IFDEF VerboseOnResize}
     debugln(['TControl.DoAllAutoSize ',DbgSName(AControl),' calling Resize ...']);

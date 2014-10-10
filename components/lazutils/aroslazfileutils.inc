@@ -30,6 +30,11 @@ var
 // ************* "Stubs" that just call Ansi or WideString routines ***********************
 
 
+function GetShellLinkTarget(const Filename: AnsiString): AnsiString;
+begin
+  Result := '';
+end;
+
 function GetCurrentDirUTF8: String;
 begin
   Result:=_GetCurrentDirUtf8();

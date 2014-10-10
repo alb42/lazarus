@@ -47,9 +47,10 @@ uses
   FormEditingIntf, ComponentReg,
   // IDE
   LazarusIDEStrConsts, EnvironmentOpts, IDECommands, LazIDEIntf, ProjectIntf,
-  LazFileUtils, NonControlDesigner, FrameDesigner, AlignCompsDlg, SizeCompsDlg,
-  ScaleCompsDlg, TabOrderDlg, AnchorEditor, DesignerProcs, CustomFormEditor,
-  AskCompNameDlg, ControlSelection, ChangeClassDialog, EditorOptions;
+  LazFileUtils, LazFileCache, NonControlDesigner, FrameDesigner, AlignCompsDlg,
+  SizeCompsDlg, ScaleCompsDlg, TabOrderDlg, AnchorEditor, DesignerProcs,
+  CustomFormEditor, AskCompNameDlg, ControlSelection, ChangeClassDialog,
+  EditorOptions;
 
 type
   TDesigner = class;
@@ -81,15 +82,15 @@ type
     );
   TDesignerFlags = set of TDesignerFlag;
 
-  TUndoList = record
+  TUndoItem = record
     obj: string;
     fieldName: string;
-    propInfo: TPropInfo;
+    propInfo: PPropInfo;
     oldVal, newVal: Variant;
     compName, parentName: TComponentName;
     opType: TUndoOpType;
     isValid: Boolean;
-    id: int64;
+    GroupId: int64;
   end;
 
   { TDesigner }
@@ -125,10 +126,10 @@ type
     FShiftState: TShiftState;
     FTheFormEditor: TCustomFormEditor;
     FPopupMenuComponentEditor: TBaseComponentEditor;
-    FUndoList: array of TUndoList;
+    FUndoList: array of TUndoItem;
     FUndoCurr: integer;
     FUndoLock: integer;
-    FUndoActId: int64;
+    FUndoGroupId: int64;
 
     //hint stuff
     FHintTimer: TTimer;
@@ -209,8 +210,8 @@ type
 
     function DoUndo: Boolean;
     function DoRedo: Boolean;
-    procedure SetNewVal(IsActUndo: boolean);
-    procedure SetNextUndoActId;
+    procedure ExecuteUndoItem(IsActUndo: boolean);
+    procedure SetNextUndoGroupId; inline;
 
     procedure DoShowAnchorEditor;
     procedure DoShowTabOrderEditor;
@@ -294,7 +295,7 @@ type
     function Undo: Boolean; override;
     function Redo: Boolean; override;
     function AddUndoAction(const aPersistent: TPersistent; aOpType: TUndoOpType;
-      IsSetNewId: boolean; aFieldName: string; const aOldVal, aNewVal: variant): boolean; override;
+      StartNewGroup: boolean; aFieldName: string; const aOldVal, aNewVal: variant): boolean; override;
     function IsUndoLocked: boolean; override;
     procedure ClearUndoItem(AIndex: Integer);
 
@@ -611,6 +612,12 @@ begin
         'Show options',dlgFROpts, nil, nil, nil, 'menu_environment_options');
 end;
 
+// inline
+procedure TDesigner.SetNextUndoGroupId;
+begin
+  LUIncreaseChangeStamp64(FUndoGroupId);
+end;
+
 constructor TDesigner.Create(TheDesignerForm: TCustomForm;
   AControlSelection: TControlSelection);
 var
@@ -654,7 +661,7 @@ begin
   FUndoCurr := Low(FUndoList);
   FUndoLock := 0;
   FUndoState := ucsNone;
-  SetNextUndoActId;
+  FUndoGroupId := 1;
 end;
 
 procedure TDesigner.PrepareFreeDesigner(AFreeComponent: boolean);
@@ -1230,30 +1237,30 @@ begin
 end;
 
 function TDesigner.DoUndo: Boolean;
-var currId: int64;
+var GroupId: int64;
 begin
   repeat
     Result := CanUndo;
     if not Result then Exit;
     Dec(FUndoCurr);
-    currId := FUndoList[FUndoCurr].id;
-    SetNewVal(true);
-  until (FUndoCurr=Low(FUndoList)) or (currId <> FUndoList[FUndoCurr - 1].id);
+    GroupId := FUndoList[FUndoCurr].GroupId;
+    ExecuteUndoItem(true);
+  until (FUndoCurr=Low(FUndoList)) or (GroupId <> FUndoList[FUndoCurr - 1].GroupId);
 end;
 
 function TDesigner.DoRedo: Boolean;
-var currId: int64;
+var GroupId: int64;
 begin
   repeat
     Result := CanRedo;
     if not Result then Exit;
-    SetNewVal(false);
-    currId := FUndoList[FUndoCurr].id;
+    ExecuteUndoItem(false);
+    GroupId := FUndoList[FUndoCurr].GroupId;
     Inc(FUndoCurr);
-  until (FUndoCurr>High(FUndoList)) or (currId <> FUndoList[FUndoCurr].id);
+  until (FUndoCurr>High(FUndoList)) or (GroupId <> FUndoList[FUndoCurr].GroupId);
 end;
 
-procedure TDesigner.SetNewVal(IsActUndo: boolean);
+procedure TDesigner.ExecuteUndoItem(IsActUndo: boolean);
 
   procedure SetPropVal(AVal: variant);
   var
@@ -1261,6 +1268,7 @@ procedure TDesigner.SetNewVal(IsActUndo: boolean);
     tmpCompName: TComponentName;
     tmpObj: TObject;
     tmpInt: integer;
+    aPropType: PTypeInfo;
   begin
     tmpCompName := FUndoList[FUndoCurr].compName;
     if FUndoList[FUndoCurr].fieldName = 'Name' then
@@ -1280,44 +1288,59 @@ procedure TDesigner.SetNewVal(IsActUndo: boolean);
       ShowMessage('error: invalid var type');
     tmpStr := VarToStr(AVal);
 
-    with FUndoList[FUndoCurr] do
-      case propInfo.propType^.Kind of
-        tkInteger, tkInt64:
-        begin
-          if (propInfo.propType^.Name = 'TColor') or
-             (propInfo.propType^.Name = 'TGraphicsColor') then
-            SetOrdProp(tmpObj, fieldName, StringToColor(tmpStr))
-          else if propInfo.propType^.Name = 'TCursor' then
-            SetOrdProp(tmpObj, fieldName, StringToCursor(tmpStr))
-          else
-            SetOrdProp(tmpObj, fieldName, StrToInt(tmpStr));
-        end;
-        tkChar, tkWChar, tkUChar:
-        begin
-          if Length(tmpStr) = 1 then
-            SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, Ord(tmpStr[1]))
-          else if (tmpStr[1] = '#') then
+    with FUndoList[FUndoCurr] do begin
+      if propInfo<>nil then
+      begin
+        aPropType:=propInfo^.propType;
+        case aPropType^.Kind of
+          tkInteger, tkInt64:
           begin
-            str := Copy(tmpStr, 2, Length(tmpStr) - 1);
-            if TryStrToInt(str, tmpInt) and (tmpInt >= 0) and (tmpInt <= High(Byte)) then
-              SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpInt);
+            if (aPropType^.Name = 'TColor') or
+               (aPropType^.Name = 'TGraphicsColor') then
+              SetOrdProp(tmpObj, fieldName, StringToColor(tmpStr))
+            else if aPropType^.Name = 'TCursor' then
+              SetOrdProp(tmpObj, fieldName, StringToCursor(tmpStr))
+            else
+              SetOrdProp(tmpObj, fieldName, StrToInt(tmpStr));
           end;
+          tkChar, tkWChar, tkUChar:
+          begin
+            if Length(tmpStr) = 1 then
+              SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, Ord(tmpStr[1]))
+            else if (tmpStr[1] = '#') then
+            begin
+              str := Copy(tmpStr, 2, Length(tmpStr) - 1);
+              if TryStrToInt(str, tmpInt) and (tmpInt >= 0) and (tmpInt <= High(Byte)) then
+                SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpInt);
+            end;
+          end;
+          tkEnumeration:
+            SetEnumProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpStr);
+          tkFloat:
+            SetFloatProp(tmpObj, fieldName, StrToFloat(tmpStr));
+          tkBool:
+            SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, Integer(StrToBool(tmpStr)));
+          tkString, tkLString, tkAString, tkUString, tkWString:
+            SetStrProp(tmpObj, fieldName, tmpStr);
+          tkSet:
+            SetSetProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpStr);
+          tkVariant:
+            SetVariantProp(tmpObj, fieldName, AVal);
+          else
+            ShowMessage(Format('error: unknown TTypeKind(%d)', [Integer(aPropType^.Kind)]));
         end;
-        tkEnumeration:
-          SetEnumProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpStr);
-        tkFloat:
-          SetFloatProp(tmpObj, fieldName, StrToFloat(tmpStr));
-        tkBool:
-          SetOrdProp(tmpObj, FUndoList[FUndoCurr].fieldName, Integer(StrToBool(tmpStr)));
-        tkString, tkLString, tkAString, tkUString, tkWString:
-          SetStrProp(tmpObj, fieldName, tmpStr);
-        tkSet:
-          SetSetProp(tmpObj, FUndoList[FUndoCurr].fieldName, tmpStr);
-        tkVariant:
-          SetVariantProp(tmpObj, fieldName, AVal);
-        else
-          ShowMessage(Format('error: unknown TTypeKind(%d)', [Integer(propInfo.propType^.Kind)]));
+      end else begin
+        // field is not published
+        if tmpObj is TComponent then
+        begin
+          // special case: TComponent.Left,Top
+          if CompareText(fieldName,'Left')=0 then
+            SetDesignInfoLeft(TComponent(tmpObj),StrToInt(tmpStr))
+          else if CompareText(fieldName,'Top')=0 then
+            SetDesignInfoTop(TComponent(tmpObj),StrToInt(tmpStr));
+        end;
       end;
+    end;
     PropertyEditorHook.Modified(tmpObj);
   end;
 
@@ -1372,12 +1395,6 @@ begin
   end;
 
   PropertyEditorHook.RefreshPropertyValues;
-end;
-
-procedure TDesigner.SetNextUndoActId;
-begin
-  Randomize;
-  FUndoActId := Random(High(Int64));
 end;
 
 procedure TDesigner.DoShowAnchorEditor;
@@ -1607,7 +1624,7 @@ begin
 end;
 
 function TDesigner.AddUndoAction(const aPersistent: TPersistent;
-  aOpType: TUndoOpType; IsSetNewId: boolean; aFieldName: string; const aOldVal,
+  aOpType: TUndoOpType; StartNewGroup: boolean; aFieldName: string; const aOldVal,
   aNewVal: variant): boolean;
 
   procedure ShiftUndoList;
@@ -1616,6 +1633,7 @@ function TDesigner.AddUndoAction(const aPersistent: TPersistent;
   begin
     for i := Low(FUndoList) + 1 to High(FUndoList) do
       FUndoList[i - 1] := FUndoList[i];
+    ClearUndoItem(High(FUndoList));
     Dec(FUndoCurr);
   end;
 
@@ -1627,18 +1645,15 @@ var
 begin
   Result := (FUndoLock = 0);
   if not Result then Exit;
+
   APropInfo := GetPropInfo(aPersistent, aFieldName);
-  {property is not published ?}
-  if APropInfo = nil then
-  begin
-    DebugLn('TDesigner.AddUndoAction: error ',dbgsName(aPersistent),' property "',AFieldName,'". Property is not published ? ');
-    exit;
-  end;
+
   Inc(FUndoLock);
   try
     if FUndoCurr > High(FUndoList) then
       ShiftUndoList;
 
+    // clear Redo items
     i := FUndoCurr;
     while (i <= High(FUndoList)) do
     begin
@@ -1646,8 +1661,8 @@ begin
       Inc(i);
     end;
 
-    if IsSetNewId then
-      SetNextUndoActId;
+    if StartNewGroup then
+      SetNextUndoGroupId;
 
     if (aOpType in [uopAdd, uopDelete]) and (FForm <> aPersistent) then
     begin
@@ -1684,8 +1699,8 @@ begin
       end;
       opType := aOpType;
       isValid := true;
-      id := FUndoActId;
-      propInfo := APropInfo^;
+      GroupId := FUndoGroupId;
+      propInfo := APropInfo;
     end;
     Inc(FUndoCurr);
   finally
@@ -1711,7 +1726,7 @@ begin
     parentName := '';
     opType := uopNone;
     isValid := false;
-    id := 0;
+    GroupId := 0;
   end;
 end;
 
@@ -2366,6 +2381,7 @@ var
 var
   Handled: Boolean;
   i, j: Integer;
+  SelectedPersistent: TSelectedControl;
 begin
   FHintTimer.Enabled := False;
   FHintWindow.Visible := False;
@@ -2422,22 +2438,44 @@ begin
   begin
     if SelectedCompClass = nil then
     begin
-      if (FUndoState = ucsSaveChange) and (FUndoCurr > 4) then
+      if (FUndoState = ucsSaveChange) then
       begin
-        j := FUndoCurr - ControlSelection.Count * 4;
-        for i := 0 to ControlSelection.Count - 1 do
+        // update undo list stored component bounds (Left, Top, Width, Height)
+        // see TControlSelection.EndResizing
+        // the list of all TComponent, Left,Top,Width,Height
+        // Note: not every component has all four properties.
+        j := FUndoCurr - 1;
+        i := ControlSelection.Count-1;
+        while i>=0 do
         begin
-          if (FUndoList[j].fieldName = 'Top')
-            and (FUndoList[j + 1].fieldName = 'Left')
-            and (FUndoList[j + 2].fieldName = 'Height')
-            and (FUndoList[j + 3].fieldName = 'Width') then
+          SelectedPersistent:=ControlSelection.Items[i];
+          if SelectedPersistent.IsTComponent then
           begin
-            FUndoList[j].newVal := ControlSelection.Items[i].Top;
-            FUndoList[j + 1].newVal := ControlSelection.Items[i].Left;
-            FUndoList[j + 2].newVal := ControlSelection.Items[i].Height;
-            FUndoList[j + 3].newVal := ControlSelection.Items[i].Width;
+            while (j>=0) do
+            begin
+              if (FUndoList[j].compName <> TComponent(SelectedPersistent.Persistent).Name)
+              then begin
+                // this is not a list of bounds -> stop
+                i:=0;
+                break;
+              end;
+              if (FUndoList[j].fieldName = 'Width') then
+                FUndoList[j].newVal := SelectedPersistent.Width
+              else if (FUndoList[j].fieldName = 'Height') then
+                FUndoList[j].newVal := SelectedPersistent.Height
+              else if (FUndoList[j].fieldName = 'Left') then
+                FUndoList[j].newVal := SelectedPersistent.Left
+              else if (FUndoList[j].fieldName = 'Top') then
+                FUndoList[j].newVal := SelectedPersistent.Top
+              else begin
+                // this is not a list of bounds -> stop
+                i:=0;
+                break;
+              end;
+              dec(j);
+            end;
           end;
-          j := j + 4;
+          dec(i);
         end;
       end;
       FUndoState := ucsNone;

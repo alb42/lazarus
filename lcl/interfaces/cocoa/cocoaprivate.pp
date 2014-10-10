@@ -53,6 +53,7 @@ type
     procedure ResignFirstResponder;
     procedure DidBecomeKeyNotification;
     procedure DidResignKeyNotification;
+    procedure SendOnChange;
     // non event methods
     function DeliverMessage(Msg: Cardinal; WParam: WParam; LParam: LParam): LResult;
     function GetPropStorage: TStringList;
@@ -429,19 +430,37 @@ type
     function lclIsHandle: Boolean; override;
   end;
 
+  TStatusItemData = record
+    Text  : NSString;
+    Width : Integer;
+    Align : TAlignment;
+  end;
+
+  TStatusItemDataArray = array of TStatusItemData;
+
+  { TCocoaStatusBar }
+
+  TCocoaStatusBar = objcclass(TCocoaCustomControl)
+  public
+    StatusBar : TStatusBar;
+    procedure drawRect(dirtyRect: NSRect); override;
+    procedure DrawSection(Ctx: CGContextRef; const r: TRect; data: TStatusItemData); message 'DrawSection:r:data:';
+    //procedure DrawStatusBar(Ctx: CGContextRef; const bnd: TRect; Items: array of TStatusItemData); message 'DrawStatusBar:bnd:Items:';
+  end;
 
   TCocoaComboBox = objcclass;
+  TCocoaReadOnlyComboBox = objcclass;
 
   { TCocoaComboBoxList }
 
   TCocoaComboBoxList = class(TStringList)
-  private
-    FOwner: TCocoaComboBox;
   protected
+    FOwner: TCocoaComboBox;
+    FReadOnlyOwner: TCocoaReadOnlyComboBox;
     procedure Changed; override;
   public
-    constructor Create(AOwner: TCocoaComboBox);
-    property Owner: TCocoaComboBox read fOwner;
+    // Pass only 1 owner and nil for the other ones
+    constructor Create(AOwner: TCocoaComboBox; AReadOnlyOwner: TCocoaReadOnlyComboBox);
   end;
 
   IComboboxCallBack = interface(ICommonCallBack)
@@ -471,6 +490,23 @@ type
     procedure comboBoxWillDismiss(notification: NSNotification); message 'comboBoxWillDismiss:';
     procedure comboBoxSelectionDidChange(notification: NSNotification); message 'comboBoxSelectionDidChange:';
     procedure comboBoxSelectionIsChanging(notification: NSNotification); message 'comboBoxSelectionIsChanging:';
+    function lclIsHandle: Boolean; override;
+  end;
+
+  { TCocoaReadOnlyComboBox }
+
+  TCocoaReadOnlyComboBox = objcclass(NSPopUpButton)
+  public
+    callback: IComboboxCallBack;
+    list: TCocoaComboBoxList;
+    resultNS: NSString;  //use to return values to combo
+    function acceptsFirstResponder: Boolean; override;
+    function becomeFirstResponder: Boolean; override;
+    function resignFirstResponder: Boolean; override;
+    procedure dealloc; override;
+    function lclGetCallback: ICommonCallback; override;
+    procedure lclClearCallback; override;
+    procedure resetCursorRects; override;
     function lclIsHandle: Boolean; override;
   end;
 
@@ -2829,17 +2865,150 @@ begin
   inherited Create;
 end;
 
+{ TCocoaStatusBar }
+
+procedure TCocoaStatusBar.drawRect(dirtyRect: NSRect);
+
+  procedure DrawStatusBar(Ctx: CGContextRef;
+    const bnd: TRect; Items: TStatusItemDataArray);
+  var
+    i   : Integer;
+    x   : Integer;
+    xn  : Integer;
+    r   : TRect;
+  const
+    dummy : TStatusItemData = (Text: nil; Width:0; align: taLeftJustify);
+    ExtraWidth=2;
+  begin
+    if length(Items) = 0 then
+    begin
+      DrawSection(Ctx, bnd, dummy);
+      //if Assigned(OnItemDraw) then OnItemDraw(-1, bnd, dummy);
+      Exit;
+    end;
+
+    x := bnd.Left;
+    for i := 0 to length(Items)-1 do
+    begin
+      xn := x + Items[i].Width;
+      r := Types.Rect(x, bnd.Top, xn+ExtraWidth, bnd.Bottom);
+      if i = length(Items)-1 then
+        r := Types.Rect(x, bnd.Top, bnd.Right, bnd.Bottom);
+      DrawSection(Ctx, r, Items[i]);
+      dec(r.Right, ExtraWidth);
+      //if Assigned(OnItemDraw) then OnItemDraw(i, r, Items[i]);
+      x := xn;
+    end;
+  end;
+
+var
+  R         : TRect;
+  items     : array of TStatusItemData;
+  i         : Integer;
+  Ctx: CGContextRef;
+begin
+  //inherited NSControl.drawRect(dirtyRect);
+  if callback = nil then Exit;
+  r := lclClientFrame();
+  if StatusBar.SimplePanel then
+  begin
+    SetLength(items, 1);
+    items[0].Width := r.Right-r.Left;
+    items[0].Text := NSStringUtf8(StatusBar.SimpleText);
+    items[0].Align := taLeftJustify; //todo: select proper Justify based on lanuage text-mode (r2l, l2r)!
+  end
+  else
+  begin
+    SetLength(items, StatusBar.Panels.Count);
+    for i:=0 to length(items)-1 do
+    begin
+      items[i].Width := StatusBar.Panels[i].Width;
+      items[i].Text := NSStringUtf8(StatusBar.Panels[i].Text);
+      items[i].Align := StatusBar.Panels[i].Alignment;
+    end;
+  end;
+  Ctx := NSGraphicsContext.currentContext().graphicsPort();
+
+  DrawStatusBar(Ctx, r, items);
+
+  // Release all NSStrings
+  for i:=0 to length(items)-1 do
+  begin
+    items[i].Text.release;
+  end;
+end;
+
+procedure TCocoaStatusBar.DrawSection(Ctx: CGContextRef; const r: TRect;
+  data: TStatusItemData);
+var
+  cr    : CGRect;
+  info  : HIThemeButtonDrawInfo;
+  txtinfo : HIThemeTextInfo;
+  lStr: string;
+const
+  txtHorzFlush : array [TAlignment] of Integer =
+    (kHIThemeTextHorizontalFlushLeft,kHIThemeTextHorizontalFlushRight,kHIThemeTextHorizontalFlushCenter);
+  StatusHeight = 15;
+begin
+  // Otherwise the text gets printed upside down!
+  CGContextTranslateCTM(Ctx, 0, StatusHeight);
+  CGContextScaleCTM(Ctx, 1, -1);
+  try
+    cr:=RectToCGRect(r);
+    FillChar(info{%H-}, sizeof(info), 0);
+    info.kind:=kThemeListHeaderButton;
+    info.state:=kThemeStateActive;
+    HIThemeDrawButton( cr, info, ctx, 0, nil);
+
+    cr.origin.x:=cr.origin.x+2;
+    cr.origin.y:=cr.origin.y+1;
+    cr.size.width:=cr.size.width-6;
+    if data.Text <> nil then
+      lStr := NSStringToString(data.Text);
+    if (data.Text <> nil) and (lStr <> '') then
+    begin
+      FillChar(txtinfo{%H-}, sizeof(txtinfo), 0);
+      txtinfo.version:=1;
+      //txtinfo.fontID:=kThemeMiniSystemFont;
+      txtinfo.horizontalFlushness:=txtHorzFlush[data.align];
+      txtinfo.fontID:=kThemeSmallSystemFont;
+      txtinfo.state:=kThemeStateActive;
+      HIThemeSetTextFill(kThemeTextColorListView, nil, ctx, 0);
+      HIThemeDrawTextBox(CFStringRef(data.Text), cr, txtinfo, ctx, 0);
+    end;
+  finally
+    // It is very important to restore the coordinates ;)
+    CGContextScaleCTM(Ctx, 1, -1);
+    CGContextTranslateCTM(Ctx, 0, -1 * StatusHeight);
+  end;
+end;
+
 { TCocoaComboBoxList }
 
 procedure TCocoaComboBoxList.Changed;
+var
+  i: Integer;
+  nsstr: NSString;
 begin
-  fOwner.reloadData;
+  if FOwner <> nil then
+    fOwner.reloadData;
+  if FReadOnlyOwner <> nil then
+  begin
+    FReadOnlyOwner.removeAllItems();
+    for i := 0 to Count-1 do
+    begin
+      nsstr := NSStringUtf8(Strings[i]);
+      FReadOnlyOwner.addItemWithTitle(nsstr);
+      nsstr.release;
+    end;
+  end;
   inherited Changed;
 end;
 
-constructor TCocoaComboBoxList.Create(AOwner:TCocoaComboBox);
+constructor TCocoaComboBoxList.Create(AOwner: TCocoaComboBox; AReadOnlyOwner: TCocoaReadOnlyComboBox);
 begin
-  fOwner:=AOwner;
+  FOwner := AOwner;
+  FReadOnlyOwner := AReadOnlyOwner;
 end;
 
 { TCocoaComboBox }
@@ -2925,6 +3094,58 @@ end;
 procedure TCocoaComboBox.comboBoxSelectionIsChanging(notification: NSNotification);
 begin
   callback.ComboBoxSelectionIsChanging;
+end;
+
+{ TCocoaReadOnlyComboBox }
+
+function TCocoaReadOnlyComboBox.acceptsFirstResponder: Boolean;
+begin
+  Result := True;
+end;
+
+function TCocoaReadOnlyComboBox.becomeFirstResponder: Boolean;
+begin
+  Result := inherited becomeFirstResponder;
+  callback.BecomeFirstResponder;
+end;
+
+function TCocoaReadOnlyComboBox.resignFirstResponder: Boolean;
+begin
+  Result := inherited resignFirstResponder;
+  callback.ResignFirstResponder;
+end;
+
+procedure TCocoaReadOnlyComboBox.dealloc;
+begin
+  if Assigned(list) then
+  begin
+    list.Free;
+    list:=nil;
+  end;
+  if resultNS <> nil then
+    resultNS.release;
+  inherited dealloc;
+end;
+
+function TCocoaReadOnlyComboBox.lclGetCallback: ICommonCallback;
+begin
+  Result := callback;
+end;
+
+procedure TCocoaReadOnlyComboBox.lclClearCallback;
+begin
+  callback := nil;
+end;
+
+procedure TCocoaReadOnlyComboBox.resetCursorRects;
+begin
+  if not callback.resetCursorRects then
+    inherited resetCursorRects;
+end;
+
+function TCocoaReadOnlyComboBox.lclIsHandle: Boolean;
+begin
+  Result:=true;
 end;
 
 { TCocoaMenu }
@@ -3063,14 +3284,11 @@ begin
 end;
 
 procedure TCocoaSlider.sliderAction(sender: id);
-var
-  Msg: TLMessage;
 begin
   SnapToInteger();
   // OnChange event
-  FillChar(Msg, SizeOf(Msg), #0);
-  Msg.Msg := LM_CHANGED;
-  DeliverMessage(Msg);
+  if callback <> nil then
+    callback.SendOnChange();
 end;
 
 end.

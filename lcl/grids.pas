@@ -863,7 +863,7 @@ type
     function  BoxRect(ALeft,ATop,ARight,ABottom: Longint): TRect;
     procedure CacheMouseDown(const X,Y:Integer);
     procedure CalcAutoSizeColumn(const Index: Integer; var AMin,AMax,APriority: Integer); virtual;
-    procedure CalcFocusRect(var ARect: TRect);
+    procedure CalcFocusRect(var ARect: TRect; adjust: boolean = true);
     function  CalcMaxTopLeft: TPoint;
     procedure CalcScrollbarsRange;
     function  CanEditShow: Boolean; virtual;
@@ -3956,11 +3956,11 @@ begin
       ColRowToOffset(True, True, aCol, R.Left, R.Right);
       if (R.Left>=R.Right) or not HorizontalIntersect(R, ClipArea) then
         continue;
-      Rs := (goRowSelect in Options);
       gds := GetGridDrawState(ACol, ARow);
       DoDrawCell;
     end;
 
+    Rs := (goRowSelect in Options);
     // Draw the focus Rect
     if FFocusRectVisible and (ARow=FRow) and
        ((Rs and (ARow>=Top) and (ARow<=Bottom)) or IsCellVisible(FCol,ARow))
@@ -3969,7 +3969,10 @@ begin
       //if EditorAlwaysShown and (FEditor<>nil) and FEditor.Visible then begin
         //DebugLn('No Draw Focus Rect');
       end else begin
-        ColRowToOffset(True, True, FCol, R.Left, R.Right);
+        if Rs then
+          CalcFocusRect(R, false) // will be adjusted when calling DrawFocusRect
+        else
+          ColRowToOffset(True, True, FCol, R.Left, R.Right);
         // is this column within the ClipRect?
         if HorizontalIntersect(R, ClipArea) then
           DrawFocusRect(FCol,FRow, R);
@@ -5920,6 +5923,9 @@ procedure TCustomGrid.DoOPDeleteColRow(IsColumn: Boolean; index: Integer);
     FGCache.AccumHeight.Delete(Index);
     ColRowDeleted(False,Index);
     FixPosition(False, Index);
+
+    If FRowAutoInserted And (Index=FixedRows+(RowCount-1)) Then
+      FRowAutoInserted := False;
   end;
 begin
   CheckIndex(IsColumn,Index);
@@ -7198,7 +7204,7 @@ begin
   APriority := 0;
 end;
 
-procedure TCustomGrid.CalcFocusRect(var ARect: TRect);
+procedure TCustomGrid.CalcFocusRect(var ARect: TRect; adjust: boolean = true);
 {
 var
   dx,dy: integer;
@@ -7216,6 +7222,10 @@ begin
 
     FlipRect(aRect);
   end;
+
+  if not adjust then
+    exit;
+
   if goHorzLine in Options then dec(aRect.Bottom, 1);
   if goVertLine in Options then
     if UseRightToLeftAlignment then
@@ -8855,7 +8865,7 @@ begin
     raise Exception.Create(rsGridFileDoesNotExists);
   Cfg:=TXMLConfig.Create(nil);
   Try
-    Cfg.Filename := UTF8ToSys(FileName);
+    Cfg.Filename := FileName;
     LoadSub(Cfg);
   Finally
     FreeThenNil(Cfg);
@@ -8883,7 +8893,7 @@ begin
     DeleteFileUTF8(FileName);
   Cfg:=TXMLConfig.Create(nil);
   Try
-    Cfg.FileName := UTF8ToSys(FileName);
+    Cfg.FileName := FileName;
     SaveContent(Cfg);
     Cfg.Flush;
   Finally

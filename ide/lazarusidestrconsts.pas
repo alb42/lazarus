@@ -608,6 +608,7 @@ resourcestring
   lisStartConversion = 'Start Conversion';
   lisConvertTarget = 'Target';
   lisConvertTargetHint = 'Converter adds conditional compilation to support different targets';
+  lisConvertOtherHint = 'Other options affecting the conversion';
   lisConvertTargetCrossPlatform = 'Cross-platform';
   lisConvertTargetCrossPlatformHint = 'Cross-platform versus Windows-only';
   lisConvertTargetSupportDelphi = 'Support Delphi';
@@ -616,6 +617,9 @@ resourcestring
   lisConvertTargetSameDfmFileHint = 'Same DFM file for Lazarus and Delphi instead of copying it to LFM';
   lisKeepFileOpen = 'Keep converted files open in editor';
   lisKeepFileOpenHint = 'All project files will be open in editor after conversion';
+  lisScanFilesInParentDir = 'Scan files in parent directory';
+  lisScanFilesInParentDirHint = 'Search for source files in sibling directories'
+    +' (parent directory and its children)';
   lisConvUnknownProps = 'Unknown properties';
   lisConvTypesToReplace = 'Types to replace';
   lisConvTypeReplacements = 'Type Replacements';
@@ -636,6 +640,26 @@ resourcestring
   lisConvTopOff = 'Top offset';
   lisConvLeftOff = 'Left offset';
   lisConvDelphiFunc = 'Delphi Function';
+  lisConvAddedUnitToUsesSection = 'Added unit %s to uses section';
+  lisConvAddingFlagForRegister = 'Adding flag for "Register" procedure in unit %s.';
+  lisConvDeletedFile = 'Deleted file %s';
+  lisConvBracketNotFound = 'Bracket not found';
+  lisConvDprojFileNotSupportedYet =
+    '.dproj file is not supported yet. The file is used by Delphi 2007 and newer.'+
+    ' Please select a .dpr file for projects or .dpk file for packages.';
+  lisConvRepairingIncludeFiles = 'Repairing include files : ';
+  lisConvUserSelectedToEndConversion = 'User selected to end conversion with file %s';
+  lisConvFixedUnitName = 'Fixed unit name from %s to %s.';
+  lisConvShouldBeFollowedByNumber = '"$" should be followed by a number: %s';
+  lisConvReplacedCall = 'Replaced call %s with %s';
+  lisConvReplFuncParameterNum = 'Replacement function parameter number should be >= 1: %s';
+  lisConvBracketMissingFromReplFunc = '")" is missing from replacement function: %s';
+  lisConvProblemsFindingAllUnits = 'Problems when trying to find all units from project file %s';
+  lisConvProblemsRepairingFormFile = 'Problems when repairing form file %s';
+  lisConvProblemsFixingIncludeFile = 'Problems when fixing include files in file %s';
+  lisConvStoppedBecauseThereIsPackage  = 'Stopped because there already is a package with the same name';
+  lisConvConvertedFrom = ' { *Converted from %s* }';
+  lisConvThisLogWasSaved = 'This log was saved to %s';
   lisScanning = 'Scanning';
   lisScanParentDir = 'Scanning parent directory';
   lisReplacement = 'Replacement';
@@ -647,6 +671,7 @@ resourcestring
   lisReplaceRemoveUnknown = 'Fix unknown properties and types';
   lisReplacementFuncs = 'Replacement functions';
   lisFilesHaveRightEncoding = '*** All found files already have the right encoding ***';
+  lisEncodingNumberOfFilesFailed = 'Number of files failed to convert: %d';
 
   lisnoname = 'noname';
   lisTheDestinationDirectoryDoesNotExist = 'The destination directory%s"%s" does not exist.';
@@ -3150,6 +3175,10 @@ resourcestring
   lisCompilerHintYouCanSetTheCompilerPath = 'Hint: you can set the compiler '
     +'path in Tools -> Options-> Files -> Compiler Path';
   lisCompileProject = 'Compile Project';
+  lisMode = ', Mode: %s';
+  lisOS = ', OS: %s';
+  lisCPU = ', CPU: %s';
+  lisTarget2 = ', Target: %s';
   lisCompilerNOTELoadingOldCodetoolsOptionsFile = 'NOTE: loading old '
     +'codetools options file: ';
   lisCompilerNOTECodetoolsConfigFileNotFoundUsingDefaults = 'NOTE: codetools '
@@ -3619,6 +3648,8 @@ resourcestring
   lisKMOpenPackageFile = 'Open package file';
   lisCPOpenPackage = 'Open Package %s';
   lisFilterAllMessagesOfType = 'Filter all messages of type %s';
+  lisFilterAllMessagesOfCertainType = 'Filter all messages of certain type';
+  lisOpenToolOptions = 'Open Tool Options';
   lisCPOpenUnit = 'Open Unit %s';
   lisCompPalOpenUnit = 'Open unit';
   lisCompPalComponentList = 'View All';

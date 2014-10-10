@@ -6,8 +6,13 @@ interface
 
 uses
   Classes, SysUtils, Types, FileUtil, Forms, Controls, Graphics, Dialogs,
-  {$ifndef POCHECKERSTANDALONE} LazIDEIntf, {$endif}
-  ExtCtrls, PoFamilies, PoCheckerConsts, LCLProc, StdCtrls, ComCtrls;
+  {$ifndef POCHECKERSTANDALONE}
+  LazIDEIntf,
+  {$else}
+  Process, Utf8Process,
+  {$endif}
+  ExtCtrls, PoFamilies, PoCheckerConsts, LCLProc, StdCtrls, ComCtrls,
+  PoCheckerSettings;
 
 
 type
@@ -37,12 +42,18 @@ type
     FPoFamilyStats: TPoFamilyStats;
     FImgList: TImageList;
     FOldHintHidePause: Integer;
+    FSettings: TPoCheckerSettings;
+    procedure LoadConfig;
+    Procedure SaveConfig;
     function CreateBitmap(AStat: TStat): TBitmap;
     procedure AddToListView(AStat: TStat; ABmp: TBitmap);
     procedure DrawGraphs;
+    procedure MaybeOpenInLazIDE(const Fn: String);
+    procedure MaybeOpenInExternalEditor(const Fn: String);
   public
     { public declarations }
     property PoFamilyStats: TPoFamilyStats read FPoFamilyStats write FPoFamilyStats;
+    property Settings: TPoCheckerSettings read FSettings write FSettings;
   end;
 
 var
@@ -83,6 +94,8 @@ procedure TGraphStatForm.FormShow(Sender: TObject);
 begin
   FOldHintHidePause := Application.HintHidePause;
   Application.HintHidePause := 5000;
+  LoadConfig;
+  WindowState := Settings.GraphFormWindowState;
 end;
 
 procedure TGraphStatForm.ListViewMouseMove(Sender: TObject; Shift: TShiftState;
@@ -111,34 +124,52 @@ end;
 
 procedure TGraphStatForm.ListViewMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
-{$ifndef POCHECKERSTANDALONE}
 var
   anItem: TListItem;
   anIndex: Integer;
   AStat: TStat;
-  PageIndex,WindowIndex: Integer;
-  OpenFlags: TOpenFlags;
   mr: TModalResult;
-{$endif}
 begin
-  {$ifndef POCHECKERSTANDALONE}
   anItem := Listview.GetItemAt(X, Y);
-  if Assigned(anItem) then begin
+  {$ifdef pocheckerstandalone}
+  if Assigned(anItem) and (Settings.ExternalEditorName <> '') then
+  {$else}
+  if Assigned(anItem) then
+  {$endif}
+  begin
     anIndex := anItem.Index;
     AStat := FPoFamilyStats.Items[anIndex];
-    PageIndex:= -1;
-    WindowIndex:= -1;
-    OpenFlags:= [ofOnlyIfExists,ofAddToRecent,ofRegularFile,ofConvertMacros];
-    mr := LazarusIde.DoOpenEditorFile(AStat.PoName,PageIndex,WindowIndex,OpenFlags);
-    if mr = mrOk then begin
-      if MessageDlg('PoChecker',Format(sOpenFile,[AStat.PoName]),
-         mtConfirmation,mbOKCancel,0) = mrOk then begin
-           ModalResult:= mrOpenEditorFile; //To let caller know what we want to do
-         end;
-      end
-    else ShowMessage(Format(SOpenFail,[AStat.PoName]));
+    {$ifdef pocheckerstandalone}
+    MaybeOpenInExternalEditor(AStat.PoName);
+    {$else}
+    MaybeOpenInLazIDE(AStat.PoName);
+    {$endif}
   end;
-  {$endif}
+end;
+
+procedure TGraphStatForm.LoadConfig;
+var
+  ARect: TRect;
+begin
+  if not Assigned(FSettings) then Exit;
+  ARect := FSettings.GraphFormGeometry;
+  //debugln('TGraphStatForm.LoadConfig: ARect = ',dbgs(ARect));
+  if not IsDefaultRect(ARect) and IsValidRect(ARect) then
+  begin
+    ARect := FitToRect(ARect, Screen.WorkAreaRect);
+    BoundsRect := ARect;
+  end;
+end;
+
+procedure TGraphStatForm.SaveConfig;
+begin
+  //debugln('TGraphStatForm.SaveConfig: BoundsRect = ',dbgs(BoundsRect));
+  if not Assigned(FSettings) then Exit;
+  Settings.GraphFormWindowState := WindowState;
+  if (WindowState = wsNormal) then
+    Settings.GraphFormGeometry := BoundsRect
+  else
+    Settings.GraphFormGeometry := Rect(RestoredLeft, RestoredTop, RestoredLeft + RestoredWidth, RestoredTop + RestoredHeight);
 end;
 
 procedure TGraphStatForm.FormCreate(Sender: TObject);
@@ -169,6 +200,7 @@ end;
 procedure TGraphStatForm.FormDestroy(Sender: TObject);
 begin
   if Assigned(FImgList) then FImgList.Free;
+  SaveConfig;
 end;
 
 function TGraphStatForm.CreateBitmap(AStat: TStat): TBitmap;
@@ -270,6 +302,62 @@ begin
   finally
     ListView.EndUpdate;
   end;
+end;
+
+procedure TGraphStatForm.MaybeOpenInExternalEditor(const Fn: String);
+{$ifdef POCHECKERSTANDALONE}
+var
+  Proc: TProcessUtf8;
+{$endif}
+begin
+  {$ifdef POCHECKERSTANDALONE}
+  if MessageDlg('PoChecker',Format(sOpenFileExternal,[Fn,Settings.ExternalEditorName]),
+     mtConfirmation,mbOKCancel,0) = mrOk then
+  begin
+    Proc := TProcessUtf8.Create(nil);
+    try
+      Proc.Options := [];
+      Proc.Executable := Settings.ExternalEditorName;
+      Proc.Parameters.Add(Fn);
+      try
+        Proc.Execute;
+      except
+        on E: EProcess do
+        begin
+          debugln('TGraphStatForm.ListViewMouseUp:');
+          debugln('  Exception occurred of type ',E.ClassName);
+          debugln('  Message: ',E.Message);
+          ShowMessage(Format(SOpenFailExternal,[Fn,Settings.ExternalEditorName]));
+        end;
+      end;
+    finally
+      Proc.Free;
+    end;
+  end;
+  {$endif}
+end;
+
+procedure TGraphStatForm.MaybeOpenInLazIDE(const Fn: String);
+{$ifndef POCHECKERSTANDALONE}
+var
+  mr: TModalResult;
+  PageIndex,WindowIndex: Integer;
+  OpenFlags: TOpenFlags;
+{$endif}
+begin
+  {$ifndef POCHECKERSTANDALONE}
+  PageIndex:= -1;
+  WindowIndex:= -1;
+  OpenFlags:= [ofOnlyIfExists,ofAddToRecent,ofRegularFile,ofConvertMacros];
+  mr := LazarusIde.DoOpenEditorFile(Fn,PageIndex,WindowIndex,OpenFlags);
+  if mr = mrOk then begin
+    if MessageDlg('PoChecker',Format(sOpenFile,[Fn]),
+       mtConfirmation,mbOKCancel,0) = mrOk then begin
+         ModalResult:= mrOpenEditorFile; //To let caller know what we want to do
+       end;
+    end
+  else ShowMessage(Format(SOpenFail,[Fn]));
+  {$endif}
 end;
 
 end.

@@ -3333,8 +3333,12 @@ begin
   ecToggleObjectInsp:         mnuViewInspectorClicked(Self);
   ecToggleSearchResults:      mnuViewSearchResultsClick(Self);
   ecAboutLazarus:             MainIDEBar.itmHelpAboutLazarus.OnClick(Self);
-  ecToggleBreakPoint: SourceEditorManager.ActiveSourceWindow.ToggleBreakpointClicked(Self);
-  ecRemoveBreakPoint: SourceEditorManager.ActiveSourceWindow.DeleteBreakpointClicked(Self);
+  ecToggleBreakPoint:
+    if Assigned(SourceEditorManager.ActiveSourceWindow) then
+      SourceEditorManager.ActiveSourceWindow.ToggleBreakpointClicked(Self);
+  ecRemoveBreakPoint:
+    if Assigned(SourceEditorManager.ActiveSourceWindow) then
+      SourceEditorManager.ActiveSourceWindow.DeleteBreakpointClicked(Self);
   ecProcedureList:            mnuSearchProcedureList(self);
   ecInsertGUID:               mnuSourceInsertGUID(self);
   ecInsertFilename:           mnuSourceInsertFilename(self);
@@ -4395,6 +4399,7 @@ begin
     SaveEnvironment(true);
     // save shortcuts to editor options
     ExternalUserTools.SaveShortCuts(EditorOpts.KeyMap);
+    EditorOpts.Save;
     UpdateExternalUserToolsInMenu;
   end;
 end;
@@ -5700,14 +5705,7 @@ end;
 
 procedure TMainIDE.DoViewJumpHistory(Show: boolean);
 begin
-  if JumpHistoryViewWin=nil then begin
-    JumpHistoryViewWin:=TJumpHistoryViewWin.Create(OwningComponent);
-    with JumpHistoryViewWin do begin
-      OnSelectionChanged := @JumpHistoryViewSelectionChanged;
-    end;
-  end;
-  if Show then
-    IDEWindowCreators.ShowForm(JumpHistoryViewWin,true);
+  IDEWindowCreators.ShowForm(NonModalIDEWindowNames[nmiwJumpHistory],Show);
 end;
 
 procedure TMainIDE.DoViewUnitInfo;
@@ -5913,8 +5911,13 @@ begin
   end
   else if ItIs(NonModalIDEWindowNames[nmiwJumpHistory]) then
   begin
-    DoViewJumpHistory(false);
+    IDEWindowCreators.CreateForm(JumpHistoryViewWin,TJumpHistoryViewWin,
+      DoDisableAutoSizing,OwningComponent);
+    with JumpHistoryViewWin do begin
+      OnSelectionChanged := @JumpHistoryViewSelectionChanged;
+    end;
     AForm:=JumpHistoryViewWin;
+    exit;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwComponentList]) then
   begin
@@ -7576,12 +7579,15 @@ end;
 procedure TMainIDE.UpdateExternalUserToolsInMenu;
 var
   ToolCount: integer;
-
-  procedure CreateToolMenuItems;
-  var
-    Section: TIDEMenuSection;
-  begin
-    Section:=itmCustomTools;
+  Section: TIDEMenuSection;
+  CurMenuItem: TIDEMenuItem;
+  i: Integer;
+  ExtTool: TExternalUserTool;
+begin
+  ToolCount:=ExternalUserTools.Count;
+  Section:=itmCustomTools;
+  Section.BeginUpdate;
+  try
     // add enough menuitems
     while Section.Count-1<ToolCount do
       RegisterIDEMenuCommand(Section.GetPath,
@@ -7589,14 +7595,8 @@ var
     // delete unneeded menuitems
     while Section.Count-1>ToolCount do
       Section[Section.Count-1].Free;
-  end;
 
-  procedure SetToolMenuItems;
-  var
-    CurMenuItem: TIDEMenuItem;
-    i: Integer;
-    ExtTool: TExternalUserTool;
-  begin
+    // set caption and command
     for i:=0 to ToolCount-1 do begin
       CurMenuItem:=itmCustomTools[i+1]; // Note: the first menu item is the "Configure"
       ExtTool:=ExternalUserTools[i];
@@ -7606,12 +7606,9 @@ var
           EditorOpts.KeyMap.FindIDECommand(ecExtToolFirst+i);
       CurMenuItem.OnClick:=@mnuExternalUserToolClick;
     end;
+  finally
+    Section.EndUpdate;
   end;
-
-begin
-  ToolCount:=ExternalUserTools.Count;
-  CreateToolMenuItems;
-  SetToolMenuItems;
 end;
 
 function TMainIDE.PrepareForCompile: TModalResult;

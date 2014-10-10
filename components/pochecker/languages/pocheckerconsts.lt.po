@@ -15,6 +15,10 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "PO failų tikrintuvė"
 
+#: pocheckerconsts.salllanguages
+msgid "All Languages"
+msgstr ""
+
 #: pocheckerconsts.scannotfindmaster
 msgid ""
 "Cannot find master po file:\n"
@@ -51,17 +55,17 @@ msgstr "Tikrinti ar tinkamas elementų kiekis"
 msgid "Check percentage of (un)translated and fuzzy strings"
 msgstr ""
 
+#: pocheckerconsts.sclearlistbox
+msgid "Clear"
+msgstr ""
+
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "Kopijuoti į iškarpinę"
 
-#: pocheckerconsts.scurrentpofile
-msgid "Current po-file:"
-msgstr "Veikiamasis PO failas:"
-
 #: pocheckerconsts.scurrenttest
-msgid "Current Test:"
-msgstr "Veikiamasis tikrinimas:"
+msgid "Test: %s on %s"
+msgstr ""
 
 #: pocheckerconsts.sduplicatelinenrwithvalue
 msgid "[Line %d] %s"
@@ -93,9 +97,11 @@ msgstr ""
 msgid "Errors / warnings reported by %s for:"
 msgstr "%s praneštos klaidos/perspėjimai apie:"
 
-#: pocheckerconsts.sfindalltranslatedpofiles
-msgid "Find all translated po-files"
-msgstr "Rasti visus išverstus PO failus"
+#: pocheckerconsts.sfilesnotfoundandremoved
+msgid ""
+"The following non-existent files were removed from the list:\n"
+"%s\n"
+msgstr ""
 
 #: pocheckerconsts.sfuzzy
 msgid "Fuzzy"
@@ -139,15 +145,9 @@ msgstr "Identifikatorių [%s] turi „%s“, tačiau jo neturi „%s“"
 msgid "No errors found"
 msgstr "Klaidų nerasta"
 
-#: pocheckerconsts.snotaproperfilename
-msgid ""
-"Selected filename\n"
-"%s\n"
-"does not seem to be a proper name for a po-file\n"
+#: pocheckerconsts.snofileslefttocheck
+msgid "There are no files left to check."
 msgstr ""
-"Parinktas failo pavadinimas\n"
-"%s\n"
-"nepanašu kad tai būtų tinkamas pavadinimas PO failui\n"
 
 #: pocheckerconsts.snotestselected
 msgid "There are no tests selected."
@@ -178,11 +178,29 @@ msgid "&Open a po-file"
 msgstr "At&verti PO failą"
 
 #: pocheckerconsts.sopenfail
-msgid "Unable to open file %s"
+msgid ""
+"Unable to open file:\n"
+"\"%s\"\n"
+msgstr ""
+
+#: pocheckerconsts.sopenfailexternal
+msgid ""
+"Unable to open file\n"
+"\"%s\"\n"
+"in external editor\n"
+"\"%s\"\n"
 msgstr ""
 
 #: pocheckerconsts.sopenfile
 msgid "Open file %s in Ide Editor?"
+msgstr ""
+
+#: pocheckerconsts.sopenfileexternal
+msgid ""
+"Open file:\n"
+"\"%s\"\n"
+"in external editor:\n"
+"\"%s\"?\n"
 msgstr ""
 
 #: pocheckerconsts.soriginal
@@ -220,6 +238,10 @@ msgid ""
 msgstr ""
 "Rašant į failą įvyko klaida:\n"
 "%s\n"
+
+#: pocheckerconsts.sscandir
+msgid "Scan a folder"
+msgstr ""
 
 #: pocheckerconsts.sselectalltests
 msgid "Select &All"
@@ -269,6 +291,10 @@ msgstr ""
 
 #: pocheckerconsts.sunselectalltests
 msgid "&Unselect All"
+msgstr ""
+
+#: pocheckerconsts.sunselectlistbox
+msgid "Unselect"
 msgstr ""
 
 #: pocheckerconsts.suntranslated

@@ -3049,7 +3049,7 @@ var
   i: integer;
   ExtToolCat: TIDECommandCategory;
   ExtToolRelation: TKeyCommandRelation;
-  ToolName: string;
+  ToolLocalizedName: string;
   cmd: word;
   CmdRel: TKeyCommandRelation;
 begin
@@ -3058,9 +3058,11 @@ begin
   if NewCount>fExtToolCount then begin
     // increase available external tool commands
     while NewCount>fExtToolCount do begin
-      ToolName:=Format(srkmecExtTool,[fExtToolCount]);
+      ToolLocalizedName:=Format(srkmecExtTool,[fExtToolCount]);
       cmd:=ecExtToolFirst+fExtToolCount;
-      CmdRel:=TKeyCommandRelation.Create(ExtToolCat, ToolName, ToolName, cmd);
+      CmdRel:=TKeyCommandRelation.Create(ExtToolCat,
+        Format('External tool %d',[fExtToolCount]), // keep name untranslated
+        ToolLocalizedName, cmd);
       FRelations.Add(CmdRel);
       inc(fExtToolCount);
     end;

@@ -298,7 +298,7 @@ type
     Property OnOptionsChanged: TNotifyEvent read FOnOptionsChanged write FOnOptionsChanged;
     property Options: TMsgCtrlOptions read FOptions write SetOptions default MCDefaultOptions;
     property SearchText: string read FSearchText write SetSearchText;
-    property SelectedLine: integer read GetSelectedLine write SetSelectedLine; // -1=header line
+    property SelectedLine: integer read GetSelectedLine write SetSelectedLine; // -1=header line, can be on progress line (=View.Count)
     property SelectedView: TLMsgWndView read FSelectedView write SetSelectedView;
     property ShowHint default true;
     property SourceMarks: TETMarks read FSourceMarks write SetSourceMarks;
@@ -463,9 +463,10 @@ begin
     Parent:=MsgAboutSection;
     Parent.ChildsAsSubMenu:=true;
     Parent.Caption:=lisAbout;
-    MsgAboutToolMenuItem:=RegisterIDEMenuCommand(Parent, 'About', 'About Tool');
-    MsgOpenToolOptionsMenuItem:=RegisterIDEMenuCommand(Parent, 'Open Tool Options', 'Open Tool Options');
-  MsgFilterMsgOfTypeMenuItem:=RegisterIDEMenuCommand(Root,'FilterMsgOfType','');
+    MsgAboutToolMenuItem:=RegisterIDEMenuCommand(Parent, 'About', lisAbout);
+    MsgOpenToolOptionsMenuItem:=RegisterIDEMenuCommand(Parent, 'Open Tool '
+      +'Options', lisOpenToolOptions);
+  MsgFilterMsgOfTypeMenuItem:=RegisterIDEMenuCommand(Root,'FilterMsgOfType',lisFilterAllMessagesOfCertainType);
   MsgRemoveCompOptHideMenuSection:=RegisterIDEMenuSection(Root,'RemoveCompOptHideMsg');
     Parent:=MsgRemoveCompOptHideMenuSection;
     Parent.ChildsAsSubMenu:=true;
@@ -2738,7 +2739,7 @@ begin
     View:=MessagesCtrl.SelectedView;
     if View<>nil then begin
       LineNumber:=MessagesCtrl.SelectedLine;
-      if LineNumber>=0 then begin
+      if (LineNumber>=0) and (LineNumber<View.Lines.Count) then begin
         Line:=View.Lines[LineNumber];
         HasFilename:=Line.Filename<>'';
         HasText:=Line.Msg<>'';
@@ -2769,8 +2770,15 @@ begin
     VisibleCnt:=1;
     MsgOpenToolOptionsMenuItem.Visible:=ToolOptionsCaption<>'';
     if MsgOpenToolOptionsMenuItem.Visible then
+    begin
       inc(VisibleCnt);
-    MsgOpenToolOptionsMenuItem.Caption:=ToolOptionsCaption;
+      //only assign caption if it is not empty to avoid its "unlocalizing",
+      //this is visible e.g. in EditorToolBar menu tree
+      MsgOpenToolOptionsMenuItem.Caption:=ToolOptionsCaption;
+    end
+    else
+      //assign default caption if item is not visible (needed for EditorToolBar)
+      MsgOpenToolOptionsMenuItem.Caption:=lisOpenToolOptions;
     MsgOpenToolOptionsMenuItem.OnClick:=@OpenToolsOptionsMenuItemClick;
     MsgAboutSection.ChildsAsSubMenu:=VisibleCnt>1;
 
@@ -2780,6 +2788,8 @@ begin
         MsgType]);
       MsgFilterMsgOfTypeMenuItem.Visible:=true;
     end else begin
+      //assign default caption if item is not visible (needed for EditorToolBar)
+      MsgFilterMsgOfTypeMenuItem.Caption:=lisFilterAllMessagesOfCertainType;
       MsgFilterMsgOfTypeMenuItem.Visible:=false;
     end;
     MsgFilterMsgOfTypeMenuItem.OnClick:=@FilterMsgOfTypeMenuItemClick;

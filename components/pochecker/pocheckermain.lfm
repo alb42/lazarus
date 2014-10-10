@@ -1,13 +1,17 @@
 object PoCheckerForm: TPoCheckerForm
   Left = 318
-  Height = 342
+  Height = 513
   Top = 163
-  Width = 581
+  Width = 644
+  Anchors = []
   Caption = 'GUI Po-file checking tool'
-  ClientHeight = 342
-  ClientWidth = 581
+  ClientHeight = 513
+  ClientWidth = 644
+  Constraints.MinHeight = 450
+  Constraints.MinWidth = 600
   OnCreate = FormCreate
   OnDestroy = FormDestroy
+  OnShow = FormShow
   ShowInTaskBar = stAlways
   LCLVersion = '1.3'
   Visible = True
@@ -16,14 +20,25 @@ object PoCheckerForm: TPoCheckerForm
     AnchorSideTop.Control = SelectTestLabel
     AnchorSideTop.Side = asrBottom
     Left = 201
-    Height = 154
+    Height = 118
     Top = 29
-    Width = 373
-    Anchors = [akTop, akLeft, akRight, akBottom]
+    Width = 436
+    Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Top = 6
     Enabled = False
-    ItemHeight = 0
+    Items.Strings = (
+      'sCheckNumberOfItems'
+      'sCheckForIncompatibleFormatArguments'
+      'sCheckMissingIdentifiers'
+      'sCheckForMismatchesInUntranslatedStrings'
+      'sCheckForDuplicateUntranslatedValues'
+      'sCheckStatistics'
+    )
+    ItemHeight = 17
     TabOrder = 0
+    Data = {
+      06000000000000000000
+    }
   end
   object SelectTestLabel: TLabel
     AnchorSideLeft.Control = OpenBtn
@@ -39,16 +54,16 @@ object PoCheckerForm: TPoCheckerForm
     ParentFont = False
   end
   object OpenBtn: TBitBtn
-    AnchorSideLeft.Control = RunBtn
+    AnchorSideLeft.Control = MasterPoListBox
+    AnchorSideTop.Control = TestListBox
     AnchorSideRight.Control = RunBtn
     AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = RunBtn
+    AnchorSideBottom.Control = ScanDirBtn
     Left = 8
-    Height = 63
-    Top = 33
+    Height = 50
+    Top = 29
     Width = 184
-    Anchors = [akLeft, akRight, akBottom]
-    BorderSpacing.Bottom = 6
+    BorderSpacing.Bottom = 10
     Caption = '&Open a po-file'
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
@@ -90,79 +105,25 @@ object PoCheckerForm: TPoCheckerForm
     TabOrder = 1
   end
   object RunBtn: TBitBtn
+    AnchorSideLeft.Control = OpenBtn
+    AnchorSideTop.Control = ScanDirBtn
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Side = asrBottom
     Left = 8
-    Height = 63
-    Top = 102
+    Height = 50
+    Top = 149
     Width = 184
-    BorderSpacing.Top = 6
+    BorderSpacing.Top = 5
     Caption = '&Run Selected Tests'
     Enabled = False
     Kind = bkOK
     OnClick = RunBtnClick
     TabOrder = 2
   end
-  object StatusPanel: TPanel
-    Left = 0
-    Height = 49
-    Top = 293
-    Width = 581
-    Align = alBottom
-    BevelOuter = bvLowered
-    ClientHeight = 49
-    ClientWidth = 581
-    TabOrder = 3
-    object CurTestHeaderLabel: TLabel
-      Left = 8
-      Height = 15
-      Top = 8
-      Width = 68
-      Caption = 'Current Test:'
-      ParentColor = False
-    end
-    object CurPoHeaderLabel: TLabel
-      AnchorSideLeft.Control = CurTestHeaderLabel
-      AnchorSideTop.Control = CurTestHeaderLabel
-      AnchorSideTop.Side = asrBottom
-      Left = 8
-      Height = 15
-      Top = 23
-      Width = 81
-      Caption = 'Current po-file:'
-      ParentColor = False
-    end
-    object CurTestLabel: TLabel
-      AnchorSideLeft.Control = CurTestHeaderLabel
-      AnchorSideLeft.Side = asrBottom
-      AnchorSideTop.Control = CurTestHeaderLabel
-      AnchorSideTop.Side = asrCenter
-      Left = 82
-      Height = 15
-      Top = 8
-      Width = 69
-      BorderSpacing.Around = 6
-      Caption = 'CurTestLabel'
-      ParentColor = False
-    end
-    object CurPoLabel: TLabel
-      AnchorSideLeft.Control = CurPoHeaderLabel
-      AnchorSideLeft.Side = asrBottom
-      AnchorSideTop.Control = CurPoHeaderLabel
-      AnchorSideTop.Side = asrCenter
-      Left = 95
-      Height = 15
-      Top = 23
-      Width = 61
-      BorderSpacing.Around = 6
-      Caption = 'CurPoLabel'
-      ParentColor = False
-    end
-  end
   object NoErrLabel: TLabel
     Left = 8
     Height = 25
-    Top = 262
+    Top = 451
     Width = 146
     Anchors = [akLeft, akBottom]
     Caption = 'No errors found'
@@ -172,31 +133,19 @@ object PoCheckerForm: TPoCheckerForm
     ParentColor = False
     ParentFont = False
   end
-  object FindAllPOsCheckBox: TCheckBox
-    AnchorSideLeft.Control = TestListBox
-    AnchorSideTop.Control = SelectBasicBtn
-    AnchorSideTop.Side = asrBottom
-    Left = 201
-    Height = 19
-    Top = 220
-    Width = 156
-    BorderSpacing.Top = 6
-    Caption = 'Find all translated PO files'
-    TabOrder = 4
-  end
   object SelectBasicBtn: TButton
     AnchorSideLeft.Control = TestListBox
     AnchorSideTop.Control = TestListBox
     AnchorSideTop.Side = asrBottom
     Left = 201
     Height = 25
-    Top = 189
+    Top = 153
     Width = 115
     BorderSpacing.Top = 6
     Caption = 'Select Basic Tests'
     Enabled = False
     OnClick = SelectBasicBtnClick
-    TabOrder = 5
+    TabOrder = 3
   end
   object SelectAllBtn: TButton
     AnchorSideLeft.Control = SelectBasicBtn
@@ -204,13 +153,13 @@ object PoCheckerForm: TPoCheckerForm
     AnchorSideTop.Control = SelectBasicBtn
     Left = 320
     Height = 25
-    Top = 189
+    Top = 153
     Width = 115
     BorderSpacing.Left = 4
     Caption = 'Select All Tests'
     Enabled = False
     OnClick = SelectAllBtnClick
-    TabOrder = 6
+    TabOrder = 4
   end
   object UnselectAllBtn: TButton
     AnchorSideLeft.Control = SelectAllBtn
@@ -218,30 +167,190 @@ object PoCheckerForm: TPoCheckerForm
     AnchorSideTop.Control = SelectAllBtn
     Left = 439
     Height = 25
-    Top = 189
+    Top = 153
     Width = 115
     BorderSpacing.Left = 4
     Caption = 'Unselect All Tests'
     Enabled = False
     OnClick = UnselectAllBtnClick
-    TabOrder = 7
+    TabOrder = 5
   end
   object IgnoreFuzzyCheckBox: TCheckBox
     AnchorSideLeft.Control = TestListBox
-    AnchorSideTop.Control = FindAllPOsCheckBox
+    AnchorSideTop.Control = SelectBasicBtn
     AnchorSideTop.Side = asrBottom
     Left = 201
     Height = 19
-    Top = 245
+    Top = 184
     Width = 152
     BorderSpacing.Top = 6
     Caption = 'sIgnoreFuzzyTranslations'
+    TabOrder = 6
+  end
+  object StatusBar: TStatusBar
+    Left = 0
+    Height = 23
+    Top = 490
+    Width = 644
+    Panels = <>
+  end
+  object ScanDirBtn: TBitBtn
+    AnchorSideLeft.Control = OpenBtn
+    AnchorSideTop.Control = OpenBtn
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = RunBtn
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = RunBtn
+    Left = 8
+    Height = 50
+    Top = 89
+    Width = 184
+    BorderSpacing.Top = 5
+    BorderSpacing.Bottom = 10
+    Caption = 'Scan a folder'
+    Glyph.Data = {
+      36040000424D3604000000000000360000002800000010000000100000000100
+      20000000000000040000640000006400000000000000000000002C86D8702D88
+      D8A62D87D8EA2D88D8F72D88D8F72D88D8F72D88D8F72D88D8F72D88D8F72D88
+      D8F72D88D8F72D87D8F72D88D8F12C86D893FFFFFF00FFFFFF00338ED9E6DCF0
+      FAF0A7DDF4FD9EDBF4FF96DAF3FF8ED8F3FF86D7F3FF7FD4F2FF79D3F2FF72D2
+      F1FF6CD0F1FF69CFF1FFC2EAF8FE338ED9F0FFFFFF00FFFFFF003594DAF7EFFA
+      FEFFA1E9F9FF91E5F8FF81E1F7FF72DEF6FF63DAF5FF54D7F4FF47D3F3FF39D0
+      F2FF2ECDF1FF26CBF0FFCAF2FBFF3594DAF7FFFFFF00FFFFFF00369ADAF8F2FA
+      FDFFB3EDFAFFA4E9F9FF95E6F8FF85E2F7FF76DEF6FF65DBF5FF57D7F4FF49D4
+      F3FF3BD1F2FF30CEF1FFCCF2FBFF3598DAF7FFFFFF00FFFFFF0036A1DAF9F6FC
+      FEFFC8F2FCFFB9EFFBFFACECFAFF9CE8F9FF8BE3F7FF7CE0F6FF6CDCF6FF5DD9
+      F5FF4FD6F4FF44D3F3FFD0F3FCFF359FDAF7FFFFFF00FFFFFF0037A6DAFAFEFF
+      FFFFF8FDFFFFF6FDFFFFF5FCFFFFF3FCFEFFD8F6FCFF94E6F8FF85E3F7FF76DF
+      F6FF68DBF5FF5CD8F4FFD7F4FCFF2D86B8FA4777A0F6416F96FF35ABDAFAE8F6
+      FBFF94D4EFFF88CEEEFF73C1E9FFC9E9F6FFF2FCFEFFF3FCFEFFF2FCFEFFF0FC
+      FEFFEFFBFEFFEEFBFEFFB0C1D1FF568BB7FE8CB1D4FF3E6F9BF536AADAF2F1FA
+      FDFF94DEF5FF93DCF4FF81D5F2FF6ACAEDFF6CCBEAFF87C8DDFF98B2B4FFC7AC
+      94FFCDAF96FFC8A88DFFAB998EFF96B1CBFF5486B4F220507C5835AFDAF0F7FC
+      FEFF8EE4F8FF91DEF5FF9FE0F5FFACE1F6FFEFFBFEFFC6B8AAFFE2CDBCFFF5E0
+      CCFFF7E0C7FFF8E2CBFFF3D1B3FFA7998FFF35628F5FFFFFFF0036B3DAF8FDFE
+      FEFFFEFFFFFFFEFEFFFFFDFEFFFFFEFFFFFFEAF7FBFFC9AC94FFF3E3D4FFF4DA
+      C1FFF3D8BDFFF3D8BDFFF8E3CCFFC4A48BFFFFFFFF00FFFFFF0034B4D9D05EC2
+      E1FA60C3E2FA60C3E2FA60C3E2FA5FC3E2FA3CB6DBDDC8A98DFFF8EADCFFF4DD
+      C6FFF4DCC4FFF3D8BDFFF8E2CDFFCCAD93FFFFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00CAAE95FFF2E3D5FFF6E0
+      CAFFF5DEC6FFF5DEC5FFF7E5D2FFC5AA94FFFFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00AFA08EC4DDC3ABFFF4E6
+      DAFFF8ECDFFFF2DDC9FFE3C9B2FFB29D8BC4FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00659CA803B0A18EC4BFAE
+      97FFC9AB8FFFCDAF95FFBEAB98FF3174930AFFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
+      FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00
+    }
+    OnClick = ScanDirBtnClick
     TabOrder = 8
+  end
+  object MasterPoListBox: TListBox
+    AnchorSideTop.Control = IgnoreFuzzyCheckBox
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = TestListBox
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = NoErrLabel
+    Left = 8
+    Height = 185
+    Top = 208
+    Width = 629
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 5
+    BorderSpacing.Bottom = 58
+    ItemHeight = 0
+    MultiSelect = True
+    OnDrawItem = MasterPoListBoxDrawItem
+    OnResize = MasterPoListBoxResize
+    OnSelectionChange = MasterPoListBoxSelectionChange
+    Sorted = True
+    Style = lbOwnerDrawFixed
+    TabOrder = 9
+  end
+  object LangFilter: TComboBox
+    AnchorSideLeft.Control = MasterPoListBox
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = TestListBox
+    AnchorSideRight.Side = asrBottom
+    Left = 8
+    Height = 23
+    Top = 400
+    Width = 629
+    Anchors = [akLeft, akRight]
+    BorderSpacing.Top = 5
+    ItemHeight = 15
+    ItemIndex = 0
+    Items.Strings = (
+      'All languages'
+      'af_ZA'
+      'ar'
+      'ca'
+      'cs'
+      'de'
+      'es'
+      'fi'
+      'fr'
+      'he'
+      'hu'
+      'id'
+      'it'
+      'ja'
+      'lt'
+      'nl'
+      'pl'
+      'pt_BR'
+      'ru'
+      'sk'
+      'tr'
+      'uk'
+      'zh_CN'
+    )
+    OnChange = LangFilterChange
+    Style = csDropDownList
+    TabOrder = 10
+    Text = 'All languages'
+  end
+  object ClearMasterBtn: TButton
+    AnchorSideLeft.Control = MasterPoListBox
+    AnchorSideTop.Control = MasterPoListBox
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = NoErrLabel
+    Left = 8
+    Height = 25
+    Top = 426
+    Width = 75
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Top = 10
+    Caption = 'Clear'
+    OnClick = ClearMasterBtnClick
+    TabOrder = 11
+  end
+  object UnselectMasterBtn: TButton
+    AnchorSideLeft.Control = ClearMasterBtn
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideBottom.Control = NoErrLabel
+    Left = 93
+    Height = 25
+    Top = 426
+    Width = 75
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Left = 10
+    Caption = 'Unselect'
+    Enabled = False
+    OnClick = UnselectMasterBtnClick
+    TabOrder = 12
   end
   object OpenDialog: TOpenDialog
     Filter = 'po-files (*.po)|*.po|all files|*'
     Options = [ofFileMustExist, ofEnableSizing, ofViewDetail]
-    left = 40
-    top = 512
+    left = 480
+    top = 432
+  end
+  object SelectDirectoryDialog: TSelectDirectoryDialog
+    Options = [ofEnableSizing]
+    left = 584
+    top = 432
   end
 end

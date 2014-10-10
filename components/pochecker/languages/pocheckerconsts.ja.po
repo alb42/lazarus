@@ -15,6 +15,10 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "PO ファイルチェッカー"
 
+#: pocheckerconsts.salllanguages
+msgid "All Languages"
+msgstr ""
+
 #: pocheckerconsts.scannotfindmaster
 msgid ""
 "Cannot find master po file:\n"
@@ -51,17 +55,17 @@ msgstr "項目数の検査"
 msgid "Check percentage of (un)translated and fuzzy strings"
 msgstr "翻訳／未翻訳、未確定文字列の割合を検査"
 
+#: pocheckerconsts.sclearlistbox
+msgid "Clear"
+msgstr ""
+
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "クリップボードへコピー"
 
-#: pocheckerconsts.scurrentpofile
-msgid "Current po-file:"
-msgstr "現在の po ファイル："
-
 #: pocheckerconsts.scurrenttest
-msgid "Current Test:"
-msgstr "現在のテスト項目："
+msgid "Test: %s on %s"
+msgstr ""
 
 #: pocheckerconsts.sduplicatelinenrwithvalue
 msgid "[Line %d] %s"
@@ -93,9 +97,11 @@ msgstr ""
 msgid "Errors / warnings reported by %s for:"
 msgstr "以下のファイルに対する %s によるエラー／警告の結果："
 
-#: pocheckerconsts.sfindalltranslatedpofiles
-msgid "Find all translated po-files"
-msgstr "翻訳されたすべての po ファイルを検査する"
+#: pocheckerconsts.sfilesnotfoundandremoved
+msgid ""
+"The following non-existent files were removed from the list:\n"
+"%s\n"
+msgstr ""
 
 #: pocheckerconsts.sfuzzy
 msgid "Fuzzy"
@@ -137,15 +143,9 @@ msgstr "識別子 [%s] が %s 内で見つかりましたが、%s 内には存�
 msgid "No errors found"
 msgstr "エラーはありません"
 
-#: pocheckerconsts.snotaproperfilename
-msgid ""
-"Selected filename\n"
-"%s\n"
-"does not seem to be a proper name for a po-file\n"
+#: pocheckerconsts.snofileslefttocheck
+msgid "There are no files left to check."
 msgstr ""
-"選択されたファイル\n"
-"%s\n"
-"は、適切な po ファイル名ではないようです\n"
 
 #: pocheckerconsts.snotestselected
 msgid "There are no tests selected."
@@ -176,11 +176,29 @@ msgid "&Open a po-file"
 msgstr "po ファイルを開く(&O)"
 
 #: pocheckerconsts.sopenfail
-msgid "Unable to open file %s"
+msgid ""
+"Unable to open file:\n"
+"\"%s\"\n"
+msgstr ""
+
+#: pocheckerconsts.sopenfailexternal
+msgid ""
+"Unable to open file\n"
+"\"%s\"\n"
+"in external editor\n"
+"\"%s\"\n"
 msgstr ""
 
 #: pocheckerconsts.sopenfile
 msgid "Open file %s in Ide Editor?"
+msgstr ""
+
+#: pocheckerconsts.sopenfileexternal
+msgid ""
+"Open file:\n"
+"\"%s\"\n"
+"in external editor:\n"
+"\"%s\"?\n"
 msgstr ""
 
 #: pocheckerconsts.soriginal
@@ -224,6 +242,10 @@ msgid ""
 msgstr ""
 "ファイル保存中のエラー：\n"
 "%s\n"
+
+#: pocheckerconsts.sscandir
+msgid "Scan a folder"
+msgstr ""
 
 #: pocheckerconsts.sselectalltests
 msgid "Select &All"
@@ -277,6 +299,10 @@ msgstr "翻訳状況："
 
 #: pocheckerconsts.sunselectalltests
 msgid "&Unselect All"
+msgstr ""
+
+#: pocheckerconsts.sunselectlistbox
+msgid "Unselect"
 msgstr ""
 
 #: pocheckerconsts.suntranslated

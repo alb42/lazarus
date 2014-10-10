@@ -12,6 +12,10 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "Перевірка PO Файлів"
 
+#: pocheckerconsts.salllanguages
+msgid "All Languages"
+msgstr ""
+
 #: pocheckerconsts.scannotfindmaster
 msgid ""
 "Cannot find master po file:\n"
@@ -48,17 +52,17 @@ msgstr "Перевірити кількість елементів"
 msgid "Check percentage of (un)translated and fuzzy strings"
 msgstr ""
 
+#: pocheckerconsts.sclearlistbox
+msgid "Clear"
+msgstr ""
+
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "Копіювати в буфер"
 
-#: pocheckerconsts.scurrentpofile
-msgid "Current po-file:"
-msgstr "Поточний po-файл:"
-
 #: pocheckerconsts.scurrenttest
-msgid "Current Test:"
-msgstr "Поточний тест:"
+msgid "Test: %s on %s"
+msgstr ""
 
 #: pocheckerconsts.sduplicatelinenrwithvalue
 msgid "[Line %d] %s"
@@ -90,9 +94,11 @@ msgstr ""
 msgid "Errors / warnings reported by %s for:"
 msgstr "Помилки / попередження звітовані %s для:"
 
-#: pocheckerconsts.sfindalltranslatedpofiles
-msgid "Find all translated po-files"
-msgstr "Знайти всі перекладені po-файли"
+#: pocheckerconsts.sfilesnotfoundandremoved
+msgid ""
+"The following non-existent files were removed from the list:\n"
+"%s\n"
+msgstr ""
 
 #: pocheckerconsts.sfuzzy
 msgid "Fuzzy"
@@ -136,15 +142,9 @@ msgstr "Ідентифікатор [%s] знайдений в %s, але він 
 msgid "No errors found"
 msgstr "Помилки не знайдені"
 
-#: pocheckerconsts.snotaproperfilename
-msgid ""
-"Selected filename\n"
-"%s\n"
-"does not seem to be a proper name for a po-file\n"
+#: pocheckerconsts.snofileslefttocheck
+msgid "There are no files left to check."
 msgstr ""
-"Вибраний файл\n"
-"%s\n"
-"схоже не є вірним іменем для po-файлу\n"
 
 #: pocheckerconsts.snotestselected
 msgid "There are no tests selected."
@@ -175,11 +175,29 @@ msgid "&Open a po-file"
 msgstr "&Відкрити po-файл"
 
 #: pocheckerconsts.sopenfail
-msgid "Unable to open file %s"
+msgid ""
+"Unable to open file:\n"
+"\"%s\"\n"
+msgstr ""
+
+#: pocheckerconsts.sopenfailexternal
+msgid ""
+"Unable to open file\n"
+"\"%s\"\n"
+"in external editor\n"
+"\"%s\"\n"
 msgstr ""
 
 #: pocheckerconsts.sopenfile
 msgid "Open file %s in Ide Editor?"
+msgstr ""
+
+#: pocheckerconsts.sopenfileexternal
+msgid ""
+"Open file:\n"
+"\"%s\"\n"
+"in external editor:\n"
+"\"%s\"?\n"
 msgstr ""
 
 #: pocheckerconsts.soriginal
@@ -217,6 +235,10 @@ msgid ""
 msgstr ""
 "Помилка збереження файлу:\n"
 "%s\n"
+
+#: pocheckerconsts.sscandir
+msgid "Scan a folder"
+msgstr ""
 
 #: pocheckerconsts.sselectalltests
 msgid "Select &All"
@@ -266,6 +288,10 @@ msgstr ""
 
 #: pocheckerconsts.sunselectalltests
 msgid "&Unselect All"
+msgstr ""
+
+#: pocheckerconsts.sunselectlistbox
+msgid "Unselect"
 msgstr ""
 
 #: pocheckerconsts.suntranslated

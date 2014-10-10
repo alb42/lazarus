@@ -14,6 +14,10 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "po-Datei-Prüfer"
 
+#: pocheckerconsts.salllanguages
+msgid "All Languages"
+msgstr "Alle Sprachen"
+
 #: pocheckerconsts.scannotfindmaster
 msgid ""
 "Cannot find master po file:\n"
@@ -50,17 +54,17 @@ msgstr "Überprüfung der Anzahl der Einträge"
 msgid "Check percentage of (un)translated and fuzzy strings"
 msgstr "Zeige Prozente (nicht) übersetzter und ungeklärter Zeichenketten"
 
+#: pocheckerconsts.sclearlistbox
+msgid "Clear"
+msgstr "Leeren"
+
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "In Zwischenablage kopieren"
 
-#: pocheckerconsts.scurrentpofile
-msgid "Current po-file:"
-msgstr "Aktuelle po-Datei:"
-
 #: pocheckerconsts.scurrenttest
-msgid "Current Test:"
-msgstr "Aktueller Test:"
+msgid "Test: %s on %s"
+msgstr "Test: %s auf %s"
 
 #: pocheckerconsts.sduplicatelinenrwithvalue
 msgid "[Line %d] %s"
@@ -92,9 +96,11 @@ msgstr ""
 msgid "Errors / warnings reported by %s for:"
 msgstr "Fehler / Warnungen gemeldet von %s für:"
 
-#: pocheckerconsts.sfindalltranslatedpofiles
-msgid "Find all translated po-files"
-msgstr "Alle übersetzten po-Dateien finden"
+#: pocheckerconsts.sfilesnotfoundandremoved
+msgid ""
+"The following non-existent files were removed from the list:\n"
+"%s\n"
+msgstr ""
 
 #: pocheckerconsts.sfuzzy
 msgid "Fuzzy"
@@ -136,16 +142,9 @@ msgstr "Bezeichner [%s] gefunden in %s, aber er existiert nicht in %s"
 msgid "No errors found"
 msgstr "Keine Fehler gefunden"
 
-#: pocheckerconsts.snotaproperfilename
-msgid ""
-"Selected filename\n"
-"%s\n"
-"does not seem to be a proper name for a po-file\n"
+#: pocheckerconsts.snofileslefttocheck
+msgid "There are no files left to check."
 msgstr ""
-"Gewählter Dateiname\n"
-"%s\n"
-"sieht nicht wie ein geeigneter Name für eine po-file\n"
-" aus\n"
 
 #: pocheckerconsts.snotestselected
 msgid "There are no tests selected."
@@ -176,12 +175,40 @@ msgid "&Open a po-file"
 msgstr "p&o-Datei öffnen"
 
 #: pocheckerconsts.sopenfail
-msgid "Unable to open file %s"
+msgid ""
+"Unable to open file:\n"
+"\"%s\"\n"
 msgstr ""
+"Kann Datei nicht öffnen:\n"
+"\"%s\"\n"
+
+#: pocheckerconsts.sopenfailexternal
+msgid ""
+"Unable to open file\n"
+"\"%s\"\n"
+"in external editor\n"
+"\"%s\"\n"
+msgstr ""
+"Kann Datei\n"
+"\"%s\"\n"
+"nicht in externem Editor\n"
+"\"%s\" öffnen\n"
 
 #: pocheckerconsts.sopenfile
 msgid "Open file %s in Ide Editor?"
+msgstr "Datei %s im IDE-Editor öffnen?"
+
+#: pocheckerconsts.sopenfileexternal
+msgid ""
+"Open file:\n"
+"\"%s\"\n"
+"in external editor:\n"
+"\"%s\"?\n"
 msgstr ""
+"Datei:\n"
+"\"%s\"\n"
+"in externem Editor:\n"
+"\"%s\" öffnen?\n"
 
 #: pocheckerconsts.soriginal
 msgid "Original"
@@ -222,6 +249,10 @@ msgstr ""
 "Fehler beim Speichern von Datei:\n"
 "%s\n"
 
+#: pocheckerconsts.sscandir
+msgid "Scan a folder"
+msgstr "Verzeichnis durchsuchen"
+
 #: pocheckerconsts.sselectalltests
 msgid "Select &All"
 msgstr "&Alle auswählen"
@@ -240,20 +271,10 @@ msgid "Show statistics graph"
 msgstr "Zeige Statistik-Graphik"
 
 #: pocheckerconsts.sstathint
-#, fuzzy
 #| msgid ""
 #| "%3.1f%% Translated\n"
 #| "%3.1f%% UnTranslated\n"
 #| "%3.1f%% Fuzzy\n"
-#| "%3d Translated (%3.1f%%)\n"
-#| "%3d UnTranslated (%3.1f%%)\n"
-#| "%3d Fuzzy (%3.1f%%)\n"
-#| "%3d Translated (%3.1f%%)\n"
-#| "%3d UnTranslated (%3.1f%%)\n"
-#| "%3d Fuzzy (%3.1f%%)\n"
-#| "%3d Translated (%3.1f%%)\n"
-#| "%3d UnTranslated (%3.1f%%)\n"
-#| "%3d Fuzzy (%3.1f%%)\n"
 msgid ""
 "%3d Translated (%3.1f%%)\n"
 "%3d UnTranslated (%3.1f%%)\n"
@@ -263,6 +284,7 @@ msgstr ""
 "%3d übersetzt (%3.1f%%)\n"
 "%3d nicht übersetzt (%3.1f%%)\n"
 "%3d ungeklärt (%3.1f%%)\n"
+"%d Fehler in den gewählten Tests\n"
 
 #: pocheckerconsts.stotalerrors
 #| msgid "Total errors / warnings found: %d"
@@ -284,11 +306,15 @@ msgstr "Übersetzung"
 #: pocheckerconsts.stranslationstatistics
 #| msgid "Translation statistics for:"
 msgid "Translation statistics per language:"
-msgstr "Übersetzungsstatistikpro Sprache:"
+msgstr "Übersetzungsstatistik pro Sprache:"
 
 #: pocheckerconsts.sunselectalltests
 msgid "&Unselect All"
 msgstr "Alle abwählen"
+
+#: pocheckerconsts.sunselectlistbox
+msgid "Unselect"
+msgstr "Abwählen"
 
 #: pocheckerconsts.suntranslated
 msgid "Untranslated"

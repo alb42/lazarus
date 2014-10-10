@@ -33,20 +33,19 @@ interface
 uses
   AVL_Tree, typinfo, math, Classes, SysUtils, Controls, Forms, Dialogs, LCLIntf,
   LCLType, LCLProc, FileProcs, FileUtil, IDEProcs, DialogProcs, IDEDialogs,
-  LConvEncoding, LazFileCache, LResources, PropEdits, DefineTemplates,
-  IDEMsgIntf, IDEProtocol, LazarusIDEStrConsts, NewDialog, NewProjectDlg,
-  LazIDEIntf, MainBase, MainBar, MainIntf, MenuIntf, NewItemIntf,
-  CompOptsIntf, SrcEditorIntf, IDEWindowIntf,
-  ProjectIntf, Project, ProjectDefs, ProjectInspector,
-  PackageIntf, PackageDefs, PackageSystem, CompilerOptions, BasePkgManager,
-  ComponentReg, SourceEditor, EditorOptions, CustomFormEditor, FormEditor,
-  EmptyMethodsDlg, BaseDebugManager, ControlSelection, TransferMacros,
-  EnvironmentOpts, BuildManager, EditorMacroListViewer, KeywordFuncLists,
-  FindRenameIdentifier, GenericCheckList, ViewUnit_Dlg, DiskDiffsDialog,
-  InputHistory, CheckLFMDlg, LCLMemManager, CodeToolManager, CodeToolsStructs,
-  ConvCodeTool, CodeCache, CodeTree, FindDeclarationTool, BasicCodeTools,
-  SynEdit, UnitResources, IDEExternToolIntf, ExtToolDialog, PublishModule,
-  etMessagesWnd;
+  LConvEncoding, LazFileCache, LazFileUtils, LResources, PropEdits,
+  DefineTemplates, IDEMsgIntf, IDEProtocol, LazarusIDEStrConsts, NewDialog,
+  NewProjectDlg, LazIDEIntf, MainBase, MainBar, MainIntf, MenuIntf, NewItemIntf,
+  CompOptsIntf, SrcEditorIntf, IDEWindowIntf, ProjectIntf, Project, ProjectDefs,
+  ProjectInspector, PackageIntf, PackageDefs, PackageSystem, CompilerOptions,
+  BasePkgManager, ComponentReg, SourceEditor, EditorOptions, CustomFormEditor,
+  FormEditor, EmptyMethodsDlg, BaseDebugManager, ControlSelection,
+  TransferMacros, EnvironmentOpts, BuildManager, EditorMacroListViewer,
+  KeywordFuncLists, FindRenameIdentifier, GenericCheckList, ViewUnit_Dlg,
+  DiskDiffsDialog, InputHistory, CheckLFMDlg, LCLMemManager, CodeToolManager,
+  CodeToolsStructs, ConvCodeTool, CodeCache, CodeTree, FindDeclarationTool,
+  BasicCodeTools, SynEdit, UnitResources, IDEExternToolIntf, ExtToolDialog,
+  PublishModule, etMessagesWnd;
 
 type
 
@@ -552,7 +551,7 @@ var
   Access: TEditorOptionsEditAccessOrderEntry;
 begin
   Result := nil;
-  // Check for already open Editor. If there is none, then it must be opened in DoOpenEditorFile
+  // Check for already open Editor. If there is none, then it must be opened in OpenEditorFile
   if AnUnitInfo.OpenEditorInfoCount = 0 then exit;
   for i := 0 to EditorOpts.MultiWinEditAccessOrder.Count - 1 do begin
     Access := EditorOpts.MultiWinEditAccessOrder[i];
@@ -903,7 +902,7 @@ begin
         // source is a program
         // either this is a lazarus project or it is not yet a lazarus project ;)
         LPIFilename:=ChangeFileExt(FFilename,'.lpi');
-        if FileExistsUTF8(LPIFilename) then begin
+        if FileExistsCached(LPIFilename) then begin
           if IDEQuestionDialog(lisProjectInfoFileDetected,
             Format(lisTheFileSeemsToBeTheProgramFileOfAnExistingLazarusP,
                    [FFilename]), mtConfirmation,
@@ -1026,6 +1025,14 @@ begin
     DebugLn(['TFileOpener.OpenEditorFile Fixing file name: ',FFilename,' -> ',DiskFilename]);
     FFilename:=DiskFilename;
   end;
+  if not (ofRegularFile in FFlags) then begin
+    DiskFilename:=GetShellLinkTarget(FFileName);
+    if DiskFilename<>FFilename then begin
+      // the case is different
+      DebugLn(['TFileOpener.OpenEditorFile Fixing file name: ',FFilename,' -> ',DiskFilename]);
+      FFilename:=DiskFilename;
+    end;
+  end;
 
   // check if symlink and ask user if the real file should be opened instead
   if FilenameIsAbsolute(FFileName) then begin
@@ -1062,7 +1069,7 @@ begin
 
   // check for special files
   if ([ofRegularFile,ofRevert,ofProjectLoading]*FFlags=[])
-  and FilenameIsAbsolute(FFilename) and FileExistsUTF8(FFilename) then begin
+  and FilenameIsAbsolute(FFilename) and FileExistsCached(FFilename) then begin
     // check if file is a lazarus project (.lpi)
     if (CompareFileExt(FFilename,'.lpi',false)=0) then
     begin
@@ -1126,7 +1133,8 @@ begin
   try
 
     // check if file exists
-    if FilenameIsAbsolute(FFilename) and (not FileExistsUTF8(FFilename)) then begin
+    if FilenameIsAbsolute(FFilename) and (not FileExistsCached(FFilename)) then
+    begin
       // file does not exist
       if (ofRevert in FFlags) then begin
         // PrepareRevert failed, due to missing file
@@ -1151,7 +1159,7 @@ begin
     if Result<>mrOk then exit;
 
     // check readonly
-    FNewUnitInfo.FileReadOnly:=FileExistsUTF8(FNewUnitInfo.Filename)
+    FNewUnitInfo.FileReadOnly:=FileExistsCached(FNewUnitInfo.Filename)
                               and (not FileIsWritable(FNewUnitInfo.Filename));
     //debugln('[TFileOpener.OpenEditorFile] B');
     // open file in source notebook
@@ -1190,7 +1198,7 @@ var TempFile,TempPath,CurPath: String;
     FinalFile: String;
   begin
     FinalFile:=ExpandFileNameUTF8(CurPath+TempFile+Ext);
-    Result:=FileExistsUTF8(FinalFile);
+    Result:=FileExistsCached(FinalFile);
     if Result then
       FFileName:=FinalFile;
   end;
@@ -1307,7 +1315,7 @@ begin
 
   // check if absolute FFileName
   if FilenameIsAbsolute(FFileName) then begin
-    if FileExistsUTF8(FFileName) then
+    if FileExistsCached(FFileName) then
       Found:=true
     else
       exit;
@@ -2809,7 +2817,7 @@ begin
     TempCmd:=CmdAfterExe;
     if not FilenameIsAbsolute(TempCmd) then
       TempCmd:=TrimFilename(AppendPathDelim(Project1.ProjectDirectory)+TempCmd);
-    if FileExistsUTF8(TempCmd) then begin
+    if FileExistsCached(TempCmd) then begin
       CmdAfterExe:=TempCmd;
     end else begin
       TempCmd:=FindDefaultExecutablePath(CmdAfterExe);
@@ -3771,7 +3779,7 @@ begin
       AddRecentProjectFileToEnvironment(AFilename);
     end else begin
       // open failed
-      if not FileExistsUTF8(AFilename) then begin
+      if not FileExistsCached(AFilename) then begin
         EnvironmentOptions.RemoveFromRecentProjectFiles(AFilename);
       end else
         AddRecentProjectFileToEnvironment(AFilename);
@@ -3803,7 +3811,7 @@ begin
             // either this is a lazarus project
             // or it is not yet a lazarus project ;)
             LPIFilename:=ChangeFileExt(AFilename,'.lpi');
-            if FileExistsUTF8(LPIFilename) then begin
+            if FileExistsCached(LPIFilename) then begin
               if IDEQuestionDialog(lisProjectInfoFileDetected,
                   Format(lisTheFileSeemsToBeTheProgramFileOfAnExistingLazarusP, [
                   AFilename]), mtConfirmation, [mrOk,lisOpenProject2,mrCancel])<>mrOk
@@ -5373,7 +5381,7 @@ begin
   // try to find the pascal unit
   for i:=Low(PascalFileExt) to High(PascalFileExt) do begin
     UnitFilename:=ChangeFileExt(LFMUnitInfo.Filename,PascalFileExt[i]);
-    if FileExistsUTF8(UnitFilename) then
+    if FileExistsCached(UnitFilename) then
       break
     else
       UnitFilename:='';
@@ -7099,9 +7107,9 @@ begin
     and (not AnUnitInfo.IsVirtual) and FilenameIsPascalUnit(AnUnitInfo.Filename)
     then begin
       LFMFilename:=ChangeFileExt(AnUnitInfo.Filename,'.lfm');
-      if not FileExistsUTF8(LFMFilename) then
+      if not FileExistsCached(LFMFilename) then
         LFMFilename:=ChangeFileExt(AnUnitInfo.Filename,'.dfm');
-      AnUnitInfo.HasResources:=FileExistsUTF8(LFMFilename);
+      AnUnitInfo.HasResources:=FileExistsCached(LFMFilename);
     end;
     AnUnitInfo:=AnUnitInfo.NextPartOfProject;
   end;

@@ -18,9 +18,6 @@ uses
 {$IFDEF darwin}
   {$define CaseInsensitiveFilenames}
 {$ENDIF}
-{$IFDEF HASAMIGA}
-  {$define CaseInsensitiveFilenames}
-{$ENDIF}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
   {$DEFINE NotLiteralFilenames} // e.g. HFS+ normalizes file names
 {$ENDIF}
@@ -110,6 +107,9 @@ function GetFileDescription(const AFilename: string): string;
 function ReadAllLinks(const Filename: string;
                       ExceptionOnError: boolean): string; // if a link is broken returns ''
 function TryReadAllLinks(const Filename: string): string; // if a link is broken returns Filename
+function GetShellLinkTarget(const FileName: string): string;
+
+
 type
   TPhysicalFilenameOnError = (pfeException,pfeEmpty,pfeOriginal);
 function GetPhysicalFilename(const Filename: string;
@@ -149,28 +149,20 @@ implementation
 
 // to get more detailed error messages consider the os
 uses
-{$IFDEF AROS}
-  Exec, dos;
-{$ELSE}  
-  {$IFDEF Windows}
-    Windows {$IFnDEF WinCE}, WinDirs{$ENDIF};
-  {$ELSE}
-    {$IFDEF darwin}
-    MacOSAll,
-    {$ENDIF}
-    Unix, BaseUnix;
+{$IFDEF Windows}
+  Windows {$IFnDEF WinCE}, ShlObj, ActiveX, WinDirs{$ENDIF};
+{$ELSE}
+  {$IFDEF darwin}
+  MacOSAll,
   {$ENDIF}
+  Unix, BaseUnix;
 {$ENDIF}
 
 {$I lazfileutils.inc}
-{$IFDEF AROS}
-  {$I aroslazfileutils.inc}
-{$ELSE}  
 {$IFDEF windows}
   {$I winlazfileutils.inc}
 {$ELSE}
   {$I unixlazfileutils.inc}
-{$ENDIF}
 {$ENDIF}
 
 function CompareFilenames(const Filename1, Filename2: string): integer;

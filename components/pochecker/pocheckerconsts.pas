@@ -15,17 +15,22 @@ resourcestring
   sGUIPoFileCheckingTool = 'GUI Po-file checking tool';
   sSelectTestTypes = 'Select test types';
   sOpenAPoFile = '&Open a po-file';
+  sScanDir = 'Scan a folder';
   sRunSelectedTests = '&Run Selected Tests';
+  sClearListBox = 'Clear';
+  sUnselectListBox = 'Unselect';
+  sAllLanguages = 'All Languages';
   sCannotFindMaster = 'Cannot find master po file:' + LineEnding + '%s' + LineEnding + 'for selected file' + LineEnding + '%s';
-  sNotAProperFileName = 'Selected filename' + LineEnding + '%s' + LineEnding + 'does not seem to be a proper name for a po-file';
+  //sNotAProperFileName = 'Selected filename' + LineEnding + '%s' + LineEnding + 'does not seem to be a proper name for a po-file';
+  sFilesNotFoundAndRemoved = 'The following non-existent files were removed from the list:' + LineEnding + '%s';
+  sNoFilesLeftToCheck = 'There are no files left to check.';
   sErrorOnCreate = 'Error creating an instance of TPoFamily:' + LineEnding + '%s';
   sErrorOnCleanup = 'An unrecoverable error occurred' + LineEnding + '%s' + LineEnding + 'Please close the program';
 
   sTotalErrors = 'Total errors found: %d';
   sTotalWarnings = 'Total warnings found: %d';
   sNoErrorsFound = 'No errors found';
-  sCurrentTest = 'Current Test:';
-  sCurrentPoFile = 'Current po-file:';
+  sCurrentTest = 'Test: %s on %s';
   sNoTestSelected = 'There are no tests selected.';
 
   //Result form
@@ -45,7 +50,12 @@ resourcestring
               '%3d Fuzzy (%3.1f%%)' + LineEnding +
               '%d Error(s) in Selected Tests';
   sOpenFile = 'Open file %s in Ide Editor?';
-  SOpenFail = 'Unable to open file %s';
+  sOpenFileExternal = 'Open file:' + LineEnding + '"%s"' +
+                      LineEnding + 'in external editor:' +
+                      LineEnding + '"%s"?';
+  SOpenFail = 'Unable to open file:' + LineEnding +  '"%s"';
+  SOpenFailExternal = 'Unable to open file' + LineEnding +
+                      '"%s"' + LineEnding + 'in external editor' + LineEnding + '"%s"';
 
   //PoFamiles
   sOriginal = 'Original';
@@ -61,7 +71,7 @@ resourcestring
   sCheckForDuplicateUntranslatedValues = 'Check for duplicate untranslated '
     +'values';
   sCheckStatistics = 'Check percentage of (un)translated and fuzzy strings';
-  sFindAllTranslatedPoFiles = 'Find all translated po-files';
+  //sFindAllTranslatedPoFiles = 'Find all translated po-files';
   sIgnoreFuzzyTranslations = 'Ignore translated strings marked as "fuzzy"';
   sIncompatibleFormatArgs = '[Line: %d] Incompatible and/or invalid format() arguments for:' ;
 

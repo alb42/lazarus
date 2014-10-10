@@ -1238,7 +1238,7 @@ type
 
     property AutoSizing: Boolean read FAutoSizingSelf;// see Begin/EndAutoSizing
     property AutoSizingAll: Boolean read GetAutoSizingAll;// set in DoAllAutoSize
-    property AutoSizingLockCount: Integer read FAutoSizingLockCount;
+    property AutoSizingLockCount: Integer read FAutoSizingLockCount; // in/decreased by Disable/EnableAutoSizing
   protected
     // protected messages
     procedure WMCancelMode(var Message: TLMessage); message LM_CANCELMODE;
@@ -1496,6 +1496,7 @@ type
     procedure ExecuteDefaultAction; virtual;
     procedure ExecuteCancelAction; virtual;
     procedure BeginDrag(Immediate: Boolean; Threshold: Integer = -1);
+    procedure EndDrag(Drop: Boolean);
     procedure BringToFront;
     function HasParent: Boolean; override;
     function GetParentComponent: TComponent; override;
@@ -1650,7 +1651,7 @@ type
 
   {   Defines how child controls are resized/aligned.
 
-      cesAnchorAligning, cssAnchorAligning
+      crsAnchorAligning
         Anchors and Align work like Delphi. For example if Anchors property of
         the control is [akLeft], it means fixed distance between left border of
         parent's client area. [akRight] means fixed distance between right
@@ -1676,7 +1677,7 @@ type
         Order: First all alTop children are resized, then alBottom, then alLeft,
         then alRight and finally alClient.
 
-      cesScaleChilds, cssScaleChilds
+      crsScaleChilds
         Scale children, keep space between them fixed.
         Children are resized to their normal/adviced size. If there is some space
         left in the client area of the parent, then the children are scaled to
@@ -1690,7 +1691,7 @@ type
         (15+45=60 and 30 pixel space left) will be scaled by 1.5 again, to a
         final result of: A.Width=23, B.Width=30, C.Width=67 (23+30+67=120).
 
-      cesHomogenousChildGrowth, cssHomogenousChildDecrease
+      crsHomogenousChildResize
         Enlarge children equally.
         Children are resized to their normal/adviced size. If there is some space
         left in the client area of the parent, then the remaining space is
@@ -1703,7 +1704,7 @@ type
         (20+40=60 and 30 pixel space left) will get 30/2=15 additional,
         resulting in: A.Width=35, B.Width=30, C.Width=55 (35+30+55=120).
 
-      cesHomogenousSpaceGrowth
+      crsHomogenousSpaceResize
         Enlarge space between children equally.
         Children are resized to their normal/adviced size. If there is some space
         left in the client area of the parent, then the space between the children
@@ -1712,13 +1713,21 @@ type
         C.Width=30 (total=60). If the Parent's client area has a ClientWidth of
         120, then there will be 60/2=30 space between A and B and between
         B and C.
+
+      crsSameSize - not implemented yet
+        Set each child to the same size (maybe one pixel difference).
+        The client area is divided by the number of controls and each control
+        gets the same size. The remainder is distributed to the first children.
   }
 
   TChildControlResizeStyle = (
       crsAnchorAligning, // (like Delphi)
-      crsScaleChilds, // scale children, keep space between children fixed
+      crsScaleChilds, // scale children equally, keep space between children fixed
       crsHomogenousChildResize, // enlarge children equally (i.e. by the same amount of pixel)
-      crsHomogenousSpaceResize  // enlarge space between children equally
+      crsHomogenousSpaceResize // enlarge space between children equally
+      {$IFDEF EnablecrsSameSize}
+      ,crsSameSize  // each child gets the same size (maybe one pixel difference)
+      {$ENDIF}
     );
 
   TControlChildrenLayout = (

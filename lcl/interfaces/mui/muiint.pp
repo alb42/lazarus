@@ -77,7 +77,7 @@ type
     procedure AppBringToFront; override;
     procedure AppSetTitle(const ATitle: string); override;
     function EnumFontFamiliesEx(DC: HDC; lpLogFont: PLogFont; Callback: FontEnumExProc; Lparam: LParam; Flags: dword): longint; override;
-    function MessageBox(hWnd: HWND; lpText: PChar; lpCaption: PChar;  uType: Cardinal): Integer; override;
+    //function MessageBox(hWnd: HWND; lpText: PChar; lpCaption: PChar;  uType: Cardinal): Integer; override;
     function PromptUser(const DialogCaption: String; const DialogMessage: String; DialogType: LongInt; Buttons: PLongint; ButtonCount: LongInt; DefaultIndex: LongInt; EscapeResult: LongInt):LongInt; override;
     function RawImage_CreateBitmaps(const ARawImage: TRawImage; out ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean = false):Boolean; override;
   public
@@ -89,9 +89,11 @@ type
     function DestroyTimer(TimerHandle: THandle) : boolean; override;
     procedure DestroyLCLComponent(Sender: TObject);virtual;
 
-    function GetDC(hWnd: HWND):HDC; override;
-    function MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean; override;
-    function LineTo(DC: HDC; X, Y: Integer): Boolean; override;
+    //function GetDC(hWnd: HWND):HDC; override;
+    //function MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean; override;
+    //function LineTo(DC: HDC; X, Y: Integer): Boolean; override;
+
+    {$I muiwinapih.inc}
   public
   end;
 
@@ -102,6 +104,9 @@ implementation
 
 uses
   MUIWSFactory, MUIWSForms, VInfo;
+
+
+{$I muiwinapi.inc}
 
 { TMUIWidgetSet }
 
@@ -229,10 +234,11 @@ begin
   Result:=0;
 end;
 
+(*
 function TMUIWidgetSet.MessageBox(hWnd: HWND; lpText: PChar; lpCaption: PChar;
   uType: Cardinal): Integer;
 begin
-end;
+end;*)
 
 function TMUIWidgetSet.PromptUser(const DialogCaption: String;
   const DialogMessage: String; DialogType: LongInt; Buttons: PLongint;
@@ -310,7 +316,7 @@ begin
 
 end;
 
-
+(*
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
 
 begin
@@ -352,6 +358,6 @@ begin
     //NAW.LineTo(X,Y);
     Result := True;
   end;
-end;
+end;   *)
 
 end.

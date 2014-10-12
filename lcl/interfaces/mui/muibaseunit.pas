@@ -23,8 +23,8 @@ type
     FParent: TMUIObject;
     // AWinControl lcl-Object
     FPasObject: TControl;
-    
-
+    function GetEnabled: Boolean;
+    procedure SetEnabled(AValue: Boolean);
   protected
     LayoutHook: THook;
 
@@ -69,6 +69,7 @@ type
     property Obj: pObject_ read FObject write FObject;
     property PasObject:TControl read FPasObject write FPasObject;
     property Visible: Boolean read GetVisible write SetVisible;
+    property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
 
   { TMuiArea }
@@ -258,6 +259,19 @@ var
 begin
   AddTags(Tags, Params);
   Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, GetTagPtr(Tags));
+end;
+
+function TMUIObject.GetEnabled: Boolean;
+begin
+  Result := not Boolean(GetAttribute(MUIA_Disabled));
+end;
+
+procedure TMUIObject.SetEnabled(AValue: Boolean);
+begin
+  if AValue then
+    SetAttribute([LongInt(MUIA_Disabled), LFalse, TAG_END])
+  else
+    SetAttribute([LongInt(MUIA_Disabled), LTrue, TAG_END]);
 end;
 
 procedure TMUIObject.SetAttribute(const Tags: array of const);

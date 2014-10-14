@@ -28,10 +28,11 @@ uses
   LineInfo,
   {$ENDIF}
   // rtl+fcl
-  Types, Classes, SysUtils, FPCAdds,
+  agraphics,Types, Classes, SysUtils, FPCAdds,
   // interfacebase
   InterfaceBase,
   // LCL
+
   Dialogs, Controls, Forms, LCLStrConsts, LMessages, stdctrls,
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes,
   //AROS
@@ -88,10 +89,6 @@ type
     function CreateTimer(Interval: integer; TimerFunc: TWSTimerProc) : THandle; override;
     function DestroyTimer(TimerHandle: THandle) : boolean; override;
     procedure DestroyLCLComponent(Sender: TObject);virtual;
-
-    //function GetDC(hWnd: HWND):HDC; override;
-    //function MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean; override;
-    //function LineTo(DC: HDC; X, Y: Integer): Boolean; override;
 
     {$I muiwinapih.inc}
   public
@@ -315,49 +312,5 @@ procedure TMUIWidgetSet.DestroyLCLComponent(Sender: TObject);
 begin
 
 end;
-
-(*
-function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
-
-begin
-  //writeln('getDC ', HexStr(Pointer(hwnd)));
-  if TObject(hWnd) is TMUIObject then
-  begin
-    //writeln('ok is muiboj', TObject(hWnd).classname);
-    //Result := HDC(TArosWindow.create(TMUIObject(hwnd).obj));
-  end else
-    Result := 0;
-  // TODO: Get Window to Draw!
-end;
-
-function TMUIWidgetSet.MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint
-  ): Boolean;
-//var
-//  NAW: TArosWindow;
-begin
-  //writeln('MoveTo', x, ' , ',y);
-  Result := False;
-  if (DC<>0) {and (TObject(DC) is TArosWindow)} then
-  begin
-    //NAW := TArosWindow(DC);
-    //NAW.MoveTo(X,Y);
-    Result := True;
-  end;
-  //Result:=inherited MoveToEx(DC, X, Y, OldPoint);
-end;
-
-function TMUIWidgetSet.LineTo(DC: HDC; X, Y: Integer): Boolean;
-//var
-//  NAW: TArosWindow;
-begin
-  //writeln('LineTo', x, ' , ',y);
-  Result := False;
-  if (DC<>0) {and (TObject(DC) is TArosWindow)} then
-  begin
-    //NAW := TArosWindow(DC);
-    //NAW.LineTo(X,Y);
-    Result := True;
-  end;
-end;   *)
 
 end.

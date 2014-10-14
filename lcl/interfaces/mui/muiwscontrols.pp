@@ -129,7 +129,7 @@ var
   MuiPanel: TMuiArea;
 begin
   //writeln('-->Create GraphicControl');
-  MuiPanel := TMuiArea.Create(MUIC_Group, nil);
+  MuiPanel := TMuiArea.Create(LCLGroupClass, nil);
   With MuiPanel do
   begin
     Left := AParams.X;
@@ -181,20 +181,23 @@ class function TMuiWSWinControl.GetClientRect(const AWincontrol: TWinControl;
   var ARect: TRect): Boolean;
 begin
   //writeln(AWincontrol.classname,' Get client Rect');
-  //TMuiPrivateWidget(AWincontrol.Handle).GetClientRect(ARect);
-  Result:=False;
+  ARect.Left := 0;
+  ARect.Right := 0;
+  ARect.Top := TMuiObject(AWinControl.Handle).Width;
+  ARect.Bottom := TMuiObject(AWinControl.Handle).Height;
+  Result:=True;
 end;
 
 class function TMuiWSWinControl.GetDefaultClientRect(
   const AWinControl: TWinControl; const aLeft, aTop, aWidth, aHeight: integer;
   var aClientRect: TRect): Boolean;
 begin
-  AClientRect.top := aTop;
-  AClientRect.Left := aLeft;
-  AClientRect.Right := aWidth;
-  AClientRect.Bottom := AHeight;
-  //writeln(AWincontrol.classname,' Get client Default Rect ', AWidth - 10,' ', AHeight - 10);
-  Result:=True;
+  {AClientRect.top := ALeft;
+  AClientRect.Left := ATop;
+  AClientRect.Right := AWidth;
+  AClientRect.Bottom := AHeight;}
+  //writeln(AWincontrol.classname,' Get client Default Rect ',ALeft,', ', ATop,' -' , AWidth,' x ', AHeight);
+  Result:=False;
 end;
 
 class procedure TMuiWSWinControl.GetPreferredSize(

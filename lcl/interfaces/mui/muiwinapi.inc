@@ -37,6 +37,8 @@ function TMUIWidgetSet.BeginPaint(Handle: hWnd; Var PS : TPaintStruct): hdc;
   PrivateWidget: TFPGUIPrivateWidget absolute Handle;
   DC: TFpGuiDeviceContext;*)
 begin
+  //writeln('begin paint');
+  Result := 0;
 (*  {$ifdef VerboseFPGUIWinAPI}
     WriteLn('Trace:> [WinAPI BeginPaint] Handle=', dbghex(Handle));
   {$endif}
@@ -103,6 +105,7 @@ begin
     eRegionComplex: Result:=ComplexRegion;
     eRegionNotCombinableOrError: Result:=Region_Error;
   end;*)
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateBitmap(Width, Height: Integer; Planes,
@@ -116,12 +119,14 @@ begin
   end else begin
     Result:=0;
   end;*)
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateBrushIndirect(const LogBrush: TLogBrush
   ): HBRUSH;
 begin
   //Result:=HBRUSH(TFPGUIWinAPIBrush.Create(LogBrush));
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
@@ -129,14 +134,17 @@ function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
 //var
 //  img: TFPGUIWinAPIBitmap;
 begin
+  //writeln('CreateCompatibleBitmap');
   //img:=TFPGUIWinAPIBitmap.Create(32,Width,Height);
   //Result:=HBITMAP(img);
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateCompatibleDC(DC: HDC): HDC;
 //var
 //  ADC: TFpGuiDeviceContext absolute DC;
 begin
+  //writeln('CreateCompatibleDC');
 (*  {$ifdef VerboseFPGUIWinAPI}
     if DC=0 then begin
       WriteLn(Self.ClassName,'.CreateCompatibleDC ','NULL');
@@ -155,22 +163,26 @@ begin
     //Create DC widget compatible
     Result:=HDC(TFpGuiDeviceContext.Create(ADC.FPrivateWidget));
   end;*)
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateFontIndirect(const LogFont: TLogFont): HFONT;
 begin
   //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont));
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateFontIndirectEx(const LogFont: TLogFont;
   const LongFontName: string): HFONT;
 begin
   //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont,LongFontName));
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreatePenIndirect(const LogPen: TLogPen): HPEN;
 begin
   //Result:=HPEN(TFPGUIWinAPIPen.Create(LogPen));
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN;
@@ -179,6 +191,7 @@ function TMUIWidgetSet.CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN;
 begin
   //Reg:=TFPGUIBasicRegion.Create(Rect(X1,Y1,X2,Y2));
   //Result:=HRGN(Reg);
+  Result := 0;
 end;
 
 function TMUIWidgetSet.DeleteObject(GDIObject: HGDIOBJ): Boolean;
@@ -187,7 +200,7 @@ begin
   //  TObject(GDIObject).Free;
   //  Result:=true;
   //end else begin
-  //  Result:=false;
+  Result:=false;
   //end;
 end;
 
@@ -202,15 +215,37 @@ end;
 
 function TMUIWidgetSet.DrawText(DC: HDC; Str: PChar; Count: Integer;
   var ARect: TRect; Flags: Cardinal): Integer;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
+  Left, Top: Integer;
 begin
-  //writeln('DrawText ', str);
-  (*Result:=inherited DrawText(DC, Str, Count, ARect, Flags);
-  if (Flags and DT_CALCRECT)=0 then begin
-    ADC.fpgCanvas.DrawText(ADC.PrepareRectOffsets(ARect),Str,[],0);
+  if Assigned(ADC) then
+  begin
+    if Assigned(ADC.RastPort) then
+    begin
+      Left := ARect.Left;
+      Top := ARect.Top + ADC.TextHeight(Str, Count);
+      if Flags and DT_CENTER <> 0 then
+      begin
+        Left := ARect.Right div 2 - (ADC.TextWidth(Str, Count) div 2);
+        Top := ARect.Bottom div 2;
+      end;
+      if Flags and DT_Top <> 0 then
+        Top := ARect.Top + ADC.TextHeight(Str, Count);
+      if Flags and DT_Bottom <> 0 then
+        Top := ARect.Bottom - ADC.TextHeight(Str, Count) div 2;
+      if (Flags and DT_CALCRECT)=0 then
+      begin
+        ADC.MoveTo(Left, Top);
+        ADC.WriteText(str, Count);
+      end;
+      //ARect.Left := Left;
+      //ARect.Top := Top;
+      //ARect.Right := ADC.TextWidth(Str, Count);
+      //ARect.Bottom := ADC.TextHeight(Str, Count);
+      Result := ADC.TextHeight(Str, Count);
+    end;
   end;
-  Result:=ARect.Bottom-ARect.Top; //The height of the text.*)
 end;
 
 function TMUIWidgetSet.EnableWindow(hWnd: HWND; bEnable: Boolean): Boolean;
@@ -225,9 +260,11 @@ function TMUIWidgetSet.EndPaint(Handle: hwnd; var PS: TPaintStruct): Integer;
 //var
 //  DC: TFpGuiDeviceContext;
 begin
+   //writeln('end paint');
 //  DC := TFpGuiDeviceContext(PS.hdc);
 //  DC.Free;
 //  Result:=1; //Any non zero value.
+  Result := 0;
 end;
 
 function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
@@ -239,6 +276,7 @@ function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   rClip,OldClip: TfpgRect;
   RestoreClip: Boolean;*)
 begin
+  //writeln('textout');
 (*  SetLength(AStr,Count);
   move(Str[0],AStr[1],Count);
   r:=ADC.PrepareRectOffsets(classes.Rect(X,Y,0,0));
@@ -272,6 +310,7 @@ function TMUIWidgetSet.FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH
   OldColor: TfpgColor;
   TheRect: TfpgRect;*)
 begin
+  //writeln('fillrect');
 (*  OldColor:=ADC.fpgCanvas.Color;
   ADC.fpgCanvas.Color:=NewBrush.Color;
   TRectTofpgRect(Rect,TheRect);
@@ -281,13 +320,67 @@ begin
   Result:=False;
 end;
 
+{function TMUIWidgetSet.Frame(DC: HDC; const ARect: TRect): Integer;
+begin
+
+end;}
+
+function TMUIWidgetSet.Frame3d(DC: HDC; var ARect: TRect; const FrameWidth : integer; const Style : TBevelCut): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := False;
+  if Assigned(ADC) and Assigned(ADC.RastPort) then
+  begin
+    //writeln('Frame3D ', ARect.Left, ', ', ARect.Right, ' ; ', ARect.Top, ' ', ARect.Bottom,' w:', FrameWidth, ' style: ', Ord(Style));
+    if Style = bvRaised then
+    begin
+      SetAPen(ADC.RastPort, 2);
+      ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Left, ARect.Top);
+      ADC.LineTo(ARect.Right - 1, ARect.Top);
+      SetAPen(ADC.RastPort, 1);
+      ADC.MoveTo(ARect.Right - 1, ARect.Top);
+      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Left, ARect.Bottom - 1);
+    end;
+    if Style = bvLowered then
+    begin
+      SetAPen(ADC.RastPort, 1);
+      ADC.MoveTo(ARect.Right - 1, ARect.Top);
+      ADC.LineTo(ARect.Left, ARect.Top);
+      ADC.LineTo(ARect.Left, ARect.Bottom - 1);
+      SetAPen(ADC.RastPort, 2);
+      ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Right - 1, ARect.Top);
+    end;
+    Inc(ARect.Left);
+    Inc(ARect.Top);
+    Dec(ARect.Right);
+    Dec(ARect.Bottom);
+    SetAPen(ADC.RastPort, 1);
+    Result := True;
+  end;
+end;
+
+function TMUIWidgetSet.FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer;
+begin
+
+end;
+
 function TMUIWidgetSet.GetClientRect(handle: HWND; var ARect: TRect
   ): Boolean;
-//var
-//  fpguiPrivate: TFPGUIPrivateWidget absolute handle;
+var
+  Widget: TMUIObject absolute handle;
 begin
 //  fpguiPrivate.GetClientRect(ARect);
-  Result:=False;
+  ARect.Left := 0;
+  ARect.Right := Widget.Width;
+  ARect.Top := 0;
+  ARect.Bottom := Widget.Height;
+  //writeln('################Get ClientRect ', ARect.Left, ', ', ARect.Right);
+  Result:=True;
 end;
 
 function TMUIWidgetSet.GetClipRGN(DC: hDC; RGN: hRGN): Longint;
@@ -328,9 +421,14 @@ begin
 end;
 
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
-//var
-//  PrivateWidget: TFPGUIPrivateWidget absolute hWnd;
+var
+  PrivateWidget: TMUIObject absolute hWnd;
 begin
+  Result := 0;
+  if Assigned(PrivateWidget) then
+  begin
+    Result := THandle(PrivateWidget.MuiCanvas)
+  end
   //Create a new DC
 (*  if Assigned(PrivateWidget) then begin
     if PrivateWidget.DC<>0 then begin
@@ -460,6 +558,7 @@ function TMUIWidgetSet.InvalidateRect(aHandle: HWND; Rect: pRect;
 //var
 //  PrivateWidget: TFPGUIPrivateWidget absolute aHandle;
 begin
+  //writeln('invalidate');
   //PrivateWidget.Widget.Canvas.BeginDraw(false);
   //PrivateWidget.Paint;
   //PrivateWidget.Widget.Canvas.EndDraw;
@@ -530,6 +629,7 @@ function TMUIWidgetSet.Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean;
 //  ADC: TFpGuiDeviceContext absolute DC;
 //  r: TfpgRect;
 begin
+  //writeln('Rectangle');
   (*r:=ADC.PrepareRectOffsets(Rect(X1,Y1,X2,Y2));
   ADC.fpgCanvas.BeginDraw(true);
   ADC.ClearRectangle(r);

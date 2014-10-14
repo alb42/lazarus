@@ -5,12 +5,24 @@ unit MUIBaseUnit;
 interface
 
 uses
-  Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility,
-  Mui, Forms, LCLMessageGlue;
+  Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, agraphics, Intuition, Utility,
+  Mui, Forms, LCLMessageGlue, lcltype;
 
 type
   TEventFunc = procedure (Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
   { TMUIObject }
+
+  { TMUICanvas }
+
+  TMUICanvas = class
+    RastPort: PRastPort;
+    DrawRect: TRect;
+    procedure MoveTo(x, y: Integer);
+    procedure LineTo(x, y: Integer);
+    procedure WriteText(Txt: PChar; Count: Integer);
+    function TextWidth(Txt: PChar; Count: Integer): Integer;
+    function TextHeight(Txt: PChar; Count: Integer): Integer;
+  end;
 
   TMUIObject = class(TObject)
   private
@@ -23,6 +35,8 @@ type
     FParent: TMUIObject;
     // AWinControl lcl-Object
     FPasObject: TControl;
+    FOnDraw: TNotifyEvent;
+    FMuiCanvas: TMUICanvas;
     function GetEnabled: Boolean;
     procedure SetEnabled(AValue: Boolean);
   protected
@@ -50,12 +64,15 @@ type
     procedure SetHeight(AHeight: Integer); virtual;
     
     function GetWidth(): Integer; virtual;
+    procedure InstallHooks; virtual;
+    procedure DoReDraw(); virtual;
   public
     FObjects: TObjectList;
     FObject: pObject_;
     BlockRedraw: Boolean;
-    constructor Create(ObjType : LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
-    constructor Create(AClassName : PChar; Tags: PTagItem); overload; reintroduce; virtual;
+    constructor Create(ObjType: LongInt; const Params : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(AClassName: PChar; Tags: PTagItem); overload; reintroduce; virtual;
+    constructor Create(AClassType: PIClass; Tags: PTagItem); overload; reintroduce; virtual;
     destructor Destroy; override;
     //
     procedure SetOwnSize; virtual;
@@ -70,6 +87,9 @@ type
     property PasObject:TControl read FPasObject write FPasObject;
     property Visible: Boolean read GetVisible write SetVisible;
     property Enabled: Boolean read GetEnabled write SetEnabled;
+    property MUICanvas: TMUICanvas read FMUICanvas;
+
+    property OnDraw: TNotifyEvent read FOnDraw write FOnDraw;
   end;
 
   { TMuiArea }
@@ -130,12 +150,15 @@ procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 
 var
   MUIApp: TMuiApplication;
+  LCLGroupClass: PIClass;
 
 implementation
 
 uses
   tagsarray,longarray;
 
+var
+  GroupSuperClass: PIClass;
 
 procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
@@ -162,6 +185,53 @@ begin
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
   //writeln('<--btnup');
+end;
+
+{ TMUICanvas }
+
+procedure TMUICanvas.MoveTo(x, y: Integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    GfxMove(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+  end;
+end;
+
+procedure TMUICanvas.LineTo(x, y: Integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    Draw(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+  end;
+end;
+
+procedure TMUICanvas.WriteText(Txt: PChar; Count: Integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    GfxText(RastPort, Txt, Count);
+  end;
+end;
+
+function TMUICanvas.TextWidth(Txt: PChar; Count: Integer): Integer;
+begin
+  Result := 0;
+  if Assigned(RastPort) then
+  begin
+    Result := TextLength(RastPort, Txt, Count);
+  end;
+end;
+
+function TMUICanvas.TextHeight(Txt: PChar; Count: Integer): Integer;
+var
+  TE: TTextExtent;
+begin
+  Result := 0;
+  if Assigned(RastPort) then
+  begin
+    TextExtent(RastPort, Txt, Count, @TE);
+    Result := TE.te_Height;
+  end;
 end;
 
 
@@ -234,6 +304,20 @@ end;
 function TMUIObject.GetWidth(): Integer;
 begin
   Result := FWidth;
+end;
+
+procedure TMUIObject.DoReDraw();
+var
+  PS: PPaintStruct;
+begin
+  if Assigned(PasObject) then
+  begin
+    new(PS);
+    FillChar(PS^, SizeOf(TPaintStruct), 0);
+    PS^.hdc := THandle(Pointer(FMuiCanvas));
+    LCLSendPaintMsg(TControl(PasObject), THandle(Pointer(FMuiCanvas)), PS);
+    Dispose(PS)
+  end;
 end;
 
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags : Array Of Const);
@@ -313,14 +397,8 @@ begin
   end;  
 end;
 
-constructor TMUIObject.Create(ObjType: LongInt; const Params: array of const);
+procedure TMUIObject.InstallHooks;
 begin
-  inherited Create;
-  BlockRedraw := False;
-  FObjects := TObjectList.create(False);
-  FParent := NIL;
-  FObject := MUI_MakeObject(ObjType, Params);
-  //
   ButtonUp.h_Entry := IPTR(@BtnUpFunc);
   ButtonUp.h_SubEntry := 0;//IPTR(@BtnUpFunc);
   ButtonUp.h_Data := Self;
@@ -328,7 +406,7 @@ begin
   ButtonDown.h_SubEntry := 0;//IPTR(@BtnDownFunc);
   ButtonDown.h_Data := Self;
   //
-  
+
   DoMethod([LongInt(MUIM_Notify),
     LongInt(MUIA_Pressed), LongInt(True),
     LongInt(MUIV_Notify_Self),
@@ -341,17 +419,46 @@ begin
     2,
     LongInt(MUIM_CallHook), IPTR(@ButtonUp)
     ]);
+end;
+
+constructor TMUIObject.Create(ObjType: LongInt; const Params: array of const);
+begin
+  inherited Create;
+  FMUICanvas := TMUICanvas.Create;
+  BlockRedraw := False;
+  FObjects := TObjectList.create(False);
+  FParent := NIL;
+  //writeln(self.classname, 'create obj ', ObjType);
+  FObject := MUI_MakeObject(ObjType, Params);
+  InstallHooks;
    //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
+  FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
   FObjects := TObjectList.create(False);
   FParent := NIL;
+  //writeln(self.classname, 'create class ', classname);
   FObject := MUI_NewObjectA(AClassName, Tags);
+  InstallHooks;
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
+end;
+
+constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
+begin
+  inherited Create;
+  FMUICanvas := TMUICanvas.Create;
+  BlockRedraw := False;
+  FObjects := TObjectList.create(False);
+  FParent := NIL;
+  FObject := NewObjectA(AClassType, nil, Tags);
+  //writeln(self.classname, 'create type');
+  if Assigned(FObject) then
+    Pointer(INST_DATA(AClassType, Pointer(FObject))^) := Self;
+  InstallHooks;
 end;
 
 destructor TMUIObject.Destroy;
@@ -361,6 +468,7 @@ begin
   SetParent(nil);
   MUI_DisposeObject(FObject);
   FObjects.Free;
+  FMUICanvas.Free;
   inherited Destroy;
   //writeln(self.classname, '<-- muiobject destroy');
 end;
@@ -382,6 +490,8 @@ begin
   end;
   //writeln(self.classname, '<--setownsize');
 end;
+
+
 
 procedure TMUIObject.Redraw;
 begin
@@ -548,9 +658,93 @@ begin
   SetAttribute([LongInt(MUIA_Selected), AValue, TAG_END]);
 end;
 
-initialization
 
+function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): LongWord; cdecl;
+var
+  AskMsg: PMUIP_AskMinMax;
+  ri: PMUI_RenderInfo;
+  rp: PRastPort;
+  Region: PRegion;
+  r: TRectangle;
+  clip: Pointer;
+  MUIB: TMUIObject;
+begin
+  //write('Enter Dispatcher with: ');
+  case Msg^.MethodID of
+    MUIM_Draw: begin
+      //writeln('DRAW');
+      Result := DoSuperMethodA(cl, obj, msg);
+      if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
+        Exit;
+      rp := nil;
+      ri := MUIRenderInfo(Obj);
+      if Assigned(ri) then
+        rp := ri^.mri_RastPort;
+      if Assigned(rp) then
+      begin
+        MUIB:= TMUIObject(INST_DATA(cl, Pointer(obj))^);
+        clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj), Obj_Width(Obj), Obj_Height(Obj));
+        try
+          if Assigned(MUIB) then
+          begin
+            MUIB.FMUICanvas.RastPort := rp;
+            MUIB.FMUICanvas.DrawRect := Rect(Obj_mLeft(Obj), Obj_mTop(Obj), Obj_mRight(Obj), Obj_mBottom(Obj));
+            MUIB.DoRedraw;
+            if Assigned(MUIB.FOnDraw) then
+            begin
+              MUIB.FOnDraw(MUIB);
+            end;
+          end;
+
+        finally
+          MUI_RemoveClipRegion(ri, clip);
+          MUIB.FMUICanvas.RastPort := nil;
+        end;
+      end;
+      Result := 0;
+    end;
+    else
+    begin
+      //writeln('unknown ', Msg^.MethodID);
+      Result := DoSuperMethodA(cl, obj, msg);
+    end;
+  end;
+end;
+
+procedure DestroyClasses;
+begin
+  if Assigned(LCLGroupClass) then
+    FreeClass(LCLGroupClass);
+  if Assigned(GroupSuperClass) then
+    MUI_FreeClass(GroupSuperClass);
+end;
+
+procedure CreateClasses;
+begin
+  GroupSuperClass := MUI_GetClass(MUIC_Group);
+  if not Assigned(GroupSuperClass) then
+  begin
+    writeln('Superclass for the new class not found.');
+    halt(5);
+  end;
+  LCLGroupClass := MakeClass(nil ,nil, GroupSuperClass, SizeOf(Pointer), 0);
+  if not Assigned(LCLGroupClass) then
+  begin
+    writeln('Cannot make class.');
+    DestroyClasses;
+    halt(5);
+  end;
+  LCLGroupClass^.cl_Dispatcher.h_Entry := IPTR(@Dispatcher);
+  LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;
+  LCLGroupClass^.cl_Dispatcher.h_Data := nil;
+end;
+
+
+
+initialization
+  CreateClasses;
 finalization
   MUIApp.Free;
+  DestroyClasses;
 end.
 

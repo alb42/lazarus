@@ -308,9 +308,14 @@ end;
 constructor TMuiWindow.Create(var TagList: TTagsList);
 var
   LT: TTagsList;
+  GrpTags: TTagsList;
 begin
   FMainMenu := TMuiMenuStrip.Create(LT);
-  FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
+  //FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
+  AddTags(GrpTags, [LongInt(MUIA_Group_LayoutHook), @LayoutHook]);
+  FGrpObj := NewObjectA(LCLGroupClass, nil, GetTagPtr(GrpTags));
+  if Assigned(FGrpObj) then
+    Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
   //
   LayoutHook.h_Entry := IPTR(@LayoutFunc);
   LayoutHook.h_SubEntry := IPTR(@LayoutFunc);

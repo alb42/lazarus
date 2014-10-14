@@ -17,11 +17,14 @@ type
   TMUICanvas = class
     RastPort: PRastPort;
     DrawRect: TRect;
+    Position: TPoint;
+    RenderInfo: PMUI_RenderInfo;
     procedure MoveTo(x, y: Integer);
     procedure LineTo(x, y: Integer);
     procedure WriteText(Txt: PChar; Count: Integer);
     function TextWidth(Txt: PChar; Count: Integer): Integer;
     function TextHeight(Txt: PChar; Count: Integer): Integer;
+    procedure SetAMUIPen(PenDesc: Integer);
   end;
 
   TMUIObject = class(TObject)
@@ -66,6 +69,7 @@ type
     function GetWidth(): Integer; virtual;
     procedure InstallHooks; virtual;
     procedure DoReDraw(); virtual;
+    procedure DoMUIDraw(); virtual;
   public
     FObjects: TObjectList;
     FObject: pObject_;
@@ -155,7 +159,7 @@ var
 implementation
 
 uses
-  tagsarray,longarray;
+  tagsarray,longarray, muiformsunit;
 
 var
   GroupSuperClass: PIClass;
@@ -194,6 +198,8 @@ begin
   if Assigned(RastPort) then
   begin
     GfxMove(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    Position.X := X;
+    Position.Y := Y;
   end;
 end;
 
@@ -202,6 +208,8 @@ begin
   if Assigned(RastPort) then
   begin
     Draw(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    Position.X := X;
+    Position.Y := Y;
   end;
 end;
 
@@ -234,6 +242,11 @@ begin
   end;
 end;
 
+procedure TMUICanvas.SetAMUIPen(PenDesc: Integer);
+begin
+  if (PenDesc >= 0) then
+    SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
+end;
 
 { TMUIObject }
 
@@ -309,6 +322,7 @@ end;
 procedure TMUIObject.DoReDraw();
 var
   PS: PPaintStruct;
+  i: Integer;
 begin
   if Assigned(PasObject) then
   begin
@@ -318,6 +332,15 @@ begin
     LCLSendPaintMsg(TControl(PasObject), THandle(Pointer(FMuiCanvas)), PS);
     Dispose(PS)
   end;
+  for i := 0 to FObjects.Count - 1 do
+  begin
+    TMuiObject(FObjects[i]).DoMuiDraw;
+  end;
+end;
+
+procedure TMUIObject.DoMUIDraw();
+begin
+  MUI_Redraw(FObject, MADF_DRAWOBJECT)
 end;
 
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags : Array Of Const);
@@ -673,9 +696,9 @@ begin
   case Msg^.MethodID of
     MUIM_Draw: begin
       //writeln('DRAW');
-      Result := DoSuperMethodA(cl, obj, msg);
-      if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
-        Exit;
+      //Result := DoSuperMethodA(cl, obj, msg);
+      //if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
+      //  Exit;
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -688,14 +711,18 @@ begin
           if Assigned(MUIB) then
           begin
             MUIB.FMUICanvas.RastPort := rp;
-            MUIB.FMUICanvas.DrawRect := Rect(Obj_mLeft(Obj), Obj_mTop(Obj), Obj_mRight(Obj), Obj_mBottom(Obj));
+            MUIB.FMUICanvas.DrawRect := Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+            MUIB.FMUICanvas.Position.X := 0;
+            MUIB.FMUICanvas.Position.Y := 0;
+            MUIB.FMUICanvas.RenderInfo := ri;
+            SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
+            RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top, MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom);
             MUIB.DoRedraw;
             if Assigned(MUIB.FOnDraw) then
             begin
               MUIB.FOnDraw(MUIB);
             end;
           end;
-
         finally
           MUI_RemoveClipRegion(ri, clip);
           MUIB.FMUICanvas.RastPort := nil;

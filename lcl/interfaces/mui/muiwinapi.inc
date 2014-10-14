@@ -219,30 +219,20 @@ var
   ADC: TMUICanvas absolute DC;
   Left, Top: Integer;
 begin
+  inherited;
   if Assigned(ADC) then
   begin
     if Assigned(ADC.RastPort) then
     begin
-      Left := ARect.Left;
-      Top := ARect.Top + ADC.TextHeight(Str, Count);
-      if Flags and DT_CENTER <> 0 then
+      if (Flags and DT_CALCRECT) <> 0 then
       begin
-        Left := ARect.Right div 2 - (ADC.TextWidth(Str, Count) div 2);
-        Top := ARect.Bottom div 2;
+        ARect.Right := ARect.Left + ADC.TextWidth(Str, Count);
+        ARect.Bottom := ARect.Top + ADC.TextHeight(Str, Count);
+        Result := ADC.TextHeight(Str, Count);
+        Exit;
       end;
-      if Flags and DT_Top <> 0 then
-        Top := ARect.Top + ADC.TextHeight(Str, Count);
-      if Flags and DT_Bottom <> 0 then
-        Top := ARect.Bottom - ADC.TextHeight(Str, Count) div 2;
-      if (Flags and DT_CALCRECT)=0 then
-      begin
-        ADC.MoveTo(Left, Top);
-        ADC.WriteText(str, Count);
-      end;
-      //ARect.Left := Left;
-      //ARect.Top := Top;
-      //ARect.Right := ADC.TextWidth(Str, Count);
-      //ARect.Bottom := ADC.TextHeight(Str, Count);
+      ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
+      ADC.WriteText(str, Count);
       Result := ADC.TextHeight(Str, Count);
     end;
   end;
@@ -330,27 +320,28 @@ var
   ADC: TMUICanvas absolute DC;
 begin
   Result := False;
+  inherited;
   if Assigned(ADC) and Assigned(ADC.RastPort) then
   begin
     //writeln('Frame3D ', ARect.Left, ', ', ARect.Right, ' ; ', ARect.Top, ' ', ARect.Bottom,' w:', FrameWidth, ' style: ', Ord(Style));
     if Style = bvRaised then
     begin
-      SetAPen(ADC.RastPort, 2);
+      ADC.SetAMUIPen(MPEN_SHINE);
       ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
       ADC.LineTo(ARect.Left, ARect.Top);
       ADC.LineTo(ARect.Right - 1, ARect.Top);
-      SetAPen(ADC.RastPort, 1);
+      ADC.SetAMUIPen(MPEN_SHADOW);
       ADC.MoveTo(ARect.Right - 1, ARect.Top);
       ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
       ADC.LineTo(ARect.Left, ARect.Bottom - 1);
     end;
     if Style = bvLowered then
     begin
-      SetAPen(ADC.RastPort, 1);
+      ADC.SetAMUIPen(MPEN_SHADOW);
       ADC.MoveTo(ARect.Right - 1, ARect.Top);
       ADC.LineTo(ARect.Left, ARect.Top);
       ADC.LineTo(ARect.Left, ARect.Bottom - 1);
-      SetAPen(ADC.RastPort, 2);
+      ADC.SetAMUIPen(MPEN_SHINE);
       ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
       ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
       ADC.LineTo(ARect.Right - 1, ARect.Top);
@@ -366,7 +357,7 @@ end;
 
 function TMUIWidgetSet.FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer;
 begin
-
+  //writeln('FrameRect');
 end;
 
 function TMUIWidgetSet.GetClientRect(handle: HWND; var ARect: TRect
@@ -426,41 +417,19 @@ var
 begin
   Result := 0;
   if Assigned(PrivateWidget) then
-  begin
     Result := THandle(PrivateWidget.MuiCanvas)
-  end
-  //Create a new DC
-(*  if Assigned(PrivateWidget) then begin
-    if PrivateWidget.DC<>0 then begin
-      Result:=PrivateWidget.DC;
-    end else begin
-      Result:=HDC(TFpGuiDeviceContext.Create(PrivateWidget));
-    end;
-  end else Result:=HDC(FPGUIGetDesktopDC());*)
 end;
 
 function TMUIWidgetSet.GetDeviceCaps(DC: HDC; Index: Integer): Integer;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
 begin
-(*  if ADC.FPrivateWidget=nil then begin
-    //Desktop device caps
-    { TODO : Create real data for GetDeviceCaps }
-    Case Index of
-      LOGPIXELSX: Result:=96; //Hardcoded by now
-      BITSPIXEL : Result:=32; //Hardcoded by now
-      else begin
-        {$ifdef VerboseFPGUIWinAPI}
-          WriteLn(Self.ClassName,'.GetDeviceCaps Index ',Index,' Desktop');
-        {$endif}
-      end;
-    end;
-  end else begin
-    //other
-    {$ifdef VerboseFPGUIWinAPI}
-      WriteLn(Self.ClassName,'.GetDeviceCaps Index ',Index,ADC.FPrivateWidget.LCLObject.Name);
-    {$endif}
-  end;*)
+  //Desktop device caps
+  { TODO : Create real data for GetDeviceCaps }
+  Case Index of
+    LOGPIXELSX: Result:=96; //Hardcoded by now
+    BITSPIXEL : Result:=32; //Hardcoded by now
+    else
+        WriteLn(Self.ClassName,'.GetDeviceCaps Index ',Index,' Desktop');
+  end;
 end;
 
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
@@ -504,12 +473,20 @@ end;
 
 function TMUIWidgetSet.GetTextExtentPoint(DC: HDC; Str: PChar;
   Count: Integer; var Size: TSize): Boolean;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
 begin
-//  Size.cx:=ADC.fpgCanvas.Font.TextWidth(Str);
-//  Size.cy:=ADC.fpgCanvas.Font.Height;
-  Result:=False;
+  Result := False;
+  inherited;
+  if Assigned(ADC) then
+  begin
+    if Assigned(ADC.RastPort) then
+    begin
+      Size.cx := ADC.TextWidth(Str, Count);
+      Size.cy := ADC.TextHeight(Str, Count);
+      Result := True;
+    end;
+  end;
 end;
 
 function TMUIWidgetSet.GetTextMetrics(DC: HDC; var TM: TTextMetric): Boolean;
@@ -563,6 +540,19 @@ begin
   //PrivateWidget.Paint;
   //PrivateWidget.Widget.Canvas.EndDraw;
   //Result:=true;
+end;
+
+function TMUIWidgetSet.LineTo(DC: HDC; X, Y: Integer): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := False;
+  inherited;
+  if Assigned(ADC) and Assigned(ADC.RastPort) then
+  begin
+    ADC.LineTo(X, Y);
+    Result := True;
+  end;
 end;
 
 { Most of the functionality is implemented. As described in MSDN:
@@ -622,6 +612,25 @@ begin
     TfpgMessageDialog.Critical(TitleStr, Str, Buttons)
   else
     TfpgMessageDialog.Information(TitleStr, Str, Buttons);*)
+end;
+
+function TMUIWidgetSet.MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := False;
+  inherited;
+  if Assigned(ADC) and Assigned(ADC.RastPort) then
+  begin
+    //writeln('Frame3D ', ARect.Left, ', ', ARect.Right, ' ; ', ARect.Top, ' ', ARect.Bottom,' w:', FrameWidth, ' style: ', Ord(Style));
+    if Assigned(OldPoint) then
+    begin
+      OldPoint^.X := ADC.Position.X;
+      OldPoint^.Y := ADC.Position.Y;
+    end;
+    ADC.MoveTo(X, Y);
+    Result := True;
+  end;
 end;
 
 function TMUIWidgetSet.Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean;
@@ -727,7 +736,7 @@ var
   Widget: TMUIObject absolute hWnd;
 begin
   Result := Widget.Visible;
-  Widget.Visible:=true;{ TODO -oJose Mejuto : Process showwindow mode }
+  Widget.Visible := True;
 end;
 
 function TMUIWidgetSet.StretchBlt(DestDC: HDC; X, Y, Width, Height: Integer;

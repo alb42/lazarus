@@ -130,13 +130,13 @@ function IntersectClipRect(dc: hdc; Left, Top, Right, Bottom: Integer): Integer;
 function IsWindowEnabled(Handle: HWND): boolean; override;
 function IsWindowVisible(Handle: HWND): boolean; override;
 
-procedure LeaveCriticalSection(var CritSection: TCriticalSection); override;
+procedure LeaveCriticalSection(var CritSection: TCriticalSection); override;}
 function LineTo(DC: HDC; X, Y: Integer): Boolean; override;
-}
-function MessageBox(hWnd: HWND; lpText, lpCaption: PChar; uType: Cardinal): integer; override;
-{
-function MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean; override;
 
+function MessageBox(hWnd: HWND; lpText, lpCaption: PChar; uType: Cardinal): integer; override;
+
+function MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean; override;
+{
 function PeekMessage(var lpMsg : TMsg; Handle : HWND; wMsgFilterMin, wMsgFilterMax,wRemoveMsg : UINT): Boolean; override;
 function PolyBezier(DC: HDC; Points: PPoint; NumPts: Integer; Filled, Continuous: boolean): boolean; override;
 function Polygon(DC: HDC; Points: PPoint; NumPts: Integer; Winding: boolean): boolean; override;

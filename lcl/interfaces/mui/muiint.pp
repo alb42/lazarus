@@ -37,7 +37,8 @@ uses
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes,
   //AROS
   //Aroswinunit,
-  MUIBaseUnit, exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray,
+  MUIBaseUnit, MUIFormsUnit,
+  exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray,
   // widgetset
   WSLCLClasses, LCLMessageGlue;
 

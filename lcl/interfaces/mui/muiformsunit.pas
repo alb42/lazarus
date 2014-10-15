@@ -89,6 +89,7 @@ type
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
+    procedure DoMUIDraw(); override;
     procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
@@ -356,6 +357,12 @@ begin
     Exit;
   CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_InitChange)]);
   CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_ExitChange)]);
+end;
+
+procedure TMuiWindow.DoMUIDraw();
+begin
+  inherited;
+  MUI_Redraw(FGrpobj, MADF_DRAWOBJECT)
 end;
 
 procedure TMuiWindow.SetLeft(ALeft: LongInt);

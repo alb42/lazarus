@@ -128,7 +128,7 @@ class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
 var
   MuiPanel: TMuiArea;
 begin
-  //writeln('-->Create GraphicControl');
+  //writeln('-->Create GraphicControl ', AWinControl.Classname);
   MuiPanel := TMuiArea.Create(LCLGroupClass, nil);
   With MuiPanel do
   begin

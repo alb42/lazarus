@@ -88,16 +88,16 @@ end;
 
 function TMUIWidgetSet.CombineRgn(Dest, Src1, Src2: HRGN;
   fnCombineMode: Longint): Longint;
-(*var
-  R1: TFPGUIBasicRegion absolute Src1;
-  R2: TFPGUIBasicRegion absolute Src2;
-  DR: TFPGUIBasicRegion absolute Dest;
-  Combine: TFPGUIRegionCombine;*)
+var
+  R1: TMUIBasicRegion absolute Src1;
+  R2: TMUIBasicRegion absolute Src2;
+  DR: TMUIBasicRegion absolute Dest;
+  Combine: TMUIRegionCombine;
 begin
   {$ifdef VERBOSEAROS}
   writeln('combine region ', IntToStr(src1), ' ', IntToStr(src2));
   {$endif}
-(*  case fnCombineMode of
+  case fnCombineMode of
     RGN_AND:  Combine:=eRegionCombineAnd;
     RGN_COPY: Combine:=eRegionCombineCopy;
     RGN_DIFF: Combine:=eRegionCombineDiff;
@@ -111,8 +111,7 @@ begin
     eRegionSimple: Result:=SimpleRegion ;
     eRegionComplex: Result:=ComplexRegion;
     eRegionNotCombinableOrError: Result:=Region_Error;
-  end;*)
-  Result := 0;
+  end;
 end;
 
 function TMUIWidgetSet.CreateBitmap(Width, Height: Integer; Planes,
@@ -201,15 +200,14 @@ begin
 end;
 
 function TMUIWidgetSet.CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN;
-//var
-//  Reg: TFPGUIBasicRegion;
+var
+  Reg: TMUIBasicRegion;
 begin
   {$ifdef VERBOSEAROS}
   writeln('Create REct Region ', x1,', ', y1, ', ', x2, ', ', y2);
   {$endif}
-  //Reg:=TFPGUIBasicRegion.Create(Rect(X1,Y1,X2,Y2));
-  //Result:=HRGN(Reg);
-  Result := x2;
+  Reg:=TMUIBasicRegion.Create(Rect(X1,Y1,X2,Y2));
+  Result:=HRGN(Reg);
 end;
 
 procedure TMUIWidgetSet.DeleteCriticalSection(var CritSection: TCriticalSection);
@@ -253,7 +251,6 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)));
   {$endif}
-  inherited;
   if Assigned(ADC) then
   begin
     if Assigned(ADC.RastPort) then
@@ -422,7 +419,6 @@ function TMUIWidgetSet.GetClientRect(handle: HWND; var ARect: TRect
 var
   Widget: TMUIObject absolute handle;
 begin
-//  fpguiPrivate.GetClientRect(ARect);
   ARect.Left := 0;
   ARect.Right := Widget.Width;
   ARect.Top := 0;
@@ -432,19 +428,15 @@ begin
 end;
 
 function TMUIWidgetSet.GetClipRGN(DC: hDC; RGN: hRGN): Longint;
-(*var
-  ADC: TFpGuiDeviceContext absolute DC;
-  Clip: TfpgRect;
-  Region: TFPGUIBasicRegion absolute RGN;*)
+var
+  ADC: TMUICanvas absolute DC;
+  Region: TMUIBasicRegion absolute RGN;
 begin
   {$ifdef VERBOSEAROS}
   writeln('Get Clip region ', HexStr(Pointer(Rgn)));
   {$endif}
-  RGN := 1;
-  Result := 1;
-(*  ADC.fpgCanvas.GetWinRect(Clip); { TODO : Should be a clip region, but use this by now }
   if Region<>nil Then FreeAndNil(Region);
-  Region:=TFPGUIBasicRegion.Create(Rect(Clip.Left,Clip.Top,Clip.Right,Clip.Bottom));
+  Region:=TMUIBasicRegion.Create(Rect(ADC.DrawRect.Left,ADC.DrawRect.Top,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
   RGN:=HRGN(Region);
   if Region.RegionType=eRegionNULL then begin
     Result:=0;
@@ -452,7 +444,7 @@ begin
     Result:=-1;
   end else begin
     Result:=1;
-  end;*)
+  end;
 end;
 
 function TMUIWidgetSet.GetCursorPos(var lpPoint: TPoint): Boolean;
@@ -627,11 +619,12 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('invalidate');
   {$endif}
-  PrivateWidget.DoMUIDraw;
-  //PrivateWidget.Widget.Canvas.BeginDraw(false);
-  //PrivateWidget.Paint;
-  //PrivateWidget.Widget.Canvas.EndDraw;
-  //Result:=true;
+  Result := False;
+  if Assigned(PrivateWidget) then
+  begin
+    PrivateWidget.DoMUIDraw;
+    Result := True;
+  end;
 end;
 
 procedure TMUIWidgetSet.InitializeCriticalSection(var CritSection: TCriticalSection);

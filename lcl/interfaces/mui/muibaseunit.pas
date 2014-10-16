@@ -5,8 +5,8 @@ unit MUIBaseUnit;
 interface
 
 uses
-  Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, agraphics, Intuition, Utility,
-  Mui, Forms, LCLMessageGlue, lcltype;
+  Classes, dos, SysUtils, Controls, Contnrs, Exec, AmigaDos, agraphics, Intuition, Utility,
+  Mui, Forms, LCLMessageGlue, lcltype, interfacebase;
 
 type
   TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
@@ -133,6 +133,16 @@ type
 
   end;
 
+  { TMUITimer }
+
+  TMUITimer = class
+    Func: TWSTimerProc;
+    StartTime: Int64;
+    InterVal: Int64;
+    Handle: THandle;
+    function CheckTimer: Boolean;
+  end;
+
   { TMuiApplication }
 
   TMuiApplication = class(TMUIObject)
@@ -140,16 +150,21 @@ type
     FTerminated: boolean;
     FSignals: longword;
     FMainWin: pObject_;
+    FTimers: TObjectList;
     function GetIconified: boolean;
     procedure SetIconified(const AValue: boolean);
+    procedure CheckTimer;
   protected
     procedure AddChild(Child: TMUIObject); override;
     procedure RemoveChild(Child: TMUIObject); override;
   public
     constructor Create(Tags: PTagItem); overload; reintroduce; virtual;
+    destructor Destroy; override;
     function NewInput(Signals: PLongword): longword;
     procedure ProcessMessages;
     procedure WaitMessages;
+    function CreateTimer(Interval: integer; TimerFunc: TWSTimerProc): THandle;
+    function DestroyTimer(TimerHandle: THandle): boolean;
     property Terminated: boolean read FTerminated write FTerminated;
     property Iconified: boolean read GetIconified write SetIconified;
   end;
@@ -194,6 +209,23 @@ begin
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
   //writeln('<--btnup');
+end;
+
+{ TMUITimer }
+
+function TMUITimer.CheckTimer: Boolean;
+var
+  t: Int64;
+begin
+  Result := False;
+  t := GetMsCount;
+  if t - StartTime >= Interval then
+  begin
+    if Assigned(Func) then
+      Func;
+    StartTime := t;
+    Result := True;
+  end;
 end;
 
 { TMUICanvas }
@@ -536,6 +568,16 @@ begin
   SetAttribute([MUIA_Application_Iconified, AValue, TAG_END]);
 end;
 
+procedure TMuiApplication.CheckTimer;
+var
+  i: Integer;
+begin
+  for i := 0 to FTimers.Count - 1 do
+  begin
+    TMUITimer(FTimers.items[i]).CheckTimer;
+  end;
+end;
+
 procedure TMuiApplication.AddChild(Child: TMUIObject);
 begin
   inherited AddChild(Child);
@@ -564,6 +606,14 @@ constructor TMuiApplication.Create(Tags: PTagItem);
 begin
   inherited Create(MUIC_Application, Tags);
   FSignals := 0;
+  FTimers := TObjectList.Create;
+  FTimers.OwnsObjects := True;
+end;
+
+destructor TMuiApplication.Destroy;
+begin
+  FTimers.Free;
+  inherited Destroy;
 end;
 
 function TMuiApplication.NewInput(Signals: PLongword): longword;
@@ -573,16 +623,19 @@ end;
 
 procedure TMuiApplication.ProcessMessages;
 begin
+  CheckTimer;
   if integer(DoMethod([longint(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
   begin
     Application.Terminate;
     Exit;
   end;
+  CheckTimer;
 end;
 
 procedure TMuiApplication.WaitMessages;
 begin
+  CheckTimer;
   if DoMethod([longint(MUIM_Application_NewInput), IPTR(@FSignals)]) =
     MUIV_Application_ReturnID_Quit then
   begin
@@ -591,13 +644,35 @@ begin
   end;
   if (FSignals <> 0) then
   begin
-    FSignals := Wait(FSignals or SIGBREAKF_CTRL_C);
+    FSignals := CheckSignal(FSignals or SIGBREAKF_CTRL_C);
     if FTerminated or ((FSignals and SIGBREAKF_CTRL_C) <> 0) then
     begin
       Application.Terminate;
       Exit;
     end;
+    Sleep(25);
   end;
+  CheckTimer;
+end;
+
+function TMuiApplication.CreateTimer(Interval: integer; TimerFunc: TWSTimerProc
+  ): THandle;
+var
+  NewTimer: TMUITimer;
+begin
+  NewTimer := TMUITimer.create;
+  NewTimer.StartTime := GetmsCount;
+  NewTimer.Interval := Interval;
+  NewTimer.Func := TimerFunc;
+  NewTimer.Handle := THandle(NewTimer);
+  FTimers.Add(NewTimer);
+  Result := NewTimer.Handle;
+end;
+
+function TMuiApplication.DestroyTimer(TimerHandle: THandle): boolean;
+begin
+  if TimerHandle <> 0 then
+    FTimers.Remove(TObject(TimerHandle));
 end;
 
 { TMuiArea }

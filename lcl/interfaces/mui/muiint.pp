@@ -32,12 +32,11 @@ uses
   // interfacebase
   InterfaceBase,
   // LCL
-
   Dialogs, Controls, Forms, LCLStrConsts, LMessages, stdctrls,
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes,
   //AROS
   //Aroswinunit,
-  MUIBaseUnit, MUIFormsUnit,
+  MUIBaseUnit, MUIFormsUnit, muidrawing,
   exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray,
   // widgetset
   WSLCLClasses, LCLMessageGlue;
@@ -298,15 +297,22 @@ begin
   inherited Destroy;
 end;
 
-function TMUIWidgetSet.CreateTimer(Interval: integer; TimerFunc: TWSTimerProc
-  ): THandle;
+function TMUIWidgetSet.CreateTimer(Interval: integer; TimerFunc: TWSTimerProc): THandle;
 begin
-  Result:=0;
+  Result := 0;
+  if Assigned(MUIApp) then
+  begin
+    Result := MUIApp.CreateTimer(Interval, TimerFunc);
+  end;
 end;
 
 function TMUIWidgetSet.DestroyTimer(TimerHandle: THandle): boolean;
 begin
   Result:=false;
+  if Assigned(MUIApp) then
+  begin
+    Result := MUIApp.DestroyTimer(TimerHandle);
+  end;
 end;
 
 procedure TMUIWidgetSet.DestroyLCLComponent(Sender: TObject);

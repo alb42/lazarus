@@ -24,7 +24,8 @@ uses
   Classes, SysUtils,
   Graphics, Menus, LCLType,
   // Widgetset
-  muibaseunit;
+  // aros
+  agraphics, intuition, mui;
 
 type
 
@@ -45,6 +46,9 @@ type
     Color: TMUIColor;
     Width: Integer;
   end;
+
+
+
   (*
   { TmuiWinAPIBrush }
 
@@ -178,9 +182,27 @@ type
     //property fpgRectRegion: TfpgRect read GetfpgRectRegion;
   end;
 
+  { TMUICanvas }
+
+  TMUICanvas = class
+    RastPort: PRastPort;
+    DrawRect: TRect;
+    Position: TPoint;
+    RenderInfo: PMUI_RenderInfo;
+    procedure MoveTo(x, y: integer);
+    procedure LineTo(x, y: integer);
+    procedure WriteText(Txt: PChar; Count: integer);
+    function TextWidth(Txt: PChar; Count: integer): integer;
+    function TextHeight(Txt: PChar; Count: integer): integer;
+    procedure SetAMUIPen(PenDesc: integer);
+  end;
+
   //function muiGetDesktopDC(): TmuiDeviceContext;
   function TColorToMUIColor(col: TColor): TMuiColor;
 implementation
+uses
+  muibaseunit;
+
 (*
 var
   muiDesktopDC: TmuiDeviceContext=nil;
@@ -673,6 +695,63 @@ begin
         Raise Exception.CreateFmt('Region mode %d not supported',[integer(ACombineMode)]);
       end;
   end;
+end;
+
+{ TMUICanvas }
+
+procedure TMUICanvas.MoveTo(x, y: integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    GfxMove(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    Position.X := X;
+    Position.Y := Y;
+  end;
+end;
+
+procedure TMUICanvas.LineTo(x, y: integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    Draw(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    Position.X := X;
+    Position.Y := Y;
+  end;
+end;
+
+procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
+begin
+  if Assigned(RastPort) then
+  begin
+    GfxText(RastPort, Txt, Count);
+  end;
+end;
+
+function TMUICanvas.TextWidth(Txt: PChar; Count: integer): integer;
+begin
+  Result := 0;
+  if Assigned(RastPort) then
+  begin
+    Result := TextLength(RastPort, Txt, Count);
+  end;
+end;
+
+function TMUICanvas.TextHeight(Txt: PChar; Count: integer): integer;
+var
+  TE: TTextExtent;
+begin
+  Result := 0;
+  if Assigned(RastPort) then
+  begin
+    TextExtent(RastPort, Txt, Count, @TE);
+    Result := TE.te_Height;
+  end;
+end;
+
+procedure TMUICanvas.SetAMUIPen(PenDesc: integer);
+begin
+  if (PenDesc >= 0) then
+    SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
 end;
 
 finalization

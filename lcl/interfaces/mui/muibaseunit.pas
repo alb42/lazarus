@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, dos, SysUtils, Controls, Contnrs, Exec, AmigaDos, agraphics, Intuition, Utility,
-  Mui, Forms, LCLMessageGlue, lcltype, interfacebase;
+  Mui, Forms, LCLMessageGlue, lcltype, interfacebase, muidrawing;
 
 type
   TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;

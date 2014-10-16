@@ -61,7 +61,7 @@ type
     class function  CreateHandle(const AWinControl: TWinControl;
           const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
-    //class procedure Invalidate(const AWinControl: TWinControl); override;
+    class procedure Invalidate(const AWinControl: TWinControl); override;
     class function  GetClientRect(const AWincontrol: TWinControl;
                              var ARect: TRect): Boolean; override;
     class function  GetDefaultClientRect(const AWinControl: TWinControl;
@@ -163,20 +163,20 @@ begin
     AWinControl.Handle := 0;
   end;  
 end;
-(*
+
 {------------------------------------------------------------------------------
   Method: TMuiWSWinControl.Invalidate
   Params:  None
   Returns: Nothing
  ------------------------------------------------------------------------------}
 class procedure TMuiWSWinControl.Invalidate(const AWinControl: TWinControl);
-//var
-//  FPWidget: TfpgWidget;
+var
+  Widget: TMuiObject;
 begin
-  //FPWidget := TMuiPrivateWidget(AWinControl.Handle).Widget;
-  //FPWidget.Invalidate;
+  Widget := TMuiObject(AWinControl.Handle);
+  Widget.DoMUIDraw;
 end;
-*)
+
 class function TMuiWSWinControl.GetClientRect(const AWincontrol: TWinControl;
   var ARect: TRect): Boolean;
 begin

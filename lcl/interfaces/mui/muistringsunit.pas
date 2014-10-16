@@ -11,6 +11,9 @@ type
   PStringPtrs= ^TStringPtrs;
   { TMUIStrings }
 
+  TMUIStrings = TStringList;
+
+  {
   TMUIStrings = class(TStringList)
   private
     FStrings: TStringPtrs;
@@ -27,13 +30,13 @@ type
     property StringPtrs: TStringPtrs read FStrings;
     property OnChanged: TNotifyEvent read FOnChanged write FOnChanged;
   end;
-
+   }
 
 
 implementation
 
 { TMUIStrings }
-
+(*
 constructor TMUIStrings.Create;
 begin
   inherited;
@@ -153,7 +156,7 @@ begin
 
   if Assigned(FOnChanged) then
     FOnChanged(Self);
-end;
+end; *)
 
 end.
 

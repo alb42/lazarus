@@ -85,6 +85,7 @@ type
   private
     ActiveItemChanged: THook;
     FStrings: TMuiStrings;
+    StringPtrs: TStringPtrs;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
     procedure ChangedItems(Sender: TObject);
@@ -612,23 +613,32 @@ end;
 
 procedure TMuiCycle.ChangedItems(Sender: TObject);
 begin
-  SetAttribute([LongInt(MUIA_Cycle_Entries), @(FStrings.StringPtrs[0]), TAG_END]);
+  // on change -> recreate the combobox (items only set on initialization in MUI)
+  RecreateWnd(TWinControl(PasObject));
 end;
 
 constructor TMuiCycle.Create(ACaption: PChar; AStrings: TStrings);
 var
+  str: string;
+  Len: Integer;
   i: LongInt;
 begin
   FStrings := TMuiStrings.create;
+  SetLength(StringPtrs, AStrings.Count + 1);
   for i:= 0 to AStrings.Count - 1 do
   begin
-    FStrings.Add(AStrings.strings[i]);
+    str := AStrings.strings[i] + #0;
+    FStrings.Add(str);
+    Len := Length(Str);
+    StringPtrs[i] := System.AllocMem(Len + 1);
+    Move(Str[1], StringPtrs[i]^, Len);
   end;
-  inherited Create(MUIO_Cycle, [ACaption, @(FStrings.StringPtrs[0])]);
-  FStrings.OnChanged := @ChangedItems;
+  StringPtrs[High(StringPtrs)] := nil;
+  inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);
+  FStrings.OnChange := @ChangedItems;
   // event for item changed
   ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
-  ActiveItemChanged.h_SubEntry := IPTR(@ActiveItemChangedFunc);
+  ActiveItemChanged.h_SubEntry := 0;
   ActiveItemChanged.h_Data := Self;
   CallHook(PHook(OCLASS(FObject)), FObject,
       [LongInt(MUIM_Notify), LongInt(MUIA_Cycle_Active), LongInt(MUIV_EveryTime),
@@ -636,11 +646,10 @@ begin
       2,
       LongInt(MUIM_CallHook), @ActiveItemChanged
       ]);
-
 end;
 
 Destructor TMuiCycle.Destroy;
-begin  
+begin
   inherited;  
   FStrings.Free;
 end;

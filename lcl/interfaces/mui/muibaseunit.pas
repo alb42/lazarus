@@ -411,8 +411,8 @@ begin
   FParent := nil;
   //writeln(self.classname, 'create obj ', ObjType);
   FObject := MUI_MakeObject(ObjType, Params);
-  InstallHooks;
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
+  InstallHooks;
 end;
 
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);

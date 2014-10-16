@@ -382,10 +382,16 @@ class function TMUIWSCustomComboBox.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 var
   MuiCycle: TMuiCycle;
+  ItemIndex: Integer;
 begin
-  Result := True;
+  Result := False;
   MuiCycle := TMuiCycle(AWinControl.Handle);
-  AText := string(MuiCycle.Strings.strings[MuiCycle.Active]);
+  ItemIndex:= MuiCycle.Active;
+  if (ItemIndex >= 0) and (ItemIndex < MuiCycle.Strings.Count) then
+  begin
+    AText := string(MuiCycle.Strings.strings[ItemIndex]);
+    Result := True;
+  end;
 end;
 
 class procedure TMUIWSCustomComboBox.SetText(const AWinControl: TWinControl;

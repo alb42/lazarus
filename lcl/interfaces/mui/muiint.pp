@@ -135,12 +135,14 @@ begin
   end;
 end;
 
+var
+  AppTitle, FinalVers, Vers, CopyR, Comment, prgName, Author: string;
+
 procedure TMUIWidgetSet.AppInit(var ScreenInfo: TScreenInfo);
 type
   TVerArray = array[0..3] of Word;
 var
   Info: TVersionInfo;
-  FinalVers, Vers, CopyR, Comment, prgName: string;
   i,j: Integer;
   TagList: TTagsList;
 
@@ -154,6 +156,7 @@ begin
   CopyR := '';
   Comment := '';
   prgName := Application.title;
+  AppTitle := Application.title;
   try
     Info := TVersionInfo.Create;
     Info.Load(HINSTANCE);
@@ -170,6 +173,10 @@ begin
         begin
           Comment := Info.StringFileInfo.Items[i].Values[j];
         end else
+        if Info.StringFileInfo.Items[i].Keys[j] = 'CompanyName' then
+        begin
+          Author := Info.StringFileInfo.Items[i].Values[j];
+        end else
         if Info.StringFileInfo.Items[i].Keys[j] = 'ProductName' then
         begin
           if Length(Trim(Info.StringFileInfo.Items[i].Values[j])) > 0  then
@@ -180,12 +187,14 @@ begin
     Info.Free;
   except
   end;
-  FinalVers := PrgName + ' ' + Vers;
+  FinalVers := '$VER: ' + PrgName + ' ' + Vers;
   AddTags(TagList, [
-    LongInt(MUIA_Application_Title), PChar(Application.title),
+    LongInt(MUIA_Application_Base), PChar(AppTitle),
+    LongInt(MUIA_Application_Title), PChar(AppTitle),
     LongInt(MUIA_Application_Version), PChar(FinalVers),
     LongInt(MUIA_Application_Copyright), PChar(CopyR),
-    LongInt(MUIA_Application_Description), PChar(Comment)
+    LongInt(MUIA_Application_Description), PChar(Comment),
+    LongInt(MUIA_Application_Author), PChar(Author)
     ]);
   MUIApp := TMuiApplication.create(GetTagPtr(TagList));
 end;

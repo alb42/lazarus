@@ -30,7 +30,7 @@ uses
   // FCL
   Classes, sysutils,
   // LCL
-  Controls, LCLType,  Graphics,
+  Controls, LCLType,  Graphics, tagsarray,
   // Widgetset
   MUIBaseUnit, WSControls, WSLCLClasses, Utility, Mui;
 
@@ -127,9 +127,9 @@ class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiPanel: TMuiArea;
+  TagList: TTagsList;
 begin
-  //writeln('-->Create GraphicControl ', AWinControl.Classname);
-  MuiPanel := TMuiArea.Create(LCLGroupClass, nil);
+  MuiPanel := TMuiArea.Create(LCLGroupClass, GetTagPtr(TagList));
   With MuiPanel do
   begin
     Left := AParams.X;
@@ -139,7 +139,6 @@ begin
     PasObject := AWinControl;
     Caption := PChar(AParams.Caption);
   end;
-
   if AWinControl.Parent <> NIL then
   begin
     MuiPanel.Parent := TMuiObject(AWinControl.Parent.Handle);

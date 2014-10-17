@@ -5,9 +5,9 @@ unit MUIWSFactory;
 interface
 
 uses
-  Classes, forms, Controls, StdCtrls, Menus, Dialogs,
+  Classes, forms, Controls, StdCtrls, Menus, Dialogs, ComCtrls,
   MuiWSControls, MUIwsforms, MuiWSMenus, MUIWSStdCtrls,
-  MuiWSDialogs,
+  MuiWSDialogs, MuiWSComCtrls,
   WSLCLClasses;
 
 // imglist
@@ -165,6 +165,7 @@ end;
 
 function RegisterCustomProgressBar: Boolean; alias : 'WSRegisterCustomProgressBar';
 begin
+  RegisterWSComponent(TCustomProgressBar, TMuiWSProgressBar);
   Result := False;
 end;
 

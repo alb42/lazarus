@@ -522,7 +522,7 @@ begin
     WriteLn('TFPGUIPrivateWindow.PaintHandler for ',LCLObject.Name);
   {$endif}
   DC:=GetDC(THandle(Self));
-  LCLSendPaintMsg(Self.LCLObject,DC,@AStruct);
+  LCLSendPaintMsg(Self.LCLObject,DC,AStruct);
   ReleaseDC(THandle(Self),DC);
 end;
 

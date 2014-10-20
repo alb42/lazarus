@@ -21,7 +21,7 @@ interface
 
 uses
   // RTL, FCL, LCL
-  Classes, SysUtils,
+  Classes, SysUtils, types,
   Graphics, Menus, LCLType,
   // Widgetset
   // aros
@@ -178,8 +178,9 @@ type
     destructor Destroy; override;
     procedure CreateRectRegion(const ARect: TRect);
     function CombineWithRegion(const ARegion: TmuiBasicRegion; const ACombineMode: TmuiRegionCombine): TmuiBasicRegion;
+    function Debugout: string;
     property RegionType: TmuiRegionType read GetRegionType;
-    //property fpgRectRegion: TfpgRect read GetfpgRectRegion;
+
   end;
 
   { TMUICanvas }
@@ -189,6 +190,9 @@ type
     DrawRect: TRect;
     Position: TPoint;
     RenderInfo: PMUI_RenderInfo;
+    Clipping: TMuiBasicRegion;
+    Offset: types.TPoint;
+    function GetOffset: TPoint;
     procedure MoveTo(x, y: integer);
     procedure LineTo(x, y: integer);
     procedure WriteText(Txt: PChar; Count: integer);
@@ -199,6 +203,7 @@ type
 
   //function muiGetDesktopDC(): TmuiDeviceContext;
   function TColorToMUIColor(col: TColor): TMuiColor;
+
 implementation
 uses
   muibaseunit;
@@ -645,6 +650,11 @@ begin
   end;
 end;
 
+function TmuiBasicRegion.Debugout: string;
+begin
+  Result := '('+IntToStr(FRectRegion.Left) + ', ' + IntToStr(FRectRegion.Top) + ' ; ' + IntToStr(FRectRegion.Right) + ', ' + IntToStr(FRectRegion.Bottom) + ')';
+end;
+
 function TmuiBasicRegion.CombineWithRegion(const ARegion: TmuiBasicRegion;
   const ACombineMode: TmuiRegionCombine): TmuiBasicRegion;
   function Min(const V1,V2: SizeInt): SizeInt;
@@ -699,11 +709,24 @@ end;
 
 { TMUICanvas }
 
+function TMUICanvas.GetOffset: TPoint;
+begin
+  Result.X := DrawRect.Left + Offset.X;
+  Result.Y := DrawRect.Top + Offset.Y;
+  //writeln('  GetOffset: ', Result.X);
+  if Assigned(Clipping) then
+  begin
+    Result.X := Result.X + Clipping.FRectRegion.Left;
+    Result.Y := Result.Y + Clipping.FRectRegion.Top;
+  end;
+end;
+
 procedure TMUICanvas.MoveTo(x, y: integer);
 begin
   if Assigned(RastPort) then
   begin
-    GfxMove(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    //writeln('MoveTo: ', Assigned(Clipping), ' -> ', GetOffset.X + x,', ', GetOffset.Y + Y);
+    GfxMove(RastPort, GetOffset.X + x, GetOffset.Y + y);
     Position.X := X;
     Position.Y := Y;
   end;
@@ -713,7 +736,7 @@ procedure TMUICanvas.LineTo(x, y: integer);
 begin
   if Assigned(RastPort) then
   begin
-    Draw(RastPort, DrawRect.Left + x, DrawRect.Top + y);
+    Draw(RastPort, GetOffset.X + x, GetOffset.Y + y);
     Position.X := X;
     Position.Y := Y;
   end;
@@ -723,6 +746,7 @@ procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
 begin
   if Assigned(RastPort) then
   begin
+    //writeln('write text: ', Txt);
     GfxText(RastPort, Txt, Count);
   end;
 end;

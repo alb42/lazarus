@@ -294,6 +294,7 @@ begin
     new(PS);
     FillChar(PS^, SizeOf(TPaintStruct), 0);
     PS^.hdc := THandle(Pointer(FMuiCanvas));
+    PS^.rcPaint := FMuiCanvas.DrawRect;
     //writeln('Send paintmessage to ', pasobject.classname);
     //LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
     LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
@@ -720,6 +721,9 @@ begin
             MUIB.FMUICanvas.Position.X := 0;
             MUIB.FMUICanvas.Position.Y := 0;
             MUIB.FMUICanvas.RenderInfo := ri;
+            MUIB.FMUICanvas.Clipping := nil;
+            MUIB.FMUICanvas.Offset.X := 0;
+            MUIB.FMUICanvas.Offset.Y := 0;
             //writeln('-->Draw');
             SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
             RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top,

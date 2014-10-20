@@ -50,6 +50,7 @@ type
   private
   protected
   public
+
   end;
 
   { TMuiWSWinControl }
@@ -58,6 +59,8 @@ type
   private
   protected
   published
+
+    class procedure AddControl(const AControl: TControl); override;
     class function  CreateHandle(const AWinControl: TWinControl;
           const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
@@ -70,7 +73,7 @@ type
     class procedure GetPreferredSize(const AWinControl: TWinControl;
                             var PreferredWidth, PreferredHeight: integer;
                             WithThemeSpace: Boolean); override;
-    //class procedure PaintTo(const AWinControl: TWinControl; ADC: HDC; X, Y: Integer); override;
+    class procedure PaintTo(const AWinControl: TWinControl; ADC: HDC; X, Y: Integer); override;
     class procedure SetBounds(const AWinControl: TWinControl; const ALeft, ATop, AWidth, AHeight: Integer); override;
     class procedure SetPos(const AWinControl: TWinControl; const ALeft, ATop: Integer); override;
     class procedure SetSize(const AWinControl: TWinControl; const AWidth, AHeight: Integer); override;
@@ -118,6 +121,13 @@ implementation
 
 { TMuiWSWinControl }
 
+
+class procedure TMuiWSWinControl.AddControl(const AControl: TControl);
+begin
+  inherited;
+  //writeln('AddControl ', AControl.classname);
+end;
+
 {------------------------------------------------------------------------------
   Method: TMuiWSWinControl.CreateHandle
   Params:  None
@@ -129,6 +139,7 @@ var
   MuiPanel: TMuiArea;
   TagList: TTagsList;
 begin
+  //writeln(AWinControl.classname,' create');
   MuiPanel := TMuiArea.Create(LCLGroupClass, GetTagPtr(TagList));
   With MuiPanel do
   begin
@@ -210,15 +221,18 @@ begin
   end;  
   //writeln('Prefered Size',PreferredHeight,',',PreferredWidth);
 end;
-(*
+
 class procedure TMuiWSWinControl.PaintTo(const AWinControl: TWinControl;
   ADC: HDC; X, Y: Integer);
 //var
 //  AADC: TMuiDeviceContext absolute ADC;
 begin
-//  TMuiPrivateWidget(AWinControl.Handle).PaintTo(AADC.fpgCanvas,X,Y);
+  inherited;
+  //writeln('PaintTo: ', X,', ',y);
+  //TMuiPrivateWidget(AWinControl.Handle).PaintTo(AADC.fpgCanvas,X,Y);
+
 end;
-*)
+
 {------------------------------------------------------------------------------
   Method: TMuiWSWinControl.SetBounds
   Params:  AWinControl - the calling object

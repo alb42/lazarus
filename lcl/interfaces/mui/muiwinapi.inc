@@ -72,6 +72,9 @@ function TMUIWidgetSet.ClientToScreen(Handle: HWND; var P: TPoint): Boolean;
 //var
 //  O: TFPGUIPrivateWidget;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('client to screen');
+  {$endif}
 (*  O:=GlobalMouseCursorPosWidget;
   while O<>nil do begin
     P.X:=P.X+O.Widget.Left;
@@ -95,7 +98,9 @@ var
   Combine: TMUIRegionCombine;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('combine region ', IntToStr(src1), ' ', IntToStr(src2));
+  writeln('combine region $', HexStr(Pointer(src1)), ' + $', HexStr(Pointer(src2)), ' to $', HexStr(Pointer(Dest)));
+  writeln('src1: ', R1.Debugout);
+  writeln('src2: ', R2.Debugout);
   {$endif}
   case fnCombineMode of
     RGN_AND:  Combine:=eRegionCombineAnd;
@@ -112,6 +117,9 @@ begin
     eRegionComplex: Result:=ComplexRegion;
     eRegionNotCombinableOrError: Result:=Region_Error;
   end;
+  {$ifdef VERBOSEAROS}
+  writeln('Dest: ', DR.Debugout);
+  {$endif}
 end;
 
 function TMUIWidgetSet.CreateBitmap(Width, Height: Integer; Planes,
@@ -203,11 +211,11 @@ function TMUIWidgetSet.CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN;
 var
   Reg: TMUIBasicRegion;
 begin
-  {$ifdef VERBOSEAROS}
-  writeln('Create REct Region ', x1,', ', y1, ', ', x2, ', ', y2);
-  {$endif}
   Reg:=TMUIBasicRegion.Create(Rect(X1,Y1,X2,Y2));
   Result:=HRGN(Reg);
+  {$ifdef VERBOSEAROS}
+  writeln('Create REct Region ', x1,', ', y1, ', ', x2, ', ', y2,' $',HexStr(Reg));
+  {$endif}
 end;
 
 procedure TMUIWidgetSet.DeleteCriticalSection(var CritSection: TCriticalSection);
@@ -223,13 +231,13 @@ end;
 function TMUIWidgetSet.DeleteObject(GDIObject: HGDIOBJ): Boolean;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('DeleteObject');
+  writeln('DeleteObject $', HexStr(Pointer(GDIObject)));
   {$endif}
   //if IsValidGDIObject(GDIObject) then begin
   //  TObject(GDIObject).Free;
   //  Result:=true;
   //end else begin
-  Result:=false;
+  Result:=True;
   //end;
 end;
 
@@ -249,7 +257,7 @@ var
   Left, Top: Integer;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)));
+  writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom);
   {$endif}
   if Assigned(ADC) then
   begin
@@ -262,6 +270,32 @@ begin
         Result := ADC.TextHeight(Str, Count);
         Exit;
       end;
+      {$ifdef VERBOSEAROS}
+      if (Flags and DT_BOTTOM) <> 0 then
+      begin
+        writeln('Bottom');
+      end;
+      if (Flags and DT_Right) <> 0 then
+      begin
+        writeln('Right');
+      end;
+      if (Flags and DT_Center) <> 0 then
+      begin
+        writeln('Center');
+      end;
+      if (Flags and DT_Left) <> 0 then
+      begin
+        writeln('Left');
+      end;
+      if (Flags and DT_Top) <> 0 then
+      begin
+        writeln('Top');
+      end;
+      if (Flags and DT_VCenter) <> 0 then
+      begin
+        writeln('VCenter');
+      end;
+      {$endif}
       ADC.SetAMUIPen(MPEN_TEXT);
       ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
       ADC.WriteText(str, Count);
@@ -282,7 +316,9 @@ function TMUIWidgetSet.EndPaint(Handle: hwnd; var PS: TPaintStruct): Integer;
 //var
 //  DC: TFpGuiDeviceContext;
 begin
+  {$ifdef VERBOSEAROS}
    writeln('end paint');
+  {$endif}
 //  DC := TFpGuiDeviceContext(PS.hdc);
 //  DC.Free;
 //  Result:=1; //Any non zero value.
@@ -296,6 +332,14 @@ begin
   ACritSec:=System.PRTLCriticalSection(CritSection);
   System.EnterCriticalsection(ACritSec^);
 end;
+
+{
+function TMUIWidgetSet.ExtSelectClipRGN(dc: hdc; rgn : hrgn; Mode : Longint) : Integer;
+var
+  Region: TMUIBasicRegion absolute RGN;
+begin
+  writeln('ExtSelectClip ', Region.Debugout, ': ', Mode);
+end; }
 
 function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
@@ -408,9 +452,9 @@ var
   Widget: TMUIObject absolute handle;
 begin
   ARect.Left := Widget.Left;
-  ARect.Right := Widget.Width;
+  ARect.Right := Widget.Left + Widget.Width;
   ARect.Top := Widget.Top;
-  ARect.Bottom := Widget.Height;
+  ARect.Bottom := Widget.Top + Widget.Height;
   Result := True;
 end;
 
@@ -423,7 +467,9 @@ begin
   ARect.Right := Widget.Width;
   ARect.Top := 0;
   ARect.Bottom := Widget.Height;
-  //writeln('################Get ClientRect ', ARect.Left, ', ', ARect.Right);
+  {$ifdef VERBOSEAROS}
+  writeln(Widget.classname, '################Get ClientRect ', ARect.Left, ', ', ARect.Right);
+  {$endif}
   Result:=True;
 end;
 
@@ -435,9 +481,9 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('Get Clip region ', HexStr(Pointer(Rgn)));
   {$endif}
-  if Region<>nil Then FreeAndNil(Region);
-  Region:=TMUIBasicRegion.Create(Rect(ADC.DrawRect.Left,ADC.DrawRect.Top,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
-  RGN:=HRGN(Region);
+  if Region=nil Then
+    Exit;                   //
+  Region.CreateRectRegion(Rect(ADC.DrawRect.Left,ADC.DrawRect.Top,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
   if Region.RegionType=eRegionNULL then begin
     Result:=0;
   end else if Region.RegionType=eRegionNotCombinableOrError then begin
@@ -509,6 +555,7 @@ function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
 //var
 //  PrivateWidget: TFPGUIPrivateWidget absolute Handle;
 begin
+   WriteLn('Trace:Unknown Window property: ',Str);
 (*  if Str='WinControl' then begin
     Result:=PrivateWidget.LCLObject;
   end else begin
@@ -585,20 +632,32 @@ begin
 end;
 
 function TMUIWidgetSet.GetWindowOrgEx(dc: hdc; P: PPoint): Integer;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('Get Window org Ex');
+  {$endif}
+  if Assigned(P) then
+  begin
+    P^.X := ADC.Offset.X;//ADC.Left;
+    P^.y := ADC.Offset.Y;//ADC.Top;
+  end;
+  //writeln('Get Window Org');
 //  P^:=ADC.FOrg;
-  Result:=0;
+  Result:=1;
 end;
 
 function TMUIWidgetSet.GetWindowRect(Handle: hwnd; var ARect: TRect
   ): Integer;
-//var
-//  PrivateWidget: TFPGUIPrivateBin absolute Handle;
+var
+  PrivateWidget: TMUIObject absolute Handle;
 begin
-//  ARect:=fpgRectToRect(PrivateWidget.Widget.GetBoundsRect);
-  Result:=0;
+  {$ifdef VERBOSEAROS}
+  writeln('Get Window rect');
+  {$endif}
+  ARect:=Rect(PrivateWidget.Left, PrivateWidget.Top, PrivateWidget.Width, PrivateWidget.Height);
+  Result:=1;
 end;
 
 function TMUIWidgetSet.GetWindowSize(Handle: hwnd; var Width, Height: Integer
@@ -617,7 +676,12 @@ var
   PrivateWidget: TMUIObject absolute aHandle;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('invalidate');
+  writeln('-->invalidate');
+  if Assigned(Rect) then
+  begin
+    writeln('Rect: ', Rect^.Left, ', ', Rect^.Top, ' - ', Rect^.Right,', ', Rect^.Bottom);
+  end else
+    writeln('Rect = nil;');
   {$endif}
   Result := False;
   if Assigned(PrivateWidget) then
@@ -721,6 +785,9 @@ var
   ADC: TMUICanvas absolute DC;
 begin
   Result := False;
+  {$ifdef VERBOSEAROS}
+  writeln('Move to : ', x, ', ', y);
+  {$endif}
   inherited;
   if Assigned(ADC) and Assigned(ADC.RastPort) then
   begin
@@ -739,7 +806,9 @@ function TMUIWidgetSet.Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean;
 //  ADC: TFpGuiDeviceContext absolute DC;
 //  r: TfpgRect;
 begin
-  //writeln('Rectangle');
+  {$ifdef VERBOSEAROS}
+  writeln('Rectangle ', X1, ', ', Y1, ' - ', X2, ', ', Y2);
+  {$endif}
   (*r:=ADC.PrepareRectOffsets(Rect(X1,Y1,X2,Y2));
   ADC.fpgCanvas.BeginDraw(true);
   ADC.ClearRectangle(r);
@@ -752,9 +821,9 @@ end;
 function TMUIWidgetSet.RectVisible(dc : hdc; const ARect: TRect) : Boolean;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('Rect Visible');
+  writeln('Rect Visible ', ARect.Left, ',', ARect.Right);
   {$endif}
-  Result := True;
+  Result := Boolean(1);
 end;
 
 function TMUIWidgetSet.ReleaseDC(hWnd: HWND; DC: HDC): Integer;
@@ -787,10 +856,17 @@ begin
 end;
 
 function TMUIWidgetSet.SelectClipRGN(DC: hDC; RGN: HRGN): Longint;
-//var
-//  ADC: TFPGUIDeviceContext absolute DC;
-//  Reg: TFPGUIBasicRegion absolute RGN;
+var
+  ADC: TMUICanvas absolute DC;
+  Reg: TMUIBasicRegion absolute RGN;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('select Clip Rgn $', HexStr(Pointer(RGN)));
+  {$endif}
+  if Assigned(ADC) then
+  begin
+    ADC.Clipping := Reg;
+  end;
   (*if Reg.RegionType=eRegionSimple then begin
     ADC.SelectObject(HGDIObj(Reg));
     Result:=SimpleRegion;
@@ -839,14 +915,20 @@ end;
 
 function TMUIWidgetSet.SetWindowOrgEx(DC: HDC; NewX, NewY: Integer;
   OldPoint: PPoint): Boolean;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('set window org ex');
+  writeln('################set window org ex ', NewX, ', ', NewY);
   {$endif}
-  //ADC.SetOrigin(NewX,NewY);
-  Result:=False;
+  if Assigned(OldPoint) then
+  begin
+    OldPoint^.X := ADC.Offset.X;
+    OldPoint^.Y := ADC.Offset.Y;
+  end;
+  ADC.Offset.X := ADC.Offset.X - NewX;
+  ADC.Offset.Y := ADC.Offset.Y - NewY;
+  Result:=True;
 end;
 
 function TMUIWidgetSet.ShowWindow(hWnd: HWND; nCmdShow: Integer): Boolean;

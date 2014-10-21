@@ -139,8 +139,7 @@ end;
 function TMUIWidgetSet.CreateBrushIndirect(const LogBrush: TLogBrush
   ): HBRUSH;
 begin
-  //Result:=HBRUSH(TFPGUIWinAPIBrush.Create(LogBrush));
-  Result := $B0;
+  Result:=HBRUSH(TMUIBrushObj.Create(LogBrush));
 end;
 
 function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
@@ -151,7 +150,7 @@ begin
   //writeln('CreateCompatibleBitmap');
   //img:=TFPGUIWinAPIBitmap.Create(32,Width,Height);
   //Result:=HBITMAP(img);
-  Result := $B1;
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateCompatibleDC(DC: HDC): HDC;
@@ -188,7 +187,7 @@ begin
   writeln('CreateFontIndirect');
   {$endif}
   //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont));
-  Result := $F0;
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateFontIndirectEx(const LogFont: TLogFont;
@@ -198,13 +197,12 @@ begin
   writeln('CreateFontIndirectEx ', LongFontName);
   {$endif}
   //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont,LongFontName));
-  Result := $FE;
+  Result := 0;
 end;
 
 function TMUIWidgetSet.CreatePenIndirect(const LogPen: TLogPen): HPEN;
 begin
-  //Result:=HPEN(TFPGUIWinAPIPen.Create(LogPen));
-  Result := $AE;
+  Result := HPEN(TMUIPenObj.Create(LogPen));
 end;
 
 function TMUIWidgetSet.CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN;
@@ -229,10 +227,14 @@ begin
 end;
 
 function TMUIWidgetSet.DeleteObject(GDIObject: HGDIOBJ): Boolean;
+var
+  Obj: TObject absolute GDIObject;
 begin
   {$ifdef VERBOSEAROS}
   writeln('DeleteObject $', HexStr(Pointer(GDIObject)));
   {$endif}
+  if (GDIObject > $100) and Assigned(Obj) and (Obj is TMUIColorObj) then
+   Obj.Free;
   //if IsValidGDIObject(GDIObject) then begin
   //  TObject(GDIObject).Free;
   //  Result:=true;
@@ -877,14 +879,15 @@ begin
 end;
 
 function TMUIWidgetSet.SelectObject(DC: HDC; GDIObj: HGDIOBJ): HGDIOBJ;
-//var
-//  MyDC: TFpGuiDeviceContext absolute DC;
+var
+  MyDC: TMUICanvas absolute DC;
+  GDI: TMUIWinAPIObject absolute GDIObj;
 begin
   {$ifdef VERBOSEAROS}
   writeln('select object ', HexStr(Pointer(GDIObj)));
   {$endif}
-  //Result:=MyDC.SelectObject(GDIObj);
-  Result := GDIObj;
+  if Assigned(GDI) then
+    Result := HGDIOBJ(MyDC.SelectObject(GDI));
 end;
 
 function TMUIWidgetSet.SetFocus(hWnd: HWND): HWND;

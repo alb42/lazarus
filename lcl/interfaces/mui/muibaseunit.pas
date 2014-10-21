@@ -724,6 +724,7 @@ begin
             MUIB.FMUICanvas.Clipping := nil;
             MUIB.FMUICanvas.Offset.X := 0;
             MUIB.FMUICanvas.Offset.Y := 0;
+            MUIB.FMUICanvas.InitCanvas;
             //writeln('-->Draw');
             SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
             RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top,

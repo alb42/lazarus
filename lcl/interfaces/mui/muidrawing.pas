@@ -29,12 +29,12 @@ uses
 
 type
 
-  TmuiRegionType=(eRegionNULL,eRegionSimple,eRegionComplex,eRegionNotCombinableOrError);
-  TmuiRegionCombine=(eRegionCombineAnd,eRegionCombineCopy, eRegionCombineDiff, eRegionCombineOr, eRegionCombineXor);
+  TMUIRegionType=(eRegionNULL,eRegionSimple,eRegionComplex,eRegionNotCombinableOrError);
+  TMUIRegionCombine=(eRegionCombineAnd,eRegionCombineCopy, eRegionCombineDiff, eRegionCombineOr, eRegionCombineXor);
 
-  TmuiWinAPIElement = class(TObject);
+  TMUIWinAPIElement = class(TObject);
 
-  TmuiWinAPIObject = class(TmuiWinAPIElement);
+  TMUIWinAPIObject = class(TMUIWinAPIElement);
 
   TMUIColor = longword;
 
@@ -47,7 +47,30 @@ type
     Width: Integer;
   end;
 
+  { TMUIColorObj }
 
+  TMUIColorObj = class(TMUIWinAPIObject)
+  private
+    FLCLColor: TColor;
+    function GetLCLColor: TColor;
+    procedure SetLCLColor(AValue: TColor);
+  public
+    property LCLColor: TColor read GetLCLColor write SetLCLColor;
+  end;
+
+  { TMUIPenObj }
+
+  TMUIPenObj = class(TMUIColorObj)
+  public
+    constructor Create(const APenData: TLogPen);
+  end;
+
+  { TMUIBrushObj }
+
+  TMUIBrushObj = class(TMUIColorObj)
+  public
+    constructor Create(const ABrushData: TLogBrush);
+  end;
 
   (*
   { TmuiWinAPIBrush }
@@ -186,6 +209,14 @@ type
   { TMUICanvas }
 
   TMUICanvas = class
+  private
+    FBrush: TMUIBrushObj;
+    FPen: TMUIPenObj;
+    FDefaultPen: TMUIPenObj;
+    FDefaultBrush: TMUIBrushObj;
+    procedure SetPenToRP;
+    Procedure SetBrushToRP;
+  public
     RastPort: PRastPort;
     DrawRect: TRect;
     Position: TPoint;
@@ -199,6 +230,11 @@ type
     function TextWidth(Txt: PChar; Count: integer): integer;
     function TextHeight(Txt: PChar; Count: integer): integer;
     procedure SetAMUIPen(PenDesc: integer);
+    function SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
+    procedure InitCanvas;
+    constructor Create;
+    destructor Destroy; override;
+
   end;
 
   //function muiGetDesktopDC(): TmuiDeviceContext;
@@ -206,7 +242,7 @@ type
 
 implementation
 uses
-  muibaseunit;
+  muibaseunit, tagsarray;
 
 (*
 var
@@ -224,6 +260,37 @@ function TColorToMUIColor(col: TColor): TMuiColor;
 begin
   Result := Col;
 end;
+
+{ TMUIBrushObj }
+
+constructor TMUIBrushObj.Create(const ABrushData: TLogBrush);
+begin
+  inherited Create;
+  FLCLColor := ABrushData.lbColor;
+  //writeln('Brush created: $', HexStr(Pointer(FLCLColor)));
+end;
+
+{ TMUIPenObj }
+
+constructor TMUIPenObj.Create(const APenData: TLogPen);
+begin
+  inherited Create;
+  FLCLColor := APenData.lopnColor;
+  //writeln('pen created: $', HexStr(Pointer(FLCLColor)));
+end;
+
+{ TMUIColorObj }
+
+function TMUIColorObj.GetLCLColor: TColor;
+begin
+  Result := FLCLColor;
+end;
+
+procedure TMUIColorObj.SetLCLColor(AValue: TColor);
+begin
+  FLCLColor := AValue;
+end;
+
 (*
 { TmuiWinAPIBitmap }
 
@@ -776,6 +843,84 @@ procedure TMUICanvas.SetAMUIPen(PenDesc: integer);
 begin
   if (PenDesc >= 0) then
     SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
+end;
+
+
+constructor TMUICanvas.Create;
+var
+  APenData: TLogPen;
+  ABrushData: TLogBrush;
+begin
+  ABrushData.lbColor := clBlack;
+  APenData.lopnColor := clBlack;
+  FDefaultBrush := TMUIBrushObj.Create(ABrushData);
+  FDefaultPen := TMUIPenObj.Create(APenData);
+  FBrush := FDefaultBrush;
+  FPen := FDefaultPen;
+end;
+
+destructor TMUICanvas.Destroy;
+begin
+  FDefaultBrush.Free;
+  FDefaultPen.Free;
+  inherited;
+end;
+
+procedure TMUICanvas.InitCanvas;
+begin
+  SetPenToRP;
+  SetBrushToRP;
+end;
+
+procedure TMUICanvas.SetPenToRP;
+var
+  Col: TColor;
+  Tags: TTagsList;
+begin
+  if Assigned(RastPort) then
+  begin
+    if Assigned(FPen) then
+    begin
+      Col := FPen.LCLColor;
+      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+      SetRPAttrsA(RastPort, GetTagPtr(Tags));
+    end;
+  end;
+end;
+
+procedure TMUICanvas.SetBrushToRP;
+var
+  Col: TColor;
+  Tags: TTagsList;
+begin
+  if Assigned(RastPort) then
+  begin
+    if Assigned(FBrush) then
+    begin
+      Col := FBrush.LCLColor;
+      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+      SetRPAttrsA(RastPort, GetTagPtr(Tags));
+    end;
+  end;
+end;
+
+function TMUICanvas.SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
+begin
+  Result := nil;
+  if not Assigned(NewObj) then
+    Exit;
+  if NewObj is TMUIPenObj then
+  begin
+    Result := FPen;
+    FPen := TMUIPenObj(NewObj);
+    SetPenToRP;
+  end;
+  if NewObj is TMUIBrushObj then
+  begin
+    Result := FBrush;
+    FBrush := TMUIBrushObj(NewObj);
+    SetBrushToRP;
+  end;
 end;
 
 finalization

@@ -258,9 +258,9 @@ var
   ADC: TMUICanvas absolute DC;
   Left, Top: Integer;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom);
-  {.$endif}
+  {$endif}
   if Assigned(ADC) then
   begin
     if Assigned(ADC.RastPort) then
@@ -298,7 +298,8 @@ begin
         writeln('VCenter');
       end;
       {$endif}
-      ADC.SetAMUIPen(MPEN_TEXT);
+      //ADC.SetAMUIPen(MPEN_TEXT);
+      SetDrMd(ADC.RastPort, JAM1);
       ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
       ADC.WriteText(str, Count);
       Result := ADC.TextHeight(Str, Count);

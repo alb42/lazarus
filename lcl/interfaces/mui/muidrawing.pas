@@ -54,8 +54,10 @@ type
     FLCLColor: TColor;
     function GetLCLColor: TColor;
     procedure SetLCLColor(AValue: TColor);
+    function GetColor: LongWord;
   public
     property LCLColor: TColor read GetLCLColor write SetLCLColor;
+    property Color: LongWord read GetColor;
   end;
 
   { TMUIPenObj }
@@ -68,8 +70,11 @@ type
   { TMUIBrushObj }
 
   TMUIBrushObj = class(TMUIColorObj)
+  private
+    FStyle: LongWord;
   public
     constructor Create(const ABrushData: TLogBrush);
+    property Style: LongWord read FStyle;
   end;
 
   (*
@@ -214,8 +219,6 @@ type
     FPen: TMUIPenObj;
     FDefaultPen: TMUIPenObj;
     FDefaultBrush: TMUIBrushObj;
-    procedure SetPenToRP;
-    Procedure SetBrushToRP;
   public
     RastPort: PRastPort;
     DrawRect: TRect;
@@ -223,13 +226,21 @@ type
     RenderInfo: PMUI_RenderInfo;
     Clipping: TMuiBasicRegion;
     Offset: types.TPoint;
+    TextColor: LongWord;
     function GetOffset: TPoint;
+    // Drawing routines
     procedure MoveTo(x, y: integer);
     procedure LineTo(x, y: integer);
     procedure WriteText(Txt: PChar; Count: integer);
     function TextWidth(Txt: PChar; Count: integer): integer;
     function TextHeight(Txt: PChar; Count: integer): integer;
+    procedure FillRect(X1, Y1, X2, Y2: Integer);
+    procedure Rectangle(X1, Y1, X2, Y2: Integer);
+    // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
+    procedure SetPenToRP;
+    Procedure SetBrushToRP(AsPen: Boolean = FALSE);
+    //
     function SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
     procedure InitCanvas;
     constructor Create;
@@ -257,8 +268,17 @@ end;
 *)
 
 function TColorToMUIColor(col: TColor): TMuiColor;
+var
+  c: LongWord;
+  r: LongWord;
+  g: LongWord;
+  b: LongWord;
 begin
-  Result := Col;
+  c := col;
+  b := (c and $00FF0000) shr 16;
+  g := (c and $0000FF00);
+  r := (c and $000000FF) shl 16;
+  Result := r or g or b;
 end;
 
 { TMUIBrushObj }
@@ -267,6 +287,12 @@ constructor TMUIBrushObj.Create(const ABrushData: TLogBrush);
 begin
   inherited Create;
   FLCLColor := ABrushData.lbColor;
+  case ABrushData.lbStyle of
+    BS_SOLID, BS_HATCHED: FStyle := JAM2;
+    BS_HOLLOW: FStyle := JAM1;
+    else
+      FStyle := JAM2;
+  end;
   //writeln('Brush created: $', HexStr(Pointer(FLCLColor)));
 end;
 
@@ -289,6 +315,11 @@ end;
 procedure TMUIColorObj.SetLCLColor(AValue: TColor);
 begin
   FLCLColor := AValue;
+end;
+
+function TMUIColorObj.GetColor: LongWord;
+begin
+  Result := TColorToMUIColor(FLCLColor);
 end;
 
 (*
@@ -809,12 +840,47 @@ begin
   end;
 end;
 
-procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
+procedure TMUICanvas.FillRect(X1, Y1, X2, Y2: Integer);
+var
+  T: TPoint;
 begin
   if Assigned(RastPort) then
   begin
-    //writeln('write text: ', Txt);
+    T := GetOffset;
+    RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+  end;
+end;
+
+procedure TMUICanvas.Rectangle(X1, Y1, X2, Y2: Integer);
+var
+  T: TPoint;
+begin
+  if Assigned(RastPort) then
+  begin
+    T := GetOffset;
+    SetBrushToRP(True);
+    FillRect(X1, Y1, X2, Y2);
+    SetPenToRP;
+    MoveTo(X1, Y1);
+    LineTo(X2, Y1);
+    LineTo(X2, Y2);
+    LineTo(X1, Y2);
+    LineTo(X1, Y1);
+  end;
+end;
+
+procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
+var
+  Tags: TTagsList;
+  Col: LongWord;
+begin
+  if Assigned(RastPort) then
+  begin
+    Col := TColorToMUIColor(TextColor);
+    AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
+    SetRPAttrsA(RastPort, GetTagPtr(Tags));
     GfxText(RastPort, Txt, Count);
+    SetPenToRP;
   end;
 end;
 
@@ -857,6 +923,7 @@ begin
   FDefaultPen := TMUIPenObj.Create(APenData);
   FBrush := FDefaultBrush;
   FPen := FDefaultPen;
+  TextColor := 0;
 end;
 
 destructor TMUICanvas.Destroy;
@@ -881,14 +948,14 @@ begin
   begin
     if Assigned(FPen) then
     begin
-      Col := FPen.LCLColor;
+      Col := FPen.Color;
       AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
       SetRPAttrsA(RastPort, GetTagPtr(Tags));
     end;
   end;
 end;
 
-procedure TMUICanvas.SetBrushToRP;
+procedure TMUICanvas.SetBrushToRP(AsPen: Boolean = FALSE);
 var
   Col: TColor;
   Tags: TTagsList;
@@ -897,8 +964,16 @@ begin
   begin
     if Assigned(FBrush) then
     begin
-      Col := FBrush.LCLColor;
-      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+      Col := FBrush.Color;
+      if AsPen then
+      begin
+        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+        SetDrMd(RastPort, JAM1);
+      end else
+      begin
+        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+        SetDrMd(RastPort, FBrush.Style);
+      end;
       SetRPAttrsA(RastPort, GetTagPtr(Tags));
     end;
   end;

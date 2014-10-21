@@ -212,7 +212,7 @@ begin
   Reg:=TMUIBasicRegion.Create(Rect(X1,Y1,X2,Y2));
   Result:=HRGN(Reg);
   {$ifdef VERBOSEAROS}
-  writeln('Create REct Region ', x1,', ', y1, ', ', x2, ', ', y2,' $',HexStr(Reg));
+  writeln('Create Rect Region ', x1,', ', y1, ', ', x2, ', ', y2,' $',HexStr(Reg));
   {$endif}
 end;
 
@@ -258,9 +258,9 @@ var
   ADC: TMUICanvas absolute DC;
   Left, Top: Integer;
 begin
-  {$ifdef VERBOSEAROS}
+  {.$ifdef VERBOSEAROS}
   writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom);
-  {$endif}
+  {.$endif}
   if Assigned(ADC) then
   begin
     if Assigned(ADC.RastPort) then
@@ -302,6 +302,7 @@ begin
       ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
       ADC.WriteText(str, Count);
       Result := ADC.TextHeight(Str, Count);
+      ADC.InitCanvas;
     end;
   end;
 end;
@@ -345,6 +346,8 @@ end; }
 
 function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
 (*var
   ADC: TFpGuiDeviceContext absolute DC;
   AStr: string;
@@ -355,7 +358,11 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('Ext Text out ', str);
   {$endif}
-  //writeln('textout');
+  if Assigned(ADC) then
+  begin
+    ADC.MoveTo(X, Y);
+    ADC.WriteText(Str, Count);
+  end;
 (*  SetLength(AStr,Count);
   move(Str[0],AStr[1],Count);
   r:=ADC.PrepareRectOffsets(classes.Rect(X,Y,0,0));
@@ -439,7 +446,7 @@ begin
     Inc(ARect.Top);
     Dec(ARect.Right);
     Dec(ARect.Bottom);
-    SetAPen(ADC.RastPort, 1);
+    ADC.InitCanvas;
     Result := True;
   end;
 end;
@@ -804,20 +811,19 @@ begin
 end;
 
 function TMUIWidgetSet.Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
-//  r: TfpgRect;
+var
+  ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
   writeln('Rectangle ', X1, ', ', Y1, ' - ', X2, ', ', Y2);
   {$endif}
-  (*r:=ADC.PrepareRectOffsets(Rect(X1,Y1,X2,Y2));
-  ADC.fpgCanvas.BeginDraw(true);
-  ADC.ClearRectangle(r);
-  ADC.fpgCanvas.DrawRectangle(r);
-  ADC.fpgCanvas.EndDraw;
-  Result:=true;*)
   Result := False;
+  if Assigned(ADC) then
+  begin
+    ADC.Rectangle(X1, Y1, X2, Y2);
+    Result := True;
+  end;
+
 end;
 
 function TMUIWidgetSet.RectVisible(dc : hdc; const ARect: TRect) : Boolean;
@@ -909,11 +915,14 @@ begin
 end;
 
 function TMUIWidgetSet.SetTextColor(DC: HDC; Color: TColorRef): TColorRef;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
 begin
-  //Result:=ADC.SetTextColor(Color);
-  Result := Color;
+  if Assigned(ADC) then
+  begin
+    Result := ADC.TextColor;
+    ADC.TextColor := Color;
+  end;
 end;
 
 function TMUIWidgetSet.SetWindowOrgEx(DC: HDC; NewX, NewY: Integer;

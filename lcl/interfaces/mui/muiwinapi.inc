@@ -891,14 +891,8 @@ begin
   {$endif}
   if Assigned(ADC) then
   begin
-    ADC.Clipping := Reg;
+    ADC.SetClipping(Reg)
   end;
-  (*if Reg.RegionType=eRegionSimple then begin
-    ADC.SelectObject(HGDIObj(Reg));
-    Result:=SimpleRegion;
-  end else begin
-    Result:=NullRegion;
-  end;*)
   Result:=SimpleRegion;
 end;
 

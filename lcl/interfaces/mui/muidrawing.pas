@@ -205,12 +205,14 @@ type
     FDefaultPen: TMUIPenObj;
     FDefaultBrush: TMUIBrushObj;
     FDefaultFont: TMUIFontObj;
+    FClip: Pointer;
+    FClipping: TRect;
   public
     RastPort: PRastPort;
     DrawRect: TRect;
     Position: TPoint;
     RenderInfo: PMUI_RenderInfo;
-    Clipping: TMuiBasicRegion;
+    //Clipping: TMuiBasicRegion;
     Offset: types.TPoint;
     TextColor: LongWord;
     function GetOffset: TPoint;
@@ -227,9 +229,11 @@ type
     procedure SetPenToRP;
     procedure SetBrushToRP(AsPen: Boolean = FALSE);
     procedure SetFontToRP;
+    procedure SetClipping(AClip: TMuiBasicRegion);
     //
     function SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
     procedure InitCanvas;
+    procedure DeInitCanvas;
     constructor Create;
     destructor Destroy; override;
 
@@ -723,11 +727,8 @@ begin
   Result.X := DrawRect.Left + Offset.X;
   Result.Y := DrawRect.Top + Offset.Y;
   //writeln('  GetOffset: ', Result.X);
-  if Assigned(Clipping) then
-  begin
-    Result.X := Result.X + Clipping.FRectRegion.Left;
-    Result.Y := Result.Y + Clipping.FRectRegion.Top;
-  end;
+  Result.X := Result.X + FClipping.Left;
+  Result.Y := Result.Y + FClipping.Top;
 end;
 
 procedure TMUICanvas.MoveTo(x, y: integer);
@@ -787,6 +788,7 @@ var
 begin
   if Assigned(RastPort) then
   begin
+    MoveTo(Position.X, Position.Y + 2);
     Col := TColorToMUIColor(TextColor);
     AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
     SetRPAttrsA(RastPort, GetTagPtr(Tags));
@@ -855,6 +857,20 @@ begin
   SetPenToRP;
   SetBrushToRP;
   SetFontToRP;
+  DeInitCanvas;
+end;
+
+procedure TMUICanvas.DeInitCanvas;
+begin
+  if Assigned(FClip) and Assigned(RenderInfo) then
+  begin
+    MUI_RemoveClipRegion(RenderInfo, FClip);
+  end;
+  FClip := nil;
+  FClipping.Left := 0;
+  FClipping.Top := 0;
+  FClipping.Right := 0;
+  FClipping.Bottom := 0;
 end;
 
 procedure TMUICanvas.SetFontToRP;
@@ -865,6 +881,22 @@ begin
     begin
       SetFont(RastPort, FFont.FontHandle);
     end;
+  end;
+end;
+
+procedure TMUICanvas.SetClipping(AClip: TMuiBasicRegion);
+var
+  T: TPoint;
+begin
+  if Assigned(AClip) then
+  begin
+    if Assigned(FClip) then
+      MUI_RemoveClipRegion(RenderInfo, FClip);
+    FClipping.Left := 0;
+    FClipping.Top := 0;
+    T := GetOffset;
+    FClip := MUI_AddClipping(RenderInfo, T.X + AClip.FRectRegion.Left, T.Y + AClip.FRectRegion.Top, T.X + AClip.FRectRegion.Right, T.Y + AClip.FRectRegion.Bottom);
+    FClipping := AClip.FRectRegion;
   end;
 end;
 

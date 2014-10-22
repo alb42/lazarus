@@ -721,7 +721,7 @@ begin
             MUIB.FMUICanvas.Position.X := 0;
             MUIB.FMUICanvas.Position.Y := 0;
             MUIB.FMUICanvas.RenderInfo := ri;
-            MUIB.FMUICanvas.Clipping := nil;
+            //MUIB.FMUICanvas.FClipping := nil;
             MUIB.FMUICanvas.Offset.X := 0;
             MUIB.FMUICanvas.Offset.Y := 0;
             MUIB.FMUICanvas.InitCanvas;
@@ -734,6 +734,7 @@ begin
             begin
               MUIB.FOnDraw(MUIB);
             end;
+            MUIB.FMUICanvas.DeInitCanvas;
             //writeln('<--Draw');
           end;
         finally

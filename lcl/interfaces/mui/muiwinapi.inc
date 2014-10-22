@@ -182,22 +182,39 @@ begin
 end;
 
 function TMUIWidgetSet.CreateFontIndirect(const LogFont: TLogFont): HFONT;
+var
+  FontObj: TMUIFontObj;
 begin
   {$ifdef VERBOSEAROS}
   writeln('CreateFontIndirect');
   {$endif}
-  //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont));
-  Result := 0;
+  FontObj := TMUIFontObj.Create(LogFont);
+  if Assigned(FontObj.TextFont) then
+  begin
+    Result := HFont(FontObj);
+  end else
+  begin
+    FontObj.Free;
+    Result := 0;
+  end;
 end;
 
-function TMUIWidgetSet.CreateFontIndirectEx(const LogFont: TLogFont;
-  const LongFontName: string): HFONT;
+function TMUIWidgetSet.CreateFontIndirectEx(const LogFont: TLogFont; const LongFontName: string): HFONT;
+var
+  FontObj: TMUIFontObj;
 begin
   {$ifdef VERBOSEAROS}
   writeln('CreateFontIndirectEx ', LongFontName);
   {$endif}
-  //Result:=HFONT(TFPGUIWinAPIFont.Create(LogFont,LongFontName));
-  Result := 0;
+  FontObj := TMUIFontObj.Create(LogFont, LongFontName);
+  if Assigned(FontObj.TextFont) then
+  begin
+    Result := HFont(FontObj);
+  end else
+  begin
+    FontObj.Free;
+    Result := 0;
+  end;
 end;
 
 function TMUIWidgetSet.CreatePenIndirect(const LogPen: TLogPen): HPEN;

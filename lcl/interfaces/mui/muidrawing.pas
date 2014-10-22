@@ -22,10 +22,26 @@ interface
 uses
   // RTL, FCL, LCL
   Classes, SysUtils, types,
-  Graphics, Menus, LCLType,
+  Graphics, Menus, LCLType
   // Widgetset
   // aros
-  agraphics, intuition, mui;
+  {$ifdef HASAMIGA}
+  ,agraphics, intuition, mui, diskfont
+  {$endif};
+
+const
+  FONTREPLACEMENTS: array[0..1] of record
+    OldName: string;
+    NewName: string;
+  end =
+    (
+     (OldName: 'default';
+      NewName: 'XEN';),
+
+     (OldName: 'courier';
+      NewName: 'ttcourier';)
+      );
+
 
 type
 
@@ -45,6 +61,26 @@ type
   type tagTmuiPen= record
     Color: TMUIColor;
     Width: Integer;
+  end;
+
+  { TMUIFontObj }
+
+  TMUIFontObj = class(TMUIWinAPIObject)
+  private
+    FFontFace: string;
+    FHeight: Integer;
+    FontHandle: PTextFont;
+    FIsItalic: Boolean;
+    FIsBold: Boolean;
+    FIsUnderlined: Boolean;
+    procedure OpenFontHandle;
+    procedure CloseFontHandle;
+  public
+    constructor Create(const AFontData: TLogFont); virtual; overload;
+    constructor Create(const AFontData: TLogFont; const LongFontName: string); virtual; overload;
+
+    destructor Destroy; override;
+    property TextFont: PTextFont read FontHandle;
   end;
 
   { TMUIColorObj }
@@ -76,58 +112,6 @@ type
     constructor Create(const ABrushData: TLogBrush);
     property Style: LongWord read FStyle;
   end;
-
-  (*
-  { TmuiWinAPIBrush }
-
-  TmuiWinAPIBrush = class (TmuiWinAPIObject)
-  private
-    FBrush: tagTmuiBrush;
-    function GetColor: TMUIColor;
-    procedure SetColor(const AValue: TMUIColor);
-  public
-    property Color: TMUIColor read GetColor Write SetColor;
-    Constructor Create;
-    Constructor Create(const ABrushData: TLogBrush);
-    Destructor Destroy; override;
-  end;
-
-  { TmuiWinAPIPen }
-
-  TmuiWinAPIPen = class (TmuiWinAPIObject)
-  private
-    FPen: tagTmuiPen;
-    function GetColor: TMUIColor;
-    procedure SetColor(const AValue: TMUIColor);
-  public
-    property Color: TMUIColor read GetColor Write SetColor;
-    Constructor Create;
-    Constructor Create(const APenData: TLogPen);
-    Destructor Destroy; override;
-  end;
-
-  { TmuiWinAPIFont }
-
-  TmuiWinAPIFont = class (TmuiWinAPIObject)
-  private
-    fpgFont: TfpgFontBase;
-    FFontHeight: integer;
-    function GetFontHeight: integer;
-    function GetFontSize: integer;
-    procedure SetFontHeight(const AValue: integer);
-    procedure SetFontSize(const AValue: integer);
-  public
-    FontFace: String;
-    Constructor Create;
-    Constructor Create(const AFontData: TFontData);
-    Constructor Create(const AfpgCanvas: TfpgCanvas);
-    Constructor Create(const AFontData: TLogFont);
-    Constructor Create(const AFontData: TLogFont; const ALongFontName: string);
-    Destructor Destroy; override;
-    property muiFont: TfpgFontBase read fpgFont write fpgFont;
-    property Size: integer read GetFontSize write SetFontSize;
-    property Height: integer read GetFontHeight write SetFontHeight;
-  end; *)
 
  (* { TmuiWinAPIBitmap }
 
@@ -217,8 +201,10 @@ type
   private
     FBrush: TMUIBrushObj;
     FPen: TMUIPenObj;
+    FFont: TMUIFontObj;
     FDefaultPen: TMUIPenObj;
     FDefaultBrush: TMUIBrushObj;
+    FDefaultFont: TMUIFontObj;
   public
     RastPort: PRastPort;
     DrawRect: TRect;
@@ -239,7 +225,8 @@ type
     // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
     procedure SetPenToRP;
-    Procedure SetBrushToRP(AsPen: Boolean = FALSE);
+    procedure SetBrushToRP(AsPen: Boolean = FALSE);
+    procedure SetFontToRP;
     //
     function SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
     procedure InitCanvas;
@@ -279,6 +266,85 @@ begin
   g := (c and $0000FF00);
   r := (c and $000000FF) shl 16;
   Result := r or g or b;
+end;
+
+{ TMUIFontObj }
+
+procedure TMUIFontObj.OpenFontHandle;
+var
+  TextAttr: TTextAttr;
+  FontFile: string;
+  SFontName: string;
+  i: Integer;
+begin
+  SFontName := LowerCase(FFontFace);
+  for i := 0 to High(FONTREPLACEMENTS) do
+  begin
+    if SFontName = FONTREPLACEMENTS[i].OldName then
+    begin
+      SFontName := FONTREPLACEMENTS[i].NewName;
+      Break;
+    end;
+  end;
+  FontFile := LowerCase(SFontName + '.font');
+
+  TextAttr.ta_Style := FS_NORMAL;
+  if FIsItalic then
+    TextAttr.ta_Style := TextAttr.ta_Style or FSF_ITALIC;
+  if FIsBold then
+    TextAttr.ta_Style := TextAttr.ta_Style or FSF_BOLD;
+  if FIsUnderlined then
+    TextAttr.ta_Style := TextAttr.ta_Style or FSF_UNDERLINED;
+  TextAttr.ta_Name := PChar(FontFile);
+  TextAttr.ta_YSize := FHeight;
+  TextAttr.ta_Flags := FPF_DISKFONT;
+  FontHandle := OpenDiskFont(@TextAttr);
+  //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
+  //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
+end;
+
+procedure TMUIFontObj.CloseFontHandle;
+begin
+  if Assigned(FontHandle) then
+    CloseFont(FontHandle);
+  FontHandle := nil;
+end;
+
+constructor TMUIFontObj.Create(const AFontData: TLogFont);
+begin
+  inherited Create;
+  FontHandle := nil;
+  FFontFace := AFontData.lfFaceName;
+  FHeight := AFontData.lfHeight;
+  FIsItalic := AFontData.lfItalic <> 0;
+  FIsUnderlined := AFontData.lfUnderline <> 0;
+  FIsBold := False;
+  case AFontData.lfWeight of
+    FW_SEMIBOLD, FW_BOLD: FIsBold := True;
+  end;
+  OpenFontHandle;
+end;
+
+constructor TMUIFontObj.Create(const AFontData: TLogFont;
+  const LongFontName: string);
+begin
+  inherited Create;
+  FontHandle := nil;
+  FFontFace := LongFontName;
+  FHeight := AFontData.lfHeight;
+  FIsItalic := AFontData.lfItalic <> 0;
+  FIsUnderlined := AFontData.lfUnderline <> 0;
+  FIsBold := False;
+  case AFontData.lfWeight of
+    FW_SEMIBOLD, FW_BOLD: FIsBold := True;
+  end;
+  OpenFontHandle;
+end;
+
+destructor TMUIFontObj.Destroy;
+begin
+  CloseFontHandle;
+  inherited Destroy;
 end;
 
 { TMUIBrushObj }
@@ -321,29 +387,6 @@ function TMUIColorObj.GetColor: LongWord;
 begin
   Result := TColorToMUIColor(FLCLColor);
 end;
-
-(*
-{ TmuiWinAPIBitmap }
-
-constructor TmuiWinAPIBitmap.Create(const ABitsPerPixel, Width,
-  Height: integer);
-begin
-  fpgImage:=TfpgImage.Create;
-  fpgImage.AllocateImage(ABitsPerPixel,Width,Height);
-  fpgImage.UpdateImage;
-end;
-
-destructor TmuiWinAPIBitmap.Destroy;
-//var
-//  Context: TmuiDeviceContext;
-begin
-//  Context:=TmuiDeviceContext(SelectedInDC);
-//  if Assigned(Context) then begin
-//    Context.FBitmap:=nil;
-//  end;
-  fpgImage.Free;
-  inherited Destroy;
-end;    *)
 
 (*
 { TmuiDeviceContext }
@@ -580,144 +623,12 @@ begin
 end;
 *)
 
-{ TmuiWinAPIFont }
-(*
-function TmuiWinAPIFont.GetFontHeight: integer;
-begin
-  Result:=FFontHeight;
-end;
-
-function TmuiWinAPIFont.GetFontSize: integer;
-begin
-  Result:=(-FFontHeight * 72) div 96;
-end;
-
-procedure TmuiWinAPIFont.SetFontHeight(const AValue: integer);
-begin
-  FFontHeight:=AValue;
-end;
-
-procedure TmuiWinAPIFont.SetFontSize(const AValue: integer);
-begin
-  FFontHeight:=(-96 * AValue) div 72;
-end;
-
-constructor TmuiWinAPIFont.Create;
-begin
-  FontFace:='';
-  Size:=8;
-end;
-
-constructor TmuiWinAPIFont.Create(const AFontData: TFontData);
-begin
-  FontFace:=AFontData.Name;
-  Height:=AFontData.Height;
-  fpgFont:=fpgGetFont(format('%s-%d',[AFontData.Name,Size]));
-end;
-
-constructor TmuiWinAPIFont.Create(const AfpgCanvas: TfpgCanvas);
-begin
-  fpgFont:=AfpgCanvas.Font;
-end;
-
-constructor TmuiWinAPIFont.Create(const AFontData: TLogFont);
-begin
-  FontFace:=AFontData.lfFaceName;
-  Height:=AFontData.lfHeight;
-  if FontFace='' then begin
-    fpgFont:=fpgGetFont(''); //Default
-  end else begin
-    fpgFont:=fpgGetFont(format('%s-%d',[FontFace,Size]));
-  end;
-end;
-
-constructor TmuiWinAPIFont.Create(const AFontData: TLogFont;
-  const ALongFontName: string);
-begin
-  FontFace:=ALongFontName;
-  Height:=AFontData.lfHeight;
-  if FontFace='' then begin
-    fpgFont:=fpgGetFont(''); //Default
-  end else begin
-    fpgFont:=fpgGetFont(format('%s-%d',[FontFace,Size]));
-  end;
-end;
-
-destructor TmuiWinAPIFont.Destroy;
-begin
-  FreeAndNIL(fpgFont);
-  inherited Destroy;
-end;
-
-{ TmuiWinAPIPen }
-
-function TmuiWinAPIPen.GetColor: TMUIColor;
-begin
-  Result:=FPen.Color;
-end;
-
-procedure TmuiWinAPIPen.SetColor(const AValue: TMUIColor);
-begin
-  FPen.Color:=AValue;
-end;
-
-constructor TmuiWinAPIPen.Create;
-begin
-end;
-
-constructor TmuiWinAPIPen.Create(const APenData: TLogPen);
-begin
-  Create;
-  FPen.Color:=APenData.lopnColor;
-end;
-
-destructor TmuiWinAPIPen.Destroy;
-begin
-  FreeAndNil(FPen);
-  inherited Destroy;
-end;
-
-{ TmuiWinAPIBrush }
-
-function TmuiWinAPIBrush.GetColor: TMUIColor;
-begin
-  if Assigned(Self) then
-    Result:=FBrush.Color
-  else
-    Result:=0;
-end;
-
-procedure TmuiWinAPIBrush.SetColor(const AValue: TMUIColor);
-begin
-  FBrush.Color:=AValue;
-end;
-
-constructor TmuiWinAPIBrush.Create;
-begin
-  FBrush.Color:=TColorToMUIColor(clBtnFace);
-end;
-
-constructor TmuiWinAPIBrush.Create(const ABrushData: TLogBrush);
-begin
-  FBrush.Color:=TColorToMUIColor(ABrushData.lbColor);
-end;
-
-destructor TmuiWinAPIBrush.Destroy;
-begin
-  inherited Destroy;
-end;  *)
-
 { TmuiBasicRegion }
 
 function TmuiBasicRegion.GetRegionType: TmuiRegionType;
 begin
   Result:=FRegionType;
 end;
-
-{function TmuiBasicRegion.GetfpgRectRegion: TfpgRect;
-begin
-  //TRectTofpgRect(FRectRegion,Result);
-end;}
 
 constructor TmuiBasicRegion.Create;
 var
@@ -916,13 +827,18 @@ constructor TMUICanvas.Create;
 var
   APenData: TLogPen;
   ABrushData: TLogBrush;
+  AFontData: TLogFont;
 begin
   ABrushData.lbColor := clBlack;
   APenData.lopnColor := clBlack;
+  AFontData.lfFaceName := 'XEN';
+  AFontData.lfHeight := 8;
   FDefaultBrush := TMUIBrushObj.Create(ABrushData);
   FDefaultPen := TMUIPenObj.Create(APenData);
+  FDefaultFont := TMUIFontObj.Create(AFontData);
   FBrush := FDefaultBrush;
   FPen := FDefaultPen;
+  FFont := FDefaultFont;
   TextColor := 0;
 end;
 
@@ -930,6 +846,7 @@ destructor TMUICanvas.Destroy;
 begin
   FDefaultBrush.Free;
   FDefaultPen.Free;
+  FDefaultFont.Free;
   inherited;
 end;
 
@@ -937,6 +854,18 @@ procedure TMUICanvas.InitCanvas;
 begin
   SetPenToRP;
   SetBrushToRP;
+  SetFontToRP;
+end;
+
+procedure TMUICanvas.SetFontToRP;
+begin
+  if Assigned(RastPort) then
+  begin
+    if Assigned(FFont) and Assigned(FFont.FontHandle) then
+    begin
+      SetFont(RastPort, FFont.FontHandle);
+    end;
+  end;
 end;
 
 procedure TMUICanvas.SetPenToRP;
@@ -995,6 +924,12 @@ begin
     Result := FBrush;
     FBrush := TMUIBrushObj(NewObj);
     SetBrushToRP;
+  end;
+  if NewObj is TMUIFontObj then
+  begin
+    Result := FFont;
+    FFont := TMUIFontObj(NewObj);
+    SetFontToRP;
   end;
 end;
 

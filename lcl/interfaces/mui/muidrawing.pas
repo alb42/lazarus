@@ -177,7 +177,7 @@ type
 
   { TmuiBasicRegion }
 
-  TmuiBasicRegion=class(TmuiWinAPIObject)
+  TMUIBasicRegion=class(TMUIWinAPIObject)
   private
     FRegionType: TmuiRegionType;
     //function GetfpgRectRegion: TfpgRect;
@@ -232,6 +232,7 @@ type
     procedure SetClipping(AClip: TMuiBasicRegion);
     //
     function SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
+    procedure ResetPenBrushFont;
     procedure InitCanvas;
     procedure DeInitCanvas;
     constructor Create;
@@ -963,6 +964,13 @@ begin
     FFont := TMUIFontObj(NewObj);
     SetFontToRP;
   end;
+end;
+
+procedure TMUICanvas.ResetPenBrushFont;
+begin
+  SetPenToRP;
+  SetBrushToRP;
+  SetFontToRP;
 end;
 
 finalization

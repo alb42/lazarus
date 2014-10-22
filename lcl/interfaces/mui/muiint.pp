@@ -37,7 +37,9 @@ uses
   //AROS
   //Aroswinunit,
   MUIBaseUnit, MUIFormsUnit, muidrawing,
+  {$ifdef HASAMIGA}
   exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray,
+  {$endif}
   // widgetset
   WSLCLClasses, LCLMessageGlue;
 

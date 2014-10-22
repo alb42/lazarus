@@ -250,14 +250,12 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('DeleteObject $', HexStr(Pointer(GDIObject)));
   {$endif}
-  if (GDIObject > $100) and Assigned(Obj) and (Obj is TMUIColorObj) then
-   Obj.Free;
-  //if IsValidGDIObject(GDIObject) then begin
-  //  TObject(GDIObject).Free;
-  //  Result:=true;
-  //end else begin
+  if (GDIObject > $100) and Assigned(Obj) then
+  begin
+   if Obj is TMUIWinAPIObject then
+     Obj.Free;
+  end;
   Result:=True;
-  //end;
 end;
 
 function TMUIWidgetSet.DrawFocusRect(DC: HDC; const Rect: TRect): boolean;
@@ -315,12 +313,11 @@ begin
         writeln('VCenter');
       end;
       {$endif}
-      //ADC.SetAMUIPen(MPEN_TEXT);
       SetDrMd(ADC.RastPort, JAM1);
       ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
       ADC.WriteText(str, Count);
       Result := ADC.TextHeight(Str, Count);
-      ADC.InitCanvas;
+      ADC.ResetPenBrushFont;
     end;
   end;
 end;
@@ -408,19 +405,22 @@ end;
 
 function TMUIWidgetSet.FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH
   ): Boolean;
-(*var
-  ADC: TFpGuiDeviceContext absolute DC;
-  NewBrush: TFPGUIWinAPIBrush absolute Brush;
-  OldColor: TfpgColor;
-  TheRect: TfpgRect;*)
+var
+  ADC: TMUICanvas absolute DC;
+  MUIBrush: TMUIWinAPIElement absolute Brush;
+  OBrush: TMUIWinAPIElement;
 begin
-  //writeln('fillrect');
-(*  OldColor:=ADC.fpgCanvas.Color;
-  ADC.fpgCanvas.Color:=NewBrush.Color;
-  TRectTofpgRect(Rect,TheRect);
-  AdjustRectToOrg(TheRect,ADC.FOrg);
-  ADC.fpgCanvas.FillRectangle(TheRect);
-  ADC.fpgCanvas.Color:=OldColor;*)
+  if Assigned(MUIBrush) then
+  begin
+    OBrush := ADC.SelectObject(MUIBrush);
+  end;
+  ADC.SetBrushToRP(True);
+  ADC.FillRect(Rect.Left, Rect.Top, Rect.Right, Rect.Bottom);
+  ADC.SetPenToRP;
+  if Assigned(MUIBrush) then
+  begin
+    MUIBrush := ADC.SelectObject(OBrush);
+  end;
   Result:=False;
 end;
 
@@ -464,7 +464,7 @@ begin
     Inc(ARect.Top);
     Dec(ARect.Right);
     Dec(ARect.Bottom);
-    ADC.InitCanvas;
+    ADC.ResetPenBrushFont;
     Result := True;
   end;
 end;
@@ -595,6 +595,7 @@ end;
 
 function TMUIWidgetSet.GetSysColor(nIndex: Integer): DWORD;
 begin
+  //writeln('Get Syscolor ', nIndex);
 (*  if (nIndex < 0) or (nIndex > MAX_SYS_COLORS) then
   begin
     {$ifdef VerboseFPGUIWinAPI}
@@ -607,14 +608,22 @@ begin
 end;
 
 function TMUIWidgetSet.GetSystemMetrics(nIndex: Integer): Integer;
+var
+  Sc: PScreen;
 begin
-  case nIndex of
-    //Current screen size
-    SM_CXSCREEN: Result:=1400; //Hardcoded by now
-    SM_CYSCREEN: Result:=400;
-    //Desktop size
-    SM_CXVIRTUALSCREEN: Result:=1400;
-    SM_CYVIRTUALSCREEN: Result:=400;
+  //writeln('get system metrics ', nIndex);
+  Sc := LockPubscreen('Workbench');
+  if Assigned(Sc) then
+  begin
+    case nIndex of
+      //Current screen size
+      SM_CXSCREEN: Result:= Sc^.Width;
+      SM_CYSCREEN: Result:= Sc^.Height;
+      //Desktop size
+      SM_CXVIRTUALSCREEN: Result:=Sc^.Width;
+      SM_CYVIRTUALSCREEN: Result:=Sc^.Height;
+    end;
+    UnlockPubScreen('Workbench', Sc);
   end;
 end;
 
@@ -637,24 +646,18 @@ begin
 end;
 
 function TMUIWidgetSet.GetTextMetrics(DC: HDC; var TM: TTextMetric): Boolean;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
   writeln('Get TextMetric');
   {$endif}
-  TM.tmAscent:=2;
-  TM.tmDescent:=2;
+  FillByte(TM, SizeOf(TM), 0);
+  TM.tmAscent := 2;
+  TM.tmDescent := 2;
   //Defined usually in MSDN as the average of 'x' char.
-  TM.tmAveCharWidth:=8;
-  TM.tmHeight:=11;
-(*  FillByte(TM,sizeof(TM),0);
-  TM.tmAscent:=ADC.FFont.fpguiFont.Ascent;
-  TM.tmDescent:=ADC.FFont.fpguiFont.Descent;
-  //Defined usually in MSDN as the average of 'x' char.
-  TM.tmAveCharWidth:=ADC.FFont.fpguiFont.TextWidth('x');
-  TM.tmHeight:=ADC.FFont.Height;
-  Result:=true;*)
+  TM.tmAveCharWidth := ADC.TextWidth('x', 1);
+  TM.tmHeight := ADC.TextHeight('X', 1);
   Result := True;
 end;
 

@@ -300,6 +300,7 @@ begin
     LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
     Dispose(PS);
   end;
+  FMUICanvas.DeInitCanvas;
   for i := 0 to FObjects.Count - 1 do
   begin
     TMuiObject(FObjects[i]).DoMuiDraw;
@@ -724,6 +725,7 @@ begin
             //MUIB.FMUICanvas.FClipping := nil;
             MUIB.FMUICanvas.Offset.X := 0;
             MUIB.FMUICanvas.Offset.Y := 0;
+            MUIB.FMUICanvas.DeInitCanvas;
             MUIB.FMUICanvas.InitCanvas;
             //writeln('-->Draw');
             SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);

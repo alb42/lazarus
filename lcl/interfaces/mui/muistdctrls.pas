@@ -362,6 +362,7 @@ end;
 
 constructor TMuiText.Create(var Tags: TTagsList);
 begin
+  AddTags(Tags, [MUIA_BACKGROUND, MUII_BACKGROUND]);
   inherited Create(MUIC_Text, GetTagPtr(Tags));
 end;
 

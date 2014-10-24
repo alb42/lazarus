@@ -90,6 +90,7 @@ type
     destructor Destroy; override;
     procedure GetSizes;
     procedure DoMUIDraw(); override;
+    function GetClientRect: TRect; override;
     procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
@@ -270,10 +271,10 @@ begin
   MenuChoosed.h_Entry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_SubEntry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_Data := Self;
-  DoMethod([LongInt(MUIM_Notify), LongInt(MUIA_Menuitem_Trigger), LongInt(MUIV_EveryTime),
-      LongInt(MUIV_Notify_Self),
+  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Menuitem_Trigger), IPTR(MUIV_EveryTime),
+      IPTR(MUIV_Notify_Self),
       2,
-      LongInt(MUIM_CallHook), IPTR(@MenuChoosed)
+      IPTR(MUIM_CallHook), IPTR(@MenuChoosed)
       ])
 end;
 
@@ -281,17 +282,17 @@ end;
 
 procedure TMuiFamily.AddHead(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_AddHead), IPTR(AChild.Obj)]);
+  DoMethod([IPTR(MUIM_Family_AddHead), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.AddTail(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_AddTail), IPTR(AChild.Obj)]);
+  DoMethod([IPTR(MUIM_Family_AddTail), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.Remove(AChild: TMuiFamily);
 begin
-  DoMethod([LongInt(MUIM_Family_Remove), IPTR(AChild.Obj)]);
+  DoMethod([IPTR(MUIM_Family_Remove), IPTR(AChild.Obj)]);
 end;
 
 
@@ -329,9 +330,9 @@ begin
   CloseWinHook.h_Entry := IPTR(@CloseWinFunc);
   CloseWinHook.h_SubEntry := 0;
   CloseWinHook.h_Data := Self;
-  DoMethod([LongInt(MUIM_Notify), LongInt(MUIA_Window_CloseRequest), LTrue,
-      LongWord(FObject), 2,
-      LongInt(MUIM_CallHook), IPTR(@CloseWinHook)
+  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Window_CloseRequest), LTrue,
+      IPTR(FObject), 2,
+      IPTR(MUIM_CallHook), IPTR(@CloseWinHook)
       ]);
 end;
 
@@ -355,8 +356,8 @@ procedure TMuiWindow.Redraw;
 begin
   if BlockRedraw then
     Exit;
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_InitChange)]);
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_ExitChange)]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_InitChange)]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_ExitChange)]);
 end;
 
 procedure TMuiWindow.DoMUIDraw();
@@ -365,16 +366,25 @@ begin
   MUI_Redraw(FGrpobj, MADF_DRAWOBJECT)
 end;
 
+function TMuiWindow.GetClientRect: TRect;
+begin
+  Result := inherited;
+  Result.Left := 0;
+  Result.Top := 0;
+  Result.Right := Width - 5 ;
+  Result.Bottom := Height - 15;
+end;
+
 procedure TMuiWindow.SetLeft(ALeft: LongInt);
 begin
   inherited;
-  SetAttribute([MUIA_Window_LeftEdge, ALeft]);
+  SetAttribute([LongInt(MUIA_Window_LeftEdge), ALeft]);
 end;
 
 procedure TMuiWindow.SetTop(ATop: LongInt);
 begin
   inherited;
-  SetAttribute([MUIA_Window_TopEdge, ATop]);
+  SetAttribute([LongInt(MUIA_Window_TopEdge), ATop]);
 end;
 
 function TMuiWindow.GetCaption: string;
@@ -402,9 +412,9 @@ end;
 
 procedure TMuiWindow.AddChild(Child: TMUIObject);
 begin
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_InitChange)]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_InitChange)]);
   CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_ADDMEMBER, Child.obj]);
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [IPTR(MUIM_Group_ExitChange)]);
+  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_ExitChange)]);
 end;
 
 procedure TMuiWindow.RemoveChild(Child: TMUIObject);

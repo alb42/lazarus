@@ -190,11 +190,7 @@ end;
 class function TMuiWSWinControl.GetClientRect(const AWincontrol: TWinControl;
   var ARect: TRect): Boolean;
 begin
-  //writeln(AWincontrol.classname,' Get client Rect');
-  ARect.Left := 0;
-  ARect.Right := 0;
-  ARect.Top := TMuiObject(AWinControl.Handle).Width;
-  ARect.Bottom := TMuiObject(AWinControl.Handle).Height;
+  ARect := TMuiObject(AWinControl.Handle).GetClientRect;
   Result:=True;
 end;
 

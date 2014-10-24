@@ -73,7 +73,8 @@ type
 
     procedure SetOwnSize; virtual;
     procedure Redraw; virtual;
-    procedure DoMUIDraw(); virtual;
+    procedure DoMUIDraw; virtual;
+    function GetClientRect: TRect; virtual;
 
     property Parent: TMUIObject read FParent write SetParent;
     property Left: longint read FLeft write SetLeft;
@@ -317,6 +318,14 @@ begin
   MUI_Redraw(FObject, MADF_DRAWOBJECT);
 end;
 
+function TMUIObject.GetClientRect: TRect;
+begin
+  Result.Left := 0;
+  Result.Top := 0;
+  Result.Right:= Width;
+  Result.Bottom := Height;
+end;
+
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags: array of const);
 var
   TagList: TTagsList;
@@ -403,10 +412,10 @@ begin
   ButtonDown.h_Data := Self;
 
 
-  DoMethod([longint(MUIM_Notify), longint(MUIA_Pressed), longint(True),
-    longint(MUIV_Notify_Self), 2, longint(MUIM_CallHook), IPTR(@ButtonDown)]);
-  DoMethod([longint(MUIM_Notify), longint(MUIA_Pressed), longint(False),
-    longint(MUIV_Notify_Self), 2, longint(MUIM_CallHook), IPTR(@ButtonUp)]);
+  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDown)]);
+  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(False),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUp)]);
 end;
 
 constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
@@ -500,7 +509,7 @@ end;
 
 procedure TMuiApplication.SetIconified(const AValue: boolean);
 begin
-  SetAttribute([MUIA_Application_Iconified, AValue, TAG_END]);
+  SetAttribute([LongInt(MUIA_Application_Iconified), IPTR(AValue), IPTR(TAG_END)]);
 end;
 
 procedure TMuiApplication.CheckTimer;
@@ -563,7 +572,7 @@ end;
 procedure TMuiApplication.ProcessMessages;
 begin
   CheckTimer;
-  if integer(DoMethod([longint(MUIM_Application_NewInput), IPTR(@FSignals)])) =
+  if integer(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
   begin
     Application.Terminate;
@@ -575,7 +584,7 @@ end;
 procedure TMuiApplication.WaitMessages;
 begin
   CheckTimer;
-  if DoMethod([longint(MUIM_Application_NewInput), IPTR(@FSignals)]) =
+  if DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)]) =
     MUIV_Application_ReturnID_Quit then
   begin
     Application.Terminate;
@@ -610,6 +619,7 @@ end;
 
 function TMuiApplication.DestroyTimer(TimerHandle: THandle): boolean;
 begin
+  Result := True;
   if TimerHandle <> 0 then
     FTimers.Remove(TObject(TimerHandle));
 end;
@@ -697,11 +707,11 @@ end;
 
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
-  AskMsg: PMUIP_AskMinMax;
+  //AskMsg: PMUIP_AskMinMax;
   ri: PMUI_RenderInfo;
   rp: PRastPort;
-  Region: PRegion;
-  r: TRectangle;
+  //Region: PRegion;
+  //r: TRectangle;
   clip: Pointer;
   MUIB: TMUIObject;
 begin

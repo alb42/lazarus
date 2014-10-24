@@ -14,6 +14,7 @@ type
     FMinPos: Integer;
     FMaxPos: Integer;
     FShowText: Boolean;
+    Text: string;
     function GetMaxPos: Integer;
     function GetMinPos: Integer;
     function GetPosition: Integer;
@@ -46,7 +47,7 @@ end;
 
 function TMUIGauge.GetMaxPos: Integer;
 begin
-  Result := GetAttribute(LongInt(MUIA_Gauge_Max)) + FMinPos;
+  Result := GetAttribute(IPTR(MUIA_Gauge_Max)) + FMinPos;
 end;
 
 function TMUIGauge.GetMinPos: Integer;
@@ -56,7 +57,7 @@ end;
 
 function TMUIGauge.GetPosition: Integer;
 begin
-  Result := GetAttribute(LongInt(MUIA_Gauge_Current)) + FMinPos;
+  Result := GetAttribute(IPTR(MUIA_Gauge_Current)) + FMinPos;
 end;
 
 function TMUIGauge.GetShowText: boolean;
@@ -96,7 +97,6 @@ end;
 
 procedure TMUIGauge.UpdateText;
 var
-  Text: string;
   Pos: Integer;
 begin
   Text := '';
@@ -108,7 +108,7 @@ begin
     else
       Text := IntToStr(Pos) + ' from ['+IntToStr(FMinPos)+'-'+IntToStr(FMaxPos)+']('+IntToStr(Round(100*(Pos/(FMaxPos-FMinPos))))+'%%)'
   end;
-  SetAttribute([MUIA_Gauge_InfoText, PChar(Text)]);
+  SetAttribute([LongInt(MUIA_Gauge_InfoText), PChar(Text)]);
 end;
 
 end.

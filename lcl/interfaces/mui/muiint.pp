@@ -319,7 +319,6 @@ var
   Src: PABGRPixel;
   Dest: PARGBPixel;
   i: Integer;
-  D: TABGRPixel;
 begin
   Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
 
@@ -376,15 +375,12 @@ function RawImage_DescriptionFromDrawable(out
   ADesc: TRawImageDescription; ACustomAlpha: Boolean
   ): boolean;
 var
-  Width, Height, Depth: integer;
+  Width, Height: integer;
   IsBitmap: Boolean;
-  AMask: LongWord;
-  AShift: Integer;
-  APrecision: Integer;
 begin
   Width := 0;
   Height := 0;
-
+  IsBitMap := False;
 
   ADesc.Init;
   ADesc.Width := cardinal(Width);
@@ -459,17 +455,6 @@ begin
   begin
     // Try retrieving the lineend
     ADesc.LineEnd := rileDWordBoundary;
-
-    {Visual^.get_red_pixel_details(@AMask, @AShift, @APrecision);
-    ADesc.RedPrec := APrecision;
-    ADesc.RedShift := AShift;
-    Visual^.get_green_pixel_details(@AMask, @AShift, @APrecision);
-    ADesc.GreenPrec := APrecision;
-    ADesc.GreenShift := AShift;
-    Visual^.get_blue_pixel_details(@AMask, @AShift, @APrecision);
-    ADesc.BluePrec := APrecision;
-    ADesc.BlueShift := AShift;
-    }
     ADesc.MaskBitsPerPixel := 1;
     ADesc.MaskShift := 0;
     ADesc.MaskLineEnd := rileByteBoundary;

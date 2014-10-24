@@ -72,12 +72,6 @@ function TMUIWidgetSet.BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: 
 var
   Dest: TMUICanvas absolute DestDC;
   Src: TMUICanvas absolute SrcDC;
-  i,xs,ys: Integer;
-  NImage: Pointer;
-  DB,SB: PLongWord;
-  FX,FY: Double;
-  NX, NY: Integer;
-  LineStart: PLongWord;
 begin
   {$ifdef VERBOSEAROS}
   writeln('BitBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -123,6 +117,7 @@ begin
   writeln('src1: ', R1.Debugout);
   writeln('src2: ', R2.Debugout);
   {$endif}
+  Result := 0;
   case fnCombineMode of
     RGN_AND:  Combine:=eRegionCombineAnd;
     RGN_COPY: Combine:=eRegionCombineCopy;
@@ -290,6 +285,7 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('Delete DC $', HexStr(Pointer(hdc)));
   {$endif}
+  Result := True;
   ADC.Free;
 end;
 
@@ -321,11 +317,11 @@ function TMUIWidgetSet.DrawText(DC: HDC; Str: PChar; Count: Integer;
   var ARect: TRect; Flags: Cardinal): Integer;
 var
   ADC: TMUICanvas absolute DC;
-  Left, Top: Integer;
 begin
   {$ifdef VERBOSEAROS}
   writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom);
   {$endif}
+  Result := 0;
   if Assigned(ADC) then
   begin
     if Assigned(ADC.RastPort) then
@@ -522,6 +518,7 @@ end;
 function TMUIWidgetSet.FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer;
 begin
   //writeln('FrameRect');
+  Result := 0;
 end;
 
 function TMUIWidgetSet.GetBitmapBits(Bitmap: HBITMAP; Count: Longint;  Bits: Pointer): Longint;
@@ -529,6 +526,7 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('GetBitmapBits');
   {$endif}
+  Result := 0;
 end;
 
 function TMUIWidgetSet.GetClientBounds(handle : HWND; var ARect : TRect) : Boolean;
@@ -547,10 +545,7 @@ function TMUIWidgetSet.GetClientRect(handle: HWND; var ARect: TRect
 var
   Widget: TMUIObject absolute handle;
 begin
-  ARect.Left := 0;
-  ARect.Right := Widget.Width;
-  ARect.Top := 0;
-  ARect.Bottom := Widget.Height;
+  ARect := Widget.GetClientRect;
   {$ifdef VERBOSEAROS}
   writeln(Widget.classname, '################Get ClientRect ', ARect.Left, ', ', ARect.Right);
   {$endif}
@@ -591,8 +586,8 @@ begin
     end else begin
       O:=nil;
     end;
-  end;
-  Result:=true;*)
+  end;*)
+  Result := False;
 end;
 
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
@@ -627,6 +622,7 @@ function TMUIWidgetSet.GetDeviceCaps(DC: HDC; Index: Integer): Integer;
 begin
   //Desktop device caps
   { TODO : Create real data for GetDeviceCaps }
+  Result := 0;
   Case Index of
     LOGPIXELSX: Result:=96; //Hardcoded by now
     BITSPIXEL : Result:=32; //Hardcoded by now
@@ -640,6 +636,7 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('GetDIBits');
   {$endif}
+  Result := 0;
 end;
 
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
@@ -655,6 +652,7 @@ begin
     {$endif}
     Result:=nil;
   end;*)
+  Result := nil;
 end;
 
 function TMUIWidgetSet.GetSysColor(nIndex: Integer): DWORD;
@@ -669,6 +667,7 @@ begin
     exit;
   end;
   Result:=GetSysColorRGB(nIndex); *)
+  Result := 0;
 end;
 
 function TMUIWidgetSet.GetSystemMetrics(nIndex: Integer): Integer;
@@ -826,6 +825,7 @@ function TMUIWidgetSet.MessageBox(hWnd: HWND; lpText, lpCaption: PChar;
   BtnType: Cardinal;
   DlgType: Cardinal;*)
 begin
+  Result := 0;
 (*  BtnType := (uType and $0000000F); { mask the button type }
 
   if (BtnType = MB_OKCANCEL) then

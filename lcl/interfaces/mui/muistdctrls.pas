@@ -240,18 +240,11 @@ end;
 procedure DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiListView;
-  Idx: Integer;
 begin
   if TObject(Hook^.h_Data) is TMuiListView then
   begin
     MuiObject := TMuiListView(Hook^.h_Data);
-    Idx := MuiObject.Active;
-    //LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
-    //if Idx > 0 then
-    //  LCLSendChangedMsg(TControl(MuiObject.PasObject), Idx);
     LCLSendMouseMultiClickMsg(TControl(MuiObject.PasObject), 0, 0, mbLeft, 2);
-    //LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
-    //LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
 end;
 
@@ -260,14 +253,12 @@ end;
 
 constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
 var
-  FText: PChar;
   MenuTags: TTagsList;
 begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
-  FText := FStrings.GetText;
   FFloatText := TFloatText.create(MenuTags);
-  AddTags(Tags, [MUIA_Listview_List, FloatText.Obj ,TAG_DONE]);
+  AddTags(Tags, [LongInt(MUIA_Listview_List), FloatText.Obj ,TAG_DONE]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
@@ -279,18 +270,18 @@ begin
   DoubleClickHook.h_SubEntry := 0;
   DoubleClickHook.h_Data := Self;
   
-  DoMethod([LongInt(MUIM_Notify),
+  DoMethod([IPTR(MUIM_Notify),
     IPTR(MUIA_List_Active), IPTR(MUIV_EveryTime),
-    LongInt(MUIV_Notify_Self),
+    IPTR(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), IPTR(@ListChangeHook)
+    IPTR(MUIM_CallHook), IPTR(@ListChangeHook)
     ]);
     
-  DoMethod([LongInt(MUIM_Notify),
+  DoMethod([IPTR(MUIM_Notify),
     IPTR(MUIA_ListView_DoubleClick), IPTR(True),
-    LongInt(MUIV_Notify_Self),
+    IPTR(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), IPTR(@DoubleClickHook)
+    IPTR(MUIM_CallHook), IPTR(@DoubleClickHook)
     ]);  
 end;
 
@@ -320,7 +311,7 @@ var
   Res: LongInt;
 begin
   Result := 0;
-  GetAttr(LongInt(MUIA_List_Active), FloatText.Obj, @Res);
+  GetAttr(IPTR(MUIA_List_Active), FloatText.Obj, @Res);
   if Res = MUIV_List_Active_Off then
     Result := 0
   else
@@ -362,7 +353,7 @@ end;
 
 constructor TMuiText.Create(var Tags: TTagsList);
 begin
-  AddTags(Tags, [MUIA_BACKGROUND, MUII_BACKGROUND]);
+  AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_BACKGROUND]);
   inherited Create(MUIC_Text, GetTagPtr(Tags));
 end;
 
@@ -393,9 +384,9 @@ begin
   if ObjType = MUIO_Radio then
   begin
     AddTags(TagList2, [
-      MUIA_InputMode, MUIV_InputMode_Immediate,
-      MUIA_ShowSelState, False,
-      MUIA_Image_Spec, MUII_RadioButton]);
+      LongInt(MUIA_InputMode), MUIV_InputMode_Immediate,
+      LongInt(MUIA_ShowSelState), False,
+      LongInt(MUIA_Image_Spec), MUII_RadioButton]);
     inherited Create(MUIC_Image, GetTagPtr(TagList2));
   end else
     inherited Create(ObjType, Params);
@@ -404,11 +395,11 @@ begin
   CheckHook.h_SubEntry := 0;
   CheckHook.h_Data := Self;
   
-  DoMethod([LongInt(MUIM_Notify),
-    LongInt(MUIA_Selected), IPTR(MUIV_EveryTime),
-    LongInt(MUIV_Notify_Self),
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Selected), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), IPTR(@CheckHook)
+    IPTR(MUIM_CallHook), IPTR(@CheckHook)
     ]);
 end;
 
@@ -504,20 +495,18 @@ end;
 
 constructor TMuiToggleButton.Create(ObjType: LongInt;
   const Params: array of const);
-var
-  TagList: TTagsList;
 begin
   inherited Create(MUIO_Button, Params);
-  SetAttribute([MUIA_InputMode, MUIV_InputMode_Toggle]);
+  SetAttribute([LongInt(MUIA_InputMode), MUIV_InputMode_Toggle]);
   CheckHook.h_Entry := IPTR(@CheckFunc);
   CheckHook.h_SubEntry := 0;
   CheckHook.h_Data := Self;
 
-  DoMethod([LongInt(MUIM_Notify),
-    LongInt(MUIA_Selected), IPTR(MUIV_EveryTime),
-    LongInt(MUIV_Notify_Self),
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Selected), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
     2,
-    LongInt(MUIM_CallHook), IPTR(@CheckHook)
+    IPTR(MUIM_CallHook), IPTR(@CheckHook)
     ]);
 end;
 
@@ -562,7 +551,7 @@ end;
 
 procedure TMuiStringEdit.SetText(const AValue: string);
 begin
-  SetAttribute([MUIA_String_Contents, LongInt(PChar(AValue)), TAG_END]);
+  SetAttribute([LongInt(MUIA_String_Contents), PChar(AValue), TAG_END]);
 end;
 
 constructor TMuiStringEdit.Create(const Params: array of const);
@@ -659,7 +648,6 @@ end;
 
 constructor TMuiTextEdit.Create(AStrings: TStrings; var Tags: TTagsList);
 var
-  i: Integer;
   scroll: pObject_;
   CreateTags: TTagsList;
 begin
@@ -667,9 +655,9 @@ begin
   FStrings.FMuiObject := self;
   FTextObj := MUI_NewObjectA(PChar('TextEditor.mcc'), GetTagPtr(Tags));
   scroll := MUI_NewObjectA(MUIC_ScrollBar, NIL);
-  AddTags(CreateTags, [MUIA_Group_Horiz, True, MUIA_Group_Child, FTextObj, MUIA_Group_Child, scroll, TAG_END]);
+  AddTags(CreateTags, [LongInt(MUIA_Group_Horiz), True, LongInt(MUIA_Group_Child), FTextObj, LongInt(MUIA_Group_Child), scroll, TAG_END]);
   inherited Create(MUIC_Group, GetTagPtr(CreateTags));
-  SetAttObj(FTextObj, [$ad00001a, scroll, TAG_END]);
+  SetAttObj(FTextObj, [LongInt($ad00001a), scroll, TAG_END]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;
   SetAttribute([LongInt($ad000002), FText, TAG_END]);

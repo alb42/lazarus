@@ -63,6 +63,18 @@ type
     Width: Integer;
   end;
 
+  { TMUIBitmap }
+
+  TMUIBitmap = class(TMUIWinAPIObject)
+  public
+    FImage: Pointer;
+    FWidth: Integer;
+    FHeight: Integer;
+    FDepth: Integer;
+    constructor Create(Width, Height, Depth: Integer);
+    destructor Destroy; override;
+  end;
+
   { TMUIFontObj }
 
   TMUIFontObj = class(TMUIWinAPIObject)
@@ -212,6 +224,7 @@ type
     DrawRect: TRect;
     Position: TPoint;
     RenderInfo: PMUI_RenderInfo;
+    Bitmap: TMUIBitmap;
     //Clipping: TMuiBasicRegion;
     Offset: types.TPoint;
     TextColor: LongWord;
@@ -271,6 +284,22 @@ begin
   g := (c and $0000FF00);
   r := (c and $000000FF) shl 16;
   Result := r or g or b;
+end;
+
+{ TMUIBitmap }
+
+constructor TMUIBitmap.Create(Width, Height, Depth: Integer);
+begin
+  FWidth := Width;
+  FHeight := Height;
+  FDepth := Depth;
+  FImage := System.AllocMem(Width * Height * SizeOf(LongWord));
+end;
+
+destructor TMUIBitmap.Destroy;
+begin
+  FreeMem(FImage);
+  inherited Destroy;
 end;
 
 { TMUIFontObj }
@@ -832,6 +861,7 @@ var
   ABrushData: TLogBrush;
   AFontData: TLogFont;
 begin
+  Bitmap := nil;
   ABrushData.lbColor := clBlack;
   APenData.lopnColor := clBlack;
   AFontData.lfFaceName := 'XEN';
@@ -963,6 +993,11 @@ begin
     Result := FFont;
     FFont := TMUIFontObj(NewObj);
     SetFontToRP;
+  end;
+  if NewObj is TMUIBitmap then
+  begin
+    Result := Bitmap;
+    Bitmap := TMUIBitmap(NewObj);
   end;
 end;
 

@@ -25,9 +25,9 @@
 function AngleChord(DC: HDC; x1, y1, x2, y2, angle1, angle2: Integer): Boolean; override;}
 
 function BeginPaint(Handle: hWnd; Var PS : TPaintStruct) : hdc; override;
-{function BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: HDC; XSrc, YSrc: Integer; Rop: DWORD): Boolean; override;
+function BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: HDC; XSrc, YSrc: Integer; Rop: DWORD): Boolean; override;
 
-function CallNextHookEx(hHk: HHOOK; ncode : Integer; wParam: WParam; lParam : LParam) : Integer; override;
+{function CallNextHookEx(hHk: HHOOK; ncode : Integer; wParam: WParam; lParam : LParam) : Integer; override;
 function CallWindowProc(lpPrevWndFunc : TFarProc; Handle : HWND; Msg : UINT; wParam: WParam; lParam : lParam) : Integer; override;}
 function ClientToScreen(Handle: HWND; var P: TPoint) : Boolean; override;
 {
@@ -58,7 +58,7 @@ function CreateRectRgn(X1, Y1, X2, Y2: Integer): HRGN; override;
 {function DCClipRegionValid(DC: HDC): boolean; override;}
 
 procedure DeleteCriticalSection(var CritSection: TCriticalSection); override;
-{function DeleteDC(hDC: HDC): Boolean; override;}
+function DeleteDC(hDC: HDC): Boolean; override;
 function DeleteObject(GDIObject: HGDIOBJ): Boolean; override;
 {function DestroyCaret(Handle : HWND): Boolean; override;
 function DestroyCursor(Handle: hCursor): Boolean; override;
@@ -82,9 +82,10 @@ function FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH): Boolean; override;
 //function Frame(DC: HDC; const ARect: TRect): Integer; override;
 function Frame3d(DC: HDC; var ARect: TRect; const FrameWidth : integer; const Style : TBevelCut): Boolean; override;
 function FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer; override;
-{
-function GetActiveWindow : HWND; override;
+
+//function GetActiveWindow : HWND; override;
 function GetBitmapBits(Bitmap: HBITMAP; Count: Longint;  Bits: Pointer): Longint; override;
+{
 function GetCapture: HWND; override;
 function GetCaretPos(var lpPoint: TPoint): Boolean; override;
 function GetCaretRespondToFocus(handle: HWND; var ShowHideOnFocus: boolean): Boolean; override;}
@@ -96,9 +97,9 @@ function GetCursorPos(var lpPoint: TPoint ): Boolean; override;
 function GetDC(hWnd: HWND): HDC; override;
 {function GetDCOriginRelativeToWindow(PaintDC: HDC; WindowHandle: HWND; var OriginDiff: TPoint): boolean; override;}
 function GetDeviceCaps(DC: HDC; Index: Integer): Integer; override;
-{function GetDeviceSize(DC: HDC; var P: TPoint): Boolean; Override;
+//function GetDeviceSize(DC: HDC; var P: TPoint): Boolean; Override;
 function GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer; Override;
-function GetFocus: HWND; override;
+{function GetFocus: HWND; override;
 function GetKeyState(nVirtKey: Integer): Smallint; override;
 function GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointer): Integer; override;
 function GetParent(Handle : HWND): HWND; override;}

@@ -68,6 +68,14 @@ begin
   {$endif}*)
 end;
 
+function TMUIWidgetSet.BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: HDC; XSrc, YSrc: Integer; Rop: DWORD): Boolean;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('BitBlt');
+  {$endif}
+  Result := True;
+end;
+
 function TMUIWidgetSet.ClientToScreen(Handle: HWND; var P: TPoint): Boolean;
 //var
 //  O: TFPGUIPrivateWidget;
@@ -127,6 +135,9 @@ function TMUIWidgetSet.CreateBitmap(Width, Height: Integer; Planes,
 //var
 //  img: TFPGUIWinAPIBitmap;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('Create Bitmap');
+  {$endif}
 (*  if BitCount>0 then begin
     img:=TFPGUIWinAPIBitmap.Create(BitCount,Width,Height);
     Result:=HBITMAP(img);
@@ -147,6 +158,9 @@ function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
 //var
 //  img: TFPGUIWinAPIBitmap;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('Create Compatible Bitmap');
+  {$endif}
   //writeln('CreateCompatibleBitmap');
   //img:=TFPGUIWinAPIBitmap.Create(32,Width,Height);
   //Result:=HBITMAP(img);
@@ -154,12 +168,26 @@ begin
 end;
 
 function TMUIWidgetSet.CreateCompatibleDC(DC: HDC): HDC;
-//var
-//  ADC: TFpGuiDeviceContext absolute DC;
+var
+  ADC: TMUICanvas absolute DC;
+  NewDC: TMUICanvas;
 begin
+
+  Result := 0;
+  //if DC <> 0 then
+  begin
+    NewDC := TMUICanvas.Create;
+    NewDC.RastPort := nil;
+    NewDC.InitCanvas;
+    NewDC.RenderInfo := nil;
+    if DC <> 0 then
+      NewDC.RenderInfo := ADC.RenderInfo;
+    Result := HDC(NewDC);
+  end;
   {$ifdef VERBOSEAROS}
-  writeln('CreateCompatibleDC');
+  writeln('CreateCompatibleDC ' , HexStr(Pointer(Result)));
   {$endif}
+
 (*  {$ifdef VerboseFPGUIWinAPI}
     if DC=0 then begin
       WriteLn(Self.ClassName,'.CreateCompatibleDC ','NULL');
@@ -178,7 +206,6 @@ begin
     //Create DC widget compatible
     Result:=HDC(TFpGuiDeviceContext.Create(ADC.FPrivateWidget));
   end;*)
-  Result := 0;
 end;
 
 function TMUIWidgetSet.CreateFontIndirect(const LogFont: TLogFont): HFONT;
@@ -241,6 +268,16 @@ begin
   System.DoneCriticalsection(ACritSec^);
   Dispose(ACritSec);
   CritSection:=0;
+end;
+
+function TMUIWidgetSet.DeleteDC(hDC: HDC): Boolean;
+var
+  ADC: TMUICanvas absolute hDC;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('Delete DC $', HexStr(Pointer(hdc)));
+  {$endif}
+  ADC.Free;
 end;
 
 function TMUIWidgetSet.DeleteObject(GDIObject: HGDIOBJ): Boolean;
@@ -474,6 +511,13 @@ begin
   //writeln('FrameRect');
 end;
 
+function TMUIWidgetSet.GetBitmapBits(Bitmap: HBITMAP; Count: Longint;  Bits: Pointer): Longint;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('GetBitmapBits');
+  {$endif}
+end;
+
 function TMUIWidgetSet.GetClientBounds(handle : HWND; var ARect : TRect) : Boolean;
 var
   Widget: TMUIObject absolute handle;
@@ -576,6 +620,13 @@ begin
     else
         WriteLn(Self.ClassName,'.GetDeviceCaps Index ',Index,' Desktop');
   end;
+end;
+
+function TMUIWidgetSet.GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('GetDIBits');
+  {$endif}
 end;
 
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
@@ -907,8 +958,12 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('select object ', HexStr(Pointer(GDIObj)));
   {$endif}
-  if Assigned(GDI) then
-    Result := HGDIOBJ(MyDC.SelectObject(GDI));
+  Result := 0;
+  if Assigned(GDI) and (GDIObj > $100) then
+  begin
+    if (TObject(GDIObj) is TMUIWinAPIObject) then
+      Result := HGDIOBJ(MyDC.SelectObject(GDI));
+  end;
 end;
 
 function TMUIWidgetSet.SetFocus(hWnd: HWND): HWND;
@@ -973,12 +1028,24 @@ function TMUIWidgetSet.StretchBlt(DestDC: HDC; X, Y, Width, Height: Integer;
 //  SDC: TFPGUIDeviceContext absolute SrcDC;
 //  TDC: TFPGUIDeviceContext absolute DestDC;
 begin
-  Result:=false;
+  {$ifdef VERBOSEAROS}
+  writeln('StretchBlt');
+  {$endif}
+  Result:=True;
 end;
 
 function TMUIWidgetSet.StretchMaskBlt(DestDC: HDC; X, Y, Width,
   Height: Integer; SrcDC: HDC; XSrc, YSrc, SrcWidth, SrcHeight: Integer;
   Mask: HBITMAP; XMask, YMask: Integer; Rop: DWORD): Boolean;
+var
+  Dest: TMUICanvas absolute DestDC;
+  Src: TMUICanvas absolute SrcDC;
+  i,xs,ys: Integer;
+  NImage: Pointer;
+  DB,SB: PLongWord;
+  FX,FY: Double;
+  NX, NY: Integer;
+  LineStart: PLongWord;
 (*var
   SDC: TFPGUIDeviceContext;
   TDC: TFPGUIDeviceContext;
@@ -986,6 +1053,46 @@ function TMUIWidgetSet.StretchMaskBlt(DestDC: HDC; X, Y, Width,
   ClientRect: TfpgRect;
   P: TPoint;*)
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
+  writeln('rop:',rop);
+  {$endif}
+  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
+  begin
+    if (SrcWidth = Width) and (SrcHeight = height) then
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+    else
+    begin
+      NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
+      DB := NImage;
+      FX := 1;
+      FY := 1;
+      if SrcWidth > 0 then
+        FX := SrcWidth/Width;
+      if SrcHeight > 0 then
+        FY := SrcHeight/Height;
+      for ys := 0 to Height - 5 do
+      begin
+        NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
+        i := NY * SrcWidth;
+        LineStart := Src.Bitmap.FImage;
+        Inc(LineStart, i);
+        for xs := 0 to Width - 1 do
+        begin
+          NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
+          SB := LineStart;
+          Inc(SB, NX);
+          DB^ := SB^;
+          Inc(DB);
+        end;
+      end;
+      WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+      System.FreeMem(NImage);
+    end;
+    //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
+    //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
+  end;
+
 (*  SDC:=TFPGUIDeviceContext(SrcDC);
   TDC:=TFPGUIDeviceContext(DestDC);
   r.Left:=X; r.Right:=Width; R.Top:=Y; r.Bottom:=Height;
@@ -997,7 +1104,7 @@ begin
   TDC.ClearDC;
   TDC.fpgCanvas.DrawImage(r.Left,r.Top,SDC.FBitmap.Image);
   Result:=true;*)
-  Result := False;
+  Result := True;
 end;
 
 function TMUIWidgetSet.WindowFromPoint(Point: TPoint): HWND;

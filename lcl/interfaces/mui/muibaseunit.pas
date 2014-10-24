@@ -5,11 +5,15 @@ unit MUIBaseUnit;
 interface
 
 uses
-  Classes, dos, SysUtils, Controls, Contnrs, Exec, AmigaDos, agraphics, Intuition, Utility,
-  Mui, Forms, LCLMessageGlue, lcltype, interfacebase, muidrawing;
+  Classes, dos, SysUtils, Controls, Contnrs,
+  {$ifdef HASAMIGA}
+  Exec, AmigaDos, agraphics, Intuition, Utility,Mui,
+  {$endif}
+  Forms, LCLMessageGlue, lcltype, interfacebase, muidrawing;
 
 type
   TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+
   { TMUIObject }
 
   TMUIObject = class(TObject)
@@ -142,6 +146,7 @@ type
   protected
     procedure AddChild(Child: TMUIObject); override;
     procedure RemoveChild(Child: TMUIObject); override;
+    procedure InstallHooks; override;
   public
     constructor Create(Tags: PTagItem); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -530,6 +535,10 @@ begin
     FMainWin := nil;
     SetAttribute([longint(MUIA_Application_Window), nil, TAG_END]);
   end;
+end;
+
+procedure TMuiApplication.InstallHooks;
+begin
 end;
 
 constructor TMuiApplication.Create(Tags: PTagItem);

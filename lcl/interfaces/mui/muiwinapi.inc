@@ -69,10 +69,23 @@ begin
 end;
 
 function TMUIWidgetSet.BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: HDC; XSrc, YSrc: Integer; Rop: DWORD): Boolean;
+var
+  Dest: TMUICanvas absolute DestDC;
+  Src: TMUICanvas absolute SrcDC;
+  i,xs,ys: Integer;
+  NImage: Pointer;
+  DB,SB: PLongWord;
+  FX,FY: Double;
+  NX, NY: Integer;
+  LineStart: PLongWord;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('BitBlt');
+  writeln('BitBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
   {$endif}
+  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
+  begin
+    WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
+  end;
   Result := True;
 end;
 
@@ -1024,14 +1037,55 @@ end;
 function TMUIWidgetSet.StretchBlt(DestDC: HDC; X, Y, Width, Height: Integer;
   SrcDC: HDC; XSrc, YSrc, SrcWidth, SrcHeight: Integer; ROp: Cardinal
   ): Boolean;
-//var
-//  SDC: TFPGUIDeviceContext absolute SrcDC;
-//  TDC: TFPGUIDeviceContext absolute DestDC;
+var
+  Dest: TMUICanvas absolute DestDC;
+  Src: TMUICanvas absolute SrcDC;
+  i,xs,ys: Integer;
+  NImage: Pointer;
+  DB,SB: PLongWord;
+  FX,FY: Double;
+  NX, NY: Integer;
+  LineStart: PLongWord;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('StretchBlt');
+  writeln('StretchBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
   {$endif}
-  Result:=True;
+  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
+  begin
+    if (SrcWidth = Width) and (SrcHeight = height) then
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+    else
+    begin
+      NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
+      DB := NImage;
+      FX := 1;
+      FY := 1;
+      if SrcWidth > 0 then
+        FX := SrcWidth/Width;
+      if SrcHeight > 0 then
+        FY := SrcHeight/Height;
+      for ys := 0 to Height - 5 do
+      begin
+        NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
+        i := NY * SrcWidth;
+        LineStart := Src.Bitmap.FImage;
+        Inc(LineStart, i);
+        for xs := 0 to Width - 1 do
+        begin
+          NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
+          SB := LineStart;
+          Inc(SB, NX);
+          DB^ := SB^;
+          Inc(DB);
+        end;
+      end;
+      WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+      System.FreeMem(NImage);
+    end;
+    //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
+    //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
+  end;
+  Result := True;
 end;
 
 function TMUIWidgetSet.StretchMaskBlt(DestDC: HDC; X, Y, Width,
@@ -1046,16 +1100,9 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
-(*var
-  SDC: TFPGUIDeviceContext;
-  TDC: TFPGUIDeviceContext;
-  R: TRect;
-  ClientRect: TfpgRect;
-  P: TPoint;*)
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
-  writeln('rop:',rop);
   {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
   begin
@@ -1092,18 +1139,6 @@ begin
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
     //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
   end;
-
-(*  SDC:=TFPGUIDeviceContext(SrcDC);
-  TDC:=TFPGUIDeviceContext(DestDC);
-  r.Left:=X; r.Right:=Width; R.Top:=Y; r.Bottom:=Height;
-  AdjustRectToOrg(r,TDC.FOrg);
-  ClientRect:=TDC.FPrivateWidget.Widget.GetClientRect;
-  P.x:=-ClientRect.Left;
-  P.y:=-ClientRect.Top;
-  AdjustRectToOrg(r,P);
-  TDC.ClearDC;
-  TDC.fpgCanvas.DrawImage(r.Left,r.Top,SDC.FBitmap.Image);
-  Result:=true;*)
   Result := True;
 end;
 

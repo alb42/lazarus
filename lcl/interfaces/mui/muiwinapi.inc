@@ -180,7 +180,9 @@ var
   ADC: TMUICanvas absolute DC;
   NewDC: TMUICanvas;
 begin
-
+  {$ifdef VERBOSEAROS}
+  writeln('CreateCompatibleDC ', HexStr(ADC));
+  {$endif}
   Result := 0;
   //if DC <> 0 then
   begin
@@ -718,9 +720,14 @@ begin
   FillByte(TM, SizeOf(TM), 0);
   TM.tmAscent := 2;
   TM.tmDescent := 2;
+  TM.tmAveCharWidth := 8;
+  TM.tmHeight := 11;
   //Defined usually in MSDN as the average of 'x' char.
-  TM.tmAveCharWidth := ADC.TextWidth('x', 1);
-  TM.tmHeight := ADC.TextHeight('X', 1);
+  if Assigned(ADC) then
+  begin
+    TM.tmAveCharWidth := ADC.TextWidth('x', 1);
+    TM.tmHeight := ADC.TextHeight('X', 1);
+  end;
   Result := True;
 end;
 
@@ -972,7 +979,7 @@ begin
   writeln('select object ', HexStr(Pointer(GDIObj)));
   {$endif}
   Result := 0;
-  if Assigned(GDI) and (GDIObj > $100) then
+  if Assigned(MyDC) and Assigned(GDI) and (GDIObj > $100) then
   begin
     if (TObject(GDIObj) is TMUIWinAPIObject) then
       Result := HGDIOBJ(MyDC.SelectObject(GDI));

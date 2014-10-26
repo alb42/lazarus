@@ -58,11 +58,11 @@ type
     function GetWidth(): integer; virtual;
     procedure InstallHooks; virtual;
     procedure DoReDraw(); virtual;
-
   public
     FObjects: TObjectList;
     FObject: pObject_;
     BlockRedraw: boolean;
+    MUIDrawing: Boolean;
     constructor Create(ObjType: longint; const Params: array of const);
       overload; reintroduce; virtual;
     constructor Create(AClassName: PChar; Tags: PTagItem); overload;
@@ -421,6 +421,7 @@ end;
 constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
 begin
   inherited Create;
+  MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
   FObjects := TObjectList.Create(False);
@@ -434,6 +435,7 @@ end;
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
+  MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
   FObjects := TObjectList.Create(False);
@@ -447,6 +449,7 @@ end;
 constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
 begin
   inherited Create;
+  MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
   FObjects := TObjectList.Create(False);
@@ -720,7 +723,6 @@ begin
     MUIM_Draw:
     begin
       //writeln('DRAW');
-      //Result := DoSuperMethodA(cl, obj, msg);
       //if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
       //  Exit;
       rp := nil;
@@ -735,6 +737,8 @@ begin
         try
           if Assigned(MUIB) then
           begin
+            if MUIB.MUIDrawing then
+              Result := DoSuperMethodA(cl, obj, msg);
             MUIB.FMUICanvas.RastPort := rp;
             MUIB.FMUICanvas.DrawRect :=
               Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
@@ -747,9 +751,12 @@ begin
             MUIB.FMUICanvas.DeInitCanvas;
             MUIB.FMUICanvas.InitCanvas;
             //writeln('-->Draw');
-            SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
-            RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top,
-              MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom);
+            if not MUIB.MUIDrawing then
+            begin
+              SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
+              RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top,
+                MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom);
+            end;
             MUIB.DoRedraw;
             if Assigned(MUIB.FOnDraw) then
             begin

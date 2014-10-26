@@ -976,6 +976,7 @@ begin
   Result := nil;
   if not Assigned(NewObj) then
     Exit;
+  writeln('Select: ', NewObj.classname, ' self: ', HexStr(Self));
   if NewObj is TMUIPenObj then
   begin
     Result := FPen;
@@ -990,9 +991,13 @@ begin
   end;
   if NewObj is TMUIFontObj then
   begin
+    writeln('1 ', HexStr(FFont));
     Result := FFont;
+    writeln('2');
     FFont := TMUIFontObj(NewObj);
+    writeln('3');
     SetFontToRP;
+    writeln('4');
   end;
   if NewObj is TMUIBitmap then
   begin

@@ -346,31 +346,6 @@ begin
   //writeln(' create image: ', ARawImage.Description.Width,'x', ARawImage.Description.Height,' : ',ARawImage.Description.Depth, ' - ', ARawImage.DataSize, ' $', HexStr(Bit));
 end;
 
-function TMUIWidgetSet.RawImage_DescriptionFromBitmap(ABitmap: HBITMAP; out ADesc: TRawImageDescription): boolean;
-begin
-  //writeln('RawImage_DescriptionFromBitmap');
-  Result := False;
-end;
-
-function TMUIWidgetSet.RawImage_DescriptionFromDevice(ADC: HDC; out ADesc: TRawImageDescription): Boolean;
-begin
-  //writeln('RawImage_DescriptionFromDevice ', HexStr(Pointer(ADC)));
-  ADesc.Init_BPP32_A8R8G8B8_BIO_TTB(0,0);
-  Result := True;
-end;
-
-function TMUIWidgetSet.RawImage_FromBitmap(out ARawImage: TRawImage; ABitmap, AMask: HBITMAP; ARect: PRect = nil): Boolean;
-begin
-  //writeln('RawImage_FromBitmap');
-  Result := False;
-end;
-
-function TMUIWidgetSet.RawImage_FromDevice(out ARawImage: TRawImage; ADC: HDC; const ARect: TRect): Boolean;
-begin
-  //writeln('RawImage_FromDevice ', ARect.Right, ' x ', ARect.Bottom);
-  Result := False;
-end;
-
 function RawImage_DescriptionFromDrawable(out
   ADesc: TRawImageDescription; ACustomAlpha: Boolean
   ): boolean;
@@ -386,7 +361,7 @@ begin
   ADesc.Width := cardinal(Width);
   ADesc.Height := cardinal(Height);
   ADesc.BitOrder := riboBitsInOrder;
-
+  ADesc.PaletteColorCount := 0;
   if ACustomAlpha then
   begin
     // always give pixbuf description for alpha images
@@ -463,6 +438,48 @@ begin
 
   Result := True;
 end;
+
+function TMUIWidgetSet.RawImage_DescriptionFromBitmap(ABitmap: HBITMAP; out ADesc: TRawImageDescription): boolean;
+begin
+  ADesc.Init_BPP32_A8R8G8B8_BIO_TTB(0,0);
+  ADesc.PaletteColorCount := 0;
+  RawImage_DescriptionFromDrawable(ADesc, False);
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_DescriptionFromBitmap ', HexStr(Pointer(ABitmap)));
+  {$endif}
+  Result := True;
+end;
+
+function TMUIWidgetSet.RawImage_DescriptionFromDevice(ADC: HDC; out ADesc: TRawImageDescription): Boolean;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_DescriptionFromDevice ', HexStr(Pointer(ADC)));
+  {$endif}
+  RawImage_QueryDescription([riqfUpdate,riqfRGB], ADesc);
+  Result := True;
+end;
+
+function TMUIWidgetSet.RawImage_FromBitmap(out ARawImage: TRawImage; ABitmap, AMask: HBITMAP; ARect: PRect = nil): Boolean;
+begin
+  ARawImage.Init;
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_FromBitmap');
+  {$endif}
+  RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
+  Result := True;
+end;
+
+function TMUIWidgetSet.RawImage_FromDevice(out ARawImage: TRawImage; ADC: HDC; const ARect: TRect): Boolean;
+begin
+  ARawImage.Init;
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_FromDevice ', ARect.Right, ' x ', ARect.Bottom);
+  {$endif}
+  RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
+  Result := True;
+end;
+
+
 
 function TMUIWidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean;
 var

@@ -6,7 +6,10 @@ interface
 
 uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
-  tagsarray,
+  tagsarray, muidrawing, buttons, Math,
+  {$ifdef HASAMIGA}
+  cybergraphics,
+  {$endif}
   MuiBaseUnit, StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
 
   { TMuiButton }
@@ -15,6 +18,20 @@ type
   TMuiButton = class(TMuiArea)
   public
     constructor Create(const Params : Array Of Const); overload; reintroduce; virtual;
+  end;
+
+  TMuiBitBtn = class(TMuiArea)
+  private
+    FCaption: string;
+  protected
+    procedure SetCaption(const AValue: string); override;
+    function GetCaption: string; override;
+    procedure DoReDraw(); override;
+  public
+    FLayout: TButtonLayout;
+    FMargin: Integer;
+    FSpacing: Integer;
+    FBitmap: TMUIBitmap;
   end;
 
   { TMuiText }
@@ -161,6 +178,8 @@ type
 
 implementation
 
+uses
+  agraphics;
 
 
 { TMuiRadioButton }
@@ -210,6 +229,171 @@ end;
 procedure TMuiRadioButton.RemoveCheck;
 begin
   inherited SetChecked(False);
+end;
+
+procedure TMuiBitBtn.DoReDraw();
+var
+  GlyphPos: TPoint;
+  TextPos: TPoint;
+  Len, Hi: Integer;
+  TextLength: Integer;
+  GLeft, GWidth:Integer;
+  GTop, GHeight: Integer;
+  DHeight, DWidth: Integer;
+  Space: Integer;
+  Ma, Spa: Integer;
+
+  procedure GlyphLeft;
+  var
+    GlyTextWi: Integer;
+  begin
+    GWidth := Min(FBitmap.FWidth, DWidth - ((Ma * 2) + Len + Spa));
+    GHeight := Min(FBitmap.FHeight, DHeight - ((Ma * 2) + Spa));
+    GLeft := Max(0,(FBitmap.FWidth - GWidth) div 2);
+    GTop := Max(0, (FBitmap.FHeight - GHeight) div 2);
+
+    if FMargin < 0 then
+    begin
+      GlyphPos.Y := DHeight div 2 - (GHeight div 2);
+      TextPos.Y := ((DHeight - Hi) div 2) + 2;
+      GlyTextWi := GWidth + FSpacing + Len; // Width of Glyph + Text + spacing
+      GlyphPos.X := (DWidth - GlyTextWi) div 2;
+      TextPos.X := GlyphPos.X + GWidth + FSpacing;
+    end else
+    begin
+      GlyphPos.Y := DHeight div 2 - (GHeight div 2);
+      GlyphPos.X := FMargin;
+      TextPos.Y := DHeight div 2 - ((Hi div 2) - 2);
+      if FSpacing < 0 then
+      begin
+        TextPos.X := (DWidth - Len) div 2
+      end else
+        TextPos.X := GlyphPos.X + GWidth + FSpacing;
+    end;
+  end;
+
+  procedure GlyphRight;
+  var
+    GlyTextWi: Integer;
+  begin
+    GWidth := Min(FBitmap.FWidth, DWidth - ((Ma * 2) + Len + Spa));
+    GHeight := Min(FBitmap.FHeight, DHeight - ((Ma * 2) + Spa));
+    GLeft := Max(0,(FBitmap.FWidth - GWidth) div 2);
+    GTop := Max(0, (FBitmap.FHeight - GHeight) div 2);
+
+    if FMargin < 0 then
+    begin
+      GlyphPos.Y := DHeight div 2 - (GHeight div 2);
+      TextPos.Y := ((DHeight - Hi) div 2) + 2;
+      GlyTextWi := GWidth + FSpacing + Len; // Width of Glyph + Text + spacing
+      TextPos.X := (DWidth - GlyTextWi) div 2;
+      GlyphPos.X := TextPos.X + FSpacing + Len;
+    end else
+    begin
+      GlyphPos.Y := DHeight div 2 - (GHeight div 2);
+      TextPos.X := FMargin;
+      TextPos.Y := DHeight div 2 - ((Hi div 2) - 2);
+      if FSpacing < 0 then
+      begin
+        GlyphPos.X := (DWidth - GWidth) div 2
+      end else
+        GlyphPos.X := TextPos.X + Len + FSpacing;
+    end;
+  end;
+
+  procedure GlyphTop;
+  var
+    GlyTextHi: Integer;
+  begin
+    GWidth := Min(FBitmap.FWidth, DWidth - ((Ma * 2) + Spa));
+    GHeight := Min(FBitmap.FHeight, DHeight - ((Ma * 2) + Hi + Spa));
+    GLeft := Max(0,(FBitmap.FWidth - GWidth) div 2);
+    GTop := Max(0, (FBitmap.FHeight - GHeight) div 2);
+    if FMargin < 0 then
+    begin
+      GlyphPos.X := DWidth div 2 - (GWidth div 2);
+      TextPos.X := ((DWidth - Len) div 2) + 2;
+      GlyTextHi := GHeight + FSpacing + Hi; // Width of Glyph + Text + spacing
+      GlyphPos.Y := (DHeight - GlyTextHi) div 2;
+      TextPos.Y := GlyphPos.Y + GHeight + FSpacing + 2;
+    end else
+    begin
+      GlyphPos.X := DWidth div 2 - (GWidth div 2);
+      GlyphPos.Y := FMargin;
+      TextPos.X := DWidth div 2 - (Len div 2);
+      if FSpacing < 0 then
+      begin
+        TextPos.Y := ((DHeight - Hi) div 2) + 2
+      end else
+        TextPos.Y := GlyphPos.Y + GHeight + FSpacing + 2;
+    end;
+  end;
+
+  procedure GlyphBottom;
+  var
+    GlyTextHi: Integer;
+  begin
+    GWidth := Min(FBitmap.FWidth, DWidth - ((Ma * 2) + Spa));
+    GHeight := Min(FBitmap.FHeight, DHeight - ((Ma * 2) + Hi + Spa));
+    GLeft := Max(0,(FBitmap.FWidth - GWidth) div 2);
+    GTop := Max(0, (FBitmap.FHeight - GHeight) div 2);
+    if FMargin < 0 then
+    begin
+      GlyphPos.X := DWidth div 2 - (GWidth div 2);
+      TextPos.X := ((DWidth - Len) div 2);
+      GlyTextHi := GHeight + FSpacing + Hi; // Width of Glyph + Text + spacing
+      TextPos.Y := ((DHeight - GlyTextHi) div 2) + (Hi div 2) + 2;
+      GlyphPos.Y := TextPos.Y + FSpacing + Hi div 2;
+    end else
+    begin
+      GlyphPos.X := DWidth div 2 - (GWidth div 2);
+      TextPos.Y := FMargin + 2;
+      TextPos.X := DWidth div 2 - (Len div 2);
+      if FSpacing < 0 then
+      begin
+        GlyphPos.Y := (DHeight - GHeight) div 2
+      end else
+        GlyphPos.Y := TextPos.Y + Hi + FSpacing;
+    end;
+  end;
+
+begin
+  inherited;
+  if Assigned(MUICanvas) then
+  begin
+    Ma := Max(4, FMargin);
+    Spa:= Max(4, FSpacing);
+    DHeight := MUICanvas.DrawRect.Bottom - MUICanvas.DrawRect.Top;
+    DWidth := MUICanvas.DrawRect.Right - MUICanvas.DrawRect.Left;
+    SetDrMd(MUICanvas.RastPort, JAM1);
+    TextLength := Length(FCaption);
+    Hi := MUICanvas.TextHeight(PChar(FCaption), TextLength);
+    Len := MUICanvas.TextWidth(PChar(FCaption), TextLength);
+    TextPos.Y := (MUICanvas.DrawRect.Bottom - MUICanvas.DrawRect.Top) div 2 - ((Hi div 2) - 2);
+    TextPos.X := ((MUICanvas.DrawRect.Right - MUICanvas.DrawRect.Left) - Len) div 2;
+    if Assigned(FBitmap) then
+    begin
+      case FLayout of
+        blGlyphLeft: GlyphLeft;
+        blGlyphRight: GlyphRight;
+        blGlyphTop: GlyphTop;
+        blGlyphBottom: GlyphBottom;
+      end;
+      WritePixelArrayAlpha(FBitmap.FImage, GLeft, GTop, FBitmap.FWidth * SizeOf(LongWord), MUICanvas.RastPort, MUICanvas.GetOffset.X + GlyphPos.X, MUICanvas.GetOffset.Y + GlyphPos.Y, GWidth, GHeight, 255)
+    end;
+    MUICanvas.MoveTo(TextPos.X, TextPos.Y);
+    MUICanvas.WriteText(PChar(FCaption), TextLength);
+  end;
+end;
+
+procedure TMuiBitBtn.SetCaption(const AValue: string);
+begin
+  FCaption := AValue;
+end;
+
+function TMuiBitBtn.GetCaption: string;
+begin
+  Result := FCaption;
 end;
 
 { TFloatText }

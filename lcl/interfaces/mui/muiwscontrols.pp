@@ -105,6 +105,9 @@ type
   protected
   public
   published
+    class function  CreateHandle(const AWinControl: TWinControl;
+          const AParams: TCreateParams): TLCLIntfHandle; override;
+    class procedure DestroyHandle(const AWinControl: TWinControl); override;
   end;
 
   { TMuiWSImageList }
@@ -364,5 +367,16 @@ begin
 //  FPPrivateWidget := TMuiPrivateWindow(AWinControl.Handle);
 //  FPPrivateWidget.Font:=AFont;
 end; *)
+
+class function  TMuiWSCustomControl.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
+begin
+  writeln('create Custom Control');
+  Result := 0;
+end;
+
+class procedure TMuiWSCustomControl.DestroyHandle(const AWinControl: TWinControl);
+begin
+  writeln('Destroy Customcontrol');
+end;
 
 end.

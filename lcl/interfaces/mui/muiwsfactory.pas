@@ -5,9 +5,9 @@ unit MUIWSFactory;
 interface
 
 uses
-  Classes, forms, Controls, StdCtrls, Menus, Dialogs, ComCtrls,
+  Classes, forms, Controls, StdCtrls, Menus, Dialogs, ComCtrls, Buttons,
   MuiWSControls, MUIwsforms, MuiWSMenus, MUIWSStdCtrls,
-  MuiWSDialogs, MuiWSComCtrls,
+  MuiWSDialogs, MuiWSComCtrls, MUIWSButtons,
   WSLCLClasses;
 
 // imglist
@@ -139,7 +139,8 @@ end;
 
 function RegisterCustomControl: Boolean; alias : 'WSRegisterCustomControl';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomControl, TMuiWSCustomControl);
+  Result := True;
 end;
 
 // comctrls
@@ -418,7 +419,8 @@ end;
 // Buttons
 function RegisterCustomBitBtn: Boolean; alias : 'WSRegisterCustomBitBtn';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomBitBtn, TMUIWSBitBtn);
+  Result := True;
 end;
 
 function RegisterCustomSpeedButton: Boolean; alias : 'WSRegisterCustomSpeedButton';

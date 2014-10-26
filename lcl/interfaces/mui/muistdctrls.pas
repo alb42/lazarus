@@ -217,7 +217,7 @@ end;
 
 function TMUIScrollBar.GetMaxValue: Integer;
 begin
-  Result := MinValue + GetAttribute(MUIA_Prop_Entries) - 11;
+  Result := MinValue + GetAttribute(MUIA_Prop_Entries) - 20;
 end;
 
 function TMUIScrollBar.GetMinValue: Integer;
@@ -227,7 +227,7 @@ end;
 
 function TMUIScrollBar.GetPageSize: Integer;
 begin
-  Result := GetAttribute(MUIA_Prop_Visible) - 10;
+  Result := GetAttribute(MUIA_Prop_Visible) - 20;
 end;
 
 function TMUIScrollBar.GetPosition: Integer;
@@ -237,12 +237,12 @@ end;
 
 procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
 begin
-  SetAttribute([MUIA_Group_Horiz, AValue]);
+  SetAttribute([LongInt(MUIA_Group_Horiz), AValue]);
 end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
 begin
-  SetAttribute([MUIA_Prop_Entries, (AValue - MinValue) + 11]);
+  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + 20]);
 end;
 
 procedure TMUIScrollBar.SetMinValue(AValue: Integer);
@@ -252,12 +252,12 @@ end;
 
 procedure TMUIScrollBar.SetPageSize(AValue: Integer);
 begin
-  SetAttribute([MUIA_Prop_Visible, AValue + 10]);
+  SetAttribute([LongInt(MUIA_Prop_Visible), AValue + 20]);
 end;
 
 procedure TMUIScrollBar.SetPosition(AValue: Integer);
 begin
-  SetAttribute([MUIA_Prop_First, AValue]);
+  SetAttribute([LongInt(MUIA_Prop_First), AValue]);
 end;
 
 procedure ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
@@ -275,8 +275,11 @@ begin
     ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
     ScrollMsg.ScrollBar := PtrUInt(MuiObject);
     ScrollMsg.ScrollCode := SB_ENDSCROLL;
-    TScrollbar(MuiObject.PasObject).Position := ScrollMsg.Pos;
-    DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
+    if TScrollbar(MuiObject.PasObject).Position <> ScrollMsg.Pos then
+    begin
+      TScrollbar(MuiObject.PasObject).Position := ScrollMsg.Pos;
+      DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
+    end;
   end;
 end;
 
@@ -356,7 +359,6 @@ var
   GLeft, GWidth:Integer;
   GTop, GHeight: Integer;
   DHeight, DWidth: Integer;
-  Space: Integer;
   Ma, Spa: Integer;
 
   procedure GlyphLeft;

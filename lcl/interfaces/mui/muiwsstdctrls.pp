@@ -270,7 +270,7 @@ var
   MUIScrollbar: TMUIScrollbar;
   TagList: TTagsList;
 begin
-  AddTags(TagList, [MUIA_Prop_First, 0, MUIA_Prop_Entries, 110, MUIA_Prop_Visible, 10]);
+  AddTags(TagList, [MUIA_Prop_First, 0, MUIA_Prop_Entries, 120, MUIA_Prop_Visible, 20]);
   if TScrollbar(AWinControl).Kind = sbHorizontal then
     AddTags(TagList, [MUIA_Group_Horiz, True])
   else

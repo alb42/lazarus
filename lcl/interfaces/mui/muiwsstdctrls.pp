@@ -43,6 +43,11 @@ type
   private
   protected
   public
+  published
+    class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
+    class procedure SetKind(const AScrollBar: TCustomScrollBar; const AIsHorizontal: Boolean); override;
+    class procedure SetParams(const AScrollBar: TCustomScrollBar); override;
+    class procedure ShowHide(const AWinControl: TWinControl); override;
   end;
 
   { TMUIWSCustomGroupBox }
@@ -257,7 +262,68 @@ type
 implementation
 
 uses
-  MuiStringsUnit;
+  MuiStringsUnit, forms;
+
+
+class function TMUIWSScrollBar.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
+var
+  MUIScrollbar: TMUIScrollbar;
+  TagList: TTagsList;
+begin
+  AddTags(TagList, [MUIA_Prop_First, 0, MUIA_Prop_Entries, 110, MUIA_Prop_Visible, 10]);
+  if TScrollbar(AWinControl).Kind = sbHorizontal then
+    AddTags(TagList, [MUIA_Group_Horiz, True])
+  else
+    AddTags(TagList, [MUIA_Group_Horiz, False]);
+  MUIScrollbar := TMUIScrollbar.Create(TagList);
+  With MUIScrollbar do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+  end;
+
+  if AWinControl.Parent <> NIL then
+  begin
+    MUIScrollbar.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  //
+  Result := TLCLIntfHandle(MUIScrollbar);
+end;
+
+class procedure TMUIWSScrollBar.SetKind(const AScrollBar: TCustomScrollBar; const AIsHorizontal: Boolean);
+var
+  MUIScrollbar: TMUIScrollbar;
+begin
+  MUIScrollBar := TMUIScrollbar(AScrollBar.Handle);
+  if Assigned(MUIScrollBar) then
+  begin
+    if MUIScrollBar.Horizontal <> AIsHorizontal then
+      RecreateWnd(AScrollBar);
+  end;
+end;
+
+class procedure TMUIWSScrollBar.SetParams(const AScrollBar: TCustomScrollBar);
+var
+  MUIScrollbar: TMUIScrollbar;
+begin
+  MUIScrollBar := TMUIScrollbar(AScrollBar.Handle);
+  if Assigned(MUIScrollBar) then
+  begin
+    MUIScrollBar.MinValue := AScrollBar.Min;
+    MUIScrollBar.MaxValue := AScrollBar.Max;
+    MUIScrollBar.Position := AScrollBar.Position;
+    MUIScrollBar.PageSize := AScrollBar.PageSize;
+  end;
+end;
+
+class procedure TMUIWSScrollBar.ShowHide(const AWinControl: TWinControl);
+begin
+
+end;
+
 
 { TMUIWSCustomStaticText }
 

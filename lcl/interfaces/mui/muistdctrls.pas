@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
   tagsarray, muidrawing, buttons, Math,
   {$ifdef HASAMIGA}
-  cybergraphics,
+  cybergraphics, agraphics,
   {$endif}
   MuiBaseUnit, StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
 
@@ -176,10 +176,126 @@ type
     property FloatText: TFloatText read FFloatText;
   end;
 
+  { TMUIScrollbar }
+
+  TMUIScrollBar = class(TMuiGroup)
+  private
+    ChangeHook: THook;
+    function GetHoriz: Boolean;
+    function GetMaxValue: Integer;
+    function GetMinValue: Integer;
+    function GetPageSize: Integer;
+    function GetPosition: Integer;
+    procedure SetHoriz(AValue: Boolean);
+    procedure SetMaxValue(AValue: Integer);
+    procedure SetMinValue(AValue: Integer);
+    procedure SetPageSize(AValue: Integer);
+    procedure SetPosition(AValue: Integer);
+  protected
+    procedure InstallHooks; override;
+  public
+    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+
+    property Horizontal: Boolean read GetHoriz write SetHoriz;
+    property MinValue: Integer read GetMinValue write SetMinValue;
+    property MaxValue: Integer read GetMaxValue write SetMaxValue;
+    property Position: Integer read GetPosition write SetPosition;
+    property PageSize: Integer read GetPageSize write SetPageSize;
+  end;
+
 implementation
 
 uses
-  agraphics;
+  LCLType;
+
+{ TMUIScrollBar }
+
+function TMUIScrollBar.GetHoriz: Boolean;
+begin
+  Result := Boolean(GetAttribute(MUIA_Group_Horiz));
+end;
+
+function TMUIScrollBar.GetMaxValue: Integer;
+begin
+  Result := MinValue + GetAttribute(MUIA_Prop_Entries) - 11;
+end;
+
+function TMUIScrollBar.GetMinValue: Integer;
+begin
+  Result := 0;
+end;
+
+function TMUIScrollBar.GetPageSize: Integer;
+begin
+  Result := GetAttribute(MUIA_Prop_Visible) - 10;
+end;
+
+function TMUIScrollBar.GetPosition: Integer;
+begin
+  Result := GetAttribute(MUIA_Prop_First);
+end;
+
+procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
+begin
+  SetAttribute([MUIA_Group_Horiz, AValue]);
+end;
+
+procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
+begin
+  SetAttribute([MUIA_Prop_Entries, (AValue - MinValue) + 11]);
+end;
+
+procedure TMUIScrollBar.SetMinValue(AValue: Integer);
+begin
+  //
+end;
+
+procedure TMUIScrollBar.SetPageSize(AValue: Integer);
+begin
+  SetAttribute([MUIA_Prop_Visible, AValue + 10]);
+end;
+
+procedure TMUIScrollBar.SetPosition(AValue: Integer);
+begin
+  SetAttribute([MUIA_Prop_First, AValue]);
+end;
+
+procedure ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+var
+  MuiObject: TMuiObject;
+  ScrollMsg: TLMVScroll;
+begin
+  if TObject(Hook^.h_Data) is TMuiObject then
+  begin
+    MuiObject := TMuiObject(Hook^.h_Data);
+    if TMUIScrollbar(MUIObject).Horizontal then
+      ScrollMsg.Msg := LM_HSCROLL
+    else
+      ScrollMsg.Msg := LM_VScroll;
+    ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
+    ScrollMsg.ScrollBar := PtrUInt(MuiObject);
+    ScrollMsg.ScrollCode := SB_ENDSCROLL;
+    TScrollbar(MuiObject.PasObject).Position := ScrollMsg.Pos;
+    DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
+  end;
+end;
+
+
+procedure TMUIScrollBar.InstallHooks;
+begin
+  inherited InstallHooks;
+  ChangeHook.h_Entry := IPTR(@ChangeScroll);
+  ChangeHook.h_SubEntry := 0;
+  ChangeHook.h_Data := Self;
+
+  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Prop_First), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ChangeHook)]);
+end;
+
+constructor TMUIScrollBar.Create(var Tags: TTagsList);
+begin
+  inherited Create(MUIC_Scrollbar, GetTagPtr(Tags));
+end;
 
 
 { TMuiRadioButton }

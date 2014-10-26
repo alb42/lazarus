@@ -247,7 +247,8 @@ end;
 // StdCtrls
 function RegisterCustomScrollBar: Boolean; alias : 'WSRegisterCustomScrollBar';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomScrollBar, TMUIWSScrollBar);
+  Result := True;
 end;
 
 function RegisterCustomGroupBox: Boolean; alias : 'WSRegisterCustomGroupBox';

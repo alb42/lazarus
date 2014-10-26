@@ -425,6 +425,8 @@ end;
 
 function RegisterCustomSpeedButton: Boolean; alias : 'WSRegisterCustomSpeedButton';
 begin
+  //RegisterWSComponent(TCustomSpeedButton, TMUIWSSpeedButton);
+  //Result := True;
   Result := False;
 end;
 

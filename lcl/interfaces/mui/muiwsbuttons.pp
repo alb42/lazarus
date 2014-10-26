@@ -60,6 +60,15 @@ type
   private
   protected
   public
+  published
+    {class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
+    class procedure GetPreferredSize(const AWinControl: TWinControl;
+                        var PreferredWidth, PreferredHeight: integer;
+                        WithThemeSpace: Boolean); override;
+    class procedure SetGlyph(const ABitBtn: TCustomBitBtn; const AValue: TButtonGlyph); override;
+    class procedure SetLayout(const ABitBtn: TCustomBitBtn; const AValue: TButtonLayout); override;
+    class procedure SetMargin(const ABitBtn: TCustomBitBtn; const AValue: Integer); override;
+    class procedure SetSpacing(const ABitBtn: TCustomBitBtn; const AValue: Integer); override;}
   end;
 
 
@@ -149,6 +158,89 @@ begin
     MUIButton.FSpacing := AValue;
   end;
 end;
+
+(*
+
+class function TMUIWSSpeedButton.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
+var
+  MuiButton: TMuiBitBtn;
+  TagList: TTagsList;
+begin
+  AddTags(TagList, [
+      LongInt(MUIA_InputMode), MUIV_InputMode_RelVerify,
+      LongInt(MUIA_ShowSelState), 1,
+      LongInt(MUIA_Frame), MUIV_Frame_Button,
+      LongInt(MUIA_Background), MUII_ButtonBack]);
+  MuiButton := TMuiBitBtn.Create(LCLGroupClass, GetTagPtr(TagList));
+  MuiButton.MUIDrawing := True;
+  //Create([PChar(AParams.Caption)]);
+  With MuiButton do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+  end;
+
+  if AWinControl.Parent <> NIL then
+  begin
+    MuiButton.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  //
+  Result := TLCLIntfHandle(MuiButton);
+end;
+
+class procedure TMUIWSSpeedButton.GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+
+end;
+
+class procedure TMUIWSSpeedButton.SetGlyph(const ABitBtn: TCustomBitBtn; const AValue: TButtonGlyph);
+var
+  MuiButton: TMuiBitBtn;
+  Bit: TMUIBitmap;
+begin
+  MuiButton := TMuiBitBtn(ABitBtn.Handle);
+  if Assigned(MuiButton) then
+  begin
+    MUIButton.FBitmap := TMUIBitmap(AValue.Glyph.Handle);
+  end;
+
+end;
+
+class procedure TMUIWSSpeedButton.SetLayout(const ABitBtn: TCustomBitBtn; const AValue: TButtonLayout);
+var
+  MuiButton: TMuiBitBtn;
+begin
+  MuiButton := TMuiBitBtn(ABitBtn.Handle);
+  if Assigned(MuiButton) then
+  begin
+    MUIButton.FLayout := AValue;
+  end;
+end;
+
+class procedure TMUIWSSpeedButton.SetMargin(const ABitBtn: TCustomBitBtn; const AValue: Integer);
+var
+  MuiButton: TMuiBitBtn;
+begin
+  MuiButton := TMuiBitBtn(ABitBtn.Handle);
+  if Assigned(MuiButton) then
+  begin
+    MUIButton.FMargin := AValue;
+  end;
+end;
+
+class procedure TMUIWSSpeedButton.SetSpacing(const ABitBtn: TCustomBitBtn; const AValue: Integer);
+var
+  MuiButton: TMuiBitBtn;
+begin
+  MuiButton := TMuiBitBtn(ABitBtn.Handle);
+  if Assigned(MuiButton) then
+  begin
+    MUIButton.FSpacing := AValue;
+  end;
+end; *)
 
 
 initialization

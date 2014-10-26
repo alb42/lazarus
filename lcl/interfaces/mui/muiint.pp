@@ -33,7 +33,7 @@ uses
   InterfaceBase,
   // LCL
   Dialogs, Controls, Forms, LCLStrConsts, LMessages, stdctrls,
-  LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes,
+  LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes, muithemes,
   //AROS
   //Aroswinunit,
   MUIBaseUnit, MUIFormsUnit, muidrawing,
@@ -65,6 +65,8 @@ type
   { TMUIWidgetSet }
 
   TMUIWidgetSet = class(TWidgetSet)
+  protected
+    function CreateThemeServices: TThemeServices; override;
   public
     procedure PassCmdLineOptions; override;
   public
@@ -622,6 +624,11 @@ end;
 procedure TMUIWidgetSet.DestroyLCLComponent(Sender: TObject);
 begin
 
+end;
+
+function TMUIWidgetSet.CreateThemeServices: TThemeServices;
+begin
+  Result := TMUIThemeServices.Create;
 end;
 
 end.

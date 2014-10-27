@@ -6,17 +6,24 @@ interface
 
 uses
   Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray;
+  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math;
 
 type
 
   { TMuiFamily }
 
   TMuiFamily = class(TMuiObject)
+  private
+    ChildList: TObjectList;
+  protected
+    procedure InstallHooks; override;
   public
+    Par: TMUIFamily;
     procedure AddHead(AChild: TMuiFamily);
     procedure AddTail(AChild: TMuiFamily);
     procedure Remove(AChild: TMuiFamily);
+    function GetList: PMinList;
+    destructor Destroy; override;
   end;
 
   { TMuiMenuItem }
@@ -24,9 +31,11 @@ type
   TMuiMenuItem = class(TMuiFamily)
   private
     MenuChoosed: THook;
+    FTitle: string;
     function GetChecked: Boolean;
     function GetCheckIt: Boolean;
     function GetEnabled: Boolean;
+    function GetMenuItem: TMenuItem;
     function GetShortCut: string;
     function GetTitle: string;
     procedure SetChecked(const AValue: Boolean);
@@ -41,12 +50,14 @@ type
     property Enabled: Boolean read GetEnabled write SetEnabled;
     property ShortCut: string read GetShortCut write SetShortCut;
     property Title: string read GetTitle write SetTitle;
+    property MenuItem: TMenuItem read GetMenuItem;
   end;
 
   { TMuiMenu }
 
   TMuiMenu = class(TMuiFamily)
   private
+    FTitle: string;
     function GetEnabled: Boolean;
     function GetTitle: string;
     procedure SetEnabled(const AValue: Boolean);
@@ -164,6 +175,7 @@ end;
 constructor TMuiMenuStrip.Create(var tags: TTagsList);
 begin
   inherited Create(MUIC_MenuStrip, GetTagPtr(tags));
+  Par := nil;
 end;
 
 destructor TMuiMenuStrip.Destroy;
@@ -190,12 +202,14 @@ end;
 
 procedure TMuiMenu.SetTitle(const AValue: string);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_Title), PChar(AValue), TAG_END]);
+  FTitle := AValue;
+  SetAttribute([LongInt(MUIA_Menuitem_Title), PChar(FTitle), TAG_END]);
 end;
 
 constructor TMuiMenu.Create(var tags: TTagsList);
 begin
   inherited Create(MUIC_Menu, GetTagPtr(tags));
+  Par := nil;
 end;
 
 { TMuiMenuItem }
@@ -215,6 +229,11 @@ begin
    Result := LongBool(GetAttribute(MUIA_Menuitem_Enabled));
 end;
 
+function TMuiMenuItem.GetMenuItem: TMenuItem;
+begin
+  Result := TMenuItem(TObject(PasObject));
+end;
+
 function TMuiMenuItem.GetShortCut: string;
 begin
   Result := string(PChar(GetAttribute(MUIA_Menuitem_ShortCut)));
@@ -226,19 +245,37 @@ begin
 end;
 
 procedure TMuiMenuItem.SetChecked(const AValue: Boolean);
+var
+  I: Integer;
+  MI: TMuiMenuItem;
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_Checked), AValue, TAG_END]);
+  if AValue and Assigned(MenuItem) and (MenuItem.GroupIndex > 0) then
+  begin
+    if Assigned(Par) then
+    begin
+      for i := 0 to Par.ChildList.Count - 1 do
+      begin
+        if Par.ChildList.Items[i] is TMuiMenuItem then
+        begin
+          MI := TMuiMenuItem(Par.ChildList.Items[i]);
+          if MI.MenuItem.GroupIndex = MenuItem.GroupIndex then
+            MI.Checked := False;
+        end;
+      end;
+    end;
+  end;
+  SetAttribute([LongInt(MUIA_Menuitem_Checked), ifthen(AValue,1,0), TAG_END]);
 end;
 
 procedure TMuiMenuItem.SetCheckIt(const AValue: Boolean);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_CheckIt), AValue, TAG_END]);
+  SetAttribute([LongInt(MUIA_Menuitem_CheckIt), ifthen(AValue,1,0), TAG_END]);
 end;
 
 procedure TMuiMenuItem.SetEnabled(const AValue: Boolean);
 begin
   //writeln('SetEnabled: ',AValue);
-  SetAttribute([LongInt(MUIA_Menuitem_Enabled), AValue, TAG_END]);
+  SetAttribute([LongInt(MUIA_Menuitem_Enabled), ifthen(AValue,1,0), TAG_END]);
   //writeln('getEnabled: ', GetEnabled);
 end;
 
@@ -249,7 +286,8 @@ end;
 
 procedure TMuiMenuItem.SetTitle(const AValue: string);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_Title), PChar(AValue), TAG_END]);
+  FTitle := AValue;
+  SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(PChar(FTitle)), TAG_END]);
 end;
 
 procedure MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
@@ -268,6 +306,7 @@ end;
 constructor TMuiMenuItem.Create(var tags: TTagsList);
 begin
   inherited Create(MUIC_MenuItem, GetTagPtr(tags));
+  Par := nil;
   MenuChoosed.h_Entry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_SubEntry := IPTR(@MenuClickedFunc);
   MenuChoosed.h_Data := Self;
@@ -280,21 +319,40 @@ end;
 
 { TMuiFamily }
 
+procedure TMuiFamily.InstallHooks;
+begin
+  ChildList := TObjectList.Create;
+  ChildList.OwnsObjects := False;
+end;
+
+destructor TMuiFamily.Destroy;
+begin
+  ChildList.Free;
+  inherited;
+end;
+
 procedure TMuiFamily.AddHead(AChild: TMuiFamily);
 begin
+  ChildList.Insert(0,AChild);
   DoMethod([IPTR(MUIM_Family_AddHead), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.AddTail(AChild: TMuiFamily);
 begin
+  ChildList.Add(AChild);
   DoMethod([IPTR(MUIM_Family_AddTail), IPTR(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.Remove(AChild: TMuiFamily);
 begin
+  ChildList.Remove(AChild);
   DoMethod([IPTR(MUIM_Family_Remove), IPTR(AChild.Obj)]);
 end;
 
+function TMuiFamily.GetList: PMinList;
+begin
+  Result := PMinList(GetAttribute(MUIA_Family_List));
+end;
 
 function CloseWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
 var

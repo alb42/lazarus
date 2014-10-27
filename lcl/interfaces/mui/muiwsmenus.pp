@@ -118,6 +118,7 @@ begin
   //DebugLn('TMuiWidgetSet.AttachMenu START ',AMenuItem.Name,':',AMenuItem.ClassName,' Parent=',AMenuItem.Parent.Name,':',AMenuItem.Parent.ClassName);
   //writeln('--> attachmenu');
   TMuiFamily(AMenuItem.Parent.Handle).AddTail(TMuiFamily(AMenuItem.Handle));
+  TMuiFamily(AMenuItem.Handle).Par := TMuiFamily(AMenuItem.Parent.Handle);
 end;
 
 {------------------------------------------------------------------------------
@@ -140,12 +141,15 @@ begin
     else
     begin
       //AddTags(Tags, [
-        {LongInt(MUIA_Menuitem_CheckIt), LongInt(TRUE),
-        LongInt(MUIA_Menuitem_Checked), LongInt(TRUE),
-        LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE),}
-      //  TAG_END]);
+        //LongInt(MUIA_Menuitem_CheckIt), LongInt(TRUE)
+        //,LongInt(MUIA_Menuitem_Checked), LongInt(TRUE)
+        //,LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE)
+      //  ]);
       Menu := TMuiMenuItem.Create(Tags);
       Menu.Title := AMenuItem.Caption;
+      Menu.CheckIt := AMenuItem.ShowAlwaysCheckable or AMenuItem.RadioItem;
+      Menu.Checked := AMenuItem.Checked;
+      Menu.Enabled := AMenuItem.Enabled;
       Menu.PasObject := TControl(TObject(AMenuItem));
       Result := HMENU(Menu);
     end;
@@ -245,7 +249,10 @@ begin
   //  ' Checked: ', Checked);
   MuiMenu := TMuiFamily(AMenuItem.Handle);
   if MuiMenu is TMuiMenuItem then
+  begin
+    TMuiMenuItem(MuiMenu).Checkit := True;
     TMuiMenuItem(MuiMenu).Checked := Checked;
+  end;
   Result := True;
 end;
 

@@ -115,7 +115,7 @@ end;
 class procedure TMuiWSMenuItem.AttachMenu(const AMenuItem: TMenuItem);
 
 begin
-  //DebugLn('TMuiWidgetSet.AttachMenu START ',AMenuItem.Name,':',AMenuItem.ClassName,' Parent=',AMenuItem.Parent.Name,':',AMenuItem.Parent.ClassName);
+  //writeln('TMuiWidgetSet.AttachMenu START ',AMenuItem.Name,':',AMenuItem.ClassName,' Parent=',AMenuItem.Parent.Name,':',AMenuItem.Parent.ClassName);
   //writeln('--> attachmenu');
   TMuiFamily(AMenuItem.Parent.Handle).AddTail(TMuiFamily(AMenuItem.Handle));
   TMuiFamily(AMenuItem.Handle).Par := TMuiFamily(AMenuItem.Parent.Handle);
@@ -343,7 +343,7 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSPopupMenu.Popup(const APopupMenu: TPopupMenu; const X, Y: integer);
 begin
-  //writeln('_____>>>>Create PopupMenu');
+  writeln('-->Creates a PopupMenu');
   //
 end;
 

@@ -559,12 +559,13 @@ var
   ADC: TMUICanvas absolute DC;
   Region: TMUIBasicRegion absolute RGN;
 begin
-  {$ifdef VERBOSEAROS}
-  writeln('Get Clip region ', HexStr(Pointer(Rgn)));
-  {$endif}
   if Region=nil Then
     Exit;                   //
-  Region.CreateRectRegion(Rect(ADC.DrawRect.Left,ADC.DrawRect.Top,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
+  //Region.CreateRectRegion(Rect(ADC.DrawRect.Left,ADC.DrawRect.Top,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
+  Region.CreateRectRegion(Rect(0,0,ADC.DrawRect.Right,ADC.DrawRect.Bottom));
+  {$ifdef VERBOSEAROS}
+  writeln('Get Clip region ', HexStr(Pointer(Rgn)) , Region.Debugout);
+  {$endif}
   if Region.RegionType=eRegionNULL then begin
     Result:=0;
   end else if Region.RegionType=eRegionNotCombinableOrError then begin
@@ -659,17 +660,7 @@ end;
 
 function TMUIWidgetSet.GetSysColor(nIndex: Integer): DWORD;
 begin
-  //writeln('Get Syscolor ', nIndex);
-(*  if (nIndex < 0) or (nIndex > MAX_SYS_COLORS) then
-  begin
-    {$ifdef VerboseFPGUIWinAPI}
-      WriteLn('Trace:Unknown lcl system color: [TMUIWidgetSet.GetSysColor]');
-    {$endif}
-    Result:=clRed;
-    exit;
-  end;
-  Result:=GetSysColorRGB(nIndex); *)
-  Result := 0;
+  Result := $80000000 or nIndex;
 end;
 
 function TMUIWidgetSet.GetSystemMetrics(nIndex: Integer): Integer;
@@ -741,10 +732,8 @@ begin
   if Assigned(P) then
   begin
     P^.X := ADC.Offset.X;//ADC.Left;
-    P^.y := ADC.Offset.Y;//ADC.Top;
+    P^.Y := ADC.Offset.Y;//ADC.Top;
   end;
-  //writeln('Get Window Org');
-//  P^:=ADC.FOrg;
   Result:=1;
 end;
 

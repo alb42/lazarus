@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math;
+  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types;
 
 type
 
@@ -102,6 +102,7 @@ type
     procedure GetSizes;
     procedure DoMUIDraw(); override;
     function GetClientRect: TRect; override;
+    function GetWindowOffset: Types.TPoint; override;
     procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
@@ -392,6 +393,7 @@ begin
       IPTR(FObject), 2,
       IPTR(MUIM_CallHook), IPTR(@CloseWinHook)
       ]);
+  //writeln('window: ', HexStr(obj));
 end;
 
 destructor TMuiWindow.Destroy;
@@ -431,6 +433,12 @@ begin
   Result.Top := 0;
   Result.Right := Width - 5 ;
   Result.Bottom := Height - 15;
+end;
+
+function TMuiWindow.GetWindowOffset: TPoint;
+begin
+  Result.X := 0;
+  Result.Y := 0;
 end;
 
 procedure TMuiWindow.SetLeft(ALeft: LongInt);

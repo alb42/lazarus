@@ -5,9 +5,9 @@ unit MUIBaseUnit;
 interface
 
 uses
-  Classes, dos, SysUtils, Controls, Contnrs,
+  Classes, dos, SysUtils, Controls, Contnrs, Types,
   {$ifdef HASAMIGA}
-  Exec, AmigaDos, agraphics, Intuition, Utility,Mui,
+  Exec, AmigaDos, agraphics, Intuition, Utility,Mui, inputevent, KeyMap,
   {$endif}
   Forms, LCLMessageGlue, lcltype, interfacebase, muidrawing;
 
@@ -59,6 +59,7 @@ type
     procedure InstallHooks; virtual;
     procedure DoReDraw(); virtual;
   public
+    EHNode: PMUI_EventHandlerNode;
     FObjects: TObjectList;
     FObject: pObject_;
     BlockRedraw: boolean;
@@ -75,6 +76,7 @@ type
     procedure Redraw; virtual;
     procedure DoMUIDraw; virtual;
     function GetClientRect: TRect; virtual;
+    function GetWindowOffset: Types.TPoint; virtual;
 
     property Parent: TMUIObject read FParent write SetParent;
     property Left: longint read FLeft write SetLeft;
@@ -156,6 +158,7 @@ type
     procedure WaitMessages;
     function CreateTimer(Interval: integer; TimerFunc: TWSTimerProc): THandle;
     function DestroyTimer(TimerHandle: THandle): boolean;
+    property MainWin: pObject_ read FMainWin;
     property Terminated: boolean read FTerminated write FTerminated;
     property Iconified: boolean read GetIconified write SetIconified;
   end;
@@ -302,7 +305,7 @@ begin
     PS^.hdc := THandle(Pointer(FMuiCanvas));
     PS^.rcPaint := FMuiCanvas.DrawRect;
     //writeln('Send paintmessage to ', pasobject.classname);
-    //LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
+    LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
     LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
     Dispose(PS);
   end;
@@ -324,6 +327,20 @@ begin
   Result.Top := 0;
   Result.Right:= Width;
   Result.Bottom := Height;
+end;
+
+function TMUIObject.GetWindowOffset: Types.TPoint;
+var
+  P: Types.TPoint;
+begin
+  Result.X := Left;
+  Result.Y := Top;
+  if Assigned(Parent) then
+  begin
+    P := Parent.GetWindowOffset;
+    Result.X := Result.X + P.X;
+    Result.Y := Result.Y + P.Y;
+  end;
 end;
 
 procedure TMUIObject.SetAttObj(obje: pObject_; const Tags: array of const);
@@ -708,18 +725,96 @@ begin
 end;
 
 
+{$PACKRECORDS 4}
+type
+  TehNode = record
+    ehn_Node: TNode;
+    ehn_Flags: Word;
+    ehn_Object: PObject_;
+    ehn_Class: PIClass;
+    ehn_Events: ULONG;
+    ehn_Priority: Byte;
+  end;
+
+  {TehNode = record
+    ehn_Node: TMinNode;
+    ehn_Reserved: Byte;
+    ehn_Priority: Byte;
+    ehn_Flags: Word;
+    ehn_Object: PObject_;
+    ehn_Class: PIClass;
+    ehn_Events: ULONG;
+  end;}
+
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
   //AskMsg: PMUIP_AskMinMax;
   ri: PMUI_RenderInfo;
   rp: PRastPort;
+  PT: Types.TPoint;
   //Region: PRegion;
   //r: TRectangle;
   clip: Pointer;
   MUIB: TMUIObject;
+  p: TMUIObject;
+  HIMsg: PMUIP_HandleInput;
+  HEMsg: PMUIP_HandleEvent;
+  iMsg: PIntuiMessage;
+  AE: TMUIP_Window_AddEventHandler;
+  ehN: ^TehNode;
+  winObj: PObject_;
+  Depth: Integer;
+  cap: string;
+  relX, relY: Integer;
+  Buff: array[0..19] of Char;
+  Ret: Integer;
+  CharCode: Word;
+  KeyData: Word;
+  KeyUp: Boolean;
+  ie: TInputEvent;
+  Win: PWindow;
 begin
   //write('Enter Dispatcher with: ');
   case Msg^.MethodID of
+    MUIM_SETUP: begin
+      Result := DoSuperMethodA(cl, obj, msg);
+      MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
+      if Assigned(MUIB) then
+      begin
+        New(ehN);
+        FillChar(ehN^, SizeOf(ehN^), 0);
+        P := MUIB;
+        ehN^.ehn_Priority := -100;
+        repeat
+          Inc(ehN^.ehn_Priority);
+          p := p.Parent;
+        until P = nil;
+
+        ehN^.ehn_Flags := 0;
+        ehN^.ehn_Object := obj;
+        ehN^.ehn_Class := cl;
+        ehN^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
+        AE.MethodID := MUIM_Window_AddEventHandler;
+        AE.ehNode := Pointer(ehN);
+        winObj := OBJ_win(obj);
+        ri := MUIRenderInfo(Obj);
+        WinObj := ri^.mri_WindowObject;
+        //DoMethodA(OBJ_win(obj), @AE);
+        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(ehN)]);
+        //ri := MUIRenderInfo(Obj); writeln(MUIB.classname, ' addeventhandler ', HexStr(winObj), ' parent: ', Muib.Parent.Classname, ' ', HexStr(MUIB.Parent.Obj),' self ', HexStr(MUIB.Obj));
+      end;
+      //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
+    end;
+    MUIM_CLEANUP: begin
+      Result := DoSuperMethodA(cl, obj, msg);
+      MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
+      if Assigned(MUIB) then
+      begin
+        DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[IPTR(MUIB.EHNode)]);
+        Dispose(MUIB.EHNode);
+      end;
+      //MUI_RejectIDCMP(Obj, IDCMP_MOUSEBUTTONS);
+    end;
     MUIM_Draw:
     begin
       //writeln('DRAW');
@@ -733,7 +828,7 @@ begin
       begin
         MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
         clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj),
-          Obj_Width(Obj), Obj_Height(Obj));
+            Obj_Width(Obj), Obj_Height(Obj));
         try
           if Assigned(MUIB) then
           begin
@@ -741,16 +836,15 @@ begin
               Result := DoSuperMethodA(cl, obj, msg);
             MUIB.FMUICanvas.RastPort := rp;
             MUIB.FMUICanvas.DrawRect :=
-              Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+                Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+            MUIB.FMUICanvas.Offset.X := 0;
+            MUIB.FMUICanvas.Offset.Y := 0;
             MUIB.FMUICanvas.Position.X := 0;
             MUIB.FMUICanvas.Position.Y := 0;
             MUIB.FMUICanvas.RenderInfo := ri;
-            //MUIB.FMUICanvas.FClipping := nil;
-            MUIB.FMUICanvas.Offset.X := 0;
-            MUIB.FMUICanvas.Offset.Y := 0;
             MUIB.FMUICanvas.DeInitCanvas;
             MUIB.FMUICanvas.InitCanvas;
-            //writeln('-->Draw');
+            //writeln('-->Draw ', MUIB.FMUICanvas.DrawRect.Top, ', ', MUIB.FMUICanvas.DrawRect.Bottom);
             if not MUIB.MUIDrawing then
             begin
               SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
@@ -772,9 +866,85 @@ begin
       end;
       Result := 0;
     end;
+    MUIM_HANDLEEVENT: begin
+      MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
+      if Assigned(MUIB) then
+      begin
+        HEMsg := Pointer(Msg);
+        iMsg := HeMsg^.imsg;
+        ri := MUIRenderInfo(Obj);
+        if Assigned(ri) then
+        begin
+          Win := ri^.mri_Window;
+        end;
+        if Assigned(Win) then
+        begin
+          // why this is needed?
+          //IMsg^.MouseX := IMsg^.MouseX - 1;
+          //IMsg^.MouseY := IMsg^.MouseY - 6;
+        end;
+        if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
+        begin
+          RelX := Imsg^.MouseX - obj_Left(obj);
+          RelY := Imsg^.MouseY - obj_Top(obj);
+          case IMsg^.IClass of
+            IDCMP_MOUSEMOVE: begin
+              LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
+            end;
+            IDCMP_MOUSEBUTTONS: begin
+              case iMsg^.Code of
+                SELECTDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                SELECTUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                MIDDLEDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
+                MIDDLEUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
+                MENUDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
+                MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
+              end;
+            end;
+            IDCMP_RAWKEY: begin
+              if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
+              begin
+                if iMsg^.Code = $7A then
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, -1, [])
+                else
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +1, [])
+              end else
+              begin
+                KeyUp := (IMsg^.Code and IECODE_UP_PREFIX) <> 0;
+                IMsg^.Code := IMsg^.Code and not IECODE_UP_PREFIX;
+                ie.ie_Class := IECLASS_RAWKEY;
+                ie.ie_SubClass := 0;
+                ie.ie_Code := IMsg^.Code;
+                ie.ie_Qualifier := IMsg^.Qualifier;
+                ie.ie_NextEvent := nil;
+                Buff[0] := #0;
+                Ret := MapRawKey(@ie, @Buff[0], 1, nil);
+                if Ret = 0 then
+                begin
+                  KeyData := Ord(CharCode);
+                  LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, False, False);
+                end else
+                begin
+                  KeyData := 0;
+                  LCLSendKeyDownEvent(MUIB.PasObject, KeyData, IMsg^.Code, False, True);
+                end;
+              end;
+            end;
+            else
+            begin
+              writeln('IDCMP: ', HexStr(Pointer(IMsg^.IClass)));
+            end;
+          end;
+          Result := MUI_EventHandlerRC_Eat;
+        end else
+        begin
+          Result := 0;
+        end;
+      end;
+    end
     else
     begin
-      //writeln('unknown ', Msg^.MethodID);
+      //writeln(Dos.GetMsCount, ' unknown messageID $', HexStr(Pointer(Msg^.MethodID)));
       Result := DoSuperMethodA(cl, obj, msg);
     end;
   end;

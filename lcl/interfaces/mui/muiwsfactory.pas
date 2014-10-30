@@ -139,8 +139,8 @@ end;
 
 function RegisterCustomControl: Boolean; alias : 'WSRegisterCustomControl';
 begin
-  RegisterWSComponent(TCustomControl, TMuiWSCustomControl);
-  Result := True;
+  //RegisterWSComponent(TCustomControl, TMuiWSCustomControl);
+  Result := False;
 end;
 
 // comctrls

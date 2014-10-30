@@ -104,8 +104,8 @@ type
   public
   end;
 
-var
-  MUIWidgetSet: TMUIWidgetSet;
+//var
+//  MUIWidgetSet: TMUIWidgetSet;
 
 implementation
 

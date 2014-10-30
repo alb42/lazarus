@@ -100,11 +100,15 @@ type
   TMUIColorObj = class(TMUIWinAPIObject)
   private
     FLCLColor: TColor;
+    function GetIsSystemColor: Boolean;
     function GetLCLColor: TColor;
+    function GetPenDesc: Integer;
     procedure SetLCLColor(AValue: TColor);
     function GetColor: LongWord;
   public
     property LCLColor: TColor read GetLCLColor write SetLCLColor;
+    property IsSystemColor: Boolean read GetIsSystemColor;
+    property PenDesc: Integer read GetPenDesc;
     property Color: LongWord read GetColor;
   end;
 
@@ -239,6 +243,7 @@ type
     procedure Rectangle(X1, Y1, X2, Y2: Integer);
     // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
+    procedure SetBMUIPen(PenDesc: integer);
     procedure SetPenToRP;
     procedure SetBrushToRP(AsPen: Boolean = FALSE);
     procedure SetFontToRP;
@@ -258,7 +263,7 @@ type
 
 implementation
 uses
-  muibaseunit, tagsarray;
+  muibaseunit, tagsarray, interfacebase;
 
 (*
 var
@@ -278,12 +283,17 @@ var
   r: LongWord;
   g: LongWord;
   b: LongWord;
+  i: LongWord;
 begin
   c := col;
+  i := (c and $FF000000) shr 24;
   b := (c and $00FF0000) shr 16;
   g := (c and $0000FF00);
   r := (c and $000000FF) shl 16;
-  Result := r or g or b;
+  if i = $80 then
+    Result := WidgetSet.GetSysColor(c and $000000FF)
+  else
+    Result := r or g or b;
 end;
 
 { TMUIBitmap }
@@ -410,6 +420,59 @@ end;
 function TMUIColorObj.GetLCLColor: TColor;
 begin
   Result := FLCLColor;
+end;
+
+function TMUIColorObj.GetPenDesc: Integer;
+var
+  nIndex: Integer;
+  Pen: Integer;
+begin
+  Result := 0;
+  nIndex := FLCLColor and $FF;
+  case nIndex of
+    COLOR_SCROLLBAR               : Pen := MPEN_BACKGROUND;
+    COLOR_BACKGROUND              : Pen := MPEN_BACKGROUND;
+    COLOR_WINDOW                  : Pen := MPEN_BACKGROUND;
+    COLOR_WINDOWFRAME             : Pen := MPEN_BACKGROUND;
+    COLOR_WINDOWTEXT              : Pen := MPEN_TEXT;
+    COLOR_ACTIVEBORDER            : Pen := MPEN_SHADOW;
+    COLOR_INACTIVEBORDER          : Pen := MPEN_HALFSHADOW;
+    COLOR_APPWORKSPACE            : Pen := MPEN_BACKGROUND;
+    COLOR_HIGHLIGHT               : Pen := MPEN_MARK;
+    COLOR_HIGHLIGHTTEXT           : Pen := MPEN_SHINE;
+    COLOR_BTNFACE                 : Pen := MPEN_BACKGROUND;
+    COLOR_BTNSHADOW               : Pen := MPEN_HALFSHADOW;
+    COLOR_GRAYTEXT                : Pen := MPEN_HALFSHADOW;
+    COLOR_BTNTEXT                 : Pen := MPEN_TEXT;
+    COLOR_BTNHIGHLIGHT            : Pen := MPEN_SHINE;
+    COLOR_3DDKSHADOW              : Pen := MPEN_SHADOW;
+    COLOR_3DLIGHT                 : Pen := MPEN_SHINE;
+    COLOR_INFOTEXT                : Pen := MPEN_TEXT;
+    COLOR_INFOBK                  : Pen := MPEN_FILL;
+    COLOR_HOTLIGHT                : Pen := MPEN_HALFSHINE;
+    COLOR_ACTIVECAPTION           : Pen := MPEN_TEXT;
+    COLOR_INACTIVECAPTION         : Pen := MPEN_TEXT;
+    COLOR_CAPTIONTEXT             : Pen := MPEN_TEXT;
+    COLOR_INACTIVECAPTIONTEXT     : Pen := MPEN_TEXT;
+    COLOR_GRADIENTACTIVECAPTION   : Pen := MPEN_HALFSHADOW;
+    COLOR_GRADIENTINACTIVECAPTION : Pen := MPEN_HALFSHINE;
+    COLOR_MENU                    : Pen := MPEN_BACKGROUND;
+    COLOR_MENUTEXT                : Pen := MPEN_TEXT;
+    COLOR_MENUHILIGHT             : Pen := MPEN_SHINE;
+    COLOR_MENUBAR                 : Pen := MPEN_BACKGROUND;
+    COLOR_FORM                    : Pen := MPEN_BACKGROUND;
+  else
+    Exit;
+  end;
+  Result := Pen;
+end;
+
+function TMUIColorObj.GetIsSystemColor: Boolean;
+var
+  i: Integer;
+begin
+  i := (FLCLColor and $FF000000) shr 24;
+  Result := i = $80;
 end;
 
 procedure TMUIColorObj.SetLCLColor(AValue: TColor);
@@ -854,6 +917,12 @@ begin
     SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
 end;
 
+procedure TMUICanvas.SetBMUIPen(PenDesc: integer);
+begin
+  if (PenDesc >= 0) then
+    SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
+end;
+
 
 constructor TMUICanvas.Create;
 var
@@ -862,7 +931,7 @@ var
   AFontData: TLogFont;
 begin
   Bitmap := nil;
-  ABrushData.lbColor := clBlack;
+  ABrushData.lbColor := clBtnFace;
   APenData.lopnColor := clBlack;
   AFontData.lfFaceName := 'XEN';
   AFontData.lfHeight := 8;
@@ -919,14 +988,17 @@ procedure TMUICanvas.SetClipping(AClip: TMuiBasicRegion);
 var
   T: TPoint;
 begin
+  if Assigned(FClip) then
+    MUI_RemoveClipRegion(RenderInfo, FClip);
+  FClip := nil;
+  FClipping.Left := 0;
+  FClipping.Top := 0;
   if Assigned(AClip) then
   begin
-    if Assigned(FClip) then
-      MUI_RemoveClipRegion(RenderInfo, FClip);
-    FClipping.Left := 0;
-    FClipping.Top := 0;
+    if AClip.GetRegionType = eRegionNULL then
+      Exit;
     T := GetOffset;
-    FClip := MUI_AddClipping(RenderInfo, T.X + AClip.FRectRegion.Left, T.Y + AClip.FRectRegion.Top, T.X + AClip.FRectRegion.Right, T.Y + AClip.FRectRegion.Bottom);
+    FClip := MUI_AddClipping(RenderInfo, T.X + AClip.FRectRegion.Left, T.Y + AClip.FRectRegion.Top, AClip.FRectRegion.Right - AClip.FRectRegion.Left, AClip.FRectRegion.Bottom - AClip.FRectRegion.Top);
     FClipping := AClip.FRectRegion;
   end;
 end;
@@ -935,14 +1007,23 @@ procedure TMUICanvas.SetPenToRP;
 var
   Col: TColor;
   Tags: TTagsList;
+  PenDesc: Integer;
 begin
   if Assigned(RastPort) then
   begin
     if Assigned(FPen) then
     begin
-      Col := FPen.Color;
-      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
-      SetRPAttrsA(RastPort, GetTagPtr(Tags));
+      if FPen.IsSystemColor then
+      begin
+        Col := FPen.LCLColor;
+        PenDesc := FPen.PenDesc;
+        SetAMUIPen(PenDesc);
+      end else
+      begin
+        Col := FPen.Color;
+        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+        SetRPAttrsA(RastPort, GetTagPtr(Tags));
+      end;
     end;
   end;
 end;
@@ -951,22 +1032,34 @@ procedure TMUICanvas.SetBrushToRP(AsPen: Boolean = FALSE);
 var
   Col: TColor;
   Tags: TTagsList;
+  PenDesc: Integer;
 begin
   if Assigned(RastPort) then
   begin
     if Assigned(FBrush) then
     begin
-      Col := FBrush.Color;
-      if AsPen then
+      if FBrush.IsSystemColor then
       begin
-        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
-        SetDrMd(RastPort, JAM1);
+        Col := FBrush.LCLColor;
+        PenDesc := FBrush.PenDesc;
+        if AsPen then
+          SetAMUIPen(PenDesc)
+        else
+          SetBMUIPen(PenDesc);
       end else
       begin
-        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
-        SetDrMd(RastPort, FBrush.Style);
+        Col := FBrush.Color;
+        if AsPen then
+        begin
+          AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+          SetDrMd(RastPort, JAM1);
+        end else
+        begin
+          AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+          SetDrMd(RastPort, FBrush.Style);
+        end;
+        SetRPAttrsA(RastPort, GetTagPtr(Tags));
       end;
-      SetRPAttrsA(RastPort, GetTagPtr(Tags));
     end;
   end;
 end;

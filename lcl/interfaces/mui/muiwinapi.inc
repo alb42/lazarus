@@ -179,6 +179,7 @@ function TMUIWidgetSet.CreateCompatibleDC(DC: HDC): HDC;
 var
   ADC: TMUICanvas absolute DC;
   NewDC: TMUICanvas;
+  B: TMuiBitmap;
 begin
   {$ifdef VERBOSEAROS}
   writeln('CreateCompatibleDC ', HexStr(ADC));
@@ -187,7 +188,15 @@ begin
   //if DC <> 0 then
   begin
     NewDC := TMUICanvas.Create;
-    NewDC.RastPort := nil;
+    if ADC <> nil then
+    begin
+      NewDC.RastPort := CloneRastPort(ADC.RastPort);
+    end else
+    begin
+      NewDC.RastPort := CreateRastPort;
+      NewDC.RastPort^.Layer := nil;
+      NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, nil);
+    end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
     if DC <> 0 then
@@ -801,6 +810,9 @@ function TMUIWidgetSet.LineTo(DC: HDC; X, Y: Integer): Boolean;
 var
   ADC: TMUICanvas absolute DC;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('-->LineTo ', x, ', ', y ,', ', HexStr(ADC), ' RastPort: ', HexStr(ADC.RastPort));
+  {$endif}
   Result := False;
   inherited;
   if Assigned(ADC) and Assigned(ADC.RastPort) then
@@ -965,7 +977,7 @@ var
   GDI: TMUIWinAPIObject absolute GDIObj;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('select object ', HexStr(Pointer(GDIObj)));
+  writeln('select object ', HexStr(Pointer(GDIObj)), ' ', GDI.classname);
   {$endif}
   Result := 0;
   if Assigned(MyDC) and Assigned(GDI) and (GDIObj > $100) then
@@ -1106,6 +1118,7 @@ begin
       WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
     else
     begin
+      //writeln('Width: ', Width, ' Hegiht: ', Height);
       NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
       DB := NImage;
       FX := 1;
@@ -1131,6 +1144,7 @@ begin
       end;
       WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
       System.FreeMem(NImage);
+      //writeln('stretchblt ok');
     end;
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
     //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);

@@ -412,7 +412,7 @@ constructor TMUIPenObj.Create(const APenData: TLogPen);
 begin
   inherited Create;
   FLCLColor := APenData.lopnColor;
-  //writeln('pen created: $', HexStr(Pointer(FLCLColor)));
+  writeln('pen created: $', HexStr(Pointer(FLCLColor)));
 end;
 
 { TMUIColorObj }
@@ -839,6 +839,7 @@ procedure TMUICanvas.LineTo(x, y: integer);
 begin
   if Assigned(RastPort) then
   begin
+    //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
     Draw(RastPort, GetOffset.X + x, GetOffset.Y + y);
     Position.X := X;
     Position.Y := Y;
@@ -913,13 +914,13 @@ end;
 
 procedure TMUICanvas.SetAMUIPen(PenDesc: integer);
 begin
-  if (PenDesc >= 0) then
+  if (PenDesc >= 0) and Assigned(RenderInfo) then
     SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
 end;
 
 procedure TMUICanvas.SetBMUIPen(PenDesc: integer);
 begin
-  if (PenDesc >= 0) then
+  if (PenDesc >= 0) and Assigned(RenderInfo) then
     SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
 end;
 
@@ -1020,6 +1021,7 @@ begin
         SetAMUIPen(PenDesc);
       end else
       begin
+        //writeln('Set color in RastPort: ', HexStr(Pointer(FPen.Color)));
         Col := FPen.Color;
         AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
         SetRPAttrsA(RastPort, GetTagPtr(Tags));

@@ -16,7 +16,11 @@
 }
 unit LazUTF8;
 
-{$mode objfpc}{$H+}
+{$mode objfpc}{$H+}{$inline on}
+
+{$IF defined(EnableUTF8RTL) and (FPC_FULLVERSION<20701)}
+  {$error UTF8 RTl requires fpc 2.7.1+}
+{$ENDIF}
 
 interface
 
@@ -31,10 +35,22 @@ uses
 // is not needed.
 function NeedRTLAnsi: boolean;// true if system encoding is not UTF-8
 procedure SetNeedRTLAnsi(NewValue: boolean);
-function UTF8ToSys(const s: string): string;// as UTF8ToAnsi but more independent of widestringmanager
-function SysToUTF8(const s: string): string;// as AnsiToUTF8 but more independent of widestringmanager
+
+// UTF8ToSys works like UTF8ToAnsi but more independent of widestringmanager
+function UTF8ToSys(const s: string): string; overload; {$IFDEF EnableUTF8RTL}inline;{$ENDIF}
+function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings; overload; {$IFDEF EnableUTF8RTL}inline;{$ENDIF}
+
+// SysToUTF8 works like AnsiToUTF8 but more independent of widestringmanager
+function SysToUTF8(const s: string): string; overload;
+function SysToUTF8(const AFormatSettings: TFormatSettings): TFormatSettings; overload;
+
 function ConsoleToUTF8(const s: string): string;// converts OEM encoded string to UTF8 (used with some Windows specific functions)
 function UTF8ToConsole(const s: string): string;// converts UTF8 string to console encoding (used by Write, WriteLn)
+{$IFDEF MSWindows}
+// for all Windows supporting 8bit codepages (e.g. not WinCE)
+function WinCPToUTF8(const s: string): string;// converts string in Windows code page to UTF8 (used with some Windows specific functions)
+function UTF8ToWinCP(const s: string): string;// converts UTF8 string to Windows code page encoding (used by Write, WriteLn)
+{$ENDIF}
 
 function ParamStrUTF8(Param: Integer): string;
 
@@ -75,18 +91,21 @@ function UTF8StringReplace(const S, OldPattern, NewPattern: String;
   Flags: TReplaceFlags; ALanguage: string=''): String;
 
 function UTF8LowerCase(const AInStr: string; ALanguage: string=''): string;
+function UTF8LowerString(const s: string): string;
 function UTF8UpperCase(const AInStr: string; ALanguage: string=''): string;
+function UTF8UpperString(const s: string): string;
 function FindInvalidUTF8Character(p: PChar; Count: PtrInt;
-                                  StopOnNonASCII: Boolean = false): PtrInt;
+                                  StopOnNonUTF8: Boolean = true): PtrInt;
 function ValidUTF8String(const s: String): String;
-function Utf8StringOfChar(AUtf8Char: Utf8String; N: Integer): Utf8String;
-function Utf8AddChar(AUtf8Char: Utf8String; const S: Utf8String; N: Integer): Utf8String;
-function Utf8AddCharR(AUtf8Char: Utf8String; const S: Utf8String; N: Integer): Utf8String;
-function UTF8PadLeft(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
-function UTF8PadRight(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
-function UTF8PadCenter(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
-function Utf8LeftStr(const AText: String; const ACount: Integer): String;
-function Utf8RightStr(const AText: String; const ACount: Integer): String;
+function UTF8StringOfChar(AUtf8Char: String; N: Integer): String;
+function UTF8AddChar(AUtf8Char: String; const S: String; N: Integer): String;
+function UTF8AddCharR(AUtf8Char: String; const S: String; N: Integer): String;
+function UTF8PadLeft(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
+function UTF8PadRight(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
+function UTF8PadCenter(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
+function UTF8LeftStr(const AText: String; const ACount: Integer): String;
+function UTF8RightStr(const AText: String; const ACount: Integer): String;
+function UTF8QuotedStr(const S, Quote: string): string;
 //Utf8 version of MidStr is just Utf8Copy with same parameters, so it is not implemented here
 
 type
@@ -128,8 +147,10 @@ function ConvertUTF16ToUTF8(Dest: PChar; DestCharCount: SizeUInt;
   Src: PWideChar; SrcWideCharCount: SizeUInt; Options: TConvertOptions;
   out ActualCharCount: SizeUInt): TConvertResult;
 
-function UTF8ToUTF16(const S: AnsiString): UnicodeString;
-function UTF16ToUTF8(const S: UnicodeString): AnsiString;
+function UTF8ToUTF16(const S: AnsiString): UnicodeString; overload;
+function UTF8ToUTF16(const P: PChar; ByteCnt: SizeUInt): UnicodeString; overload;
+function UTF16ToUTF8(const S: UnicodeString): AnsiString; overload;
+function UTF16ToUTF8(const P: PWideChar; WideCnt: SizeUInt): AnsiString; overload;
 
 // locale
 procedure LazGetLanguageIDs(var Lang, FallbackLang: String);
@@ -138,12 +159,29 @@ procedure LazGetShortLanguageID(var Lang: String);
 var
   FPUpChars: array[char] of char;
 
+procedure ReplaceSubstring(var s: string; StartPos, Count: SizeInt;
+                           const Insertion: string);
+
 implementation
 
 uses
   gettext
 {$IFDEF Darwin}, MacOSAll{$ENDIF}
   ;
+
+{$IFDEF WinCE}
+// CP_UTF8 is missing in the windows unit of the Windows CE RTL
+const
+  CP_UTF8 = 65001;
+{$ENDIF}
+
+function IsASCII(const s: string): boolean; inline;
+var
+  i: Integer;
+begin
+  for i:=1 to length(s) do if ord(s[i])>127 then exit(false);
+  Result:=true;
+end;
 
 {$ifdef windows}
   {$i winlazutf8.inc}
@@ -156,11 +194,6 @@ var
   FNeedRTLAnsiValid: boolean = false;
 
 function NeedRTLAnsi: boolean;
-{$IFDEF WinCE}
-// CP_UTF8 is missing in the windows unit of the Windows CE RTL
-const
-  CP_UTF8 = 65001;
-{$ENDIF}
 {$IFNDEF Windows}
 var
   Lang: String;
@@ -171,7 +204,11 @@ begin
   if FNeedRTLAnsiValid then
     exit(FNeedRTLAnsi);
   {$IFDEF Windows}
-  FNeedRTLAnsi:=GetACP<>CP_UTF8;
+    {$IF FPC_FULLVERSION>=20701}
+    FNeedRTLAnsi:=DefaultSystemCodePage<>CP_UTF8;
+    {$ELSE}
+    FNeedRTLAnsi:=GetACP<>CP_UTF8;
+    {$ENDIF}
   {$ELSE}
   FNeedRTLAnsi:=false;
   Lang := SysUtils.GetEnvironmentVariable('LC_ALL');
@@ -200,24 +237,23 @@ begin
   FNeedRTLAnsiValid:=true;
 end;
 
-function IsASCII(const s: string): boolean; inline;
-var
-  i: Integer;
-begin
-  for i:=1 to length(s) do if ord(s[i])>127 then exit(false);
-  Result:=true;
-end;
-
 function UTF8ToSys(const s: string): string;
 begin
+  {$IFDEF EnableUTF8RTL}
+  Result:=s;
+  {$ELSE}
   if NeedRTLAnsi and (not IsASCII(s)) then
     Result:=UTF8ToAnsi(s)
   else
     Result:=s;
+  {$ENDIF}
 end;
 
 function SysToUTF8(const s: string): string;
 begin
+  {$IFDEF EnableUTF8RTL}
+  Result:=s;
+  {$ELSE}
   if NeedRTLAnsi and (not IsASCII(s)) then
   begin
     Result:=AnsiToUTF8(s);
@@ -229,30 +265,73 @@ begin
   end
   else
     Result:=s;
+  {$ENDIF}
 end;
 
+function SysToUTF8(const AFormatSettings: TFormatSettings): TFormatSettings;
+var
+  i: Integer;
+begin
+  Result := AFormatSettings;
+  Result.CurrencyString := SysToUTF8(AFormatSettings.CurrencyString);
+  for i:=1 to 12 do begin
+    Result.LongMonthNames[i] := SysToUTF8(AFormatSettings.LongMonthNames[i]);
+    Result.ShortMonthNames[i] := SysToUTF8(AFormatSettings.ShortMonthNames[i]);
+  end;
+  for i:=1 to 7 do begin
+    Result.LongDayNames[i] := SysToUTF8(AFormatSettings.LongDayNames[i]);
+    Result.ShortDayNames[i] := SysToUTF8(AFormatSettings.ShortDayNames[i]);
+  end;
+end;
+
+function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings;
+{$IFNDEF EnableUTF8RTL}
+var
+  i: Integer;
+{$ENDIF}
+begin
+  Result := AFormatSettings;
+  {$IFNDEF EnableUTF8RTL}
+  Result.CurrencyString := UTF8ToSys(AFormatSettings.CurrencyString);
+  for i:=1 to 12 do begin
+    Result.LongMonthNames[i] := UTF8ToSys(AFormatSettings.LongMonthNames[i]);
+    Result.ShortMonthNames[i] := UTF8ToSys(AFormatSettings.ShortMonthNames[i]);
+  end;
+  for i:=1 to 7 do begin
+    Result.LongDayNames[i] := UTF8ToSys(AFormatSettings.LongDayNames[i]);
+    Result.ShortDayNames[i] := UTF8ToSys(AFormatSettings.ShortDayNames[i]);
+  end;
+  {$ENDIF}
+end;
 
 function GetEnvironmentStringUTF8(Index: Integer): string;
 begin
+  {$IFDEF FPC_RTL_UNICODE}
+  Result:=UTF16ToUTF8(SysUtils.GetEnvironmentString(Index));
+  {$ELSE}
   // on Windows SysUtils.GetEnvironmentString returns OEM encoded string
   // so ConsoleToUTF8 function should be used!
   // RTL issue: http://bugs.freepascal.org/view.php?id=15233
   Result:=ConsoleToUTF8(SysUtils.GetEnvironmentString(Index));
+  {$ENDIF}
 end;
 
 function GetEnvironmentVariableUTF8(const EnvVar: string): String;
 begin
+  {$IFDEF FPC_RTL_UNICODE}
+  Result:=UTF16ToUTF8(SysUtils.GetEnvironmentVariable(UTF8ToUTF16(EnvVar)));
+  {$ELSE}
   // on Windows SysUtils.GetEnvironmentString returns OEM encoded string
   // so ConsoleToUTF8 function should be used!
   // RTL issue: http://bugs.freepascal.org/view.php?id=15233
   Result:=ConsoleToUTF8(SysUtils.GetEnvironmentVariable(UTF8ToSys(EnvVar)));
+  {$ENDIF}
 end;
 
 function SysErrorMessageUTF8(ErrorCode: Integer): String;
 begin
   Result := SysToUTF8(SysUtils.SysErrorMessage(ErrorCode));
 end;
-
 
 function UTF8CharacterLength(p: PChar): integer;
 begin
@@ -314,7 +393,7 @@ end;
 
 function UTF8CharacterToUnicode(p: PChar; out CharLen: integer): Cardinal;
 { if p=nil then CharLen=0 otherwise CharLen>0
-  If there is an encoding error the Result is undefined.
+  If there is an encoding error the Result is 0 and CharLen=1.
   Use UTF8FixBroken to fix UTF-8 encoding.
   It does not check if the codepoint is defined in the Unicode tables.
 }
@@ -621,7 +700,7 @@ end;
 procedure UTF8FixBroken(var S: string);
 begin
   if S='' then exit;
-  if FindInvalidUTF8Character(PChar(S),length(S),true)<0 then exit;
+  if FindInvalidUTF8Character(PChar(S),length(S))<0 then exit;
   UniqueString(S);
   UTF8FixBroken(PChar(S));
 end;
@@ -893,7 +972,7 @@ begin
   InStr := PChar(AInStr);
   InStrEnd := InStr + length(AInStr); // points behind last char
 
-  // Does a fast initial parsing of the string to maybe avoid doing
+  // Do a fast initial parsing of the string to maybe avoid doing
   // UniqueString if the resulting string will be identical
   while (InStr < InStrEnd) do
   begin
@@ -2012,6 +2091,12 @@ begin
   SetLength(Result,OutStr - PChar(Result));
 end;
 
+function UTF8LowerString(const s: string): string;
+begin
+  Result:=UTF8LowerCase(s);
+end;
+
+
 {
   AInStr - The input string
   ALanguage - The language. Use '' for maximum speed if one desires to ignore the language
@@ -2394,8 +2479,14 @@ begin
   SetLength(Result,OutCounter);
 end;
 
+function UTF8UpperString(const s: string): string;
+begin
+  Result:=UTF8UpperCase(s);
+end;
+
+
 function FindInvalidUTF8Character(p: PChar; Count: PtrInt;
-  StopOnNonASCII: Boolean): PtrInt;
+  StopOnNonUTF8: Boolean): PtrInt;
 // return -1 if ok
 var
   CharLen: Integer;
@@ -2405,42 +2496,48 @@ begin
     Result:=0;
     while Result<Count do begin
       c:=p^;
-      if ord(c)<128 then begin
-        // regular single byte ASCII character (#0 is a character, this is pascal ;)
+      if ord(c)<%10000000 then begin
+        // regular single byte ASCII character (#0 is a character, this is Pascal ;)
         CharLen:=1;
-      end
-      else if ord(c)<%11000000 then begin
-        // regular single byte character
-        if StopOnNonASCII then
+      end else if ord(c)<=%11000001 then begin
+        // single byte character, between valid UTF-8 encodings
+        // %11000000 and %11000001 map 2 byte to #0..#128, which is invalid and used for XSS attacks
+        if StopOnNonUTF8 or (ord(c)>=192) then
           exit;
         CharLen:=1;
-      end
-      else if ((ord(c) and %11100000) = %11000000) then begin
-        // could be 2 byte character
-        if (Result<Count-1) and ((ord(p[1]) and %11000000) = %10000000) then
+      end else if ord(c)<=%11011111 then begin
+        // could be 2 byte character (%110xxxxx %10xxxxxx)
+        if (Result<Count-1)
+        and ((ord(p[1]) and %11000000) = %10000000) then
           CharLen:=2
         else
           exit; // missing following bytes
       end
-      else if ((ord(c) and %11110000) = %11100000) then begin
-        // could be 3 byte character
-        if (Result<Count-2) and ((ord(p[1]) and %11000000) = %10000000)
-        and ((ord(p[2]) and %11000000) = %10000000) then
-          CharLen:=3
-        else
+      else if ord(c)<=%11101111 then begin
+        // could be 3 byte character (%1110xxxx %10xxxxxx %10xxxxxx)
+        if (Result<Count-2)
+        and ((ord(p[1]) and %11000000) = %10000000)
+        and ((ord(p[2]) and %11000000) = %10000000) then begin
+          if (ord(c)=%11100000) and (ord(p[1])<=%10011111) then
+            exit; // XSS attack: 3 bytes are mapped to the 1 or 2 byte codes
+          CharLen:=3;
+        end else
           exit; // missing following bytes
       end
-      else if ((ord(c) and %11111000) = %11110000) then begin
-        // could be 4 byte character
-        if (Result<Count-3) and ((ord(p[1]) and %11000000) = %10000000)
+      else if ord(c)<=%11110111 then begin
+        // could be 4 byte character (%11110xxx %10xxxxxx %10xxxxxx %10xxxxxx)
+        if (Result<Count-3)
+        and ((ord(p[1]) and %11000000) = %10000000)
         and ((ord(p[2]) and %11000000) = %10000000)
-        and ((ord(p[3]) and %11000000) = %10000000) then
-          CharLen:=4
-        else
+        and ((ord(p[3]) and %11000000) = %10000000) then begin
+          if (ord(c)=%11110000) and (ord(p[1])<=%10001111) then
+            exit; // XSS attack: 4 bytes are mapped to the 1-3 byte codes
+          CharLen:=4;
+        end else
           exit; // missing following bytes
       end
       else begin
-        if StopOnNonASCII then
+        if StopOnNonUTF8 then
           exit;
         CharLen:=1;
       end;
@@ -2495,7 +2592,7 @@ begin
     FreeMem(p);
 end;
 
-function Utf8StringOfChar(AUtf8Char: Utf8String; N: Integer): Utf8String;
+function Utf8StringOfChar(AUtf8Char: String; N: Integer): String;
 var
   UCharLen, i: Integer;
   C1, C2, C3: Char;
@@ -2541,7 +2638,7 @@ begin
   end;
 end;
 
-function Utf8AddChar(AUtf8Char: Utf8String; const S: Utf8String; N: Integer): Utf8String;
+function Utf8AddChar(AUtf8Char: String; const S: String; N: Integer): String;
 var
   L : Integer;
 begin
@@ -2554,7 +2651,7 @@ begin
   end;
 end;
 
-function Utf8AddCharR(AUtf8Char: Utf8String; const S: Utf8String; N: Integer): Utf8String;
+function Utf8AddCharR(AUtf8Char: String; const S: String; N: Integer): String;
 var
   L : Integer;
 begin
@@ -2566,17 +2663,17 @@ begin
 end;
 
 
-function UTF8PadLeft(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
+function UTF8PadLeft(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
 begin
   Result := Utf8AddChar(AUtf8Char, S, N);
 end;
 
-function UTF8PadRight(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
+function UTF8PadRight(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
 begin
   Result := Utf8AddCharR(AUtf8Char, S, N);
 end;
 
-function UTF8PadCenter(const S: Utf8String; const N: Integer; const AUtf8Char: Utf8String = #32): Utf8String;
+function UTF8PadCenter(const S: String; const N: Integer; const AUtf8Char: String = #32): String;
 var
   ULen: PtrInt;
 begin
@@ -2605,8 +2702,31 @@ begin
   Result := Utf8Copy(AText,l-j+1,j);
 end;
 
-
-
+function UTF8QuotedStr(const S, Quote: string): string;
+// replace all Quote in S with double Quote and enclose the result in Quote.
+var
+  QuoteC: Char;
+  p, QuoteP, CopyPos: PChar;
+  QuoteLen: SizeInt;
+begin
+  Result:=Quote;
+  p:=PChar(S);
+  CopyPos:=p;
+  QuoteC:=Quote[1];
+  QuoteP:=PChar(Quote);
+  QuoteLen:=length(Quote);
+  repeat
+    if (p^=#0) and (p-PChar(S)=length(S)) then
+      break;
+    if (p^=QuoteC) and CompareMem(p,QuoteP,QuoteLen) then begin
+      inc(p,QuoteLen);
+      Result+=copy(S,CopyPos-PChar(S)+1,p-CopyPos)+Quote;
+      CopyPos:=p;
+    end else
+      inc(p);
+  until false;
+  Result+=copy(S,CopyPos-PChar(S)+1,p-CopyPos)+Quote;
+end;
 
 function UTF8Trim(const s: string; Flags: TUTF8TrimFlags): string;
 var
@@ -3168,18 +3288,19 @@ end;
   copy
  ------------------------------------------------------------------------------}
 function UTF8ToUTF16(const S: AnsiString): UnicodeString;
+begin
+  Result:=UTF8ToUTF16(PChar(S),length(S));
+end;
+
+function UTF8ToUTF16(const P: PChar; ByteCnt: SizeUInt): UnicodeString;
 var
   L: SizeUInt;
 begin
-  if S = ''
-  then begin
-    Result := '';
-    Exit;
-  end;
-
-  SetLength(Result, Length(S));
+  if ByteCnt=0 then
+    exit('');
+  SetLength(Result, ByteCnt);
   // wide chars of UTF-16 <= bytes of UTF-8 string
-  if ConvertUTF8ToUTF16(PWideChar(Result), Length(Result) + 1, PChar(S), Length(S),
+  if ConvertUTF8ToUTF16(PWideChar(Result), Length(Result) + 1, P, ByteCnt,
     [toInvalidCharToSymbol], L) = trNoError
   then SetLength(Result, L - 1)
   else Result := '';
@@ -3193,22 +3314,26 @@ end;
   Converts the specified UTF-16 encoded string (system endian) to UTF-8 encoded
  ------------------------------------------------------------------------------}
 function UTF16ToUTF8(const S: UnicodeString): AnsiString;
+begin
+  Result := UTF16ToUTF8(PWideChar(S),length(S));
+end;
+
+function UTF16ToUTF8(const P: PWideChar; WideCnt: SizeUInt): AnsiString;
 var
   L: SizeUInt;
-  R: AnsiString;
 begin
-  Result := '';
-  if S = '' then Exit;
+  if WideCnt=0 then
+    exit('');
 
-  SetLength(R, Length(S) * 3);
+  SetLength(Result, WideCnt * 3);
   // bytes of UTF-8 <= 3 * wide chars of UTF-16 string
   // e.g. %11100000 10100000 10000000 (UTF-8) is $0800 (UTF-16)
-  if ConvertUTF16ToUTF8(PChar(R), Length(R) + 1, PWideChar(S), Length(S),
+  if ConvertUTF16ToUTF8(PChar(Result), Length(Result) + 1, P, WideCnt,
     [toInvalidCharToSymbol], L) = trNoError then
   begin
-    SetLength(R, L - 1);
-    Result := R;
-  end;
+    SetLength(Result, L - 1);
+  end else
+    Result := '';
 end;
 
 procedure LazGetLanguageIDs(var Lang, FallbackLang: String);
@@ -3282,6 +3407,56 @@ begin
   if Length(Lang) > 2 then Lang := Lang[1] + Lang[2];
 end;
 
+procedure ReplaceSubstring(var s: string; StartPos, Count: SizeInt;
+  const Insertion: string);
+var
+  MaxCount: SizeInt;
+  InsertionLen: SizeInt;
+  SLen: SizeInt;
+  RestLen: SizeInt;
+  p: PByte;
+begin
+  SLen:=length(s);
+  if StartPos>SLen then begin
+    s:=s+Insertion;
+    exit;
+  end;
+  if StartPos<1 then StartPos:=1;
+  if Count<0 then Count:=0;
+  MaxCount:=SLen-StartPos+1;
+  if Count>MaxCount then
+    Count:=MaxCount;
+  InsertionLen:=length(Insertion);
+  if (Count=0) and (InsertionLen=0) then
+    exit; // nothing to do
+  if (Count=InsertionLen) then begin
+    if CompareMem(PByte(s)+StartPos-1,Pointer(Insertion),Count) then
+      // already the same content
+      exit;
+    UniqueString(s);
+  end else begin
+    RestLen:=SLen-StartPos-Count+1;
+    if InsertionLen<Count then begin
+      // shorten
+      if RestLen>0 then begin
+        UniqueString(s);
+        p:=PByte(s)+StartPos-1;
+        System.Move((p+Count)^,(p+InsertionLen)^,RestLen);
+      end;
+      Setlength(s,SLen-Count+InsertionLen);
+    end else begin
+      // longen
+      Setlength(s,SLen-Count+InsertionLen);
+      if RestLen>0 then begin
+        p:=PByte(s)+StartPos-1;
+        System.Move((p+Count)^,(p+InsertionLen)^,RestLen);
+      end;
+    end;
+  end;
+  if InsertionLen>0 then
+    System.Move(PByte(Insertion)^,(PByte(s)+StartPos-1)^,InsertionLen);
+end;
+
 procedure InitFPUpchars;
 var
   c: Char;
@@ -3292,10 +3467,10 @@ begin
 end;
 
 initialization
-begin
   InitFPUpchars;
   InitLazUtf8;
-end;
+finalization
+  FinalizeLazUTF8;
 
 end.
 

@@ -13,6 +13,102 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "Проверка файлов PO"
 
+#: pocheckerconsts.rs_lang_af_za
+msgid "Afrikaans"
+msgstr "Африкаанс"
+
+#: pocheckerconsts.rs_lang_all
+msgid "All languages"
+msgstr "Все языки"
+
+#: pocheckerconsts.rs_lang_ar
+msgid "Arabic"
+msgstr "Арабский"
+
+#: pocheckerconsts.rs_lang_ca
+msgid "Catalan"
+msgstr "Каталанский"
+
+#: pocheckerconsts.rs_lang_cs
+msgid "Czech"
+msgstr "Чешский"
+
+#: pocheckerconsts.rs_lang_de
+msgid "German"
+msgstr "Немецкий"
+
+#: pocheckerconsts.rs_lang_en
+msgid "English"
+msgstr "Английский"
+
+#: pocheckerconsts.rs_lang_es
+msgid "Spanish"
+msgstr "Испанский"
+
+#: pocheckerconsts.rs_lang_fi
+msgid "Finnish"
+msgstr "Финский"
+
+#: pocheckerconsts.rs_lang_fr
+msgid "French"
+msgstr "Французский"
+
+#: pocheckerconsts.rs_lang_he
+msgid "Hebrew"
+msgstr "Иврит"
+
+#: pocheckerconsts.rs_lang_hu
+msgid "Hungarian"
+msgstr "Венгерский"
+
+#: pocheckerconsts.rs_lang_id
+msgid "Indonesian"
+msgstr "Индонезийский"
+
+#: pocheckerconsts.rs_lang_it
+msgid "Italian"
+msgstr "Итальянский"
+
+#: pocheckerconsts.rs_lang_ja
+msgid "Japanese"
+msgstr "Японский"
+
+#: pocheckerconsts.rs_lang_lt
+msgid "Lithuanian"
+msgstr "Литовский"
+
+#: pocheckerconsts.rs_lang_nl
+msgid "Dutch"
+msgstr "Голландский"
+
+#: pocheckerconsts.rs_lang_pl
+msgid "Polish"
+msgstr "Польский"
+
+#: pocheckerconsts.rs_lang_pt_br
+msgid "Brazilian Portuguese"
+msgstr "Бразильский португальский"
+
+#: pocheckerconsts.rs_lang_ru
+msgid "Russian"
+msgstr "Русский"
+
+#: pocheckerconsts.rs_lang_sk
+msgid "Slovak"
+msgstr "Словацкий"
+
+#: pocheckerconsts.rs_lang_tr
+msgid "Turkish"
+msgstr "Турецкий"
+
+#: pocheckerconsts.rs_lang_uk
+msgid "Ukrainian"
+msgstr "Украинский"
+
+#: pocheckerconsts.rs_lang_zh_cn
+msgid "Chinese, simplified"
+msgstr "Китайский (упрощённый)"
+
 #: pocheckerconsts.salllanguages
 msgid "All Languages"
 msgstr "Все языки"
@@ -60,6 +156,10 @@ msgstr "Очистить"
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "Копировать в буфер обмена"
+
+#: pocheckerconsts.screatingiconxofy
+msgid "Creating icon nr. %d of %d"
+msgstr "Создание диаграммы %d из %d"
 
 #: pocheckerconsts.scurrenttest
 msgid "Test: %s on %s"
@@ -256,6 +356,14 @@ msgstr ""
 msgid "Scan a folder"
 msgstr "Искать в каталоге"
 
+#: pocheckerconsts.sscanninginprogress
+msgid "Scanning in progress, please wait ..."
+msgstr "Идёт поиск, подождите ..."
+
+#: pocheckerconsts.sselectalllistbox
+msgid "Select all files"
+msgstr "Выбрать все файлы"
+
 #: pocheckerconsts.sselectalltests
 #| msgid "Select &All Tests"
 msgid "Select &All"
@@ -318,8 +426,9 @@ msgid "&Unselect All"
 msgstr "&Снять выбор"
 
 #: pocheckerconsts.sunselectlistbox
-msgid "Unselect"
-msgstr "Снять выбор"
+#| msgid "Unselect"
+msgid "Unselect all files"
+msgstr "Снять выбор файлов"
 
 #: pocheckerconsts.suntranslated
 msgid "Untranslated"

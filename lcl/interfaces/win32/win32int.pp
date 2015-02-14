@@ -1,4 +1,4 @@
-{ $Id: win32int.pp 39894 2013-01-19 17:42:38Z juha $ }
+{ $Id$ }
 {
  /***************************************************************************
                          WIN32INT.pp  -  Win32Interface Object
@@ -28,8 +28,10 @@ interface
   successful compilation.
 }
 uses
-  Windows, ActiveX, Classes, Translations, ComCtrls, Controls, Buttons,
-  Forms, Dialogs, GraphMath, GraphType, InterfaceBase, LCLIntf,
+  Windows, // keep as first
+  ActiveX, Classes,
+  Translations, ComCtrls, Controls, Buttons,
+  Forms, Dialogs, GraphMath, GraphType, InterfaceBase, LCLIntf, LazUTF8,
   LCLType, LMessages, StdCtrls, SysUtils, Win32Def, Graphics, Menus, CommCtrl,
   MultiMon, Themes{, Win32Debug};
 
@@ -263,7 +265,7 @@ type
 
 var
   MouseDownCount: Integer;
-  MouseDownTime: dword;
+  MouseDownTime: QWord;
   MouseDownPos: TPoint;
   MouseDownWindow: HWND = 0;
   ComboBoxHandleSizeWindow: HWND = 0;

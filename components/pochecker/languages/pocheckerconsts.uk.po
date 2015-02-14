@@ -12,6 +12,102 @@ msgstr ""
 msgid "PO File Checker"
 msgstr "Перевірка PO Файлів"
 
+#: pocheckerconsts.rs_lang_af_za
+msgid "Afrikaans"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_all
+msgid "All languages"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_ar
+msgid "Arabic"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_ca
+msgid "Catalan"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_cs
+msgid "Czech"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_de
+msgid "German"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_en
+msgid "English"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_es
+msgid "Spanish"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_fi
+msgid "Finnish"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_fr
+msgid "French"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_he
+msgid "Hebrew"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_hu
+msgid "Hungarian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_id
+msgid "Indonesian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_it
+msgid "Italian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_ja
+msgid "Japanese"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_lt
+msgid "Lithuanian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_nl
+msgid "Dutch"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_pl
+msgid "Polish"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_pt_br
+msgid "Brazilian Portuguese"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_ru
+msgid "Russian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_sk
+msgid "Slovak"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_tr
+msgid "Turkish"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_uk
+msgid "Ukrainian"
+msgstr ""
+
+#: pocheckerconsts.rs_lang_zh_cn
+msgid "Chinese, simplified"
+msgstr ""
+
 #: pocheckerconsts.salllanguages
 msgid "All Languages"
 msgstr ""
@@ -59,6 +155,10 @@ msgstr ""
 #: pocheckerconsts.scopycaption
 msgid "Copy to clipboard"
 msgstr "Копіювати в буфер"
+
+#: pocheckerconsts.screatingiconxofy
+msgid "Creating icon nr. %d of %d"
+msgstr ""
 
 #: pocheckerconsts.scurrenttest
 msgid "Test: %s on %s"
@@ -240,6 +340,14 @@ msgstr ""
 msgid "Scan a folder"
 msgstr ""
 
+#: pocheckerconsts.sscanninginprogress
+msgid "Scanning in progress, please wait ..."
+msgstr ""
+
+#: pocheckerconsts.sselectalllistbox
+msgid "Select all files"
+msgstr ""
+
 #: pocheckerconsts.sselectalltests
 msgid "Select &All"
 msgstr ""
@@ -291,7 +399,7 @@ msgid "&Unselect All"
 msgstr ""
 
 #: pocheckerconsts.sunselectlistbox
-msgid "Unselect"
+msgid "Unselect all files"
 msgstr ""
 
 #: pocheckerconsts.suntranslated

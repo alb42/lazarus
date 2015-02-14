@@ -103,7 +103,6 @@ type
     FCountUserLinks: Integer;
     FLinks: TAvglVLTree;// tree of TPkgLinkInfo sorted for name and version
     FCollectingOrigin: TPkgLinkOrigin;
-    fFiles: TStringList;
     procedure RescanGlobalLinks;
     procedure UpdateFacets;
     procedure UpdatePackageList;
@@ -141,7 +140,6 @@ end;
 
 procedure TPackageLinksDialog.FormCreate(Sender: TObject);
 begin
-  fFiles:=TStringList.Create;
   Caption:=lisPLDPackageLinks;
   ScopeGroupBox.Caption:=dlgScope;
   CopyCellToClipboardMenuItem.Caption:=srkmecCopy;
@@ -214,7 +212,6 @@ begin
   LPKInfoCache.EndLPKReader;
   LPKInfoCache.RemoveOnQueueEmpty(@OnAllLPKParsed);
   ClearLinks;
-  FreeAndNil(fFiles);
 end;
 
 procedure TPackageLinksDialog.GridPopupMenuPopup(Sender: TObject);
@@ -374,15 +371,13 @@ begin
   PkgStringGrid.Columns[3].Title.Caption:=lisGroup;
   PkgStringGrid.Columns[4].Title.Caption:=lisOIPState;
   PkgStringGrid.Columns[5].Title.Caption:=lisA2PFilename2;
+  PkgStringGrid.Columns[6].Title.Caption:='Last opened';
 
   i:=1;
   Node:=FLinks.FindLowest;
-  fFiles.Clear;
   while Node<>nil do begin
     Link:=TPkgLinkInfo(Node.Data);
     Node:=Node.Successor;
-
-    fFiles.Add(Link.EffectiveFilename);
 
     PkgStringGrid.Cells[0,i]:=PkgStringGrid.Columns[0].ValueUnchecked;
     PkgStringGrid.Cells[1,i]:=Link.Name;
@@ -400,11 +395,14 @@ begin
       s:=lrsPLDInvalid;
     PkgStringGrid.Cells[4,i]:=s;
     PkgStringGrid.Cells[5,i]:=Link.EffectiveFilename;
+    PkgStringGrid.Cells[6,i]:=DateTimeToStr(Link.LastUsed);
 
     inc(i);
   end;
   
   PkgStringGrid.AutoAdjustColumns;
+  if PkgStringGrid.SortColumn>=0 then
+    PkgStringGrid.SortColRow(true,PkgStringGrid.SortColumn);
   UpdateFacets;
 end;
 
@@ -449,14 +447,16 @@ end;
 function TPackageLinksDialog.GetLinkAtRow(Row: integer): TPkgLinkInfo;
 var
   Origin: TPkgLinkOrigin;
+  EffectiveFilename: String;
 begin
   Result:=nil;
-  if (Row<1) or (Row>fFiles.Count) or (Row>=PkgStringGrid.RowCount) then exit;
+  if (Row<1) or (Row>=PkgStringGrid.RowCount) then exit;
+  EffectiveFilename:=PkgStringGrid.Cells[5,Row];
   if PkgStringGrid.Cells[3,Row]=lisPLDGlobal then
     Origin:=ploGlobal
   else
     Origin:=ploUser;
-  Result:=GetLinkWithEffectiveFilename(fFiles[Row-1],[Origin]);
+  Result:=GetLinkWithEffectiveFilename(EffectiveFilename,[Origin]);
 end;
 
 function TPackageLinksDialog.GetLinkWithEffectiveFilename(Filename: string;
@@ -506,6 +506,7 @@ begin
       LastCheck:=Link.LastCheck;
       LPKFileDateValid:=Link.LPKFileDateValid;
       LPKFileDate:=Link.LPKFileDate;
+      LastUsed:=Link.LastUsed;
     end;
   end else
     inherited Assign(Source);

@@ -47,6 +47,7 @@ uses
   // FPC + LCL
   Classes, SysUtils, FileProcs, FileUtil, LCLProc, Forms, Controls, Dialogs,
   Laz2_XMLCfg, LazLogger, LazFileUtils, InterfaceBase, LazUTF8, laz2_XMLRead,
+  strutils,
   // codetools
   AVL_Tree, contnrs, DefineTemplates, CodeCache,
   BasicCodeTools, CodeToolsStructs, NonPascalCodeTools, SourceChanger,
@@ -57,9 +58,9 @@ uses
   // package registration
   LazarusPackageIntf,
   // IDE
-  LazarusIDEStrConsts, EnvironmentOpts, IDEProcs, LazConf, TransferMacros,
-  DialogProcs, IDETranslations, CompilerOptions, PackageLinks, PackageDefs,
-  ComponentReg, ProjectIntf;
+  LazarusIDEStrConsts, IDECmdLine, EnvironmentOpts, IDEProcs, LazConf,
+  TransferMacros, DialogProcs, IDETranslations, CompilerOptions, PackageLinks,
+  PackageDefs, ComponentReg, ProjectIntf;
   
 const
   MakefileCompileVersion = 2;
@@ -464,8 +465,7 @@ begin
   PackageGraph.RegisterComponentsHandler(Page,ComponentClasses);
 end;
 
-procedure RegisterNoIconGlobalHandler(
-  ComponentClasses: array of TComponentClass);
+procedure RegisterNoIconGlobalHandler(ComponentClasses: array of TComponentClass);
 begin
   PackageGraph.RegisterComponentsHandler('',ComponentClasses);
 end;
@@ -4331,7 +4331,9 @@ var
 
   function ConvertPIMacrosToMakefileMacros(const s: string): string;
   begin
-    result := StringReplace(s,'%(','$(',[rfReplaceAll]);
+    result := StringsReplace(s, ['%(LCL_PLATFORM)', '%(CPU_TARGET)', '%(OS_TARGET)'],
+                                ['$(LCLWidgetType)','$(CPU)',        '$(OS)'],[rfReplaceAll, rfIgnoreCase]);
+    result := StringReplace(result,'%(','$(',[rfReplaceAll]);
   end;
 
   function ConvertLazarusToFpmakeSearchPath(const s: string): string;
@@ -4380,7 +4382,6 @@ var
   e: string;
   SrcFilename: String;
   FpmakeFPCFilename: String;
-  UnitOutputPath: String;
   UnitPath: String;
   CodeBuffer: TCodeBuffer;
   MainSrcFile: String;
@@ -4407,12 +4408,13 @@ begin
   FPmakeCompiledFilename:=AppendPathDelim(APackage.Directory)+APackage.Name+'.compiled';
 
   SrcFilename:=APackage.GetSrcFilename;
-  UnitPath:=APackage.CompilerOptions.GetUnitPath(true,
-                                                 coptParsedPlatformIndependent);
+
+  UnitPath:=APackage.CompilerOptions.ParsedOpts.GetParsedPIValue(pcosUnitPath);
+  UnitPath:=CreateRelativeSearchPath(UnitPath,APackage.CompilerOptions.BaseDirectory);
+  UnitPath:=MergeSearchPaths(UnitPath, '.');
+
   IncPath:=APackage.CompilerOptions.GetIncludePath(true,
                                            coptParsedPlatformIndependent,false);
-  UnitOutputPath:=APackage.CompilerOptions.GetUnitOutPath(true,
-                                                 coptParsedPlatformIndependent);
   CustomOptions:=APackage.CompilerOptions.GetCustomOptions(
                                                  coptParsedPlatformIndependent);
   debugln('CustomOptions (orig): ',CustomOptions);
@@ -4429,8 +4431,6 @@ begin
   UnitPath:=ConvertLazarusToFpmakeSearchPath(UnitPath);
   IncPath:=ConvertLazarusToFpmakeSearchPath(IncPath);
   // remove path delimiter at the end, or else it will fail on windows
-  UnitOutputPath:=ConvertLazarusToMakefileDirectory(
-                                                ChompPathDelim(UnitOutputPath));
   MainSrcFile:=CreateRelativePath(SrcFilename,APackage.Directory);
   CustomOptions:=ConvertLazarusOptionsToFpmakeOptions(CustomOptions);
   debugln('CustomOptions (fpmake format): ',CustomOptions);
@@ -4455,7 +4455,7 @@ begin
   s:=s+'uses fpmkunit;'+e;
   s:=s+'{$endif ALLPACKAGES}'+e;
   s:=s+''+e;
-  s:=s+'procedure add_'+APackage.Name+';'+e;
+  s:=s+'procedure add_'+APackage.Name+'(const ADirectory: string);'+e;
   s:=s+''+e;
   s:=s+'var'+e;
   s:=s+'  P : TPackage;'+e;
@@ -4467,11 +4467,10 @@ begin
   s:=s+'    P:=AddPAckage('''+lowercase(APackage.Name)+''');'+e;
   s:=s+'    P.Version:='''+APackage.Version.AsString+''';'+e;
   s:=s+''+e;
-  s:=s+'{$ifdef ALLPACKAGES}'+e;
-  s:=s+'    // when this is part of a meta package, set here the sub directory'+e;
-  s:=s+'    // P.Directory:=''put here the relative path'';'+e;
-  s:=s+'{$endif ALLPACKAGES}'+e;
+  s:=s+'    P.Directory:=ADirectory;'+e;
   s:=s+''+e;
+  if APackage.PackageType in [lptDesignTime, lptRunAndDesignTime] then
+    s:=s+'    P.Flags.Add(''LazarusDsgnPkg'');'+e+e;
 
   ARequirement := APackage.FirstRequiredDependency;
   while assigned(ARequirement) do
@@ -4483,11 +4482,11 @@ begin
   s := s + StringToFpmakeOptionGroup('    P.Options.Add',OtherOptions);
   s := s + StringToFpmakeOptionGroup('    P.Options.Add',CustomOptions);
   s := s + StringToFpmakeOptionGroup('    P.IncludePath.Add',IncPath);
-  s := s + StringToFpmakeOptionGroup('    P.Options.Add',UnitPath,'-Fu');
+  s := s + StringToFpmakeOptionGroup('    P.UnitPath.Add', UnitPath);
 
   s:=s+'    T:=P.Targets.AddUnit('''+MainSrcFile+''');'+e;
   for i := 0 to APackage.FileCount-1 do
-    if (APackage.Files[i].FileType=pftUnit) and (pffAddToPkgUsesSection in APackage.Files[i].Flags) then
+    if (APackage.Files[i].FileType=pftUnit) then
       s:=s+'    t.Dependencies.AddUnit('''+ExtractFileNameOnly(APackage.Files[i].Filename)+''');'+e;
 
   s:=s+''+e;
@@ -4498,7 +4497,9 @@ begin
       if (pffAddToPkgUsesSection in APackage.Files[i].Flags) then
         s:=s+'    T:=P.Targets.AddUnit('''+CreateRelativePath(APackage.Files[i].Filename,APackage.Directory)+''');'+e
       else
-        s:=s+'    P.Sources.AddSrc('''+CreateRelativePath(APackage.Files[i].Filename,APackage.Directory)+''');'+e;
+      begin
+        s:=s+'    P.Targets.AddImplicitUnit('''+CreateRelativePath(APackage.Files[i].Filename,APackage.Directory)+''');'+e;
+      end;
     end;
 
   s:=s+''+e;
@@ -4512,7 +4513,7 @@ begin
   s:=s+''+e;
   s:=s+'{$ifndef ALLPACKAGES}'+e;
   s:=s+'begin'+e;
-  s:=s+'  add_'+APackage.Name+';'+e;
+  s:=s+'  add_'+APackage.Name+'('''');'+e;
   s:=s+'  Installer.Run;'+e;
   s:=s+'end.'+e;
   s:=s+'{$endif ALLPACKAGES}'+e;

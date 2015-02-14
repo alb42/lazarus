@@ -257,6 +257,10 @@ msgctxt "objinspstrconsts.ilesadd"
 msgid "Add"
 msgstr "Додати"
 
+#: objinspstrconsts.itcssearchandreplace
+msgid "Search and replace"
+msgstr ""
+
 #: objinspstrconsts.liisaddvalue
 msgid "Add value"
 msgstr "Додати значення"
@@ -610,6 +614,10 @@ msgstr "Маски ..."
 #: objinspstrconsts.oismethod
 msgid "Method"
 msgstr "Метод"
+
+#: objinspstrconsts.oismixed
+msgid "(Mixed)"
+msgstr ""
 
 #: objinspstrconsts.oismovedown
 msgid "Move &Down"

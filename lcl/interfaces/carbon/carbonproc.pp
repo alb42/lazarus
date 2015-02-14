@@ -1290,7 +1290,7 @@ var
   EventClass, EventKind: LongWord;
   Part: ControlPartCode;
 const
-  SName = 'CustomControlHandler';
+	SName = 'CustomControlHandler';
 begin
   EventClass := GetEventClass(AEvent);
   EventKind := GetEventKind(AEvent);
@@ -1308,6 +1308,17 @@ begin
         kEventControlSetFocusPart: Result := CallNextEventHandler(ANextHandler, AEvent);
         kEventControlHitTest:
           begin
+            //Result := CallNextEventHandler(ANextHandler, AEvent);
+            // I was not able to find what for is this workaround (r11394)
+            // returning kControlEditTextPart for any customcontrol looks strange
+            // It seems to interfer with what widget really hit the mouse click.
+            //
+            // But it breaks grid's mouse selecting when clicking (near) at
+            // the borders of cells on an always show editor grid.
+            //
+            // Found, without it double click doesn't occur in custom controls
+            // temporarily restored old behaviour affects issue 22542
+            // kControlEditTextPart is an arbitrary number
             {$IFDEF VerboseMouse}
               DebugLn('CustomControlHandler HitTest');
             {$ENDIF}

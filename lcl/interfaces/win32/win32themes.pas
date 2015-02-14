@@ -11,7 +11,7 @@ uses
   // rtl
   Classes, SysUtils,
   // lcl
-  Controls, Graphics, Themes, LCLProc, LCLType;
+  Controls, Graphics, Themes, LCLType, LazUTF8;
   
 type
 
@@ -362,6 +362,8 @@ begin
   begin
     if (Details.Element = teTreeview) and (Details.Part = TVP_HOTGLYPH) and (WindowsVersion < wvVista) then
       Details.Part := TVP_GLYPH;
+    if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and (Details.State = TREIS_HOT) and (WindowsVersion < wvVista) then
+      Details.State := TREIS_NORMAL;
     if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and (WindowsVersion < wvVista) then
     begin
       inherited;
@@ -379,7 +381,12 @@ begin
     end;
   end
   else
+  begin
+    if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and (Details.State = TREIS_HOT) then
+      Details.State := TREIS_NORMAL;
+
     inherited;
+  end;
 end;
 
 procedure TWin32ThemeServices.DrawIcon(DC: HDC; Details: TThemedElementDetails;
@@ -504,6 +511,9 @@ procedure TWin32ThemeServices.DrawText(ACanvas: TPersistent;
   Details: TThemedElementDetails; const S: String; R: TRect; Flags,
   Flags2: Cardinal);
 
+var
+  FontUnderlineSave:boolean;
+
   function NotImplementedInXP: Boolean; inline;
   begin
     Result :=
@@ -512,9 +522,15 @@ procedure TWin32ThemeServices.DrawText(ACanvas: TPersistent;
   end;
 
 begin
-  if NotImplementedInXP and (WindowsVersion < wvVista) then
+  if (NotImplementedInXP and (WindowsVersion < wvVista))or not ThemesEnabled then
   begin
+    FontUnderlineSave:=TCanvas(ACanvas).Font.Underline;
+    if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and (Details.State = TREIS_HOT) then
+    begin
+         TCanvas(ACanvas).Font.Underline:=true;
+    end;
     inherited;
+    TCanvas(ACanvas).Font.Underline:=FontUnderlineSave;
     Exit;
   end;
   if ThemesEnabled then

@@ -42,7 +42,8 @@ unit SynEditSearch;
 interface
 
 uses
-  Classes, LCLProc, SynRegExpr, SynEditMiscProcs, SynEditTypes;
+  Classes, SysUtils,
+  LCLIntf, LCLType, LCLProc, LazUTF8, SynRegExpr, SynEditMiscProcs, SynEditTypes;
 
 procedure MakeCompTable;
 
@@ -131,9 +132,6 @@ function AdjustPositionAfterReplace(const p, ReplaceStart, ReplaceEnd: TPoint;
 
 implementation
 
-uses
-  LCLIntf, LCLType, SysUtils;
-
 var
   CompTableSensitive: TByteArray256;
   CompTableNoneSensitive: TByteArray256;
@@ -202,7 +200,7 @@ begin
                            +length(AReplacement);
       end else begin
         // replace word with lines
-        Result.X:=Result.X-ReplaceEnd.X+GetLastLineLength(AReplacement);
+        Result.X:=1+GetLastLineLength(AReplacement)+(Result.X-ReplaceEnd.X);
       end;
     end else begin
       if aLineCount=0 then begin
@@ -210,7 +208,7 @@ begin
         Result.X:=ReplaceStart.X+length(AReplacement)+(Result.X-ReplaceEnd.X);
       end else begin
         // replace lines with lines
-        Result.X:=GetLastLineLength(AReplacement)+(Result.X-ReplaceEnd.X);
+        Result.X:=1+GetLastLineLength(AReplacement)+(Result.X-ReplaceEnd.X);
       end;
     end;
   end;
@@ -563,7 +561,7 @@ var
           dec(LineEndPos, length(LineEnding));
         CurLineStr:=Lines[CurY];
         if LineEndPos = 0 then begin // match empty string
-          FoundStartPos:=Point(length(CurLineStr),CurY+1);
+          FoundStartPos:=Point(length(CurLineStr)+1,CurY+1);
           exit(WholeWordAtStartFits);
         end;
         LineStartPos:=FindPrevPatternLineEnd(Pat,LineEndPos)+1;
@@ -754,7 +752,7 @@ begin
     exit;
   end;
   MinY:=Max(0,StartPos.Y-1);
-  MaxY:=Min(Lines.Count-1,EndPos.Y-1);
+  MaxY:=Min(Lines.Count,EndPos.Y-1);
   if MinY>MaxY then exit;
   if Backwards then begin
     // backwards
@@ -815,36 +813,29 @@ begin
   //          multi line pattern forward, multi line pattern backward
   //          regex case insensitive, regex multi line forward,
   //          regex multi line whole word
-  repeat
+
+  if fRegExpr then begin
+    // ************ RegExp ************
+    // prepare for firs iteration
     LineStr:=Lines[y];
-    if ASupportUnicodeCase and (not fSensitive) and (not fRegExpr) then LineStr := UTF8LowerCase(LineStr);
     LineLen:=length(LineStr);
     Line:=PChar(LineStr);
-    if not IsFirstLine then begin
-      if FBackwards then begin
-        if fRegExpr then
-          x:=LineLen-1
-        else
-          x:=LineLen-SearchLen;
-      end else
-        x:=0;
-    end else begin
-      IsFirstLine:=false;
-      if FBackwards then begin
-        if fRegExpr then
-          x:=EndPos.X-2
-        else
-          x:=EndPos.X-SearchLen-1;
-      end else begin
+    if IsFirstLine then begin
+      if FBackwards then
+        x:=EndPos.X-2
+      else
         x:=StartPos.X-1;
-      end;
+    end else begin
+      if FBackwards then
+        x:=LineLen-1
+      else
+        x:=0;
     end;
     x:=MinMax(x,0,LineLen-1);
     //DebugLn(['TSynEditSearch.FindNextOne Line="',LineStr,'" x=',x,' LineLen=',LineLen]);
 
-    // search in the line
-    if fRegExpr then begin
-      // regular expression
+    repeat
+      // search in the line
       if SearchRegExprInLine(Max(1,x+1),LineStr) then begin
         //DebugLn(['TSynEditSearch.FindNextOne Found RegExpr']);
         FoundStartPos:=Point(RegExprEngine.MatchPos[0],y+1);
@@ -856,20 +847,69 @@ begin
           fRegExprReplace:=RegExprEngine.Substitute(Replacement);
         exit;
       end;
+
+      // next line
+      if FBackwards then
+        dec(y)
+      else
+        inc(y);
+
+      LineStr:=Lines[y];
+      LineLen:=length(LineStr);
+      Line:=PChar(LineStr);
+      if FBackwards then
+        x:=LineLen-1
+      else
+        x:=0;
+      x:=MinMax(x,0,LineLen-1);
+      //DebugLn(['TSynEditSearch.FindNextOne Line="',LineStr,'" x=',x,' LineLen=',LineLen]);
+    until (y<MinY) or (y>MaxY);
+
+  end // fRegExpr
+  else begin
+    // ************ NOT RegExp ************
+    // prepare for firs iteration
+    LineStr:=Lines[y];
+    if ASupportUnicodeCase and (not fSensitive) then LineStr := UTF8LowerCase(LineStr);
+    LineLen:=length(LineStr);
+    Line:=PChar(LineStr);
+    if IsFirstLine then begin
+      if FBackwards then
+        x:=EndPos.X-SearchLen-1
+      else
+        x:=StartPos.X-1;
+      if IsMultiLinePattern then begin
+        if FBackwards then
+          x:=Min(x, 0)   // keep negative to indicate pattern does not fit into line
+        else
+          x:=Max(x, LineLen-SearchLen)  // keep higher x, if pattern does not fit
+      end;
     end else begin
-      // normal search
+      if FBackwards xor IsMultiLinePattern then
+        x:=LineLen-SearchLen
+      else
+        x:=0;
+    end;
+    //DebugLn(['TSynEditSearch.FindNextOne Line="',LineStr,'" x=',x,' LineLen=',LineLen]);
+
+    repeat
+      // search in the line
       MaxPos:=LineLen-SearchLen;
       if (SearchLen=0) and ((LineLen=0) or IsMultiLinePattern) then
       begin
         // first (last if backwards) line of pattern is empty line
-        if FBackwards then
-          FoundStartPos:=Point(LineLen,y+1)
-        else
+        if FBackwards then begin
           FoundStartPos:=Point(1,y+1);
+          x:=0; // FoundStartPos.x-1;
+        end else begin
+          FoundStartPos:=Point(LineLen+1,y+1);
+          x:=MaxPos;  //FoundStartPos.x-1;
+        end;
         FoundEndPos:=FoundStartPos;
-        x:=MaxPos;
         if CheckFound then exit(true);
-      end else begin
+      end else
+      if (x >= 0) and (x+SearchLen <= LineLen) then // otherwise searchterm does not fit in this line
+      begin
         //DebugLn(['TSynEditSearch.FindNextOne x=',x,' MaxPos=',MaxPos,' Line="',Line,'"']);
         while (x>=0) and (x<=MaxPos) do begin
           //DebugLn(['TSynEditSearch.FindNextOne x=',x]);
@@ -910,13 +950,26 @@ begin
           inc(x,xStep);
         end;
       end;
-    end;
-    // next line
-    if FBackwards then
-      dec(y)
-    else
-      inc(y);
-  until (y<MinY) or (y>MaxY);
+
+      // next line
+      if FBackwards then
+        dec(y)
+      else
+        inc(y);
+
+      LineStr:=Lines[y];
+      if ASupportUnicodeCase and (not fSensitive) then LineStr := UTF8LowerCase(LineStr);
+      LineLen:=length(LineStr);
+      Line:=PChar(LineStr);
+      // IsMultiLinePattern must be at other end of line (continues in next/prev line)
+      if FBackwards xor IsMultiLinePattern then
+        x:=LineLen-SearchLen
+      else
+        x:=0;
+      //DebugLn(['TSynEditSearch.FindNextOne Line="',LineStr,'" x=',x,' LineLen=',LineLen]);
+    until (y<MinY) or (y>MaxY);
+
+  end; // NOT RegExp
 end;
 
 destructor TSynEditSearch.Destroy;

@@ -184,7 +184,7 @@ begin
   else
     ActivePage := nil;
   //NewPageIndex := NewIndex;
-APage := TCustomPage(FPageList[CurIndex]);
+  APage := TCustomPage(FPageList[CurIndex]);
 
   // calculate new control index (i.e. ZOrderPosition)
   if NewIndex >= FPageList.Count - 1 then
@@ -916,7 +916,6 @@ procedure TCustomTabControl.ShowControl(APage: TControl);
 var
   i: LongInt;
 begin
-  //inherited ShowControl(AControl);
   { Find a child control that matches the one passed in and display
     the page that contains that control. This method is necessary
     for compatibility with Delphi }
@@ -926,6 +925,7 @@ begin
       Exit;
     end;
   end;
+  inherited ShowControl(APage);
 end;
 
 {------------------------------------------------------------------------------

@@ -78,6 +78,8 @@ type
   { TCocoaWSWinControl }
 
   TCocoaWSWinControl = class(TWSWinControl)
+  private
+    class procedure ArrangeTabOrder(const AWinControl: TWinControl);
   published
     class function CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
@@ -120,7 +122,7 @@ type
   private
     FMenuItemTarget: TComponent;
   public
-    constructor Create(AOwner: NSObject; AMenuItemTarget: TComponent);
+    constructor Create(AOwner: NSObject; AMenuItemTarget: TComponent); reintroduce;
     procedure ItemSelected;
   end;
 
@@ -457,6 +459,7 @@ var
 
   function LCLCharToMacEvent(const AUTF8Char: AnsiString): Boolean;
   begin
+    Result := False;
     if AUTF8Char = '' then
       Exit;
     // TODO
@@ -1082,6 +1085,37 @@ end;
 
 { TCocoaWSWinControl }
 
+class procedure TCocoaWSWinControl.ArrangeTabOrder(
+  const AWinControl: TWinControl);
+var
+  lList: TFPList;
+  prevControl, curControl: TWinControl;
+  lPrevView, lCurView: NSView;
+  i: Integer;
+begin
+  lList := TFPList.Create;
+  try
+    AWinControl.GetTabOrderList(lList);
+    if lList.Count>0 then
+      begin
+      prevControl := TWinControl(lList.Items[lList.Count-1]);
+      lPrevView := GetNSObjectView(NSObject(prevControl.Handle));
+      for i := 0 to lList.Count-1 do
+      begin
+        curControl := TWinControl(lList.Items[i]);
+        lCurView := GetNSObjectView(NSObject(curControl.Handle));
+
+        if (lCurView <> nil) and (lPrevView <> nil) then
+          lPrevView.setNextKeyView(lCurView);
+
+        lPrevView := lCurView;
+      end;
+    end;
+  finally
+    lList.Free;
+  end;
+end;
+
 class function TCocoaWSWinControl.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 begin
@@ -1188,20 +1222,23 @@ class procedure TCocoaWSWinControl.GetPreferredSize(
   const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
   WithThemeSpace: Boolean);
 var
-  Obj: NSObject;
+  lView: NSView;
   Size: NSSize;
 begin
-  if AWinControl.HandleAllocated then
+  if not AWinControl.HandleAllocated then Exit;
+
+  lView := CocoaUtils.GetNSObjectView(NSObject(AWinControl.Handle));
+  if lView = nil then Exit;
+
+  //todo: using fittingSize is wrong - it's based on constraints of the control solely.
+  //CocoaWidgetset is not using these constrains. As a result, CocoaComboBox
+  //produces wrong size: width 3 and height 26 (or OSX 10.9)
+  //as well as SpinEdit itself. The better approach is to use intrinsicContentSize method.
+  if lView.respondsToSelector(objcselector('fittingSize')) then
   begin
-    Obj := NSObject(AWinControl.Handle);
-{
-    if Obj.isKindOfClass_(NSView) and obj.respondsToSelector(objcselector('fittingSize')) then
-    begin
-      Size := NSView(Obj).fittingSize;
-      PreferredWidth := Round(Size.width);
-      PreferredHeight := Round(Size.height);
-    end;
-}
+    Size := lView.fittingSize();
+    PreferredWidth := Round(Size.width);
+    PreferredHeight := Round(Size.height);
   end;
 end;
 
@@ -1285,12 +1322,20 @@ end;
 class procedure TCocoaWSWinControl.ShowHide(const AWinControl: TWinControl);
 var
   pool: NSAutoreleasePool;   // called outside apploop on startup - therefore has to be enframed by pool
+  lShow: Boolean;
 begin
   //WriteLn(Format('[TCocoaWSWinControl.ShowHide] AWinControl=%s %s', [AWinControl.Name, AWinControl.ClassName]));
   if AWinControl.HandleAllocated then
   begin
     pool := NSAutoreleasePool.alloc.init;
-    NSObject(AWinControl.Handle).lclSetVisible(AWinControl.HandleObjectShouldBeVisible);
+    lShow := AWinControl.HandleObjectShouldBeVisible;
+
+    NSObject(AWinControl.Handle).lclSetVisible(lShow);
+
+    // TabStop / TabOrder support
+    if (AWinControl is TCustomForm) and lShow then
+      ArrangeTabOrder(AWinControl);
+
     pool.release;
   end;
 end;

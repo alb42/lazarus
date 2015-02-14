@@ -836,7 +836,7 @@ type
     function Count: Integer; virtual;
     function GetAddress(const {%H-}AIndex: Integer; const {%H-}ALine: Integer): TDbgPtr; virtual;
     function GetAddress(const ASource: String; const ALine: Integer): TDbgPtr;
-    function GetInfo({%H-}AAdress: TDbgPtr; out {%H-}ASource, {%H-}ALine, {%H-}AOffset: Integer): Boolean; virtual;
+    function GetInfo({%H-}AAddress: TDbgPtr; out {%H-}ASource, {%H-}ALine, {%H-}AOffset: Integer): Boolean; virtual;
     function IndexOf(const {%H-}ASource: String): integer; virtual;
     procedure Request(const {%H-}ASource: String); virtual;
     procedure Cancel(const {%H-}ASource: String); virtual;
@@ -1729,7 +1729,9 @@ type
   public
     class function Caption: String; virtual;         // The name of the debugger as shown in the debuggeroptions
     class function ExePaths: String; virtual;        // The default locations of the exe
-    class function HasExePath: boolean; virtual;        // If the debugger needs to have an exe path
+    class function HasExePath: boolean; virtual; deprecated; // use NeedsExePath instead
+    class function NeedsExePath: boolean; virtual;        // If the debugger needs to have an exe path
+    class function CanExternalDebugSymbolsFile: boolean; virtual; // If the debugger support the -Xg compiler option to store the debug info in an external file
 
     // debugger properties
     class function CreateProperties: TDebuggerProperties; virtual;         // Creates debuggerproperties
@@ -3902,7 +3904,7 @@ begin
   else Result := GetAddress(idx, ALine);
 end;
 
-function TBaseLineInfo.GetInfo(AAdress: TDbgPtr; out ASource, ALine, AOffset: Integer): Boolean;
+function TBaseLineInfo.GetInfo(AAddress: TDbgPtr; out ASource, ALine, AOffset: Integer): Boolean;
 begin
   Result := False;
 end;
@@ -4709,7 +4711,7 @@ end;
 function TDBGDisassemblerEntryRange.Append(const AnEntryPtr: PDisassemblerEntry): Integer;
 begin
   if FCount >= Capacity
-  then Capacity := FCount + Max(20, FCount div 4);
+  then Capacity := FCount + Max(20,FCount div 4);
 
   FEntries[FCount] := AnEntryPtr^;
   Result := FCount;
@@ -5481,7 +5483,17 @@ end;
 
 class function TDebuggerIntf.HasExePath: boolean;
 begin
+  Result := NeedsExePath;
+end;
+
+class function TDebuggerIntf.NeedsExePath: boolean;
+begin
   Result := true; // most debugger are external and have an exe path
+end;
+
+class function TDebuggerIntf.CanExternalDebugSymbolsFile: boolean;
+begin
+  Result := false;
 end;
 
 function TDebuggerIntf.GetCommands: TDBGCommands;

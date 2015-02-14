@@ -34,27 +34,40 @@ implementation
 {$R *.lfm}
 
 uses
-  FPVectorial, SVGVectorialWriter, avisocncgcodewriter, TADrawerFPVectorial,
-  TADrawUtils, TADrawerCanvas;
+  FPVectorial,
+  TADrawerFPVectorial, TADrawUtils, TADrawerCanvas;
 
 procedure SaveAs(AChart: TChart; AFormat: TvVectorialFormat);
 const
   ext: array [TvVectorialFormat] of String = (
-    'pdf', 'svg', 'cdr', 'wmf', 'dxf', 'laf', 'laz', 'ps', 'eps',
-    'gcode5', 'gcode6', 'mathml', 'raw');
+    '',  // vfUnknown
+    'pdf', 'svg', 'svgz', 'cdr', 'wmf', 'odg',
+    'dxf',
+    'laf', 'laz',
+    'ps', 'eps',
+    'gcode5', 'gcode6',
+    'mathml',
+    'odt', 'docx', 'html',
+    'raw');
 var
   d: TvVectorialDocument;
   v: IChartDrawer;
+  fn: String;
 begin
   d := TvVectorialDocument.Create;
-  d.AddPage;
-  d.Width := AChart.Width;
-  d.Height := AChart.Height;
-  v := TFPVectorialDrawer.Create(d.GetCurrentPage);
-  v.DoChartColorToFPColor := @ChartColorSysToFPColor;
-  with AChart do
-    Draw(v, Rect(0, 100, Width, Height + 100));
-  d.WriteToFile('test.' + ext[AFormat], AFormat);
+  try
+    d.Width := AChart.Width;
+    d.Height := AChart.Height;
+    d.AddPage;
+    v := TFPVectorialDrawer.Create(d.GetCurrentPageAsVectorial);
+    with AChart do
+      Draw(v, Rect(0, 0, Width, Height));
+    fn := 'test.' + ext[AFormat];
+    d.WriteToFile(fn, AFormat);
+    ShowMessage(Format('Chart saved as "%s"', [fn]));
+  finally
+    d.Free;
+  end;
 end;
 
 { TForm1 }

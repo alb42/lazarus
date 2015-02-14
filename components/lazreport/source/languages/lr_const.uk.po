@@ -24,6 +24,22 @@ msgstr "Агрегатні"
 msgid "All files"
 msgstr "Всі файли"
 
+#: lr_const.sargument1
+msgid "Argument 1"
+msgstr ""
+
+#: lr_const.sargument2
+msgid "Argument 2"
+msgstr ""
+
+#: lr_const.sargument3
+msgid "Argument 3"
+msgstr ""
+
+#: lr_const.sarguments
+msgid "Arguments"
+msgstr ""
+
 #: lr_const.sautosize
 msgid "Auto size"
 msgstr "Автоматичний розмір"
@@ -89,6 +105,16 @@ msgid "Cross footer"
 msgstr "Перехресний нижній колонтитул"
 
 #: lr_const.sband22
+#, fuzzy
+#| msgid "None"
+msgctxt "lr_const.sband22"
+msgid "Child"
+msgstr "Немає"
+
+#: lr_const.sband23
+#, fuzzy
+#| msgid "None"
+msgctxt "lr_const.sband23"
 msgid "None"
 msgstr "Немає"
 
@@ -572,6 +598,10 @@ msgstr "Версія"
 #: lr_const.sduplicatedobjectname
 msgid "An object named \"%s\" already exists"
 msgstr "Об'єкт з іменем \"%s\" вже існує"
+
+#: lr_const.seditor
+msgid "Editor"
+msgstr ""
 
 #: lr_const.seditorformbig
 msgid "&Big font"
@@ -1117,6 +1147,10 @@ msgstr "Вирівнювання по верхньому краю"
 msgid "Top frame line"
 msgstr "Верхня лінія фрейму"
 
+#: lr_const.sfrdesignerformunabletocreatetemplatedir
+msgid "Unable to create template directory"
+msgstr ""
+
 #: lr_const.sfrdesignerformunderline
 msgid "Underline"
 msgstr "Підкреслений"
@@ -1323,6 +1357,10 @@ msgstr "з"
 msgid "FR variables"
 msgstr "Змінні FR"
 
+#: lr_const.sfunctioneditor
+msgid "Function editor"
+msgstr ""
+
 #: lr_const.sfunctions
 msgid "Functions"
 msgstr ""
@@ -1520,6 +1558,10 @@ msgstr ""
 #: lr_const.smathcategory
 msgid "Math"
 msgstr "Математичні"
+
+#: lr_const.smemoeditor
+msgid "Memo editor"
+msgstr ""
 
 #: lr_const.smm
 msgid "MM"
@@ -2219,6 +2261,10 @@ msgstr "Масштаб"
 msgid "&Whole page"
 msgstr "Сторінка &повністю"
 
+#: lr_const.sprintchildifnotvisible
+msgid "Print child if not visible"
+msgstr ""
+
 #: lr_const.sprintererror
 #, fuzzy
 #| msgid "Printer selected is not valid"
@@ -2371,6 +2417,10 @@ msgstr "Файл Rich Text"
 msgid "Save changes"
 msgstr "Зберегти зміни"
 
+#: lr_const.sscripteditor
+msgid "Script editor"
+msgstr ""
+
 #: lr_const.sshape1
 msgctxt "lr_const.sshape1"
 msgid "Rectangle"
@@ -2477,6 +2527,18 @@ msgstr ""
 #: lr_const.suntitled
 msgid "Untitled"
 msgstr "Без_назви"
+
+#: lr_const.susefixedfontsettings
+msgid "Use fixed font settings"
+msgstr ""
+
+#: lr_const.susememofontsettings
+msgid "Use Memo font settings"
+msgstr ""
+
+#: lr_const.susesyntaxhighlight
+msgid "Use syntax highlight"
+msgstr ""
 
 #: lr_const.svar1
 msgid "Page#"

@@ -87,7 +87,7 @@ begin
     // set title
     if Sender=BrowseCompilerButton then begin
       Combo:=cobCompiler;
-      OpenDialog.Title:=Format(lisChooseCompilerPath,[GetDefaultCompilerFilename])
+      OpenDialog.Title:=Format(lisChooseCompilerExecutable,[GetDefaultCompilerFilename])
     end else if (Sender=ExecAfterBrowseButton) then begin
       Combo:=ExecuteAfterCommandComboBox;
       OpenDialog.Title:='Choose an executable';
@@ -142,6 +142,7 @@ end;
 procedure TCompilerCompilationOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
   chkCreateMakefile.Caption := dlgCOCreateMakefile;
+  chkCreateMakefile.Hint := lisEnabledOnlyForPackages;
 
   ExecuteBeforeGroupBox.Caption := lisCOExecuteBefore;
   chkExecBeforeBuild.Caption := lisBuildStage;
@@ -213,7 +214,7 @@ begin
   with cobCompiler do begin
     Items.BeginUpdate;
     Items.Assign(EnvironmentOptions.CompilerFileHistory);
-    AddFilenameToList(Items,'$(CompPath)');
+    AddFilenameToList(Items,DefaultCompilerPath);
     SetComboBoxText(cobCompiler,Options.CompilerPath,cstFilename);
     Items.EndUpdate;
   end;

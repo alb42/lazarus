@@ -349,23 +349,56 @@ var
   i: Integer;
   AForm: TCustomForm;
   States: QtWindowStates;
+  AWidget: TQtWidget;
 {$ENDIF}
 begin
   if (Application.MainForm <> nil) and (Application.MainForm.HandleAllocated) then
   begin
     {$IFDEF HASX11}
     HideAllHints;
+    // first minimize all designed forms
     for i := 0 to Screen.CustomFormZOrderCount-1 do
     begin
       AForm := Screen.CustomFormsZOrdered[i];
-      if (AForm.Parent=nil) and AForm.HandleAllocated and
-        TQtWidget(AForm.Handle).getVisible and
-        not (AForm.FormStyle in [fsMDIChild, fsSplash]) and
-        not (AForm.BorderStyle in [bsNone]) then
+      if not AForm.HandleAllocated or Assigned(AForm.Parent) then
+        continue;
+      {$IFDEF DEBUGQTAPPMINIMIZE}
+      DebugLn('1.MUST MINIMIZE ',dbgsName(AForm),' design ? ',dbgs(csDesigning in AForm.ComponentState),
+       ' HANDLEVISIBLE ',dbgs(TQtWidget(AForm.Handle).getVisible),' FORMVISIBLE=',dbgs(AForm.Visible));
+      {$ENDIF}
+      AWidget := TQtWidget(AForm.Handle);
+      if AWidget.getVisible and
+        (csDesigning in AForm.ComponentState) then
       begin
-        States := TQtMainWindow(AForm.Handle).getWindowState;
-        if not TQtMainWindow(AForm.Handle).isMinimized then
-          TQtMainWindow(AForm.Handle).setWindowState(States or QtWindowMinimized);
+        States := AWidget.getWindowState;
+        {$IFDEF DEBUGQTAPPMINIMIZE}
+        DebugLn('1.  **** TRYING TO MINIMIZE ',dbgsName(AForm),' already minimized ? ',dbgs(AWidget.isMinimized));
+        {$ENDIF}
+        if not AWidget.isMinimized then
+          AWidget.setWindowState(States or QtWindowMinimized);
+      end;
+    end;
+    for i := 0 to Screen.CustomFormZOrderCount-1 do
+    begin
+      AForm := Screen.CustomFormsZOrdered[i];
+      if not AForm.HandleAllocated or Assigned(AForm.Parent) or
+        (csDesigning in AForm.ComponentState) then
+        continue;
+      {$IFDEF DEBUGQTAPPMINIMIZE}
+      DebugLn('2. MUST MINIMIZE ',dbgsName(AForm),' design ? ',dbgs(csDesigning in AForm.ComponentState),
+       ' HANDLEVISIBLE ',dbgs(TQtWidget(AForm.Handle).getVisible),' FORMVISIBLE=',dbgs(AForm.Visible));
+      {$ENDIF}
+      AWidget := TQtWidget(AForm.Handle);
+      if AWidget.getVisible and
+         not (AForm.FormStyle in [fsMDIChild, fsSplash]) and
+         not (AForm.BorderStyle = bsNone) then
+      begin
+        States := AWidget.getWindowState;
+        {$IFDEF DEBUGQTAPPMINIMIZE}
+        DebugLn('2.  **** TRYING TO MINIMIZE ',dbgsName(AForm),' already minimized ? ',dbgs(AWidget.isMinimized));
+        {$ENDIF}
+        if not AWidget.isMinimized then
+          AWidget.setWindowState(States or QtWindowMinimized);
       end;
     end;
     {$ELSE}
@@ -380,6 +413,7 @@ var
   i: Integer;
   AForm: TCustomForm;
   States: QtWindowStates;
+  AWidget: TQtWidget;
 {$ENDIF}
 begin
   if (Application.MainForm <> nil) and (Application.MainForm.HandleAllocated) then
@@ -389,14 +423,24 @@ begin
     for i := Screen.CustomFormZOrderCount-1 downto 0 do
     begin
       AForm := Screen.CustomFormsZOrdered[i];
-      if (AForm.Parent=nil) and AForm.HandleAllocated and
-        TQtWidget(AForm.Handle).getVisible and
-        not (AForm.FormStyle in [fsMDIChild, fsSplash]) and
-        not (AForm.BorderStyle in [bsNone]) then
+      if not AForm.HandleAllocated or Assigned(AForm.Parent) then
+        continue;
+      {$IFDEF DEBUGQTAPPMINIMIZE}
+      DebugLn('MUST RESTORE ',dbgsName(AForm),' design ? ',dbgs(csDesigning in AForm.ComponentState),
+       ' HANDLEVISIBLE ',dbgs(TQtWidget(AForm.Handle).getVisible),' FORMVISIBLE=',dbgs(AForm.Visible));
+      {$ENDIF}
+      AWidget := TQtWidget(AForm.Handle);
+      if AWidget.getVisible and
+        ((not (AForm.FormStyle in [fsMDIChild, fsSplash]) and
+         not (AForm.BorderStyle = bsNone)) or
+        (csDesigning in AForm.ComponentState)) then
       begin
-        States := TQtMainWindow(AForm.Handle).getWindowState;
-        if TQtMainWindow(AForm.Handle).isMinimized then
-          TQtMainWindow(AForm.Handle).setWindowState(States and not QtWindowMinimized);
+        States := AWidget.getWindowState;
+        {$IFDEF DEBUGQTAPPMINIMIZE}
+        DebugLn('TRYING TO RESTORE ',dbgsName(AForm),' already minimized ? ',dbgs(AWidget.isMinimized));
+        {$ENDIF}
+        if AWidget.isMinimized then
+          AWidget.setWindowState(States and not QtWindowMinimized);
       end;
     end;
     RestoreAllHints;
@@ -654,10 +698,10 @@ begin
   Result := False;
 
   // find QSystemTrayIcon
-  if Assigned(SysTrayIconsList) and (SysTrayIconsList.Count > 0) and
-    ((QEvent_type(Event) = LCLQt_RegisterSystemTrayIcon) or
+  if ((QEvent_type(Event) = LCLQt_RegisterSystemTrayIcon) or
      (QEvent_type(Event) = QEventPaint) or
     (QEvent_type(Event) = QEventEnter)) and
+    Assigned(SysTrayIconsList) and (SysTrayIconsList.Count > 0) and
     QObject_isWidgetType(Sender) and (QObject_parent(Sender) = nil) and
     QWidget_isWindow(QWidgetH(Sender)) and QWidget_isVisible(QWidgetH(Sender)) and
     (QWidget_focusPolicy(QWidgetH(Sender)) = QtNoFocus) then
@@ -827,7 +871,7 @@ begin
       end;
     LCLQt_Destroy:
       begin
-        AObject := TQtObject(Pointer(QLCLMessageEvent_getWParam(QLCLMessageEventH(Event))));
+        AObject := TQtObject({%H-}Pointer(QLCLMessageEvent_getWParam(QLCLMessageEventH(Event))));
         //WriteLn('Catched free for: ', PtrUInt(AObject), ' : ', AObject.ClassName);
         AObject.Free;
         Result := True;
@@ -1687,7 +1731,7 @@ var
   LogBrush: TLogBrush;
   logPen : TLogPen;
 begin
-  FillChar(LogBrush,SizeOf(TLogBrush),0);
+  FillChar(LogBrush{%H-},SizeOf(TLogBrush),0);
   LogBrush.lbStyle := BS_NULL;
   FStockNullBrush := CreateBrushIndirect(LogBrush);
   TQtBrush(FStockNullBrush).FShared := True;

@@ -68,13 +68,15 @@ type
     FCanCloseCalled: Boolean;
     FClosing: boolean;
     procedure SetHandle(const AValue: THandle);
-    procedure SetHeight(const AValue: integer);
-    procedure SetWidth(const AValue: integer);
     function IsTitleStored: boolean;
   protected
     class procedure WSRegisterClass; override;
     function DoExecute : boolean; virtual;
     function DefaultTitle: string; virtual;
+    function GetHeight: Integer; virtual;
+    function GetWidth: Integer; virtual;
+    procedure SetHeight(const AValue: integer); virtual;
+    procedure SetWidth(const AValue: integer); virtual;
   public
     FCompStyle : LongInt;
     constructor Create(TheOwner: TComponent); override;
@@ -91,8 +93,8 @@ type
     property OnCanClose: TCloseQueryEvent read FOnCanClose write FOnCanClose;
     property OnShow: TNotifyEvent read FOnShow write FOnShow;
     property HelpContext: THelpContext read FHelpContext write FHelpContext default 0;
-    property Width: integer read FWidth write SetWidth default 0;
-    property Height: integer read FHeight write SetHeight default 0;
+    property Width: integer read GetWidth write SetWidth default 0;
+    property Height: integer read GetHeight write SetHeight default 0;
     property Title: TTranslateString read FTitle write FTitle stored IsTitleStored;
   end;
 
@@ -368,7 +370,8 @@ type
   TFindOption = (frDown, frFindNext, frHideMatchCase, frHideWholeWord,
                  frHideUpDown, frMatchCase, frDisableMatchCase, frDisableUpDown,
                  frDisableWholeWord, frReplace, frReplaceAll, frWholeWord, frShowHelp,
-                 frEntireScope, frHideEntireScope, frPromptOnReplace, frHidePromptOnReplace);
+                 frEntireScope, frHideEntireScope, frPromptOnReplace, frHidePromptOnReplace,
+                 frButtonsAtBottom);
   TFindOptions = set of TFindOption;
 
   TFindDialog = class(TCommonDialog)
@@ -400,6 +403,8 @@ type
     procedure HelpClick(Sender: TObject);
     procedure CancelClick(Sender: TObject);
 
+    function GetHeight: Integer; override;
+    function GetWidth: Integer; override;
     procedure UpdatePosition;
     procedure DoCloseForm(Sender: TObject; var CloseAction: TCloseAction);virtual;
     procedure Find; virtual;
@@ -547,8 +552,8 @@ procedure Register;
 implementation
 
 {$R dialog_icons.res}
-{$R forms/finddlgunit.lfm}
-{$R forms/replacedlgunit.lfm}
+{ $R forms/finddlgunit.lfm}
+{ $R forms/replacedlgunit.lfm}
 
 uses 
   Math, WSDialogs;

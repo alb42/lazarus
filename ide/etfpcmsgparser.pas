@@ -27,18 +27,19 @@ unit etFPCMsgParser;
 
 {$mode objfpc}{$H+}
 
-{off $DEFINE VerboseFPCMsgUnitNotFound}
+{$DEFINE VerboseFPCMsgUnitNotFound}
 
 interface
 
 uses
-  Classes, SysUtils, strutils, math, FileProcs, KeywordFuncLists,
+  Classes, SysUtils, strutils, math,
+  LazUTF8, LConvEncoding, LazFileUtils, FileUtil,
   IDEExternToolIntf, PackageIntf, LazIDEIntf, ProjectIntf, IDEUtils,
-  CompOptsIntf, CodeToolsFPCMsgs, CodeToolsStructs, CodeCache, CodeToolManager,
-  DirectoryCacher, BasicCodeTools, DefineTemplates, SourceLog, LazUTF8,
-  FileUtil, LConvEncoding, LazFileUtils,
-  LazConf, TransferMacros, etMakeMsgParser,
-  EnvironmentOpts, LCLProc, LazarusIDEStrConsts;
+  MacroIntf,
+  FileProcs, KeywordFuncLists, CodeToolsFPCMsgs, CodeToolsStructs, CodeCache,
+  CodeToolManager, DirectoryCacher, BasicCodeTools, DefineTemplates, SourceLog,
+  IDECmdLine, LazarusIDEStrConsts, EnvironmentOpts, LazConf, TransferMacros,
+  etMakeMsgParser;
 
 const
   FPCMsgIDLogo = 11023;
@@ -193,6 +194,7 @@ type
       MsgLine: TMessageLine; SourceOK: boolean);
     procedure Translate(p: PChar; MsgItem, TranslatedItem: TFPCMsgItem;
       out TranslatedMsg: String; out MsgType: TMessageLineUrgency);
+    procedure ReverseInstantFPCCacheDir(var aFilename: string; aSynchronized: boolean);
     function LongenFilename(MsgLine: TMessageLine; aFilename: string): string; // (worker thread)
   public
     DirectoryStack: TStrings;
@@ -200,6 +202,7 @@ type
     MsgFile: TFPCMsgFilePoolItem;
     TranslationFilename: string; // e.g. /path/to/fpcsrc/compiler/msg/errord.msg
     TranslationFile: TFPCMsgFilePoolItem;
+    InstantFPCCache: string; // with trailing pathdelim
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Init; override; // called after macros resolved, before starting thread (main thread)
@@ -1090,10 +1093,17 @@ begin
   fIncludePathValidForWorkerDir:=Tool.WorkerDirectory;
   fIncludePath:=CodeToolBoss.GetIncludePathForDirectory(
                            ChompPathDelim(fIncludePathValidForWorkerDir));
-  // get include search path
+  // get unit search path
   fUnitPathValidForWorkerDir:=Tool.WorkerDirectory;
   fUnitPath:=CodeToolBoss.GetUnitPathForDirectory(
                            ChompPathDelim(fUnitPathValidForWorkerDir));
+
+  // get instantfpc cache directory
+  InstantFPCCache:='$(InstantFPCCache)';
+  if IDEMacros.SubstituteMacros(InstantFPCCache) then
+    InstantFPCCache:=AppendPathDelim(InstantFPCCache)
+  else
+    InstantFPCCache:='';
 end;
 
 procedure TIDEFPCParser.InitReading;
@@ -1134,9 +1144,11 @@ function TIDEFPCParser.CheckForCompilingState(p: PChar): boolean;
 const
   FPCMsgIDCompiling = 3104;
 var
-  AFilename: string;
-  MsgLine: TMessageLine;
   OldP: PChar;
+  AFilename: string;
+  aDir: String;
+  MsgLine: TMessageLine;
+  NewFilename: String;
 begin
   OldP:=p;
   // for example 'Compiling ./subdir/unit1.pas'
@@ -1153,14 +1165,30 @@ begin
   // add path to history
   if (p^='.') and (p[1]=PathDelim) then
     inc(p,2); // skip ./
-  AFilename:=ExtractFilePath(TrimFilename(p));
-  if AFilename<>'' then begin
-    if (not FilenameIsAbsolute(AFilename)) and (Tool.WorkerDirectory<>'') then
-      AFilename:=TrimFilename(AppendPathDelim(Tool.WorkerDirectory)+AFilename);
+  AFilename:=TrimFilename(p);
+  aDir:=ExtractFilePath(AFilename);
+  if aDir<>'' then begin
+    // make absolute
+    if (not FilenameIsAbsolute(aDir)) and (Tool.WorkerDirectory<>'') then begin
+      aDir:=TrimFilename(AppendPathDelim(Tool.WorkerDirectory)+aDir);
+      AFilename:=aDir+ExtractFileName(AFilename);
+    end;
+    // reverse instantfpc cache
+    if (InstantFPCCache<>'') and (Tool.WorkerDirectory<>'')
+    and (FilenameIsAbsolute(aDir))
+    and (CompareFilenames(InstantFPCCache,aDir)=0) then
+    begin
+      NewFilename:=AppendPathDelim(Tool.WorkerDirectory)+ExtractFileName(AFilename);
+      if FileExists(NewFilename,false) then begin
+        AFilename:=NewFilename;
+        aDir:=InstantFPCCache;
+      end;
+    end;
+    // store directory
     if DirectoryStack=nil then DirectoryStack:=TStringList.Create;
     if (DirectoryStack.Count=0)
-    or (DirectoryStack[DirectoryStack.Count-1]<>AFilename) then
-      DirectoryStack.Add(AFilename);
+    or (DirectoryStack[DirectoryStack.Count-1]<>aDir) then
+      DirectoryStack.Add(aDir);
   end;
   MsgLine:=CreateMsgLine;
   MsgLine.Urgency:=mluProgress;
@@ -1717,27 +1745,29 @@ procedure TIDEFPCParser.ImproveMsgUnitNotFound(aPhase: TExtToolParserSyncPhase;
     end;
   end;
 
-  procedure FindPackage(MissingUnitname: string; out PkgName: string;
-    OnlyInstalled: boolean; out PkgFile: TLazPackageFile);
+  procedure FindPackage(MissingUnitname: string; OnlyInstalled: boolean;
+    out Pkg: TIDEPackage; out PkgName: string; out PkgFile: TLazPackageFile);
   var
     i: Integer;
-    Pkg: TIDEPackage;
     j: Integer;
     aFile: TLazPackageFile;
+    CurPkg: TIDEPackage;
   begin
     PkgName:='';
     PkgFile:=nil;
+    Pkg:=nil;
     // search unit in packages
     for i:=0 to PackageEditingInterface.GetPackageCount-1 do begin
-      Pkg:=PackageEditingInterface.GetPackages(i);
-      if OnlyInstalled and (Pkg.AutoInstall=pitNope) then
+      CurPkg:=PackageEditingInterface.GetPackages(i);
+      if OnlyInstalled and (CurPkg.AutoInstall=pitNope) then
         continue;
-      if CompareTextCT(Pkg.Name,MissingUnitname)=0 then begin
-        PkgName:=Pkg.Name;
+      if CompareTextCT(CurPkg.Name,MissingUnitname)=0 then begin
+        PkgName:=CurPkg.Name;
+        Pkg:=CurPkg;
         break;
       end;
-      for j:=0 to Pkg.FileCount-1 do begin
-        aFile:=Pkg.Files[j];
+      for j:=0 to CurPkg.FileCount-1 do begin
+        aFile:=CurPkg.Files[j];
         if not (aFile.FileType in PkgFileRealUnitTypes) then
           continue;
         if CompareTextCT(ExtractFileNameOnly(aFile.Filename),MissingUnitname)<>0
@@ -1746,7 +1776,8 @@ procedure TIDEFPCParser.ImproveMsgUnitNotFound(aPhase: TExtToolParserSyncPhase;
         begin
           // a better file was found
           PkgFile:=aFile;
-          PkgName:=Pkg.Name;
+          PkgName:=CurPkg.Name;
+          Pkg:=CurPkg;
         end;
       end;
     end;
@@ -1760,14 +1791,17 @@ var
   CodeBuf: TCodeBuffer;
   Owners: TFPList;
   UsedByOwner: TObject;
+  UsedByPkg: TIDEPackage;
   PPUFilename: String;
-  PkgName: String;
   OnlyInstalled: Boolean;
   s: String;
   PPUFiles: TStringList; // Strings:PPUFilename, Objects:TIDEPackage
   i: Integer;
   DepOwner: TObject;
-  PkgFile: TLazPackageFile;
+  TheOwner: TObject;
+  MissingPkg: TIDEPackage;
+  MissingPkgName: String;
+  MissingPkgFile: TLazPackageFile;
 begin
   if MsgLine.Urgency<mluError then exit;
   if not IsMsgID(MsgLine,FPCMsgIDCantFindUnitUsedBy,fMsgItemCantFindUnitUsedBy)
@@ -1782,6 +1816,8 @@ begin
   etpspSynchronized: ;
   etpspAfterSync: exit;
   end;
+
+  // in main thread
 
   if not GetFPCMsgValues(MsgLine,MissingUnitName,UsedByUnit) then
     exit;
@@ -1816,7 +1852,15 @@ begin
                                      ExtractFilePath(Filename),UsedByUnit,true);
     end;
     if NewFilename='' then begin
-      NewFilename:=LazarusIDE.FindUnitFile(UsedByUnit);
+      TheOwner:=nil;
+      if Tool.Data is TIDEExternalToolData then begin
+        TheOwner:=ExternalToolList.GetIDEObject(TIDEExternalToolData(Tool.Data));
+      end else if Tool.Data=nil then begin
+        {$IFDEF VerboseFPCMsgUnitNotFound}
+        debugln(['TIDEFPCParser.ImproveMsgUnitNotFound Tool.Data=nil, ProcDir=',Tool.Process.CurrentDirectory]);
+        {$ENDIF}
+      end;
+      NewFilename:=LazarusIDE.FindUnitFile(UsedByUnit,TheOwner);
       if NewFilename='' then begin
         {$IFDEF VerboseFPCMsgUnitNotFound}
         debugln(['TIDEFPCParser.ImproveMsgUnitNotFound unit not found: ',UsedByUnit]);
@@ -1845,11 +1889,15 @@ begin
   PPUFiles:=TStringList.Create;
   try
     UsedByOwner:=nil;
+    UsedByPkg:=nil;
     if CodeBuf<>nil then begin
       FixSourcePos(CodeBuf,MissingUnitname);
       Owners:=PackageEditingInterface.GetOwnersOfUnit(CodeBuf.Filename);
-      if (Owners<>nil) and (Owners.Count>0) then
+      if (Owners<>nil) and (Owners.Count>0) then begin
         UsedByOwner:=TObject(Owners[0]);
+        if UsedByOwner is TIDEPackage then
+          UsedByPkg:=TIDEPackage(UsedByOwner);
+      end;
     end;
 
     // if the ppu exists then improve the message
@@ -1860,14 +1908,20 @@ begin
       PPUFilename:=CodeToolBoss.DirectoryCachePool.FindCompiledUnitInCompletePath(
                         ExtractFilePath(CodeBuf.Filename),MissingUnitname);
       {$IFDEF VerboseFPCMsgUnitNotFound}
-      debugln(['TQuickFixUnitNotFoundPosition.Execute PPUFilename=',PPUFilename,' IsFileInIDESrcDir=',IsFileInIDESrcDir(CodeBuf.Filename)]);
+      debugln(['TIDEFPCParser.ImproveMsgUnitNotFound PPUFilename=',PPUFilename,' IsFileInIDESrcDir=',IsFileInIDESrcDir(CodeBuf.Filename)]);
       {$ENDIF}
       OnlyInstalled:=IsFileInIDESrcDir(CodeBuf.Filename);
       if OnlyInstalled then begin
         FindPPUInInstalledPkgs(MissingUnitname,PPUFiles);
       end else if UsedByOwner<>nil then
         FindPPUInModuleAndDeps(MissingUnitName,UsedByOwner,PPUFiles);
-      FindPackage(MissingUnitname,PkgName,OnlyInstalled,PkgFile);
+      {$IFDEF VerboseFPCMsgUnitNotFound}
+      debugln(['TIDEFPCParser.ImproveMsgUnitNotFound PPUFiles in PPU path=',PPUFiles.Count]);
+      {$ENDIF}
+      FindPackage(MissingUnitname,OnlyInstalled,MissingPkg,MissingPkgName,MissingPkgFile);
+      {$IFDEF VerboseFPCMsgUnitNotFound}
+      debugln(['TIDEFPCParser.ImproveMsgUnitNotFound MissingUnitPkg=',MissingPkgName]);
+      {$ENDIF}
       if PPUFiles.Count>0 then begin
         // there is a ppu file, but the compiler didn't like it
         // => change message
@@ -1886,34 +1940,48 @@ begin
           end;
         end;
       end else begin
-        // there is no ppu file in the unit path
+        // there is no ppu file in the ppu path (it might be in the source path)
+        {$IFDEF VerboseFPCMsgUnitNotFound}
+        debugln(['TIDEFPCParser.ImproveMsgUnitNotFound PPUFilename=',PPUFilename,' PPUFiles.Count=',PPUFiles.Count]);
+        {$ENDIF}
         s:=Format(lisCannotFindUnit, [MissingUnitname]);
         if UsedByUnit<>'' then
           s+=Format(lisUsedBy, [UsedByUnit]);
-        if (UsedByOwner is TIDEPackage)
-        and (CompareTextCT(TIDEPackage(UsedByOwner).Name,PkgName)=0) then
+        if PPUFilename<>'' then begin
+          // there is a ppu file in the source path
+          if (MissingPkg<>nil) and (MissingPkg.LazCompilerOptions.UnitOutputDirectory='')
+          then
+            s+='. '+lisPackageNeedsAnOutputDirectory
+          else
+            s+='. '+lisMakeSureAllPpuFilesOfAPackageAreInItsOutputDirecto;
+          s+=' '+Format(lisPpuInWrongDirectory, [PPUFilename]);
+          if MissingPkgName<>'' then
+            s+=' '+Format(lisCleanUpPackage, [MissingPkgName]);
+        end
+        else if (UsedByPkg<>nil)
+        and (CompareTextCT(UsedByPkg.Name,MissingPkgName)=0) then
         begin
           // two units of a package cannot find each other
           s+=Format(lisCheckSearchPathPackageTryACleanRebuildCheckImpleme, [
-            TIDEPackage(UsedByOwner).Name]);
-        end else if (PkgName<>'')
+            UsedByPkg.Name]);
+        end else if (MissingPkgName<>'')
         and (OnlyInstalled
           or ((UsedByOwner<>nil)
-             and PackageEditingInterface.IsOwnerDependingOnPkg(UsedByOwner,PkgName,DepOwner)))
+             and PackageEditingInterface.IsOwnerDependingOnPkg(UsedByOwner,MissingPkgName,DepOwner)))
         then begin
           // ppu file of an used package is missing
-          if (PkgFile<>nil) and (not PkgFile.InUses) then
-            s+=Format(lisEnableFlagUseUnitOfUnitInPackage, [MissingUnitName, PkgName])
+          if (MissingPkgFile<>nil) and (not MissingPkgFile.InUses) then
+            s+=Format(lisEnableFlagUseUnitOfUnitInPackage, [MissingUnitName, MissingPkgName])
           else
             s+=Format(lisCheckIfPackageCreatesPpuCheckNothingDeletesThisFil, [
-              PkgName, MissingUnitName]);
+              MissingPkgName, MissingUnitName]);
         end else begin
-          if PkgName<>'' then
-            s+=Format(lisCheckIfPackageIsInTheDependencies, [PkgName]);
+          if MissingPkgName<>'' then
+            s+=Format(lisCheckIfPackageIsInTheDependencies, [MissingPkgName]);
           if UsedByOwner is TLazProject then
             s+=lisOfTheProjectInspector
-          else if UsedByOwner is TIDEPackage then
-            s+=Format(lisOfPackage, [TIDEPackage(UsedByOwner).Name]);
+          else if UsedByPkg<>nil then
+            s+=Format(lisOfPackage, [UsedByPkg.Name]);
         end;
         s+='.';
       end;
@@ -2167,6 +2235,19 @@ begin
   end;
 end;
 
+procedure TIDEFPCParser.ReverseInstantFPCCacheDir(var aFilename: string;
+  aSynchronized: boolean);
+var
+  Reversed: String;
+begin
+  if (InstantFPCCache<>'')
+  and (CompareFilenames(ExtractFilePath(aFilename),InstantFPCCache)=0) then begin
+    Reversed:=AppendPathDelim(Tool.WorkerDirectory)+ExtractFilename(aFilename);
+    if FileExists(Reversed,aSynchronized) then
+      aFilename:=Reversed;
+  end;
+end;
+
 constructor TIDEFPCParser.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
@@ -2285,6 +2366,7 @@ function TIDEFPCParser.CheckForFileLineColMessage(p: PChar): boolean;
 { filename(line,column) Hint: message
   filename(line,column) Hint: (msgid) message
   filename(line) Hint: (msgid) message
+  B:\file(3)name(line,column) Hint: (msgid) message
 }
 var
   FileStartPos: PChar;
@@ -2303,9 +2385,20 @@ var
 begin
   Result:=false;
   FileStartPos:=p;
-  while not (p^ in ['(',#0]) do inc(p);
-  if (p^<>'(') or (p=FileStartPos) or (p[-1]=' ') then exit;
-  FileEndPos:=p;
+  FileEndPos:=nil;
+  // search colon and last ( in front of colon
+  while true do begin
+    case p^ of
+    #0: exit;
+    '(': FileEndPos:=p;
+    ':':
+      if (DriveSeparator='') or (p-FileStartPos>1) then
+        break;
+    end;
+    inc(p);
+  end;
+  if (FileEndPos=nil) or (FileEndPos-FileStartPos=0) or (FileEndPos[-1]=' ') then exit;
+  p:=FileEndPos;
   inc(p); // skip bracket
   LineStartPos:=p;
   if not ReadDecimal(p) then exit;
@@ -2522,7 +2615,10 @@ var
   LastFilename: String;
 begin
   Result:=TrimFilename(aFilename);
-  if FilenameIsAbsolute(Result) then exit;
+  if FilenameIsAbsolute(Result) then begin
+    ReverseInstantFPCCacheDir(Result,false);
+    exit;
+  end;
   ShortFilename:=Result;
   // check last message line
   LastMsgLine:=Tool.WorkerMessages.GetLastLine;
@@ -2608,8 +2704,8 @@ begin
         and (fIncludePathValidForWorkerDir=MsgWorkerDir) then begin
           // include path is valid and in worker thread
           // -> search file
-          aFilename:=SearchFileInPath(aFilename,MsgWorkerDir,fIncludePath,';',
-                                 [sffSearchLoUpCase]);
+          aFilename:=FileUtil.SearchFileInPath(aFilename,MsgWorkerDir,fIncludePath,';',
+                                 [FileUtil.sffSearchLoUpCase]);
           if aFilename<>'' then
             MsgLine.Filename:=aFilename;
         end;

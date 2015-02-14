@@ -770,7 +770,7 @@ begin
     ctnClassInterface,ctnCPPClass:
       Result:='('+ACodeTool.ExtractClassInheritance(CodeNode,[])+')';
 
-    ctnEnumIdentifier, ctnLabelType:
+    ctnEnumIdentifier, ctnLabel:
       Result:=ACodeTool.ExtractIdentifier(CodeNode.StartPos);
 
     ctnProcedure:
@@ -778,7 +778,7 @@ begin
                     [// phpWithStart is no needed because there are icons
                      phpWithVarModifiers,
                      phpWithParameterNames,phpWithDefaultValues,phpWithResultType,
-                     phpWithOfObject,phpWithCallingSpecs,phpWithProcModifiers]);
+                     phpWithOfObject]);
 
     ctnProcedureHead:
       Result:='Procedure Header';

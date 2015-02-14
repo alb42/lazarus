@@ -188,11 +188,10 @@ procedure TEduCompPaletteFrame.FillComponentTreeView;
 var
   i: Integer;
   Page: TBaseComponentPage;
-  j: Integer;
-  Comp: TRegisteredComponent;
   PageNode: TTreeNode;
   CompNode: TTreeNode;
   CompName: String;
+  Comp: TRegisteredComponent;
 begin
   ComponentsTreeView.BeginUpdate;
   ComponentsTreeView.Items.Clear;
@@ -205,21 +204,21 @@ begin
     ComponentsTreeView.Images.Clear;
   ShowImgID:=IDEImages.LoadImage(16,'menu_run');
   HideImgID:=IDEImages.LoadImage(16,'menu_stop');
-  for i:=0 to IDEComponentPalette.Count-1 do begin
-    Page:=IDEComponentPalette[i];
-    if Page.PageName='' then continue;
-    PageNode:=ComponentsTreeView.Items.Add(nil,Page.PageName);
-    for j:=0 to Page.Count-1 do begin
-      Comp:=Page[j];
-      CompName:=Comp.ComponentClass.ClassName;
-      CompNode:=ComponentsTreeView.Items.AddChild(PageNode,CompName);
-      CompNode.ImageIndex:=GetCompImgIndex(CompName);
-      CompNode.SelectedIndex:=CompNode.ImageIndex;
-      if EduComponentPaletteOptions.ComponentVisible[CompName] then
-        CompNode.StateIndex:=ShowImgID
-      else
-        CompNode.StateIndex:=HideImgID;
-    end;
+  for i:=0 to IDEComponentPalette.Comps.Count-1 do begin
+    Comp:=IDEComponentPalette.Comps[i];
+    Page:=Comp.RealPage;
+    if (Page=nil) or (Page.PageName='') then continue;
+    PageNode:=ComponentsTreeView.Items.FindTopLvlNode(Page.PageName);
+    if PageNode=nil then
+      PageNode:=ComponentsTreeView.Items.Add(nil,Page.PageName);
+    CompName:=Comp.ComponentClass.ClassName;
+    CompNode:=ComponentsTreeView.Items.AddChild(PageNode,CompName);
+    CompNode.ImageIndex:=GetCompImgIndex(CompName);
+    CompNode.SelectedIndex:=CompNode.ImageIndex;
+    if EduComponentPaletteOptions.ComponentVisible[CompName] then
+      CompNode.StateIndex:=ShowImgID
+    else
+      CompNode.StateIndex:=HideImgID;
     PageNode.Expanded:=true;
   end;
   ComponentsTreeView.EndUpdate;
@@ -320,9 +319,6 @@ begin
   ExtendedComponents[24] :=  'TDBLookupComboBox';
   ExtendedComponents[25] :=  'TDBCheckBox';
 
-
-
-
   ComponentsTreeView.BeginUpdate;
   Node:=ComponentsTreeView.Items.GetFirstNode;
   while Node<>nil do begin
@@ -392,8 +388,7 @@ end;
 
 { TEduComponentPaletteOptions }
 
-function TEduComponentPaletteOptions.GetComponentVisible(ComponentName: string
-  ): boolean;
+function TEduComponentPaletteOptions.GetComponentVisible(ComponentName: string): boolean;
 begin
   Result:=fVisible[ComponentName]='1';
 end;
@@ -429,8 +424,7 @@ begin
   inherited Destroy;
 end;
 
-function TEduComponentPaletteOptions.Load(Config: TConfigStorage
-  ): TModalResult;
+function TEduComponentPaletteOptions.Load(Config: TConfigStorage): TModalResult;
 var
   Cnt: LongInt;
   i: Integer;
@@ -446,8 +440,7 @@ begin
   Result:=inherited Load(Config);
 end;
 
-function TEduComponentPaletteOptions.Save(Config: TConfigStorage
-  ): TModalResult;
+function TEduComponentPaletteOptions.Save(Config: TConfigStorage): TModalResult;
 var
   Node: TAvgLvlTreeNode;
   Item: PStringToStringItem;
@@ -469,7 +462,7 @@ procedure TEduComponentPaletteOptions.Apply(Enable: boolean);
 begin
   inherited Apply(Enable);
   if IDEComponentPalette<>nil then
-    IDEComponentPalette.UpdateVisible;
+    IDEComponentPalette.Update(False);
 end;
 
 {$R *.lfm}

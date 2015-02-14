@@ -83,22 +83,6 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     Caption = 'DebugPathLabel'
     ParentColor = False
   end
-  object LCLWidgetTypeLabel: TLabel
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = DebugPathEdit
-    AnchorSideTop.Side = asrBottom
-    Left = 0
-    Height = 15
-    Top = 343
-    Width = 122
-    Caption = 'LCLWidgetTypeLabel'
-    Font.Color = clBlue
-    ParentColor = False
-    ParentFont = False
-    OnClick = LCLWidgetTypeLabelClick
-    OnMouseEnter = LCLWidgetTypeLabelMouseEnter
-    OnMouseLeave = LCLWidgetTypeLabelMouseLeave
-  end
   object OtherUnitsEdit: TEdit
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = OtherUnitsLabel
@@ -106,11 +90,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 15
+    Height = 28
+    Top = 20
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 0
     Text = 'OtherUnitsEdit'
   end
@@ -121,11 +107,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 61
+    Height = 28
+    Top = 74
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 1
     Text = 'IncludeFilesEdit'
   end
@@ -136,11 +124,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 266
+    Height = 28
+    Top = 314
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 6
     Text = 'OtherSourcesEdit'
   end
@@ -151,11 +141,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 107
+    Height = 28
+    Top = 128
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 2
     Text = 'LibrariesEdit'
   end
@@ -166,11 +158,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 153
+    Height = 28
+    Top = 182
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 3
     Text = 'UnitOutputDirEdit'
   end
@@ -181,11 +175,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 312
+    Height = 28
+    Top = 368
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 7
     Text = 'DebugPathEdit'
   end
@@ -207,11 +203,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 25
-    Top = 199
+    Height = 28
+    Top = 236
     Width = 509
     Anchors = [akTop, akLeft, akRight]
     OnChange = ProjTargetFileEditChange
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 4
     Text = 'ProjTargetFileEdit'
   end
@@ -221,11 +219,13 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 21
-    Top = 224
-    Width = 257
+    Height = 24
+    Top = 264
+    Width = 277
     BorderSpacing.Bottom = 6
     Caption = 'ProjTargetApplyConventionsCheckBox'
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 5
   end
 end

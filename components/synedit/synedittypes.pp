@@ -41,7 +41,7 @@ unit SynEditTypes;
 
 interface
 uses
-  SysUtils;
+  SysUtils, types;
 
 const
   TSynSpecialChars = [#128..#255]; // MG: special chars. Meaning depends on system encoding/codepage.
@@ -91,11 +91,25 @@ type
 
   TSynStatusChange = (scCaretX, scCaretY,
     scLeftChar, scTopLine, scLinesInWindow, scCharsInWindow,
-    scInsertMode, scModified, scSelection, scReadOnly
+    scInsertMode, scModified, scSelection, scReadOnly,
+    scFocus,     // received or lost focus
+    scOptions    // some Options were changed (only triggered by some optinos)
    );
   TSynStatusChanges = set of TSynStatusChange;
   TStatusChangeEvent = procedure(Sender: TObject; Changes: TSynStatusChanges)
     of object;
+
+  TSynPaintEvent = (peBeforePaint, peAfterPaint);
+  TSynPaintEvents = set of TSynPaintEvent;
+  TSynPaintEventProc = procedure(Sender: TObject; EventType: TSynPaintEvent;
+    const rcClip: TRect
+  ) of object;
+
+  TSynScrollEvent = (peBeforeScroll, peAfterScroll, peAfterScrollFailed);
+  TSynScrollEvents = set of TSynScrollEvent;
+  TSynScrollEventProc = procedure(Sender: TObject; EventType: TSynScrollEvent;
+    dx, dy: Integer; const rcScroll, rcClip: TRect
+  ) of object;
 
   TSynVisibleSpecialChar = (vscSpace, vscTabAtFirst, vscTabAtLast);
   TSynVisibleSpecialChars = set of TSynVisibleSpecialChar;

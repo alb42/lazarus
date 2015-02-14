@@ -79,9 +79,10 @@ const
     'const i=1+2+3;'#13 +
     'begin'#13 +
     '  A:=@B.C;D:=3;E:=X[5];'#13 +
+    '  PRec^.F:=PArr^[5];'#13 +
     '  {$I unit1.lrs}'#13 +
     '  {$R-}{$R+}'#13 +
-    '  // ąčęęėįšųūž'#13+
+    '  // ąčęęėįšųūž'#13+ //do not change this, Unicode characters are threated as symbols by CodeTools
     'end;';
 begin
   if BeautifyCodeOptions = nil then
@@ -147,7 +148,7 @@ procedure TCodetoolsSpaceOptionsFrame.Setup(
 const
   DoInsertSpaceAtoms = [
     atKeyword, atIdentifier, atColon, atSemicolon, atComma,
-    atPoint, atAt, atNumber, atStringConstant, atSymbol, atBracket];
+    atPoint, atAt, atNumber, atStringConstant, atSymbol, atBracket, atCaret];
 begin
   with DoInsertSpaceInFrontGroupBox do begin
     Caption:=dlgInsSpaceFront;

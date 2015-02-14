@@ -654,11 +654,29 @@ begin
 end;
 
 procedure TSearchProgressForm.SearchFormCREATE(Sender: TObject);
+  Function MaxWidth(Labs : array of TLabel) : integer;
+  var i,w : integer;
+  begin
+    Result:=0;
+    for i:=low(Labs) to high(Labs) do
+      begin
+          w:=Canvas.TextWidth(Labs[i].Caption);
+          if Result<w then
+             Result:=w;
+      end;
+  end;
+
+var NewX : integer;
 begin
   //Set Defaults
   MatchesLabel.Caption:=lissMatches;
   SearchingLabel.Caption:=lissSearching;
   SearchTextLabel.Caption:=lissSearchText;
+  NewX:=MatchesLabel.Left+MaxWidth([MatchesLabel,SearchingLabel,SearchTextLabel])+10;
+  lblMatches.Left:=NewX;
+  lblProgress.Left:=NewX;
+  lblSearchText.Left:=NewX;
+
   Caption:=dlgSearchCaption;
   btnCancel.Caption:=lisCancel;
 
@@ -959,9 +977,10 @@ procedure TSearchProgressForm.DoSearchAndAddToSearchResults;
 var
   ListPage: TTabSheet;
   Cnt: integer;
+  State: TIWGetFormState;
 begin
   Cnt:= 0;
-  LazarusIDE.DoShowSearchResultsView(False);
+  LazarusIDE.DoShowSearchResultsView(iwgfShow);
   ListPage:=SearchResultsView.AddSearch(SearchText,SearchText,
                             ReplaceText,SearchDirectories,SearchMask,SearchOptions);
   try
@@ -983,7 +1002,11 @@ begin
     ListPage.Caption:= Format('%s (%d)',[ListPage.Caption,Cnt]);
     SearchResultsView.EndUpdate(ListPage.PageIndex);
     // show, but bring to front only if Search Progress dialog was active
-    LazarusIDE.DoShowSearchResultsView(True, fWasActive);
+    if fWasActive then
+      State:=iwgfShowOnTop
+    else
+      State:=iwgfShow;
+    LazarusIDE.DoShowSearchResultsView(State);
   end;
 end;
 

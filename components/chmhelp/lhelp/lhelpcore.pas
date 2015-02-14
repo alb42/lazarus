@@ -96,6 +96,7 @@ type
     procedure ViewMenuContentsClick(Sender: TObject);
   private
     { private declarations }
+    // SimpleIPC server name (including unique part as per help protocol)
     fServerName: String;
     // Receives commands from IDE
     fInputIPC: TSimpleIPCServer;
@@ -108,7 +109,12 @@ type
     fConfig: TXMLConfig;
     fHasShowed: Boolean;
     fHide: boolean; //If yes, start with content hidden. Otherwise start normally
-    // Load preferences; separate preferences per coupled server/IDE
+    // Keep track of whether size/position preferences were loaded and applied to form
+    fLayoutApplied: boolean;
+    // Applies layout (size/position/fullscreen) preferences once in lhelp lifetime
+    // Needs LoadPreference to be run first to get fConfig object.
+    procedure ApplyLayoutPreferencesOnce;
+    // Load preferences. Preferences are unique for server-lhelp pairs and plain lhelp
     procedure LoadPreferences(AIPCName: String);
     // Saves preferences. Uses existing config loaded by LoadPreferences
     procedure SavePreferences;
@@ -153,7 +159,7 @@ var
 
 const
   INVALID_FILE_TYPE = 1;
-  VERSION_STAMP = '2014-09-22'; //used in displaying version in about form etc
+  VERSION_STAMP = '2014-10-16'; //used in displaying version in about form etc
 
 implementation
 
@@ -161,6 +167,9 @@ implementation
 
 uses 
   LHelpControl;
+
+const
+  DigitsInPID=5; // Number of digits in the formatted PID according to the Help Protocol
 
 type
   TRecentMenuItem = class(TMenuItem)
@@ -195,6 +204,7 @@ begin
     l.BorderSpacing.Around := 6;
     l.Caption := 'LHelp (CHM file viewer)' + LineEnding +
       'Version ' + VERSION_STAMP + LineEnding +
+      LineEnding +
       'Copyright (C) Andrew Haines, ' + LineEnding +
       'Lazarus contributors';
     l.AutoSize := True;
@@ -296,7 +306,7 @@ end;
 
 procedure THelpForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
-  Visible:= False;
+  Visible := false;
   Application.ProcessMessages;
   FileMenuCloseItemClick(Sender);
   StopComms;
@@ -306,15 +316,17 @@ end;
 procedure THelpForm.FormCreate(Sender: TObject);
 begin
   fContext := -1;
+  // Safe default:
   fHide := false;
+  // ReadCommandLineOptions will set fHide if requested
   ReadCommandLineOptions;
   LoadPreferences(fServerName);
   // Only start IPC if server name passed in --ipcname
-  if fServerName <> '' then begin
+  if fServerName <> '' then
+  begin
     StartComms(fServerName);
   end;
   // If user wants lhelp to hide, hide entire form.
-  // Detect this choice based on fHide set in ReadCommandLineOptions
   if fHide then
     WindowState := wsMinimized
   else
@@ -358,10 +370,34 @@ begin
   RefreshState;
 end;
 
+procedure THelpForm.ApplyLayoutPreferencesOnce;
+begin
+  if not(assigned(fConfig)) then exit;
+  if (not(fHide)) and
+    (not(fLayoutApplied)) then
+  begin
+    if (fConfig.GetValue('Position/Maximized', false)=true) then
+    begin
+      Windowstate:=wsMaximized
+    end
+    else
+    begin
+      Left   := fConfig.GetValue('Position/Left/Value', Left);
+      Top    := fConfig.GetValue('Position/Top/Value', Top);
+      Width  := fConfig.GetValue('Position/Width/Value', Width);
+      Height := fConfig.GetValue('Position/Height/Value', Height);
+    end;
+    // Keep track so we do not reapply initial settings as user may have
+    // changed size etc in the meantime.
+    fLayoutApplied := true;
+  end;
+end;
+
 procedure THelpForm.ViewMenuContentsClick(Sender: TObject);
 begin
   // TabsControl property in TChmContentProvider
   if Assigned(ActivePage) then
+  begin
     with TChmContentProvider(ActivePage.ContentProvider) do
     begin
       TabsControl.Visible := not TabsControl.Visible;
@@ -369,6 +405,7 @@ begin
       Splitter.Left := TabsControl.Left + 4; //for splitter to move righter
       ViewMenuContents.Checked := TabsControl.Visible;
     end;
+  end;
 end;
 
 procedure THelpForm.LoadPreferences(AIPCName: String);
@@ -382,26 +419,21 @@ begin
   ForceDirectoriesUTF8(PrefFile);
   // --ipcname passes a server ID that consists of a
   // server-dependent constant together with a process ID.
-  // Strip out the process ID to get fixed config file names for one server
-  ServerPart := Copy(AIPCName, 1, length(AIPCName)-5); //strip out PID
-  PrefFile:=Format('%slhelp-%s.conf',[IncludeTrailingPathDelimiter(PrefFile), ServerPart]);
+  // Strip out the formatted process ID to get fixed config file names for
+  // one server
+  ServerPart := Copy(AIPCName, 1, length(AIPCName)-DigitsInPID);
+  PrefFile := Format('%slhelp-%s.conf',[IncludeTrailingPathDelimiter(PrefFile), ServerPart]);
 
   fConfig := TXMLConfig.Create(Self);
-  fConfig.Filename:=PrefFile;
+  fConfig.Filename := PrefFile;
 
-  Left   := fConfig.GetValue('Position/Left/Value',   Left);
-  Top    := fConfig.GetValue('Position/Top/Value',    Top);
-  Width  := fConfig.GetValue('Position/Width/Value',  Width);
-  Height := fConfig.GetValue('Position/Height/Value', Height);
-
-  if fConfig.GetValue('Position/Maximized',false)=true then
-    Windowstate:=wsMaximized;
-
+  // Restore window but only if currently not being asked to hide
+  ApplyLayoutPreferencesOnce;
   OpenDialog1.FileName := fConfig.GetValue('LastFileOpen/Value', OpenDialog1.FileName);
 
   RecentCount:= fConfig.GetValue('Recent/ItemCount/Value', 0);
-
-  for i := RecentCount-1 downto 0 do // downto since oldest are knocked off the list
+  // downto since oldest are knocked off the list:
+  for i := RecentCount-1 downto 0 do
     AddRecentFile(fConfig.GetValue('Recent/Item'+IntToStr(i)+'/Value',''));
 end;
 
@@ -409,11 +441,14 @@ procedure THelpForm.SavePreferences;
 var
   i: Integer;
 begin
+  if not(assigned(fConfig)) then
+    exit; //silently abort
   if not (WindowState = wsMaximized) then
   begin
-    fConfig.SetValue('Position/Left/Value',   Left);
-    fConfig.SetValue('Position/Top/Value',    Top);
-    fConfig.SetValue('Position/Width/Value',  Width);
+    fConfig.SetValue('Position/Maximized', false);
+    fConfig.SetValue('Position/Left/Value', Left);
+    fConfig.SetValue('Position/Top/Value', Top);
+    fConfig.SetValue('Position/Width/Value', Width);
     fConfig.SetValue('Position/Height/Value', Height);
   end
   else
@@ -424,7 +459,8 @@ begin
   fConfig.SetValue('LastFileOpen/Value', OpenDialog1.FileName);
 
   fConfig.SetValue('Recent/ItemCount/Value', FileMenuOpenRecentItem.Count);
-  for i := 0 to FileMenuOpenRecentItem.Count-1 do // downto since oldest are knocked off the list
+  // downto since oldest are knocked off the list:
+  for i := 0 to FileMenuOpenRecentItem.Count-1 do
     fConfig.SetValue('Recent/Item'+IntToStr(i)+'/Value', TRecentMenuItem(FileMenuOpenRecentItem.Items[I]).URL);
 
   fConfig.Flush;
@@ -498,76 +534,81 @@ var
   Res: LongWord;
   Url: String='';
 begin
-  if fInputIPC.PeekMessage(5, True) then begin
+  if fInputIPC.PeekMessage(5, True) then
+  begin
     Stream := fInputIPC.MsgData;
     Stream.Position := 0;
     FillByte(FileReq{%H-},SizeOf(FileReq),0);
     Stream.Read(FileReq, SizeOf(FileReq));
     Res := Ord(srError); //fail by default
     case FileReq.RequestType of
-      rtFile    : begin
-                    Url := 'file://'+FileReq.FileName;
-                    Res := OpenURL(URL);
-                    debugln('got rtfile, filename '+filereq.filename);
-                  end;
-      rtUrl     : begin
-                    Stream.Position := 0;
-                    FillByte(UrlReq{%H-},SizeOf(UrlReq),0);
-                    Stream.Read(UrlReq, SizeOf(UrlReq));
-                    if UrlReq.FileRequest.FileName <> '' then
-                    begin
-                      Url := 'file://'+UrlReq.FileRequest.FileName;
-                      Res := OpenUrl(URL+'://'+UrlReq.Url)
-                    end
-                    else
-                    begin
-                      Url := UrlReq.Url;
-                      Res := OpenURL(Url);
-                    end;
-                    debugln('got rturl, filename '+urlreq.filerequest.filename+', url '+urlreq.url);
-                  end;
-      rtContext : begin
-                    Stream.Position := 0;
-                    FillByte(ConReq{%H-},SizeOf(ConReq),0);
-                    Stream.Read(ConReq, SizeOf(ConReq));
-                    Url := 'file://'+FileReq.FileName;
-                    Res := OpenURL(Url, ConReq.HelpContext);
-                    debugln('got rtcontext, filename '+filereq.filename+', context '+inttostr(ConReq.HelpContext));
-                  end;
-      rtMisc    : begin
-                    Stream.Position := 0;
-                    FillByte(MiscReq{%H-},SizeOf(MiscReq),0);
-                    Stream.Read(MiscReq, SizeOf(MiscReq));
-                    case MiscReq.RequestID of
-                      mrClose:
-                      begin
-                        MustClose:=true;
-                        Res:= ord(srSuccess);
-                        debugln('got rtmisc/mrClose');
-                      end;
-                      mrShow:
-                      begin
-                        fHide := false;
-                        if WindowState = wsMinimized then
-                          WindowState := wsNormal;
-                        RefreshState;
-                        Res := ord(srSuccess);
-                        debugln('got rtmisc/mrShow');
-                      end;
-                      mrVersion:
-                      begin
-                        // Protocol version encoded in the filename
-                        // Verify what we support
-                        if strtointdef(FileReq.FileName,0)=strtointdef(PROTOCOL_VERSION,0) then
-                          Res := ord(srSuccess)
-                        else
-                          Res := ord(srError); //version not supported
-                        debugln('got rtmisc/');
-                      end
-                      else {Unknown}
-                        Res := ord(srUnknown);
-                    end;
-                  end;
+      rtFile:
+      begin
+        Url := 'file://'+FileReq.FileName;
+        Res := OpenURL(URL);
+        debugln('got rtfile, filename '+filereq.filename);
+      end;
+      rtUrl:
+      begin
+        Stream.Position := 0;
+        FillByte(UrlReq{%H-},SizeOf(UrlReq),0);
+        Stream.Read(UrlReq, SizeOf(UrlReq));
+        if UrlReq.FileRequest.FileName <> '' then
+        begin
+          Url := 'file://'+UrlReq.FileRequest.FileName;
+          Res := OpenUrl(URL+'://'+UrlReq.Url)
+        end
+        else
+        begin
+          Url := UrlReq.Url;
+          Res := OpenURL(Url);
+        end;
+        debugln('got rturl, filename '+urlreq.filerequest.filename+', url '+urlreq.url);
+      end;
+      rtContext:
+      begin
+        Stream.Position := 0;
+        FillByte(ConReq{%H-},SizeOf(ConReq),0);
+        Stream.Read(ConReq, SizeOf(ConReq));
+        Url := 'file://'+FileReq.FileName;
+        Res := OpenURL(Url, ConReq.HelpContext);
+        debugln('got rtcontext, filename '+filereq.filename+', context '+inttostr(ConReq.HelpContext));
+      end;
+      rtMisc:
+      begin
+        Stream.Position := 0;
+        FillByte(MiscReq{%H-},SizeOf(MiscReq),0);
+        Stream.Read(MiscReq, SizeOf(MiscReq));
+        case MiscReq.RequestID of
+          mrClose:
+          begin
+            MustClose:=true;
+            Res:= ord(srSuccess);
+            debugln('got rtmisc/mrClose');
+          end;
+          mrShow:
+          begin
+            fHide := false;
+            if WindowState = wsMinimized then
+              WindowState := wsNormal;
+            RefreshState;
+            Res := ord(srSuccess);
+            debugln('got rtmisc/mrShow');
+          end;
+          mrVersion:
+          begin
+            // Protocol version encoded in the filename
+            // Verify what we support
+            if strtointdef(FileReq.FileName,0)=strtointdef(PROTOCOL_VERSION,0) then
+              Res := ord(srSuccess)
+            else
+              Res := ord(srError); //version not supported
+            debugln('got rtmisc/');
+          end
+          else {Unknown request}
+            Res := ord(srUnknown);
+        end;
+      end; //rtMisc
     end;
 
     // This may take some time which may allow receiving end to get ready for
@@ -594,6 +635,9 @@ begin
       Self.SendToBack;
       Self.BringToFront;
       Self.ShowOnTop;
+      // If lhelp was run with hidden parameter, we need to apply
+      // layout preferences once:
+      ApplyLayoutPreferencesOnce;
     end;
   end;
 end;
@@ -608,28 +652,39 @@ var
 begin
   FillChar(IsHandled{%H-}, 51, 0);
   X:=1;
-  while X<=ParamCount do begin
-    if LowerCase(ParamStrUTF8(X)) = '--ipcname' then begin
+  while X<=ParamCount do
+  begin
+    if LowerCase(ParamStrUTF8(X)) = '--ipcname' then
+    begin
+      // IPC name; includes unique PID or other identifier
       IsHandled[X] := True;
       inc(X);
-      if X <= ParamCount then begin
+      if X <= ParamCount then
+      begin
         fServerName := ParamStrUTF8(X);
         IsHandled[X] := True;
         inc(X);
       end;
-    end else if LowerCase(ParamStrUTF8(X)) = '--context' then begin
+    end
+    else if LowerCase(ParamStrUTF8(X)) = '--context' then
+    begin
       IsHandled[X] := True;
       inc(X);
       if (X <= ParamCount) then
-        if TryStrToInt(ParamStrUTF8(X), fContext) then begin
+        if TryStrToInt(ParamStrUTF8(X), fContext) then
+        begin
           IsHandled[X] := True;
           inc(X);
         end;
-    end else if LowerCase(ParamStrUTF8(X)) = '--hide' then begin
+    end
+    else if LowerCase(ParamStrUTF8(X)) = '--hide' then
+    begin
       IsHandled[X] := True;
       inc(X);
       fHide:=true;
-    end else begin
+    end
+    else
+    begin
       IsHandled[X]:=copy(ParamStrUTF8(X),1,1)='-'; // ignore other parameters
       inc(X);
     end;
@@ -637,16 +692,19 @@ begin
 
   // Loop through a second time for the URL
   for X := 1 to ParamCount do
-    if not IsHandled[X] then begin
+    if not IsHandled[X] then
+    begin
       //DoOpenChm(ParamStrUTF8(X));
       URL:=ParamStrUTF8(X);
       if Pos('://', URL) = 0 then
         URL := 'file://'+URL;
       Filename:=URL;
-      if copy(Filename,1,length('file://'))='file://' then begin
+      if copy(Filename,1,length('file://'))='file://' then
+      begin
         System.Delete(Filename,1,length('file://'));
         Filename:=SetDirSeparators(Filename);
-        if not FileExistsUTF8(Filename) then begin
+        if not FileExistsUTF8(Filename) then
+        begin
           debugln(['THelpForm.ReadCommandLineOptions file not found "',Filename,'"']);
           continue;
         end;
@@ -734,21 +792,25 @@ begin
  fURLPrefix := GetURLPrefix;
  fContentProvider := GetContentProvider(fURLPrefix);
  
- if fContentProvider = nil then begin
+ if fContentProvider = nil then
+ begin
    ShowError('Cannot handle this type of content. "' + fURLPrefix + '" for url:'+LineEnding+AURL);
    Result := Ord(srInvalidURL);
    Exit;
  end;
  fRealContentProvider := fContentProvider.GetProperContentProvider(AURL);
  
- if fRealContentProvider = nil then begin
+ if fRealContentProvider = nil then
+ begin
    ShowError('Cannot handle this type of subcontent. "' + fURLPrefix + '" for url:'+LineEnding+AURL);
    Result := Ord(srInvalidURL);
    Exit;
  end;
 
- for I := 0 to PageControl.PageCount-1 do begin
-   if fRealContentProvider.ClassName = TContentTab(PageControl.Pages[I]).ContentProvider.ClassName then begin
+ for I := 0 to PageControl.PageCount-1 do
+ begin
+   if fRealContentProvider.ClassName = TContentTab(PageControl.Pages[I]).ContentProvider.ClassName then
+   begin
      fPage := TContentTab(PageControl.Pages[I]);
      if TContentTab(PageControl.Pages[I]).ContentProvider.LoadURL(AURL, AContext) then
      begin
@@ -812,6 +874,7 @@ begin
     en := false;
     // Hide content page
     if Assigned(ActivePage) then
+    begin
       with TChmContentProvider(ActivePage.ContentProvider) do
       begin
         ActivePage.Visible := false;
@@ -819,12 +882,14 @@ begin
         TabsControl.Visible := false;
         Splitter.Visible := false;
       end;
+    end;
   end
   else
   begin
     en := Assigned(ActivePage);
     // Show content page
     if en then
+    begin
       with TChmContentProvider(ActivePage.ContentProvider) do
       begin
         ActivePage.Visible := true;
@@ -832,6 +897,7 @@ begin
         TabsControl.Visible := true;
         Splitter.Visible := true;
       end;
+    end;
   end;
 
   BackBttn.Enabled := en;

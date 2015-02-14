@@ -26,7 +26,7 @@ uses
  // rtl+ftl
   Classes, SysUtils,
  // LCL
-  LCLProc, LCLType, Graphics, Controls, StdCtrls,
+  LCLProc, LCLType, Graphics, Controls, StdCtrls, LazUtf8Classes,
  // LCL Carbon
   CarbonEdits, CarbonListViews;
 
@@ -93,6 +93,9 @@ type
     procedure Clear; override;
     procedure Delete(Index: Integer); override;
     procedure Insert(Index: Integer; const S: string); override;
+    procedure LoadFromFile(const FileName: string); override;
+    procedure SaveToFile(const FileName: string); override;
+    procedure AddStrings(TheStrings: TStrings); overload; override;
   public
     property Owner: TCarbonMemo read FOwner;
   end;
@@ -247,7 +250,7 @@ procedure TCarbonListBoxStrings.InsertItem(Index: Integer; const S: string);
 begin
   inherited InsertItem(Index, S);
 
-  //FOwner.InsertItem(Index); //Already called. Don't call it again.
+  FOwner.InsertItem(Index); // Without this call, dynamically adding items won't work
 end;
 {$ENDIF}
 
@@ -427,6 +430,42 @@ end;
 procedure TCarbonMemoStrings.Insert(Index: Integer; const S: string);
 begin
   FOwner.InsertLine(Index, S);
+end;
+
+procedure TCarbonMemoStrings.LoadFromFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(TheStream);
+  finally
+    TheStream.Free;
+  end;
+end;
+
+procedure TCarbonMemoStrings.SaveToFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmCreate);
+  try
+    SaveToStream(TheStream);
+  finally
+    TheStream.Free;
+  end;
+end;
+
+procedure TCarbonMemoStrings.AddStrings(TheStrings: TStrings);
+begin
+  BeginUpdate;
+  try
+    // don't need to copy Objects, VCL does not support them neither
+    // preserve the last line ending
+    Text:=ConvertLineEndings(TheStrings.Text);
+  finally
+    EndUpdate;
+  end;
 end;
 
 

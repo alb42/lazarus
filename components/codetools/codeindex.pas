@@ -56,12 +56,13 @@ type
     destructor Destroy; override;
     procedure Clear;
     function AddNode(const Description, Identifier: string): TCodeBrowserNode;
+    function GetMemSize: SizeUInt;
     property CBUnit: TCodeBrowserUnit read FCBUnit;
     property Desc: TCodeTreeNodeDesc read FDesc write FDesc;
     property CodePos: TCodePosition read FCodePos write FCodePos;
     property ParentNode: TCodeBrowserNode read FParentNode;
     property ChildNodes: TAVLTree read FChildNodes;
-    property Description: string read FDescription;
+    property Description: string read FDescription write FDescription;
     property Identifier: string read FIdentifier;
   end;
 
@@ -215,6 +216,11 @@ begin
   if FChildNodes=nil then
     FChildNodes:=TAVLTree.Create(@CompareNodeIdentifiers);
   FChildNodes.Add(Result);
+end;
+
+function TCodeBrowserNode.GetMemSize: SizeUInt;
+begin
+  Result:=InstanceSize+length(FIdentifier)+length(FDescription);
 end;
 
 { TCodeBrowserUnit }

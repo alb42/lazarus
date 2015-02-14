@@ -62,6 +62,7 @@ type
     function  GetDebuggerClass: TDebuggerClass;
     procedure SetDebuggerClass(const AClass: TDebuggerClass);
     procedure ClearDbgProperties;
+    procedure HookGetCheckboxForBoolean(var Value: Boolean);
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -109,7 +110,7 @@ begin
   try
     InputHistories.ApplyFileDialogSettings(OpenDialog);
     OpenDialog.Options:=OpenDialog.Options+[ofPathMustExist];
-    OpenDialog.Title:=lisChooseDebuggerPath;
+    OpenDialog.Title:=lisChooseDebuggerExecutable;
 
     if OpenDialog.Execute then begin
       AFilename:=CleanAndExpandFilename(OpenDialog.Filename);
@@ -254,11 +255,18 @@ begin
   FCurrentDebPropertiesList.Clear;
 end;
 
+procedure TDebuggerGeneralOptionsFrame.HookGetCheckboxForBoolean(var Value: Boolean);
+begin
+  Value := EnvironmentOptions.ObjectInspectorOptions.CheckboxForBoolean;
+end;
+
 constructor TDebuggerGeneralOptionsFrame.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   // create the PropertyEditorHook (the interface to the properties)
   FPropertyEditorHook:=TPropertyEditorHook.Create(Self);
+  FPropertyEditorHook.AddHandlerGetCheckboxForBoolean(@HookGetCheckboxForBoolean);
+
   FCurrentDebPropertiesList := TStringList.Create;
   // create the PropertyGrid
   PropertyGrid:=TOIPropertyGrid.CreateWithParams(Self,FPropertyEditorHook
@@ -293,7 +301,7 @@ function TDebuggerGeneralOptionsFrame.Check: Boolean;
 begin
   Result := false;
 
-  if assigned(FCurDebuggerClass) and FCurDebuggerClass.HasExePath
+  if assigned(FCurDebuggerClass) and FCurDebuggerClass.NeedsExePath
   and (EnvironmentOptions.DebuggerFilename <> cmbDebuggerPath.Text)
   then begin
     EnvironmentOptions.DebuggerFilename := cmbDebuggerPath.Text;
@@ -312,8 +320,7 @@ begin
   Result := lisGeneral;
 end;
 
-procedure TDebuggerGeneralOptionsFrame.Setup(
-  ADialog: TAbstractOptionsEditorDialog);
+procedure TDebuggerGeneralOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
   gbDebuggerType.Caption := dlgDebugType;
   gbAdditionalSearchPath.Caption := lisDebugOptionsFrmAdditionalSearchPath;

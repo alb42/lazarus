@@ -1,4 +1,3 @@
-{  $Id$  }
 {
  /***************************************************************************
                                 FPCAdds.pas
@@ -17,16 +16,19 @@ unit FPCAdds;
 
 {$mode objfpc}{$H+}{$inline on}
 
+{$IF defined(EnableUTF8RTL) and (FPC_FULLVERSION<20701)}
+  {$error UTF8 RTL requires fpc 2.7.1+}
+{$ENDIF}
+
 interface
 
 uses
-  Classes, SysUtils, Math;
+  Classes, SysUtils;
 
-// current TStream calculates in int64, old in longint
 type
   TStreamSeekType = int64;
-  TMemStreamSeekType = integer;
-  TCompareMemSize = integer;
+  TMemStreamSeekType = PtrInt;
+  TCompareMemSize = PtrUInt;
   PHandle = ^THandle;
 
 function StrToWord(const s: string): word;
@@ -65,5 +67,12 @@ begin
   Result := p;
 {$ENDIF}
 end;
+
+{$IFDEF EnableUTF8RTL}
+initialization
+  SetMultiByteConversionCodePage(CP_UTF8);
+  // SetMultiByteFileSystemCodePage(CP_UTF8); not needed, this is the default under Windows
+  SetMultiByteRTLFileSystemCodePage(CP_UTF8);
+{$ENDIF}
 
 end.

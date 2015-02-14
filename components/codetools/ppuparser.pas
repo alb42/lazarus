@@ -20,9 +20,6 @@
 
   Author: Mattias Gaertner
 
-  Note:
-    This unit will be moved to the FCL when it has stabilized.
-
   Abstract:
     Functions and classes to read ppu streams (Free Pascal compiled units)
     of various versions. For example reading 2.3.1 ppus compiled for 64bit
@@ -41,7 +38,8 @@ uses
 
 const
   PPUIsEndianBig = {$IFDEF ENDIAN_BIG}True{$ELSE}False{$ENDIF};
-  
+
+// from ppu.pas
 const
 {ppu entries}
   mainentryid         = 1;
@@ -124,33 +122,128 @@ const
 
   ibmainname       = 90;  // svn rev 10406
   ibsymtableoptions = 91; // svn rev 17328  ppu version 128
+  ibrecsymtableoptions = 91; // svn rev 18114
   { target-specific things }
   iblinkotherframeworks = 100; // svn rev 8344
+  ibjvmnamespace = 101; // svn rec 21069
 
-{ unit flags }
-  uf_init          = $1;
-  uf_finalize      = $2;
-  uf_big_endian    = $4;
-//  uf_has_browser   = $10;
-  uf_in_library    = $20;     { is the file in another file than <ppufile>.* ? }
-  uf_smart_linked  = $40;     { the ppu can be smartlinked }
-  uf_static_linked = $80;     { the ppu can be linked static }
-  uf_shared_linked = $100;    { the ppu can be linked shared }
-//  uf_local_browser = $200;
-  uf_no_link       = $400;    { unit has no .o generated, but can still have
-                                external linking! }
-  uf_has_resourcestrings = $800;    { unit has resource string section }
-  uf_little_endian = $1000;
-  uf_release       = $2000;   { unit was compiled with -Ur option }
-  uf_threadvars    = $4000;   { unit has threadvars }
-  uf_fpu_emulation = $8000;   { this unit was compiled with fpu emulation on }
-  uf_has_debuginfo = $10000;  { this unit has debuginfo generated }
-  uf_local_symtable = $20000; { this unit has a local symtable stored }
-  uf_uses_variants  = $40000; { this unit uses variants }
-  uf_has_resourcefiles = $80000; { this unit has external resources (using $R directive)}
-  uf_has_exports = $100000;   { this module or a used unit has exports }
+  { unit flags }
+  uf_init                = $000001; { unit has initialization section }
+  uf_finalize            = $000002; { unit has finalization section   }
+  uf_big_endian          = $000004;
+  //uf_has_browser         = $000010;
+  uf_in_library          = $000020; { is the file in another file than <ppufile>.* ? }
+  uf_smart_linked        = $000040; { the ppu can be smartlinked }
+  uf_static_linked       = $000080; { the ppu can be linked static }
+  uf_shared_linked       = $000100; { the ppu can be linked shared }
+  //uf_local_browser       = $000200;
+  uf_no_link             = $000400; { unit has no .o generated, but can still have external linking! }
+  uf_has_resourcestrings = $000800; { unit has resource string section }
+  uf_little_endian       = $001000;
+  uf_release             = $002000; { unit was compiled with -Ur option }
+  uf_threadvars          = $004000; { unit has threadvars }
+  uf_fpu_emulation       = $008000; { this unit was compiled with fpu emulation on }
+  uf_has_stabs_debuginfo = $010000; { this unit has stabs debuginfo generated }
+  uf_local_symtable      = $020000; { this unit has a local symtable stored }
+  uf_uses_variants       = $040000; { this unit uses variants }
+  uf_has_resourcefiles   = $080000; { this unit has external resources (using $R directive)}
+  uf_has_exports         = $100000; { this module or a used unit has exports }
+  uf_has_dwarf_debuginfo = $200000; { this unit has dwarf debuginfo generated }
+  uf_wideinits           = $400000; { this unit has winlike widestring typed constants }
+  uf_classinits          = $800000; { this unit has class constructors/destructors }
+  uf_resstrinits        = $1000000; { svn rev 18968: this unit has string consts referencing resourcestrings }
+  uf_i8086_far_code     = $2000000; { svn rev 25365: this unit uses an i8086 memory model with far code (i.e. medium, large or huge) }
+  uf_i8086_far_data     = $4000000; { svn rev 25365: this unit uses an i8086 memory model with far data (i.e. compact or large) }
+  uf_i8086_huge_data    = $8000000; { svn rev 25365: this unit uses an i8086 memory model with huge data (i.e. huge) }
+  uf_i8086_cs_equals_ds = $10000000; { svn rev 27516: this unit uses an i8086 memory model with CS=DS (i.e. tiny) }
+
+// from systems.inc
+type
+   tsystemcpu=
+    (
+          cpu_no,                       { 0 }
+          cpu_i386,                     { 1 }
+          cpu_m68k,                     { 2 }
+          cpu_alpha,                    { 3 }
+          cpu_powerpc,                  { 4 }
+          cpu_sparc,                    { 5 }
+          cpu_vm,                       { 6 }
+          cpu_iA64,                     { 7 }
+          cpu_x86_64,                   { 8 }
+          cpu_mipseb,                   { 9 }
+          cpu_arm,                      { 10 }
+          cpu_powerpc64,                { 11 }
+          cpu_avr,                      { 12 }
+          cpu_mipsel,                   { 13 }
+          cpu_jvm,                      { 14 }
+          cpu_i8086                     { 15 }
+    );
+
+const
+  PPU_CPUNames : array[tsystemcpu] of string[9]=
+    ('none',
+     'i386',
+     'm68k',
+     'alpha',
+     'powerpc',
+     'sparc',
+     'vis',
+     'ia64',
+     'x86_64',
+     'mips',
+     'arm',
+     'powerpc64',
+     'avr',
+     'mipsel',
+     'jvm',
+     'i8086'
+     );
+
+// from ppu.pas
+  { We need to use the correct size of aint and pint for
+  the target CPU }
+const
+  CpuAddrBitSize : array[tsystemcpu] of longint =
+    (
+    {  0 } 32 {'none'},
+    {  1 } 32 {'i386'},
+    {  2 } 32 {'m68k'},
+    {  3 } 32 {'alpha'},
+    {  4 } 32 {'powerpc'},
+    {  5 } 32 {'sparc'},
+    {  6 } 32 {'vis'},
+    {  7 } 64 {'ia64'},
+    {  8 } 64 {'x86_64'},
+    {  9 } 32 {'mipseb'},
+    { 10 } 32 {'arm'},
+    { 11 } 64 {'powerpc64'},
+    { 12 } 16 {'avr'},
+    { 13 } 32 {'mipsel'},
+    { 14 } 32 {'jvm'},
+    { 15 } 16 {'i8086'}
+    );
+  CpuAluBitSize : array[tsystemcpu] of longint =
+    (
+    {  0 } 32 {'none'},
+    {  1 } 32 {'i386'},
+    {  2 } 32 {'m68k'},
+    {  3 } 32 {'alpha'},
+    {  4 } 32 {'powerpc'},
+    {  5 } 32 {'sparc'},
+    {  6 } 32 {'vis'},
+    {  7 } 64 {'ia64'},
+    {  8 } 64 {'x86_64'},
+    {  9 } 32 {'mipseb'},
+    { 10 } 32 {'arm'},
+    { 11 } 64 {'powerpc64'},
+    { 12 }  8 {'avr'},
+    { 13 } 32 {'mipsel'},
+    { 14 } 64 {'jvm'},
+    { 15 } 16 {'i8086'}
+    );
 
 type
+  // from globtype.pas
   tproccalloption=(
     pocall_none,
     { procedure uses C styled calling }
@@ -185,7 +278,8 @@ type
     pocall_mwpascal
   );
   tproccalloptions = set of tproccalloption;
-  
+
+  // from symconst.pas
   tproctypeoption=(
     potype_none,
     potype_proginit,     { Program initialization }
@@ -201,8 +295,7 @@ type
   );
   tproctypeoptions = set of tproctypeoption;
   
-  tprocoption=(
-    po_none,
+  tprocoption=(po_none,
     po_classmethod,       { class method }
     po_virtualmethod,     { Procedure is a virtual method }
     po_abstractmethod,    { Procedure is an abstract method }
@@ -237,18 +330,19 @@ type
     po_has_public_name,
     po_forward,
     po_global,
-    po_has_inlininginfo,
+    po_has_inlininginfo, // deleted in PPUVersion 167
     { The different kind of syscalls on MorphOS }
     po_syscall_legacy,
     po_syscall_sysv,
     po_syscall_basesysv,
     po_syscall_sysvbase,
     po_syscall_r12base,
+    { Used to record the fact that a symbol is asociated to this syscall }
+    po_syscall_has_libsym,
     { Procedure can be inlined }
     po_inline,
     { Procedure is used for internal compiler calls }
     po_compilerproc,
-    po_rtlproc,
     { importing }
     po_has_importdll,
     po_has_importname,
@@ -269,9 +363,39 @@ type
       (when calling a regular procedure using the above convention, it will
        simply not see the frame pointer parameter, and since the caller cleans
        up the stack will also remain balanced) }
-    po_delphi_nested_cc
+    po_delphi_nested_cc,
+    { allows the routine's RawByteString var/out parameters to accept parameters
+      that do not match exactly (without typeconversion) }
+    po_rtlproc,
+    { Non-virtual method of a Java class that has been transformed into a
+      "virtual; final;" method for JVM-implementation reasons }
+    po_java_nonvirtual,
+    { automatically inherited routine from parent class, ignore for resolving
+      overloads (on the JVM target, constructors are not automatically
+      inherited, so we explicitly have to add the constructors of the parent
+      class to the child class; this influences the overload resolution logic
+      though, so ignore them there) }
+    po_ignore_for_overload_resolution,
+    { the visibility of of this procdef was raised automatically by the
+      compiler, e.g. because it was designated as a getter/setter for a property
+      with a higher visibility on the JVM target }
+    po_auto_raised_visibility,
+    { procedure is far (x86 only) }
+    po_far,
+    { the procedure never returns, this information is usefull for dfa }
+    po_noreturn
   );
   tprocoptions = set of tprocoption;
+
+  { options that should not trigger the recompilation of a unit if they change
+    between the interface and the implementation }
+  timplprocoption = (
+    { the routine contains no code }
+    pio_empty,
+    { the inline body of this routine is available }
+    pio_has_inlininginfo
+  );
+  timplprocoptions = set of timplprocoption;
 
 const
   proccalloptionNames : array[tproccalloption] of string[14]=('',
@@ -301,7 +425,7 @@ const
      'Class Constructor',
      'Class Destructor'
   );
-  procoptionNames : array[tprocoption] of string[20]=(
+  procoptionNames : array[tprocoption] of string[30]=(
     'none',
     'classmethod',       { class method }
     'virtualmethod',     { Procedure is a virtual method }
@@ -331,24 +455,25 @@ const
     { location of parameters is given explicitly as it is necessary for some syscall
       conventions like that one of MorphOS }
     'explicitparaloc',
-    { no stackframe will be generated, used by lowlevel assembler like get_frame }
+    { no stackframe will be generated', used by lowlevel assembler like get_frame }
     'nostackframe',
     'has_mangledname',
     'has_public_name',
     'forward',
     'global',
-    'has_inlininginfo',
+    'po_has_inlininginfo',
     { The different kind of syscalls on MorphOS }
     'syscall_legacy',
     'syscall_sysv',
     'syscall_basesysv',
     'syscall_sysvbase',
     'syscall_r12base',
+    { Used to record the fact that a symbol is asociated to this syscall }
+    'syscall_has_libsym',
     { Procedure can be inlined }
     'inline',
     { Procedure is used for internal compiler calls }
     'compilerproc',
-    'rtlproc',
     { importing }
     'has_importdll',
     'has_importname',
@@ -369,7 +494,27 @@ const
       (when calling a regular procedure using the above convention, it will
        simply not see the frame pointer parameter, and since the caller cleans
        up the stack will also remain balanced) }
-    'delphi_nested_cc'
+    'delphi_nested_cc',
+    { allows the routine's RawByteString var/out parameters to accept parameters
+      that do not match exactly (without typeconversion) }
+    'rtlproc',
+    { Non-virtual method of a Java class that has been transformed into a
+      "virtual; final;" method for JVM-implementation reasons }
+    'java_nonvirtual',
+    { automatically inherited routine from parent class, ignore for resolving
+      overloads (on the JVM target, constructors are not automatically
+      inherited, so we explicitly have to add the constructors of the parent
+      class to the child class; this influences the overload resolution logic
+      though, so ignore them there) }
+    'ignore_for_overload_resolution',
+    { the visibility of of this procdef was raised automatically by the
+      compiler, e.g. because it was designated as a getter/setter for a property
+      with a higher visibility on the JVM target }
+    'auto_raised_visibility',
+    { procedure is far (x86 only) }
+    'far',
+    { the procedure never returns, this information is usefull for dfa }
+    'noreturn'
   );
 
 type
@@ -413,7 +558,8 @@ type
     { type is a generic }
     df_generic,
     { type is a specialization of a generic type }
-    df_specialization
+    df_specialization,
+    df_genconstraint
   );
   tdefoptions=set of tdefoption;
 
@@ -429,12 +575,21 @@ type
   );
   tdefstates=set of tdefstate;
 
+  { flags for generic type constraints }
+  tgenericconstraintflag=(gcf_none,
+    gcf_constructor,       { specialization type needs to have a constructor }
+    gcf_class,             { specialization type needs to be a class }
+    gcf_record             { specialization type needs to be a record type }
+  );
+  tgenericconstraintflags=set of tgenericconstraintflag;
+
 const
   defoptionNames : array[tdefoption] of string=(
      '?',
      'Unique Type',
      'Generic',
-     'Specialization'
+     'Specialization',
+     'Generic Constraint'
   );
   defstateNames : array[tdefstate] of string=(
      '?',
@@ -510,6 +665,8 @@ type
 
   TPPU = class
   private
+    FSizeOfAInt: integer;
+    FSizeOfASizeInt: integer;
     fChangeEndian: boolean;
     FHeader: TPPUHeader;
     FEntry: TPPUEntry;
@@ -543,12 +700,22 @@ type
     function ReadEntryByte(const Msg: string): byte;
     function ReadEntryShortstring: shortstring;
     function ReadEntryShortstring(const Msg: string): shortstring;
+    function ReadEntryAnsistring: ansistring;
+    function ReadEntryAnsistring(const Msg: string): ansistring;
     function ReadEntryLongint: longint;
     function ReadEntryLongint(const Msg: string): longint;
     function ReadEntryDWord: cardinal;
     function ReadEntryDWord(const Msg: string): cardinal;
     function ReadEntryWord: word;
     function ReadEntryWord(const Msg: string): word;
+    function ReadEntryInt64: int64;
+    function ReadEntryInt64(const Msg: string): int64;
+    function ReadEntryQWord: QWord;
+    function ReadEntryQWord(const Msg: string): QWord;
+    function ReadEntryAInt: int64;
+    function ReadEntryAInt(const Msg: string): int64;
+    function ReadEntryASizeInt: int64;
+    function ReadEntryASizeInt(const Msg: string): int64;
     procedure ReadEntrySmallSet(var s);
     procedure ReadEntryNormalSet(var s);
     procedure ReadUsedUnits;
@@ -562,6 +729,7 @@ type
     procedure ReadPosInfo;
     procedure ReadSymTableOptions;
     procedure ReadDefinitions;
+    procedure ReadProcImplOptions(out ImplProcOptions: timplprocoptions);
     procedure ReadSymbols;
     procedure ReadNodeTree;
     procedure ReadCommonDefinition;
@@ -771,31 +939,9 @@ begin
 end;
 
 function PPUCpuToStr(w:longint):string;
-type
-  { Copied from systems.pas }
-       tsystemcpu=
-       (
-        cpu_no,                       { 0 }
-        cpu_i386,                     { 1 }
-        cpu_m68k,                     { 2 }
-        cpu_alpha,                    { 3 }
-        cpu_powerpc,                  { 4 }
-        cpu_sparc,                    { 5 }
-        cpu_vm,                       { 6 }
-        cpu_iA64,                     { 7 }
-        cpu_x86_64,                   { 8 }
-        cpu_mips,                     { 9 }
-        cpu_arm,                      { 10 }
-        cpu_powerpc64,                { 11 }
-        cpu_avr                       { 12 }
-       );
-const
-  CpuTxt : array[tsystemcpu] of string[9]=
-    ('none','i386','m68k','alpha','powerpc','sparc','vis','ia64',
-     'x86_64','mips','arm','powerpc64','avr');
 begin
   if w<=ord(high(tsystemcpu)) then
-    Result:=CpuTxt[tsystemcpu(w)]
+    Result:=PPU_CPUNames[tsystemcpu(w)]
   else
     Result:='<!! Unknown cpu value '+IntToStr(w)+'>';
 end;
@@ -989,8 +1135,10 @@ begin
 
   ibmainname:       Result:='ibmainname';
   ibsymtableoptions:Result:='ibsymtableoptions';
+  //ibrecsymtableoptions: duplicate with ibsymtableoptions
   { target-specific things }
   iblinkotherframeworks: Result:='iblinkotherframeworks';
+  ibjvmnamespace:   Result:='ibjvmnamespace';
   else Result:='unknown('+IntToStr(Entry)+')';
   end;
 end;
@@ -1072,13 +1220,15 @@ begin
 end;
 
 procedure TPPU.ReadHeader;
+var
+  cpu: tsystemcpu;
 begin
   fChangeEndian:=PPUIsEndianBig;
   // read ID
   ReadData(FHeader.id,PPU_ID_Size);
   if String(FHeader.id)<>PPU_ID then
     Error('This is not a PPU. Wrong ID.');
-  // read version
+  // read Version
   ReadData(FHeader.ver,PPU_Ver_Size);
   FVersion:=StrToIntDef(String(FHeader.ver),0);
   if FVersion<16 then
@@ -1100,6 +1250,14 @@ begin
 
   FEntryPos:=0;
   FillByte(FEntry,SizeOf(FEntry),0);
+
+  {$R-}
+  cpu:=tsystemcpu(FHeader.cpu);
+  if (cpu<low(tsystemcpu)) or (cpu>high(tsystemcpu)) then
+    cpu:=tsystemcpu(FHeader.cpu);
+  {$R+}
+  FSizeOfAInt:=CpuAluBitSize[cpu] div 8;
+  FSizeOfASizeInt:=CpuAddrBitSize[cpu] div 8;
 
   {$IFDEF VerbosePPUParser}
   DumpHeader('');
@@ -1284,7 +1442,9 @@ var
   procoptions: tprocoptions;
   procinfooptions : tprocinfoflag;
   proctypeoption: tproctypeoption;
+  ImplProcOptions: timplprocoptions;
   CurEntryStart: LongInt;
+  HasInliningInfo: Boolean;
 begin
   EntryNr:=ReadEntry;
   if EntryNr<>ibstartdefs then
@@ -1349,7 +1509,15 @@ begin
           ReadEntryLongint{$IFDEF VerbosePPUParser}('           MsgInt : '){$ENDIF};
         if (po_msgstr in procoptions) then
           ReadEntryShortstring{$IFDEF VerbosePPUParser}('           MsgStr : '){$ENDIF};
-        if (po_has_inlininginfo in procoptions) then begin
+        if (po_dispid in procoptions) then
+          ReadEntryLongint{$IFDEF VerbosePPUParser}('           DispID : '){$ENDIF};
+        if Version>=167 then
+          ReadProcImplOptions(ImplProcOptions);
+
+        HasInliningInfo:=
+          ((Version<167) and (po_has_inlininginfo in procoptions))
+          or ((Version>=167) and (pio_has_inlininginfo in implprocoptions));
+        if HasInliningInfo then begin
           {$IFDEF VerbosePPUParser} dbgout('       FuncretSym : '); {$ENDIF}
           ReadDereference;
           ReadEntrySmallSet(procinfooptions);
@@ -1361,12 +1529,12 @@ begin
         ReadDefinitions;
         ReadSymbols;
         // localst
-        if (po_has_inlininginfo in procoptions) then
+        if HasInliningInfo then
         begin
           ReadDefinitions;
           ReadSymbols;
         end;
-        if (po_has_inlininginfo in procoptions) then
+        if HasInliningInfo then
           readnodetree;
       end;
       
@@ -1381,6 +1549,11 @@ begin
       DebugLn(['TPPU.ReadDefinitions: Warning: Entry has more information stored']);
     {$ENDIF}
   until false;
+end;
+
+procedure TPPU.ReadProcImplOptions(out ImplProcOptions: timplprocoptions);
+begin
+  ReadEntrySmallSet(ImplProcOptions);
 end;
 
 procedure TPPU.ReadSymbols;
@@ -1448,12 +1621,14 @@ procedure TPPU.ReadCommonDefinition;
 var
   defoptions: tdefoptions;
   defstates: tdefstates;
+  genconstr: tgenericconstraintflags;
+  len: Int64;
+  i: Integer;
   {$IFDEF VerbosePPUParser}
   defopt: tdefoption;
   defstate: tdefstate;
   TokenBuf: Pointer;
   TokenBufSize: LongInt;
-  i: Integer;
   {$ENDIF}
 begin
   ReadEntryLongint{$IFDEF VerbosePPUParser}('DefinitionID='){$ENDIF};
@@ -1481,6 +1656,23 @@ begin
   end;
   {$ENDIF}
 
+  if df_genconstraint in defoptions then begin
+    // generic constraints
+    ReadEntrySmallSet(genconstr);
+    len:=ReadEntryASizeInt({$IFDEF VerbosePPUParser}'generic consstraints='{$ENDIF});
+    for i:=1 to len do begin
+      ReadDereference;
+    end;
+  end;
+
+  if [df_generic,df_specialization]*defoptions<>[] then begin
+    // generic parameters
+    len:=ReadEntryLongint;
+    for i:=1 to len do begin
+      ReadDereference;
+    end;
+  end;
+
   if df_generic in defoptions then begin
     {$IFDEF VerbosePPUParser}TokenBufSize:={$ENDIF}ReadEntryLongint;
     {$IFDEF VerbosePPUParser}
@@ -1490,7 +1682,7 @@ begin
       inc(FEntryPos,TokenBufSize);
       i:=0;
       while i<TokenBufSize do begin
-        // The tokens depends on compiler version
+        // The tokens depends on compiler Version
         // ToDo: write tokens
         inc(i);
       end;
@@ -1510,6 +1702,7 @@ procedure TPPU.ReadAbstractProcDef(out proccalloption: tproccalloption;
   out procoptions: tprocoptions; out proctypeoption: tproctypeoption);
 var
   i     : longint;
+  p: PByte;
   {$IFDEF VerbosePPUParser}
   po: tprocoption;
   {$ENDIF}
@@ -1518,7 +1711,8 @@ begin
   dbgout('Return type: ');
   {$ENDIF}
   ReadDereference;
-  ReadEntryByte{$IFDEF VerbosePPUParser}('FPU='){$ENDIF};
+  if Version<169 then
+    ReadEntryByte{$IFDEF VerbosePPUParser}('FPU='){$ENDIF};
   proctypeoption:=tproctypeoption(ReadEntryByte);
   {$IFDEF VerbosePPUParser}
   debugln('Typeoptions: ',proctypeoptionNames[proctypeoption]);
@@ -1528,6 +1722,13 @@ begin
   debugln('CallOption : ',proccalloptionNames[proccalloption]);
   {$ENDIF}
   ReadEntryNormalSet(procoptions);
+  if Version>=167 then begin
+    // po_has_inlininginfo was deleted in PPU version 167
+    p:=@PByte(@procoptions)[ord(po_has_inlininginfo)];
+    System.Move(p[0],p[1],ord(High(procoptions))-ord(po_has_inlininginfo));
+    p^:=0;
+  end;
+
   {$IFDEF VerbosePPUParser}
   if procoptions<>[] then begin
     dbgout('Options: ');
@@ -1542,6 +1743,8 @@ begin
     i:=ReadEntryByte;
     inc(FEntryPos,i);
   end;
+  if po_syscall_has_libsym in procoptions then
+    ReadDereference;
 end;
 
 procedure TPPU.ReadSymOptions;
@@ -1581,7 +1784,13 @@ var
   {$ENDIF}
 begin
   DerefPos:=ReadEntryLongint;
-  if DerefPos>=FDerefDataSize then
+  if DerefPos=-1 then begin
+    {$IFDEF VerbosePPUParser}
+    dbgout(' Nil');
+    {$ENDIF}
+    exit;
+  end;
+  if DerefPos>FDerefDataSize then
     Error('Invalid Deref, DerefPos>=FDerefDataSize');
   {$IFDEF VerbosePPUParser}
   dbgout('(',IntToStr(DerefPos),')');
@@ -1803,7 +2012,7 @@ begin
   
   if String(FHeader.id)<>PPU_ID then
     Error('This is not a PPU. Wrong ID.');
-  // read version
+  // read Version
   FVersion:=StrToIntDef(String(FHeader.ver),0);
   if FVersion<16 then
     Error('Old PPU versions (<16) are not supported.');
@@ -1902,12 +2111,38 @@ begin
   debugln([Msg,Result]);
 end;
 
+function TPPU.ReadEntryAnsistring: ansistring;
+var
+  l: longint;
+
+  procedure ErrorOutOfBytes;
+  begin
+    Error('TPPU.ReadEntryAnsistring: out of bytes. needed='+IntToStr(l)+', found='+IntToStr(FEntry.size-FEntryPos));
+  end;
+
+begin
+  l:=ReadEntryLongint;
+  SetLength(Result,l);
+  if l>0 then begin
+    if FEntryPos+l>FEntry.size then
+      ErrorOutOfBytes;
+    System.Move(Pointer(FEntryBuf+FEntryPos)^,Result[1],l);
+  end;
+  inc(FEntryPos,l);
+end;
+
+function TPPU.ReadEntryAnsistring(const Msg: string): ansistring;
+begin
+  Result:=ReadEntryAnsistring();
+  debugln([Msg,Result]);
+end;
+
 function TPPU.ReadEntryLongint: longint;
 begin
-  if FEntryPos+4>FEntry.size then
+  if FEntryPos+SizeOf(Longint)>FEntry.size then
     Error('TPPU.ReadEntryLongint: out of bytes');
   Result:=PLongint(FEntryBuf+FEntryPos)^;
-  inc(FEntryPos,4);
+  inc(FEntryPos,SizeOf(Longint));
 end;
 
 function TPPU.ReadEntryLongint(const Msg: string): longint;
@@ -1928,15 +2163,79 @@ end;
 
 function TPPU.ReadEntryWord: word;
 begin
-  if FEntryPos+2>FEntry.size then
+  if FEntryPos+SizeOf(Word)>FEntry.size then
     Error('TPPU.ReadEntryLongint: out of bytes');
   Result:=PWord(FEntryBuf+FEntryPos)^;
-  inc(FEntryPos,2);
+  inc(FEntryPos,SizeOf(Word));
 end;
 
 function TPPU.ReadEntryWord(const Msg: string): word;
 begin
   Result:=ReadEntryWord();
+  debugln([Msg,Result]);
+end;
+
+function TPPU.ReadEntryInt64: int64;
+begin
+  if FEntryPos+SizeOf(Int64)>FEntry.size then
+    Error('TPPU.ReadEntryInt64: out of bytes');
+  Result:=PInt64(FEntryBuf+FEntryPos)^;
+  inc(FEntryPos,SizeOf(Int64));
+end;
+
+function TPPU.ReadEntryInt64(const Msg: string): int64;
+begin
+  Result:=ReadEntryInt64();
+  debugln([Msg,Result]);
+end;
+
+function TPPU.ReadEntryQWord: QWord;
+begin
+  if FEntryPos+SizeOf(QWord)>FEntry.size then
+    Error('TPPU.ReadEntryQWord: out of bytes');
+  Result:=PQWord(FEntryBuf+FEntryPos)^;
+  inc(FEntryPos,SizeOf(QWord));
+end;
+
+function TPPU.ReadEntryQWord(const Msg: string): QWord;
+begin
+  Result:=ReadEntryQWord();
+  debugln([Msg,Result]);
+end;
+
+function TPPU.ReadEntryAInt: int64;
+begin
+  case FSizeOfAInt of
+    8: result:=ReadEntryInt64;
+    4: result:=ReadEntryLongint;
+    2: result:=smallint(ReadEntryWord);
+    1: result:=shortint(ReadEntryByte);
+  else
+    Result:=0;
+  end;
+end;
+
+function TPPU.ReadEntryAInt(const Msg: string): int64;
+begin
+  Result:=ReadEntryAInt();
+  debugln([Msg,Result]);
+end;
+
+function TPPU.ReadEntryASizeInt: int64;
+begin
+  case FSizeOfASizeInt of
+    8: result:=ReadEntryInt64;
+    4: result:=ReadEntryLongint;
+    2: result:=smallint(ReadEntryWord);
+    1: result:=shortint(ReadEntryByte);
+  else
+    Result:=0;
+  end;
+end;
+
+function TPPU.ReadEntryASizeInt(const Msg: string): int64;
+begin
+  Result:=ReadEntryASizeInt();
   debugln([Msg,Result]);
 end;
 
@@ -2106,6 +2405,7 @@ var
   SymbolName: ShortString;
   SymbolOrdNr: LongInt;
   SymbolIsVar: Boolean;
+  SymMangledName: String;
   {$ENDIF}
 begin
   while not EndOfEntry do begin
@@ -2117,10 +2417,14 @@ begin
     for i:=0 to SymbolCount-1 do
     begin
       {$IFDEF VerbosePPUParser}SymbolName:={$ENDIF}ReadEntryShortstring;
+      if Version>130 then
+        {$IFDEF VerbosePPUParser}SymMangledName:={$ENDIF}ReadEntryShortstring
+      else
+        {$IFDEF VerbosePPUParser}SymMangledName:=SymbolName{$ENDIF};
       {$IFDEF VerbosePPUParser}SymbolOrdNr:={$ENDIF}ReadEntryLongint;
       {$IFDEF VerbosePPUParser}SymbolIsVar:=ReadEntryByte<>0{$ELSE}ReadEntryByte{$ENDIF};
       {$IFDEF VerbosePPUParser}
-      DebugLn(['TPPU.ReadImportSymbols ',SymbolName,' (OrdNr: ',SymbolOrdNr,' IsVar: ',SymbolIsVar,')']);
+      DebugLn(['TPPU.ReadImportSymbols "',SymbolName,'" Mangled="',SymMangledName,'" (OrdNr: ',SymbolOrdNr,' IsVar: ',SymbolIsVar,')']);
       {$ENDIF}
     end;
   end;
@@ -2296,6 +2600,7 @@ begin
   DebugLn([Prefix,'  Number of Definitions=',FHeader.deflistsize]);
   DebugLn([Prefix,'  Number of Symbols=',FHeader.symlistsize]);
   DebugLn([Prefix,'  Indirect Checksum=',HexStr(cardinal(FHeader.indirect_checksum),8)]);
+  DebugLn([Prefix,'  sizeof(aint)=',FSizeOfAInt]);
 end;
 
 procedure TPPU.GetMainUsesSectionNames(var List: TStrings);

@@ -12,6 +12,7 @@ const
   BREAK_LINE_FOOFUNC_NEST  = 206;
   BREAK_LINE_FOOFUNC       = 230;
   BREAK_LINE_FOOFUNC_ARRAY = 254;
+  BREAK_LINE_Class_Meth1   = 497; // WatchesPrgStruct.inc
   RUN_GDB_TEST_ONLY = -1; // -1 run all
   RUN_TEST_ONLY = -1; // -1 run all
 
@@ -40,6 +41,7 @@ type
     ExpectBreakSubFoo: TWatchExpectationArray;    // Watches, evaluated in SubFoo (nested)
     ExpectBreakFoo: TWatchExpectationArray;       // Watches, evaluated in Foo
     ExpectBreakFooArray: TWatchExpectationArray;       // Watches, evaluated in Foo_Array
+    ExpectBreakClassMeth1: TWatchExpectationArray;       // Watches, evaluated TClassTCast2.ClassTCast2Method1;
 
     FCurrentExpArray: ^TWatchExpectationArray; // currently added to
 
@@ -70,6 +72,7 @@ type
     procedure AddExpectBreakFooAll;
     procedure AddExpectBreakFooArray;
     procedure AddExpectBreakFooMixInfo;
+    procedure AddExpectBreakClassMeth1;
     //procedure AddExpectBreakSubFoo;
     procedure AddExpectBreakFooAndSubFoo;  // check for caching issues
     procedure RunTestWatches(NamePreFix: String;
@@ -132,6 +135,7 @@ begin
   SetLength(ExpectBreakSubFoo, 0);
   SetLength(ExpectBreakFoo, 0);
   SetLength(ExpectBreakFooArray, 0);
+  SetLength(ExpectBreakClassMeth1, 0);
 end;
 
 function TTestWatches.HasTestArraysData: Boolean;
@@ -139,7 +143,8 @@ begin
   Result := (Length(ExpectBreakFooGdb) > 0) or
             (Length(ExpectBreakSubFoo) > 0) or
             (Length(ExpectBreakFoo) > 0) or
-            (Length(ExpectBreakFooArray) >0 );
+            (Length(ExpectBreakFooArray) >0 ) or
+            (Length(ExpectBreakClassMeth1) >0 );
 
 end;
 
@@ -1027,6 +1032,14 @@ begin
   *)
   {%endregion    * procedure/function/method * }
 
+  {%region       * numbers * }
+  AddFmtDef('21',     '21',    skSimple,   'int|Integer|LongInt', [fTpMtch]);
+  AddFmtDef('021',    '21',    skSimple,   'int|Integer|LongInt', [fTpMtch]); // octal
+  AddFmtDef('$15',    '21',    skSimple,   'int|Integer|LongInt', [fTpMtch]);
+  AddFmtDef('&25',    '21',    skSimple,   'int|Integer|LongInt', [fTpMtch]);
+  AddFmtDef('%10101', '21',    skSimple,   'int|Integer|LongInt', [fTpMtch]);
+  {%endregion    * numbers * }
+
   if RUN_TEST_ONLY > 0 then begin
     ExpectBreakFoo[0] := ExpectBreakFoo[abs(RUN_TEST_ONLY)];
     SetLength(ExpectBreakFoo, 1);
@@ -1091,6 +1104,35 @@ begin
   AddFmtDef('VarDynIntArray[1]',          '2',
                                 skSimple,       'Integer|LongInt',
                                 [fTpMtch]);
+  AddFmtDef('VarDynIntArray[18]',          '36',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  // index in hex
+  AddFmtDef('VarDynIntArray[$1]',          '2',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[$12]',          '36',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[&1]',          '2',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[&22]',          '36',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[%1]',          '2',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[%10010]',          '36',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[0x1]',          '2',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+  AddFmtDef('VarDynIntArray[0x12]',          '36',
+                                skSimple,       'Integer|LongInt',
+                                [fTpMtch]);
+
   AddFmtDef('VarStatIntArray[6]',         '12',
                                 skSimple,       'Integer|LongInt',
                                 [fTpMtch]);
@@ -1617,6 +1659,21 @@ begin
                                 []);
 end;
 
+procedure TTestWatches.AddExpectBreakClassMeth1;
+begin
+  if not TestControlForm.CheckListBox1.Checked[TestControlForm.CheckListBox1.Items.IndexOf('  TTestWatch.All')] then exit;
+  FCurrentExpArray := @ExpectBreakClassMeth1;
+
+  AddFmtDef('publMember1',  '^413$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+  AddFmtDef('protMember1',  '^412$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+  AddFmtDef('privMember1',  '^411$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+
+  AddFmtDef('self.publMember1',  '^413$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+  AddFmtDef('self.protMember1',  '^412$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+  AddFmtDef('self.privMember1',  '^411$',    skSimple,   'Integer|LongInt',  [fTpMtch]);
+
+end;
+
 procedure TTestWatches.AddExpectBreakFooAndSubFoo;
   procedure AddF(AnExpr:  string; AFmt: TWatchDisplayFormat;
     AMtch: string; AKind: TDBGSymbolKind; ATpNm: string; AFlgs: TWatchExpectationFlags;
@@ -1729,6 +1786,11 @@ begin
       InitialEnabled := True;
       Enabled := True;
     end;
+    with dbg.BreakPoints.Add('WatchesPrgStruct.inc', BREAK_LINE_Class_Meth1) do begin
+      InitialEnabled := True;
+      Enabled := True;
+    end;
+
 
     if dbg.State = dsError then
       Fail(' Failed Init');
@@ -1737,6 +1799,7 @@ begin
     AddWatches(ExpectBreakFoo, FWatches, Only, OnlyName, OnlyNamePart);
     AddWatches(ExpectBreakSubFoo, FWatches, Only, OnlyName, OnlyNamePart);
     AddWatches(ExpectBreakFooArray, FWatches, Only, OnlyName, OnlyNamePart);
+    AddWatches(ExpectBreakClassMeth1, FWatches, Only, OnlyName, OnlyNamePart);
 
     (* Start debugging *)
     dbg.ShowConsole := True;
@@ -1788,6 +1851,16 @@ begin
     else TestTrue('Hit BREAK_LINE_FOOFUNC_ARRAY', False);
 
 
+    if TestTrue('State=Pause', dbg.State = dsPause)
+    then begin
+      (* Hit 2nd breakpoint: BREAK_LINE_Class_Meth1  *)
+
+      TestWatchList('Brk3', ExpectBreakClassMeth1, dbg, Only, OnlyName, OnlyNamePart);
+
+      dbg.Run;
+    end
+    else TestTrue('Hit BREAK_LINE_Class_Meth1', False);
+
     // TODO: 2nd round, with NIL data
 	//DebugInteract(dbg);
 
@@ -1824,6 +1897,7 @@ begin
   AddExpectBreakFooArray;
   //AddExpectBreakFooMixInfo;
   AddExpectBreakFooAndSubFoo;
+  AddExpectBreakClassMeth1;
   RunTestWatches('', TestExeName,  '', []);
 
   if TestControlForm.CheckListBox1.Checked[TestControlForm.CheckListBox1.Items.IndexOf('  TTestWatch.Mix')]

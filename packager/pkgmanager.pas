@@ -46,7 +46,7 @@ uses
   MemCheck,
   {$ENDIF}
   // FCL, LCL
-  TypInfo, math, Classes, SysUtils, LCLProc, Forms, Controls, Dialogs, Menus,
+  TypInfo, math, Classes, SysUtils, LCLProc, LazUTF8, Forms, Controls, Dialogs, Menus,
   contnrs, StringHashList, Translations, LResources, ComCtrls,
   // codetools
   CodeToolsConfig, CodeToolManager, CodeCache, CodeToolsStructs, BasicCodeTools,
@@ -57,8 +57,8 @@ uses
   IDEExternToolIntf,
   PropEdits, MacroIntf, LazIDEIntf, IDEMsgIntf,
   // IDE
-  LazarusIDEStrConsts, IDEProcs, ObjectLists, DialogProcs, IDECommands,
-  IDEOptionDefs, EnvironmentOpts, MiscOptions, InputHistory,
+  IDECmdLine, LazarusIDEStrConsts, IDEProcs, ObjectLists, DialogProcs,
+  IDECommands, IDEOptionDefs, EnvironmentOpts, MiscOptions, InputHistory,
   Project, ComponentReg, OldCustomCompDlg, PackageEditor, AddToPackageDlg,
   PackageDefs, PackageLinks, PackageSystem, OpenInstalledPkgDlg,
   PkgGraphExplorer, BrokenDependenciesDlg, CompilerOptions,
@@ -215,7 +215,7 @@ type
     procedure ConnectSourceNotebookEvents; override;
     procedure SetupMainBarShortCuts; override;
     procedure SetRecentPackagesMenu; override;
-    procedure AddFileToRecentPackages(const Filename: string);
+    procedure AddToMenuRecentPackages(const Filename: string; Save: boolean);
     procedure SaveSettings; override;
     procedure UpdateVisibleComponentPalette; override;
     procedure ProcessCommand(Command: word; var Handled: boolean); override;
@@ -990,7 +990,7 @@ function TPkgManager.PackageGraphExplorerOpenProject(Sender: TObject;
   AProject: TProject): TModalResult;
 begin
   if AProject<>Project1 then exit(mrCancel);
-  MainIDE.DoShowProjectInspector(true);
+  MainIDE.DoShowProjectInspector;
   Result:=mrOk;
 end;
 
@@ -1364,7 +1364,7 @@ begin
         if Dependency is TPkgDependency then begin
           // check if project
           if Dependency.Owner is TProject then begin
-            MainIDE.DoShowProjectInspector(true);
+            MainIDE.DoShowProjectInspector;
             Result:=IDEMessageDialogAb(lisPkgMangBrokenDependency,
               Format(lisPkgMangTheProjectRequiresThePackageButItWasNotFound,
                     [Dependency.AsString, LineEnding]),
@@ -2910,7 +2910,6 @@ begin
   // componentpalette
   IDEComponentPalette:=TComponentPalette.Create;
   CompPalette:=TComponentPalette(IDEComponentPalette);
-  if CompPalette=nil then ;
   CompPalette.OnEndUpdate:=@IDEComponentPaletteEndUpdate;
   CompPalette.OnOpenPackage:=@IDEComponentPaletteOpenPackage;
   CompPalette.OnOpenUnit:=@IDEComponentPaletteOpenUnit;
@@ -3036,7 +3035,8 @@ begin
      EnvironmentOptions.RecentPackageFiles,@MainIDEitmOpenRecentPackageClicked);
 end;
 
-procedure TPkgManager.AddFileToRecentPackages(const Filename: string);
+procedure TPkgManager.AddToMenuRecentPackages(const Filename: string;
+  Save: boolean);
 begin
   AddToRecentList(Filename,EnvironmentOptions.RecentPackageFiles,
                   EnvironmentOptions.MaxRecentPackageFiles,rltFile);
@@ -3049,8 +3049,7 @@ begin
 
 end;
 
-function TPkgManager.GetDefaultSaveDirectoryForFile(const Filename: string
-  ): string;
+function TPkgManager.GetDefaultSaveDirectoryForFile(const Filename: string): string;
 var
   APackage: TLazPackage;
   PkgFile: TPkgFile;
@@ -3126,8 +3125,7 @@ begin
   end;
 end;
 
-procedure TPkgManager.OnSourceEditorPopupMenu(
-  const AddMenuItemProc: TAddMenuItemProc);
+procedure TPkgManager.OnSourceEditorPopupMenu(const AddMenuItemProc: TAddMenuItemProc);
 var
   APackage: TIDEPackage;
 begin
@@ -3300,6 +3298,7 @@ begin
 
   // save package file links
   //DebugLn(['TPkgManager.AddPackageToGraph ',APackage.Name]);
+  PkgLinks.AddUserLink(APackage);
   PkgLinks.SaveUserLinks;
 
   Result:=mrOk;
@@ -3508,7 +3507,7 @@ var
 begin
   Result:=ShowOpenLoadedPkgDlg(APackage);
   if (Result<>mrOk) then exit;
-  Result:=DoOpenPackage(APackage,[],false);
+  Result:=DoOpenPackage(APackage,[pofAddToRecent],false);
 end;
 
 function TPkgManager.DoOpenPackage(APackage: TLazPackage;
@@ -3518,6 +3517,7 @@ var
   AFilename: String;
 begin
   AFilename:=APackage.Filename;
+  //debugln(['TPkgManager.DoOpenPackage ',AFilename]);
   
   // revert: if possible and wanted
   if (pofRevert in Flags) and (FileExistsCached(AFilename)) then begin
@@ -3533,9 +3533,7 @@ begin
   if (pofAddToRecent in Flags) then begin
     AFilename:=APackage.Filename;
     if FileExistsCached(AFilename) then begin
-      AddToRecentList(AFilename,EnvironmentOptions.RecentPackageFiles,
-                      EnvironmentOptions.MaxRecentPackageFiles,rltFile);
-      SetRecentPackagesMenu;
+      AddToMenuRecentPackages(AFilename,false);
     end;
   end;
 
@@ -3615,9 +3613,7 @@ begin
 
   // add to recent packages
   if pofAddToRecent in Flags then begin
-    AddToRecentList(AFilename,EnvironmentOptions.RecentPackageFiles,
-                    EnvironmentOptions.MaxRecentPackageFiles,rltFile);
-    SetRecentPackagesMenu;
+    AddToMenuRecentPackages(AFilename,false);
   end;
 
   OpenEditor:=not (pofDoNotOpenEditor in Flags);
@@ -3796,7 +3792,7 @@ begin
   APackage.Modified:=false;
   // add to recent
   if (psfSaveAs in Flags) then begin
-    AddFileToRecentPackages(APackage.Filename);
+    AddToMenuRecentPackages(APackage.Filename,false);
   end;
 
   if APackage.Editor<>nil then
@@ -3857,7 +3853,7 @@ begin
   if (ADependency.Owner is TProject) then begin
     // broken dependency used by project -> show project inspector
     if ADependency.Owner=Project1 then begin
-      MainIDE.DoShowProjectInspector(true);
+      MainIDE.DoShowProjectInspector;
       Msg:=Format(lisSeeProjectProjectInspector, [Msg]);
     end;
   end;
@@ -5869,13 +5865,21 @@ begin
     // check consistency
     Result:=CheckPackageGraphForCompilation(nil,Dependencies,
                             EnvironmentOptions.GetParsedLazarusDirectory,false);
-    if Result<>mrOk then exit;
+    if Result<>mrOk then begin
+      if ConsoleVerbosity>0 then
+        debugln(['TPkgManager.DoCompileAutoInstallPackages CheckPackageGraphForCompilation failed']);
+      exit;
+    end;
     //DebugLn(['TPkgManager.DoCompileAutoInstallPackages LCLUnitPath=',PackageGraph.LCLPackage.CompilerOptions.GetUnitPath(true)]);
 
     // save all open files
     if not (pcfDoNotSaveEditorFiles in Flags) then begin
       Result:=MainIDE.DoSaveForBuild(crCompile);
-      if Result<>mrOk then exit;
+      if Result<>mrOk then begin
+        if ConsoleVerbosity>0 then
+          debugln(['TPkgManager.DoCompileAutoInstallPackages MainIDE.DoSaveForBuild failed']);
+        exit;
+      end;
     end;
     
     // compile all auto install dependencies
@@ -5884,8 +5888,12 @@ begin
       CompilePolicy:=pupOnRebuildingAll;
     Result:=PackageGraph.CompileRequiredPackages(nil,Dependencies,false,
                                                  CompilePolicy);
-    if Result<>mrOk then exit;
-    
+    if Result<>mrOk then begin
+      if ConsoleVerbosity>0 then
+        debugln(['TPkgManager.DoCompileAutoInstallPackages PackageGraph.CompileRequiredPackages failed']);
+      exit;
+    end;
+
   finally
     if OnlyBase then
       FreeDependencyList(Dependencies,pdlRequires);

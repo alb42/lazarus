@@ -34,7 +34,7 @@ unit WikiParser;
 interface
 
 uses
-  Classes, SysUtils, laz2_XMLRead, laz2_DOM, LazUTF8, LazLogger,
+  Classes, SysUtils, laz2_XMLRead, laz2_DOM, LazLogger, LazUTF8,
   BasicCodeTools, KeywordFuncLists;
 
 const
@@ -333,8 +333,8 @@ var
   IsWikiTagStartChar,
   IsWikiTagChar: array[char] of boolean;
 
-// normalize link to get the page, e.g. convert spaces to underscores
-function WikiInternalLinkToPage(Link: string): string;
+// normalize link to get the page, e.g. convert spaces to underscores, delete #0,$[]{}<>
+function WikiTitleToPage(Link: string): string;
 function WikiIsExternalLink(Link: string): boolean;
 
 function GetWikiPageID(doc: TDOMNode): string;
@@ -1513,7 +1513,7 @@ begin
   end;
 end;
 
-function WikiInternalLinkToPage(Link: string): string;
+function WikiTitleToPage(Link: string): string;
 var
   i: Integer;
   j: Integer;
@@ -1536,8 +1536,8 @@ begin
           c:=Result[i+j];
           case c of
           '0'..'9': if Code<16 then Code:=Code*16+ord(c)-ord('0');
-          'a'..'z': if Code<16 then Code:=Code*16+ord(c)-ord('a')+10;
-          'A'..'Z': if Code<16 then Code:=Code*16+ord(c)-ord('A')+10;
+          'a'..'f': if Code<16 then Code:=Code*16+ord(c)-ord('a')+10;
+          'A'..'F': if Code<16 then Code:=Code*16+ord(c)-ord('A')+10;
           else break;
           end;
           if j=2 then break;

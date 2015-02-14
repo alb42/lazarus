@@ -107,9 +107,22 @@ type
   TExtCommonDialog = class(TCommonDialog)
   private
     FDialogPosition: TPosition;
+    FLeft: Integer;
+    FTop: Integer;
+    FDlgForm: TCustomForm;
+  protected
+    function GetLeft: Integer; virtual;
+    function GetHeight: Integer; override;
+    function GetTop: Integer; virtual;
+    function GetWidth: Integer; override;
+    procedure SetLeft(AValue: Integer); virtual;
+    procedure SetTop(AValue: Integer); virtual;
+    property DlgForm: TCustomForm read FDlgForm write FDlgForm;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
+    property Left: Integer read GetLeft write SetLeft;
+    property Top: Integer read GetTop write SetTop;
   published
     property DialogPosition: TPosition read FDialogPosition write FDialogPosition default poMainFormCenter;
   end;
@@ -136,7 +149,6 @@ type
     FMemory: Double;
     FPrecision: Byte;
     FBeepOnError: Boolean;
-    FCalc: TCalculatorForm;
     FOnChange: TNotifyEvent;
     FOnCalcKey: TKeyPressEvent;
     FOnDisplayChange: TNotifyEvent;
@@ -211,9 +223,16 @@ Type
     FDisplaySettings: TDisplaySettings;
     FMonthChanged: TNotifyEvent;
     FYearChanged: TNotifyEvent;
+    FOnChange: TNotifyEvent;
     FOKCaption:TCaption;
     FCancelCaption:TCaption;
     FCalendar:TCalendar;
+    procedure OnDialogClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure OnDialogCloseQuery(Sender : TObject; var CanClose : boolean);
+    procedure OnCalendarDayChanged(Sender: TObject);
+    procedure OnCalendarMonthChanged(Sender: TObject);
+    procedure OnCalendarYearChanged(Sender: TObject);
+    procedure OnCalendarChange(Sender: TObject);
   protected
     class procedure WSRegisterClass; override;
     procedure GetNewDate(Sender:TObject);//or onClick
@@ -222,12 +241,15 @@ Type
   public
     constructor Create(AOwner: TComponent); override;
     function Execute: Boolean; override;
+    property Left: Integer read GetLeft write SetLeft;
+    property Top: Integer read GetTop write SetTop;
   published
     property Date: TDateTime read FDate write FDate;
-    property OnDayChanged: TNotifyEvent read FDayChanged write FDayChanged;
     property DisplaySettings: TDisplaySettings read FDisplaySettings write FDisplaySettings default DefaultDisplaySettings;
+    property OnDayChanged: TNotifyEvent read FDayChanged write FDayChanged;
     property OnMonthChanged: TNotifyEvent read FMonthChanged write FMonthChanged;
     property OnYearChanged: TNotifyEvent read FYearChanged write FYearChanged;
+    property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property OKCaption:TCaption read FOKCaption write FOKCaption;
     property CancelCaption:TCaption read FCancelCaption write FCancelCaption;
   end;
@@ -513,6 +535,46 @@ end;
 
 
 { TExtCommonDialog }
+
+function TExtCommonDialog.GetLeft: Integer;
+begin
+  if Assigned(FDlgForm) then FLeft := FDlgForm.Left;
+  Result := FLeft;
+end;
+
+function TExtCommonDialog.GetHeight: Integer;
+begin
+  if Assigned(DlgForm) then
+    Result := DlgForm.Height
+  else
+    Result := inherited GetHeight;
+end;
+
+function TExtCommonDialog.GetTop: Integer;
+begin
+  if Assigned(FDlgForm) then FTop := FDlgForm.Top;
+  Result := FTop;
+end;
+
+function TExtCommonDialog.GetWidth: Integer;
+begin
+  if Assigned(DlgForm) then
+    Result := DlgForm.Width
+  else
+    Result := inherited GetWidth;
+end;
+
+procedure TExtCommonDialog.SetLeft(AValue: Integer);
+begin
+  if Assigned(FDlgForm) then FDlgForm.Left := AValue;
+  FLeft := AValue;
+end;
+
+procedure TExtCommonDialog.SetTop(AValue: Integer);
+begin
+  if Assigned(FDlgForm) then FDlgForm.Top := AValue;
+  FTop := AValue;
+end;
 
 constructor TExtCommonDialog.Create(AOwner: TComponent);
 begin
@@ -1047,8 +1109,8 @@ end;
 
 function TCalculatorDialog.GetDisplay: Double;
 begin
-  if Assigned(FCalc) then
-    Result:=TCalculatorPanel(FCalc.FCalcPanel).GetDisplay
+  if Assigned(DlgForm) then
+    Result:=TCalculatorPanel(TCalculatorForm(DlgForm).FCalcPanel).GetDisplay
   else Result:=FValue;
 end;
 
@@ -1067,6 +1129,7 @@ begin
   if Assigned(FOnDisplayChange) then FOnDisplayChange(Self);
 end;
 
+
 procedure TCalculatorDialog.Change;
 begin
   if Assigned(FOnChange) then FOnChange(Self);
@@ -1076,14 +1139,21 @@ function TCalculatorDialog.Execute: Boolean;
 var
   CPanel: TCalculatorPanel;
 begin
-  FCalc:=CreateCalculatorForm(Application, FLayout, HelpContext);
+  DlgForm:=CreateCalculatorForm(Application, FLayout, HelpContext);
   try
     if (csDesigning in ComponentState) then
-      FCalc.Position:=poScreenCenter
+      DlgForm.Position:=poScreenCenter
     else
-      FCalc.Position:=DialogPosition;
-    CPanel:=TCalculatorPanel(FCalc.FCalcPanel);
-    FCalc.Caption:=Title;
+      DlgForm.Position:=DialogPosition;
+    if (DlgForm.Position=poDesigned) then begin
+      DlgForm.Left:=FLeft;
+      DlgForm.Top:=FTop;
+    end else begin
+      FLeft:=DlgForm.Left;
+      FTop:=DlgForm.Top;
+    end;
+    CPanel:=TCalculatorPanel(TCalculatorForm(DlgForm).FCalcPanel);
+    DlgForm.Caption:=Title;
     CPanel.FMemory:=FMemory;
     CPanel.UpdateMemoryLabel;
     If Precision>2 then
@@ -1096,7 +1166,12 @@ begin
       CPanel.FStatus:=csFirst;
       CPanel.FOperator:='=';
     end;
-    Result := (FCalc.ShowModal = mrOk);
+    Result := (DlgForm.ShowModal = mrOk);
+    FLeft := DlgForm.Left;
+    FTop := DlgForm.Top;
+    //update private fields FHeight and FWidth of ancestor
+    SetHeight(DlgForm.Height);
+    SetWidth(DlgForm.Width);
     if Result then begin
       FMemory:=CPanel.FMemory;
       if CPanel.DisplayValue <> FValue then begin
@@ -1105,8 +1180,8 @@ begin
       end;
     end;
   finally
-    FCalc.Free;
-    FCalc:=nil;
+    DlgForm.Free;
+    DlgForm:=nil;
   end;
 end;
 
@@ -1279,6 +1354,43 @@ begin
   Result := rsPickDate;
 end;
 
+procedure TCalendarDialog.OnDialogClose(Sender: TObject;
+  var CloseAction: TCloseAction);
+begin
+  if Assigned(OnClose) then OnClose(Self);
+end;
+
+procedure TCalendarDialog.OnDialogCloseQuery(Sender: TObject;
+  var CanClose: boolean);
+begin
+  if Assigned(OnCanClose) then OnCanClose(Sender, CanClose);
+end;
+
+procedure TCalendarDialog.OnCalendarDayChanged(Sender: TObject);
+begin
+  GetNewDate(Self);
+  if Assigned(FDayChanged) then FDayChanged(Self);
+end;
+
+procedure TCalendarDialog.OnCalendarMonthChanged(Sender: TObject);
+begin
+  GetNewDate(Self);
+  if Assigned(FMonthChanged) then FMonthChanged(Self);
+end;
+
+procedure TCalendarDialog.OnCalendarYearChanged(Sender: TObject);
+begin
+  GetNewDate(Self);
+  if Assigned(FYearChanged) then FYearChanged(Self);
+end;
+
+procedure TCalendarDialog.OnCalendarChange(Sender: TObject);
+begin
+  //Date already updated in OnCalendarXXXChanged
+  if Assigned(FOnChange) then FOnChange(Self);
+end;
+
+
 class procedure TCalendarDialog.WSRegisterClass;
 begin
   inherited WSRegisterClass;
@@ -1288,73 +1400,104 @@ end;
 function TCalendarDialog.Execute:boolean;
 const
   dw=8;
+  bbs=2;
 var
-  DF: TForm;
   okButton,cancelButton: TButton;
   panel: TPanel;
 begin
-  DF:=TForm.CreateNew(Application, 0);
-  DF.DisableAlign;
-  DF.Caption:=Title;
-  if (csDesigning in ComponentState) then
-    DF.Position:=poScreenCenter
-  else
-    DF.Position:=DialogPosition;
-  DF.BorderStyle:=bsDialog;
-  DF.AutoScroll:=false;
-  DF.AutoSize:=true;
+  DlgForm:=TForm.CreateNew(Application, 0);
+  try
+    DlgForm.DisableAlign;
+    DlgForm.Caption:=Title;
+    if (csDesigning in ComponentState) then
+      DlgForm.Position:=poScreenCenter
+    else
+      DlgForm.Position:=DialogPosition;
+    if (DlgForm.Position=poDesigned) then begin
+      DlgForm.Left:=FLeft;
+      DlgForm.Top:=FTop;
+    end else begin
+      FLeft:=DlgForm.Left;
+      FTop:=DlgForm.Top;
+    end;
+    DlgForm.BorderStyle:=bsDialog;
+    DlgForm.AutoScroll:=false;
+    DlgForm.AutoSize:=true;
+    DlgForm.OnShow:=Self.OnShow;
+    DlgForm.OnClose:=@OnDialogClose;
+    DlgForm.OnCloseQuery:=@OnDialogCloseQuery;
 
-  FCalendar:=TCalendar.Create(DF);
-  with FCalendar do begin
-    Parent:=DF;
-    Align:=alTop;
-    DateTime:=Self.Date;
-    DisplaySettings:=Self.DisplaySettings;
-    OnDayChanged:=Self.OnDayChanged;
-    OnMonthChanged:=Self.OnMonthChanged;
-    OnYearChanged:=Self.OnYearChanged;
-    OnDblClick:=@CalendarDblClick;
+    FCalendar:=TCalendar.Create(DlgForm);
+    with FCalendar do begin
+      Parent:=DlgForm;
+      Align:=alTop;
+      DateTime:=Self.Date;
+      TabStop:=True;
+      DisplaySettings:=Self.DisplaySettings;
+      OnDayChanged:=@Self.OnCalendarDayChanged;
+      OnMonthChanged:=@Self.OnCalendarMonthChanged;
+      OnYearChanged:=@Self.OnCalendarYearChanged;
+      OnChange:=@Self.OnCalendarChange;
+      OnDblClick:=@CalendarDblClick;
+    end;
+
+    panel:=TPanel.Create(DlgForm);
+    with panel do begin
+      Parent:=DlgForm;
+      Caption:='';
+      Height:=32;
+      AnchorToCompanion(akTop, 0, FCalendar);
+      BevelOuter:=bvLowered;
+    end;
+
+    okButton:=TButton.Create(DlgForm);
+    with okButton do begin
+      Parent:=panel;
+      Caption:=OKCaption;
+      Constraints.MinWidth:=75;
+      Constraints.MaxWidth:=FCalendar.Width div 2 - bbs;
+      Width:=DlgForm.Canvas.TextWidth(OKCaption)+2*dw;
+      ModalResult:=mrOK;
+      OnClick:=@GetNewDate;
+      //Align:=alRight;
+      Anchors := [akTop,akRight];
+      BorderSpacing.Right:=bbs;
+      AnchorSide[akRight].Side:=asrRight;
+      AnchorSide[akRight].Control:=panel;
+      AnchorVerticalCenterTo(panel);
+      Default:=True;
+    end;
+
+    cancelButton:=TButton.Create(DlgForm);
+    with cancelButton do begin
+      Parent:=panel;
+      Caption:=CancelCaption;
+      Constraints.MinWidth:=75;
+      Constraints.MaxWidth:=FCalendar.Width div 2;
+      Width:=DlgForm.Canvas.TextWidth(CancelCaption)+2*dw;;
+      ModalResult:=mrCancel;
+      //Align:=alLeft;
+      BorderSpacing.Left:=bbs;
+      Anchors:=[akLeft,akTop];
+      AnchorSide[akLeft].Side:=asrLeft;
+      AnchorSide[akLeft].Control:=panel;
+      AnchorVerticalCenterTo(panel);
+      Cancel:=True;
+    end;
+    DlgForm.ClientWidth := FCalendar.Width;
+    DlgForm.ClientHeight := panel.Top+panel.Height;
+
+    DlgForm.EnableAlign;
+    Result:=DlgForm.ShowModal=mrOK;
+    FLeft:=DlgForm.Left;
+    FTop:=DlgForm.Top;
+    //update private fields FHeight and FWidth of ancestor
+    SetHeight(DlgForm.Height);
+    SetWidth(DlgForm.Width);
+  finally
+    DlgForm.Free;
+    DlgForm := nil;
   end;
-
-  panel:=TPanel.Create(DF);
-  with panel do begin
-    Parent:=DF;
-    Caption:='';
-    Height:=32;
-    AnchorToCompanion(akTop, 0, FCalendar);
-    BevelOuter:=bvLowered;
-  end;
-
-  okButton:=TButton.Create(DF);
-  with okButton do begin
-    Parent:=panel;
-    Caption:=OKCaption;
-    Constraints.MinWidth:=75;
-    Constraints.MaxWidth:=FCalendar.Width div 2;
-    Width:=DF.Canvas.TextWidth(OKCaption)+2*dw;
-    ModalResult:=mrOK;
-    OnClick:=@GetNewDate;
-    Align:=alRight;
-    Default:=True;
-  end;
-
-  cancelButton:=TButton.Create(DF);
-  with cancelButton do begin
-    Parent:=panel;
-    Caption:=CancelCaption;
-    Constraints.MinWidth:=75;
-    Constraints.MaxWidth:=FCalendar.Width div 2;
-    Width:=DF.Canvas.TextWidth(CancelCaption)+2*dw;;
-    ModalResult:=mrCancel;
-    Align:=alLeft;
-    Cancel:=True;
-  end;
-  DF.ClientWidth := FCalendar.Width;
-  DF.ClientHeight := panel.Top+panel.Height;
-
-  DF.EnableAlign;
-  Result:=DF.ShowModal=mrOK;
-  FreeAndNil(DF);
 end;
 
 end.

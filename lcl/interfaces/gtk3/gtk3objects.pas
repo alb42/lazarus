@@ -21,7 +21,7 @@ unit gtk3objects;
 interface
 
 uses
-  Classes, SysUtils, Graphics, types, LCLType, LCLProc,
+  Classes, SysUtils, Graphics, types, LCLType, LCLProc, LazUTF8,
   LazGtk3, LazGdk3, LazGObject2, LazPango1, LazPangoCairo1, LazGdkPixbuf2,
   LazGLib2, LazCairo1, FPCanvas;
 
@@ -82,7 +82,7 @@ type
     procedure SetStyle(AValue: cardinal);
   public
     LogBrush: TLogBrush;
-    constructor Create;
+    constructor Create; override;
     property Color: TColor read GetColor write SetColor;
     property Context: TGtk3DeviceContext read FContext write FContext;
     property Style: LongWord read FStyle write SetStyle;
@@ -95,6 +95,7 @@ type
     FCosmetic: Boolean;
     FEndCap: TPenEndCap;
     FJoinStyle: TPenJoinStyle;
+    FPenMode: TPenMode;
     FStyle: TFPPenStyle;
     FWidth: Integer;
     FColor: TColor;
@@ -106,11 +107,12 @@ type
     procedure setCosmetic(b: Boolean);
     procedure SetEndCap(AValue: TPenEndCap);
     procedure SetJoinStyle(AValue: TPenJoinStyle);
+    procedure SetPenMode(AValue: TPenMode);
     procedure SetStyle(AValue: TFPPenStyle);
     procedure setWidth(p1: Integer);
   public
     LogPen: TLogPen;
-    constructor Create;
+    constructor Create; override;
     property Color: TColor read GetColor write SetColor;
     property Context: TGtk3DeviceContext read FContext write FContext;
 
@@ -118,6 +120,7 @@ type
     property EndCap: TPenEndCap read FEndCap write SetEndCap;
     property IsExtPen: Boolean read FIsExtPen write FIsExtPen;
     property JoinStyle: TPenJoinStyle read FJoinStyle write SetJoinStyle;
+    property Mode: TPenMode read FPenMode write SetPenMode;
     property Style: TFPPenStyle read FStyle write SetStyle;
     property Width: Integer read GetWidth write SetWidth;
   end;
@@ -144,8 +147,9 @@ type
     FData: PByte;
     FDataOwner: Boolean;
     FHandle: PGdkPixbuf;
+    FFormat : cairo_format_t;
   public
-    constructor Create;
+    constructor Create; override;
     constructor Create(vHandle: PGdkPixbuf); overload;
     constructor Create(AData: PByte; width: Integer; height: Integer; format: cairo_format_t; const ADataOwner: Boolean = False); overload;
     constructor Create(AData: PByte; width: Integer; height: Integer; bytesPerLine: Integer; format: cairo_format_t; const ADataOwner: Boolean = False); overload;
@@ -157,7 +161,7 @@ type
     function dotsPerMeterX: Integer;
     function dotsPerMeterY: Integer;
     function bits: PByte;
-    function numBytes: Integer;
+    function numBytes: LongWord;
     function bytesPerLine: Integer;
     function getFormat: cairo_format_t;
     property Handle: PGdkPixbuf read FHandle;
@@ -551,20 +555,30 @@ begin
   ACairo := gdk_cairo_create(gdk_get_default_root_window);
   gdk_cairo_get_clip_rectangle(ACairo, @ARect);
   ASurface := cairo_image_surface_create(CAIRO_FORMAT_ARGB32, ARect.width, ARect.height);
-  FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, ARect.Width, ARect.Height);
+  try
+    FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, ARect.Width, ARect.Height);
+  finally
+    cairo_surface_destroy(ASurface);
+  end;
   FData := nil;
   FDataOwner := False;
+  FFormat := CAIRO_FORMAT_ARGB32;
 end;
 
 constructor TGtk3Image.Create(vHandle: PGdkPixbuf);
 begin
   {$IFDEF VerboseGtk3DeviceContext}
-    DebugLn('TGtk3Image.Create 2 vHandle=',dbgs(vHandle));
+    DebugLn('TGtk3Image.Create 2 vHandle=',dbgs(vHandle),' channels ',dbgs(vHandle^.get_n_channels),' bps ',dbgs(vHandle^.get_bits_per_sample),' has_alpha=',dbgs(vHandle^.get_has_alpha));
   {$ENDIF}
   inherited Create;
   FHandle := vHandle^.copy;
   FData := nil;
   FDataOwner := False;
+
+  if FHandle^.get_has_alpha then
+    FFormat := CAIRO_FORMAT_ARGB32
+  else
+    FFormat := CAIRO_FORMAT_RGB24;
 end;
 
 constructor TGtk3Image.Create(AData: PByte; width: Integer; height: Integer;
@@ -576,6 +590,7 @@ begin
   {$IFDEF VerboseGtk3DeviceContext}
   DebugLn('TGtk3Image.Create 3 AData=',dbgs(AData <> nil),' format=',dbgs(Ord(format)),' w=',dbgs(width),' h=',dbgs(height),' dataowner=',dbgs(ADataOwner));
   {$ENDIF}
+  FFormat := format;
   FData := AData;
   FDataOwner := ADataOwner;
   if FData = nil then
@@ -588,11 +603,15 @@ begin
       h := 16;
 
     ASurface := cairo_image_surface_create(format, w, h);
-    FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, w, h);
+    try
+      FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, w, h);
+    finally
+      cairo_surface_destroy(ASurface);
+    end;
     gdk_pixbuf_fill(FHandle, 0);
   end else
   begin
-    FHandle := TGdkPixbuf.new_from_data(AData, GDK_COLORSPACE_RGB, True, 8, width, height, 0, nil, nil);
+    FHandle := TGdkPixbuf.new_from_data(AData, GDK_COLORSPACE_RGB, format=CAIRO_FORMAT_ARGB32, 8, width, height, 0, nil, nil);
   end;
   (*
   if FData = nil then
@@ -620,6 +639,7 @@ begin
     DebugLn('TGtk3Image.Create 4 AData=',dbgs(AData <> nil),' format=',dbgs(Ord(format)),' w=',dbgs(width),' h=',dbgs(height),' dataowner=',dbgs(ADataOwner),' bpl=',dbgs(bytesPerLine));
   {$endif}
   inherited Create;
+  FFormat := format;
   FData := AData;
   FDataOwner := ADataOwner;
 
@@ -632,11 +652,15 @@ begin
     if (h <= 0) then
       h := 16;
     ASurface := cairo_image_surface_create(format, w, h);
-    FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, w, h);
+    try
+      FHandle := gdk_pixbuf_get_from_surface(ASurface, 0 ,0, w, h);
+    finally
+      cairo_surface_destroy(ASurface);
+    end;
     gdk_pixbuf_fill(FHandle, 0);
   end else
   begin
-    FHandle := TGdkPixbuf.new_from_data(AData, GDK_COLORSPACE_RGB, True, 8, width, height, bytesPerLine, nil, nil);
+    FHandle := TGdkPixbuf.new_from_data(AData, GDK_COLORSPACE_RGB, format=CAIRO_FORMAT_ARGB32, 8, width, height, bytesPerLine, nil, nil);
   end;
 end;
 
@@ -672,12 +696,12 @@ end;
 
 function TGtk3Image.height: Integer;
 begin
-  FHandle^.get_height;
+  Result := FHandle^.get_height;
 end;
 
 function TGtk3Image.width: Integer;
 begin
-  FHandle^.get_width;
+  Result := FHandle^.get_width;
 end;
 
 function TGtk3Image.depth: Integer;
@@ -708,9 +732,9 @@ begin
   Result := FHandle^.pixels;
 end;
 
-function TGtk3Image.numBytes: Integer;
+function TGtk3Image.numBytes: LongWord;
 begin
-  FHandle^.get_byte_length;
+  Result := FHandle^.get_byte_length;
 end;
 
 function TGtk3Image.bytesPerLine: Integer;
@@ -720,7 +744,7 @@ end;
 
 function TGtk3Image.getFormat: cairo_format_t;
 begin
-  Result := CAIRO_FORMAT_ARGB32;
+  Result := FFormat;
 end;
 
 { TGtk3Pen }
@@ -753,6 +777,12 @@ end;
 procedure TGtk3Pen.SetJoinStyle(AValue: TPenJoinStyle);
 begin
   FJoinStyle:=AValue;
+end;
+
+procedure TGtk3Pen.SetPenMode(AValue: TPenMode);
+begin
+  if FPenMode=AValue then Exit;
+  FPenMode:=AValue;
 end;
 
 procedure TGtk3Pen.SetStyle(AValue: TFPPenStyle);
@@ -957,13 +987,47 @@ procedure TGtk3DeviceContext.ApplyPen;
   end;
 var
   cap: cairo_line_cap_t;
+  w: Double;
 begin
   SetSourceColor(FCurrentPen.Color);
+
+  case FCurrentPen.Mode of
+    pmBlack: begin
+      SetSourceColor(clBlack);
+      cairo_set_operator(Widget, CAIRO_OPERATOR_OVER);
+    end;
+    pmWhite: begin
+      SetSourceColor(clWhite);
+      cairo_set_operator(Widget, CAIRO_OPERATOR_OVER);
+    end;
+    pmCopy: cairo_set_operator(Widget, CAIRO_OPERATOR_OVER);
+    pmXor: cairo_set_operator(Widget, CAIRO_OPERATOR_XOR);
+    pmNotXor: cairo_set_operator(Widget, CAIRO_OPERATOR_XOR);
+    {pmNop,
+    pmNot,
+    pmCopy,
+    pmNotCopy,
+    pmMergePenNot,
+    pmMaskPenNot,
+    pmMergeNotPen,
+    pmMaskNotPen,
+    pmMerge,
+    pmNotMerge,
+    pmMask,
+    pmNotMask,}
+    else
+      cairo_set_operator(Widget, CAIRO_OPERATOR_OVER);
+  end;
 
   if FCurrentPen.Cosmetic then
     cairo_set_line_width(Widget, 1.0)
   else
-    cairo_set_line_width(Widget, FCurrentPen.Width {* ScaleX}); //line_width is diameter of the pen circle
+  begin
+    w := FCurrentPen.Width;
+    if w = 0 then
+      w := 0.5;
+    cairo_set_line_width(Widget, w {* ScaleX}); //line_width is diameter of the pen circle
+  end;
 
   case FCurrentPen.Style of
     psSolid: cairo_set_dash(Widget, nil, 0, 0);
@@ -1289,7 +1353,7 @@ procedure TGtk3DeviceContext.drawSurface(targetRect: PRect;
   Surface: Pcairo_surface_t; sourceRect: PRect; mask: PGdkPixBuf;
   maskRect: PRect);
 var
-  ASurface: Pcairo_surface_t;
+  M: cairo_matrix_t;
 begin
   {$IFDEF VerboseGtk3DeviceContext}
   DebugLn('TGtk3DeviceContext.DrawSurface ');
@@ -1299,6 +1363,12 @@ begin
     with targetRect^ do
       cairo_rectangle(Widget, Left, Top, Right - Left, Bottom - Top);
     cairo_set_source_surface(Widget, Surface, 0, 0);
+    cairo_matrix_init_identity(@M);
+    cairo_matrix_translate(@M, SourceRect^.Left, SourceRect^.Top);
+    cairo_matrix_scale(@M,  (sourceRect^.Right-sourceRect^.Left) / (targetRect^.Right-targetRect^.Left),
+        (sourceRect^.Bottom-sourceRect^.Top) / (targetRect^.Bottom-targetRect^.Top));
+    cairo_matrix_translate(@M, -targetRect^.Left, -targetRect^.Top);
+    cairo_pattern_set_matrix(cairo_get_source(Widget), @M);
     cairo_clip(Widget);
     cairo_paint(Widget);
   finally
@@ -1555,6 +1625,7 @@ var
   DY: Double;
   Pt: TPoint;
 begin
+  Result := False;
   cairo_surface_get_device_offset(cairo_get_target(Widget), @DX, @DY);
   cairo_translate(Widget, DX, DY);
   try
@@ -1568,6 +1639,7 @@ begin
     cairo_line_to(Widget, SX(X1), SY(Y1+RX));
     EllipseArcPath(X1+RX, Y1+RY, RX, RY, PI, PI*1.5, True, True);
     FillAndStroke;
+    Result := True;
   finally
     cairo_translate(Widget, -DX, -DY);
   end;
@@ -1710,7 +1782,10 @@ begin
   cairo_destroy(Widget);
   APixBuf := AImage.Handle;
   if not Gtk3IsGdkPixbuf(APixBuf) then
+  begin
     DebugLn('ERROR: TGtk3DeviceContext.SetImage image handle isn''t PGdkPixbuf.');
+    exit;
+  end;
   (*
   DebugLn('TGtk3DeviceContext.SetImage w=',dbgs(APixBuf^.width),' h=',dbgs(APixBuf^.height),
   ' RowStride ',dbgs(APixBuf^.rowstride),' BPS=',dbgs(APixBuf^.get_bits_per_sample),
@@ -1719,12 +1794,13 @@ begin
   *)
   if FOwnsSurface and (CairoSurface <> nil) then
     cairo_surface_destroy(CairoSurface);
-  if APixBuf^.get_has_alpha then
-    CairoSurface := cairo_image_surface_create(CAIRO_FORMAT_ARGB32, APixBuf^.get_width, APixBuf^.get_height)
-  else
-    CairoSurface := cairo_image_surface_create(CAIRO_FORMAT_RGB24, APixBuf^.get_width, APixBuf^.get_height);
+  CairoSurface := cairo_image_surface_create_for_data(APixBuf^.pixels,
+                                                AImage.getFormat,
+                                                APixBuf^.get_width,
+                                                APixBuf^.get_height,
+                                                APixBuf^.rowstride);
   Widget := cairo_create(CairoSurface);
-  // gdk_cairo_set_source_pixbuf(Widget, APixBuf, 0, 0);
+  FOwnsSurface := true;
 end;
 
 function TGtk3DeviceContext.ResetClip: Integer;

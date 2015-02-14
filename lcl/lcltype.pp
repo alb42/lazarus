@@ -953,6 +953,7 @@ const
   BS_3STATE        = $00000005;
   BS_GROUPBOX      = $00000007;
   BS_OWNERDRAW     = $0000000B;
+  BS_RIGHTBUTTON   = $00000020;
   BS_PUSHLIKE      = $00001000;
 
   { Edit styles }
@@ -2123,6 +2124,7 @@ const
   VERTRES       = 10;  { Vertical height in pixels                }
   BITSPIXEL     = 12;  { Number of bits per pixel                 }
   PLANES        = 14;  { Number of planes                         }
+  NUMCOLORS     = 24;  { Number of colors                         }
   LOGPIXELSX    = 88;  { Logical pixelsinch in X                  }
   LOGPIXELSY    = 90;  { Logical pixelsinch in Y                  }
   SIZEPALETTE   = 104; { Number of entries in physical palette    }

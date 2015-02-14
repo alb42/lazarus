@@ -1,16 +1,17 @@
+# Giuliano Colla <giuliano.colla@fastwebnet.it>, 2014.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2014-10-03 19:43+0100\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: 2014-11-10 17:53+0200\n"
 "Last-Translator: Giuliano Colla <giuliano.colla@fastwebnet.it>\n"
-"Language-Team: PincoPallo Team\n"
+"Language-Team: Lazarus\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Virtaal 0.5.1\n"
-"Project-Id-Version: \n"
-"POT-Creation-Date: \n"
+"X-Generator: Virtaal 0.6.1\n"
 
 #: ipconst.cacheadding
 msgid "Caching item (%s = %s)"
@@ -223,8 +224,9 @@ msgid "Connect: Loc: %s Rem: %s"
 msgstr "Connetti: Loc: %s Comm: %s"
 
 #: ipconst.seventdisconnect
-msgid "Close:   Loc: %s Rem: %s"
-msgstr "Chiudo: Loc: %s Comm: %s"
+#| msgid "Close:   Loc: %s Rem: %s"
+msgid "Close: Loc: %s Rem: %s"
+msgstr "Chiudo: Loc: %s Rem: %s"
 
 #: ipconst.sfilename
 msgid " Filename: "
@@ -292,7 +294,6 @@ msgid "- expected"
 msgstr "era atteso -"
 
 #: ipconst.shtmldefbrowsecaption
-#| msgid "Browse..."
 msgid "Browse ..."
 msgstr "Naviga..."
 
@@ -1546,8 +1547,9 @@ msgid "Logging on with User"
 msgstr "Connessione con Utente"
 
 #: ipconst.spterror
-msgid "An error occured with the last task."
-msgstr "Si è verificato un errore nell'ultima operazione"
+#| msgid "An error occured with the last task."
+msgid "An error occurred with the last task."
+msgstr "Si è verificato un errore nell'ultimo task."
 
 #: ipconst.sptlist
 msgctxt "ipconst.sptlist"
@@ -2112,12 +2114,14 @@ msgid "Revoked Certificate."
 msgstr "Certificato revocato."
 
 #: ipconst.ssslservernohandshake
-msgid "Server cid not return a handshake message."
-msgstr "Il server non ha ritornato un messaggio di handshake."
+#| msgid "Server cid not return a handshake message."
+msgid "Server did not return a handshake message."
+msgstr "Il server non ha restituito un messaggio di handshake."
 
 #: ipconst.ssslservernoserverhello
-msgid "Server cid not return a server hello message."
-msgstr "Il server non ha ritornato un messaggio di hello."
+#| msgid "Server cid not return a server hello message."
+msgid "Server did not return a server hello message."
+msgstr "Il server non ha restituito un messaggio di hello server."
 
 #: ipconst.ssslsessidtolong
 msgid "Session ID is longer than 32 bytes."
@@ -2214,8 +2218,9 @@ msgid "Verifying"
 msgstr "Verifica"
 
 #: ipconst.ssterror
-msgid "An error has occured during this task."
-msgstr "Questo task ha incontrato un errore."
+#| msgid "An error has occured during this task."
+msgid "An error has occurred during this task."
+msgstr "Si è verificato un errore in questo task."
 
 #: ipconst.sstlogon
 msgctxt "ipconst.sstlogon"
@@ -2408,7 +2413,8 @@ msgid "Directory not empty"
 msgstr "Cartella non vuota"
 
 #: ipconst.swsaenotsock
-msgid "Socket operation on nonsocket"
+#| msgid "Socket operation on nonsocket"
+msgid "Socket operation on non socket"
 msgstr "Operazione di socket su qualcosa che non è un socket"
 
 #: ipconst.swsaeopnotsupp
@@ -2500,8 +2506,9 @@ msgid "Network subsystem is unavailable"
 msgstr "Sottosistema di rete non disponibile"
 
 #: ipconst.swsatry_again
-msgid "Nonauthoritative host not found"
-msgstr "Hos non autoritativo non trovato"
+#| msgid "Nonauthoritative host not found"
+msgid "Non-authoritative host not found"
+msgstr "Host non autoritativo non trovato"
 
 #: ipconst.swsatype_not_found
 msgid "Type not found"
@@ -2525,8 +2532,9 @@ msgid "Error due to lack of resources"
 msgstr "Errore per mancanza di risorse"
 
 #: ipconst.swsa_qos_bad_object
-msgid "Problem filterspec or providerspecific buffer"
-msgstr "Errore con buffer specifico per filtro o fornitore"
+#| msgid "Problem filterspec or providerspecific buffer"
+msgid "Problem filterspec or provider specific buffer"
+msgstr "Problema con buffer specifico per filtro o fornitore"
 
 #: ipconst.swsa_qos_bad_style
 msgid "Unknown or conflicting style"
@@ -2563,4 +2571,3 @@ msgstr "E' arrivato almeno un cammino"
 #: ipconst.swsa_qos_traffic_ctrl_error
 msgid "Problem with some part of the flowspec"
 msgstr "Problema con alcune parti del flowspec"
-

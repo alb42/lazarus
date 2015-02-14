@@ -222,7 +222,9 @@ msgid "Connect: Loc: %s Rem: %s"
 msgstr "Prijungti: Loc: %s Rem: %s"
 
 #: ipconst.seventdisconnect
-msgid "Close:   Loc: %s Rem: %s"
+#, fuzzy
+#| msgid "Close:   Loc: %s Rem: %s"
+msgid "Close: Loc: %s Rem: %s"
 msgstr "Užverti:   Loc: %s Rem: %s"
 
 #: ipconst.sfilename
@@ -1545,7 +1547,9 @@ msgid "Logging on with User"
 msgstr "Registruojamasi su naudotoju"
 
 #: ipconst.spterror
-msgid "An error occured with the last task."
+#, fuzzy
+#| msgid "An error occured with the last task."
+msgid "An error occurred with the last task."
 msgstr "Vykdant paskutinę užduotį įvyko klaida."
 
 #: ipconst.sptlist
@@ -2111,11 +2115,15 @@ msgid "Revoked Certificate."
 msgstr "Panaikintas sertifikatas."
 
 #: ipconst.ssslservernohandshake
-msgid "Server cid not return a handshake message."
+#, fuzzy
+#| msgid "Server cid not return a handshake message."
+msgid "Server did not return a handshake message."
 msgstr "Serveris negrąžino pranešimo apie užmegztą ryšį."
 
 #: ipconst.ssslservernoserverhello
-msgid "Server cid not return a server hello message."
+#, fuzzy
+#| msgid "Server cid not return a server hello message."
+msgid "Server did not return a server hello message."
 msgstr "serverio „cid“ negrąžino serverio hello pranešimo."
 
 #: ipconst.ssslsessidtolong
@@ -2213,7 +2221,9 @@ msgid "Verifying"
 msgstr "Tikrinama"
 
 #: ipconst.ssterror
-msgid "An error has occured during this task."
+#, fuzzy
+#| msgid "An error has occured during this task."
+msgid "An error has occurred during this task."
 msgstr "Vykdant šią užduotį įvyko klaida."
 
 #: ipconst.sstlogon
@@ -2407,7 +2417,9 @@ msgid "Directory not empty"
 msgstr "Aplankas nėra tuščias"
 
 #: ipconst.swsaenotsock
-msgid "Socket operation on nonsocket"
+#, fuzzy
+#| msgid "Socket operation on nonsocket"
+msgid "Socket operation on non socket"
 msgstr "Jungties operacija pritaikyta ne jungčiai"
 
 #: ipconst.swsaeopnotsupp
@@ -2499,7 +2511,9 @@ msgid "Network subsystem is unavailable"
 msgstr "Nėra tinklo posistemės"
 
 #: ipconst.swsatry_again
-msgid "Nonauthoritative host not found"
+#, fuzzy
+#| msgid "Nonauthoritative host not found"
+msgid "Non-authoritative host not found"
 msgstr "Nepatikimų mazgų nerasta"
 
 #: ipconst.swsatype_not_found
@@ -2524,7 +2538,9 @@ msgid "Error due to lack of resources"
 msgstr "Dėl resursų trūkumo įvyko klaida"
 
 #: ipconst.swsa_qos_bad_object
-msgid "Problem filterspec or providerspecific buffer"
+#, fuzzy
+#| msgid "Problem filterspec or providerspecific buffer"
+msgid "Problem filterspec or provider specific buffer"
 msgstr "„filterspec“ arba specifinio tiekėjo buferio problema"
 
 #: ipconst.swsa_qos_bad_style

@@ -40,7 +40,6 @@ const
 type
 
 
-  TButtonAlign = (BaLeft, BaRight);
 
   { TEbEdit }
 
@@ -55,7 +54,6 @@ type
   TCustomEditButton = class(TCustomControl)
   private
     FButton: TSpeedButton;
-    FButtonAlign: TButtonAlign;
     FButtonOnlyWhenFocused: Boolean;
     FDirectInput: Boolean;
     FEdit: TEbEdit;
@@ -63,6 +61,7 @@ type
     FIsReadOnly: Boolean;
     FFlat: Boolean;
     FFocusOnButtonClick: Boolean;
+    FLayout: TLeftRight;
     //Forwarded events from FButton
     FOnButtonClick: TNotifyEvent;
     //Forwarded events from FEdit
@@ -83,6 +82,9 @@ type
     FOnEditMouseEnter: TNotifyEvent;
     FOnEditMouseLeave: TNotifyEvent;
     FOnEditMouseMove: TMouseMoveEvent;
+    FOnEditMouseWheel: TMouseWheelEvent;
+    FOnEditMouseWheelUp: TMouseWheelUpDownEvent;
+    FOnEditMouseWheelDown: TMouseWheelUpDownEvent;
     FOnEditStartDrag: TStartDragEvent;
     FOnEditUtf8KeyPress: TUtf8KeyPressEvent;
 
@@ -90,6 +92,7 @@ type
     function GetAutoSelect: Boolean;
     function GetAutoSelected: Boolean;
     function GetBtnCaption: TCaption;
+    function GetButtonCursor: TCursor;
     function GetButtonHint: TTranslateString;
     function GetButtonWidth: Integer;
     function GetCanUndo: Boolean;
@@ -113,6 +116,7 @@ type
     function GetSelLength: Integer;
     function GetSelStart: Integer;
     function GetSelText: String;
+    function GetSpacing: Integer;
     function GetTabStop: Boolean;
     function GetText: TCaption;
     function IsCustomGlyph : Boolean;
@@ -138,14 +142,20 @@ type
     procedure InternalOnEditMouseEnter(Sender: TObject);
     procedure InternalOnEditMouseLeave(Sender: TObject);
     procedure InternalOnEditMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure InternalOnEditMouseWheel(Sender: TObject; Shift: TShiftState;
+         WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure InternalOnEditMouseWheelUp(Sender: TObject;
+          Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+    procedure InternalOnEditMouseWheelDown(Sender: TObject;
+          Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
     procedure InternalOnEditUtf8KeyPress(Sender: TObject; var UTF8Key: TUTF8Char);
     procedure InternalOnEditStartDrag(Sender: TObject; var DragObject: TDragObject);
 
     procedure SetAlignment(AValue: TAlignment);
     procedure SetAutoSelect(AValue: Boolean);
     procedure SetAutoSelected(AValue: Boolean);
-    procedure SetButtonAlign(AValue: TButtonAlign);
     procedure SetBtnCaption(AValue: TCaption);
+    procedure SetButtonCursor(AValue: TCursor);
     procedure SetButtonHint(AValue: TTranslateString);
     procedure SetButtonOnlyWhenFocused(AValue: Boolean);
     procedure SetButtonWidth(AValue: Integer);
@@ -158,6 +168,7 @@ type
     procedure SetFlat(AValue: Boolean);
     procedure SetGlyph(AValue: TBitmap);
     procedure SetHideSelection(AValue: Boolean);
+    procedure SetLayout(AValue: TLeftRight);
     procedure SetMaxLength(AValue: Integer);
     procedure SetModified(AValue: Boolean);
     procedure SetNumbersOnly(AValue: Boolean);
@@ -169,6 +180,7 @@ type
     procedure SetSelLength(AValue: Integer);
     procedure SetSelStart(AValue: Integer);
     procedure SetSelText(AValue: String);
+    procedure SetSpacing(const Value: integer);
     procedure SetTabStop(AValue: Boolean);
     procedure SetText(AValue: TCaption);
   protected
@@ -205,6 +217,10 @@ type
     procedure EditMouseEnter; virtual;
     procedure EditMouseLeave; virtual;
     procedure EditMouseMove(Shift: TShiftState; X, Y: Integer); virtual;
+    procedure EditMouseWheel(Shift: TShiftState;
+         WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure EditMouseWheelUp(Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+    procedure EditMouseWheelDown(Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
     procedure EditUtf8KeyPress(var UTF8Key: TUTF8Char); virtual;
     procedure EditStartDrag(var DragObject: TDragObject); virtual;
 
@@ -223,8 +239,8 @@ type
     property AutoSelect: Boolean read GetAutoSelect write SetAutoSelect default True;
     property AutoSelected: Boolean read GetAutoSelected write SetAutoSelected;
     property Button: TSpeedButton read FButton;
-    property ButtonAlign: TButtonAlign read FButtonAlign write SetButtonAlign default BaRight;
     property ButtonCaption: TCaption read GetBtnCaption write SetBtnCaption;
+    property ButtonCursor: TCursor read GetButtonCursor write SetButtonCursor default crDefault;
     property ButtonHint: TTranslateString read GetButtonHint write SetButtonHint;
     property ButtonOnlyWhenFocused: Boolean read FButtonOnlyWhenFocused write SetButtonOnlyWhenFocused default False;
     property ButtonWidth: Integer read GetButtonWidth write SetButtonWidth;
@@ -237,7 +253,9 @@ type
     property FocusOnButtonClick: Boolean read FFocusOnButtonClick write FFocusOnButtonClick default False;
     property Glyph: TBitmap read GetGlyph write SetGlyph stored IsCustomGlyph;
     property IsMasked: Boolean read GetIsMasked;
+    property Layout: TLeftRight read FLayout write SetLayout default taLeftJustify;
     property NumGlyphs: Integer read GetNumGlyps write SetNumGlyphs;
+    property Spacing: Integer read GetSpacing write SetSpacing default 4;
 
     property OnButtonClick: TNotifyEvent read FOnButtonClick write FOnButtonClick;
   public
@@ -291,6 +309,9 @@ type
     property OnMouseEnter: TNotifyEvent read FOnEditMouseEnter write FOnEditMouseEnter;
     property OnMouseLeave: TNotifyEvent read FOnEditMouseLeave write FOnEditMouseLeave;
     property OnMouseMove: TMouseMoveEvent read FOnEditMouseMove write FOnEditMouseMove;
+    property OnMouseWheel: TMouseWheelEvent read FOnEditMouseWheel write FOnEditMouseWheel;
+    property OnMouseWheelUp: TMouseWheelUpDownEvent read FOnEditMouseWheelUp write FOnEditMouseWheelUp;
+    property OnMouseWheelDown: TMouseWheelUpDownEvent read FOnEditMouseWheelDown write FOnEditMouseWheelDown;
     property OnMouseUp: TMouseEvent read FOnEditMouseUp write FOnEditMouseUp;
     property OnStartDrag: TStartDragEvent read FOnEditStartDrag write FOnEditStartDrag;
     property OnUtf8KeyPress: TUtf8KeyPressEvent read FOnEditUtf8KeyPress write FOnEditUtf8KeyPress;
@@ -314,8 +335,8 @@ type
     property BiDiMode;
     property BorderSpacing;
     property BorderStyle default bsNone;
-    property ButtonAlign;
     property ButtonCaption;
+    property ButtonCursor;
     property ButtonHint;
     property ButtonOnlyWhenFocused;
     property ButtonWidth;
@@ -332,6 +353,7 @@ type
     property Glyph;
 //    property HideSelection;
     property Hint;
+    property Layout;
     property MaxLength;
     property NumGlyphs;
     property OnButtonClick;
@@ -365,6 +387,7 @@ type
     property PopupMenu;
     property ReadOnly;
     property ShowHint;
+    property Spacing;
     property TabOrder;
     property TabStop;
     property Text;
@@ -436,9 +459,12 @@ type
     property OnCheckItem: TCheckItemEvent read fOnCheckItem write fOnCheckItem;
     property UseFormActivate: Boolean read fUseFormActivate write SetUseFormActivate default False;
     // TEditButton properties.
+    property ButtonCaption;
+    property ButtonCursor;
+    property ButtonHint;
+    property ButtonOnlyWhenFocused;
     property ButtonWidth;
     property DirectInput;
-    property ButtonOnlyWhenFocused;
     property NumGlyphs;
     property Flat;
     property FocusOnButtonClick;
@@ -455,6 +481,7 @@ type
     property DragMode;
     property Enabled;
     property Font;
+    property Layout;
     property MaxLength;
     property ParentBidiMode;
     property ParentColor;
@@ -463,6 +490,7 @@ type
     property PopupMenu;
     property ReadOnly;
     property ShowHint;
+    property Spacing;
     property TabOrder;
     property TabStop;
     property Visible;
@@ -541,9 +569,12 @@ type
     property DefaultExt: String read FDefaultExt write FDefaultExt;
     property HideDirectories: Boolean read FHideDirectories write FHideDirectories;
     // TEditButton properties.
+    property ButtonCaption;
+    property ButtonCursor;
+    property ButtonHint;
+    property ButtonOnlyWhenFocused;
     property ButtonWidth;
     property DirectInput;
-    property ButtonOnlyWhenFocused;
     // property Glyph;
     property NumGlyphs;
     property Flat;
@@ -562,6 +593,7 @@ type
     property DragMode;
     property Enabled;
     property Font;
+    property Layout;
     property MaxLength;
     property ParentBidiMode;
     property ParentColor;
@@ -570,6 +602,7 @@ type
     property PopupMenu;
     property ReadOnly;
     property ShowHint;
+    property Spacing;
     property TabOrder;
     property TabStop;
     property Visible;
@@ -627,9 +660,12 @@ type
     property DialogTitle: String read FDialogTitle write FDialogTitle;
     property ShowHidden: Boolean read FShowHidden write FShowHidden;
     // TEditButton properties.
+    property ButtonCaption;
+    property ButtonCursor;
+    property ButtonHint;
+    property ButtonOnlyWhenFocused;
     property ButtonWidth;
     property DirectInput;
-    property ButtonOnlyWhenFocused;
     // property Glyph;
     property NumGlyphs;
     property Flat;
@@ -647,6 +683,7 @@ type
     property DragMode;
     property Enabled;
     property Font;
+    property Layout;
     property MaxLength;
     property ParentBidiMode;
     property ParentColor;
@@ -656,6 +693,7 @@ type
     property ReadOnly;
     property ShowHint;
     property TabOrder;
+    property Spacing;
     property TabStop;
     property Visible;
     property OnButtonClick;
@@ -732,6 +770,9 @@ type
     property DefaultToday: Boolean read FDefaultToday write FDefaultToday default False;
     Property DateOrder : TDateOrder Read FDateOrder Write SetDateOrder;
     property ButtonOnlyWhenFocused;
+    property ButtonCaption;
+    property ButtonCursor;
+    property ButtonHint;
     property ButtonWidth;
     property Action;
     property Align;
@@ -753,6 +794,7 @@ type
     property Flat;
     property FocusOnButtonClick;
     property Font;
+    property Layout;
     property MaxLength;
     property OnButtonClick;
     property OnChange;
@@ -783,6 +825,7 @@ type
     property ShowHint;
     property TabStop;
     property TabOrder;
+    property Spacing;
     property Visible;
     property Text;
   end;
@@ -795,7 +838,7 @@ type
   TCalcEdit = class(TCustomEditButton)
   private
     FDialogTitle: String;
-    FLayout: TCalculatorLayout;
+    FCalculatorLayout: TCalculatorLayout;
     FOnAcceptValue: TAcceptValueEvent;
     function GetAsFloat: Double;
     function GetAsInteger: Integer;
@@ -813,15 +856,18 @@ type
     property AutoSelected;
   published
     // CalcEdit properties
-    property CalculatorLayout : TCalculatorLayout read FLayout write Flayout;
+    property CalculatorLayout : TCalculatorLayout read FCalculatorLayout write FCalculatorLayout;
     property AsFloat : Double read GetAsFloat write SetAsFloat;
     property AsInteger : Integer read GetAsInteger write SetAsInteger;
     property OnAcceptValue : TAcceptValueEvent read FOnAcceptValue write FOnAcceptValue;
     property DialogTitle : String read FDialogTitle write FDialogTitle stored TitleStored;
     // TEditButton properties.
+    property ButtonCaption;
+    property ButtonCursor;
+    property ButtonHint;
+    property ButtonOnlyWhenFocused;
     property ButtonWidth;
     property DirectInput;
-    property ButtonOnlyWhenFocused;
     // property Glyph;
     property NumGlyphs;
     property Flat;
@@ -839,6 +885,7 @@ type
     property DragMode;
     property Enabled;
     property Font;
+    property Layout;
     property MaxLength;
     property ParentBidiMode;
     property ParentColor;
@@ -1006,6 +1053,25 @@ begin
   EditMouseMove(Shift, X, Y);
 end;
 
+procedure TCustomEditButton.InternalOnEditMouseWheel(Sender: TObject;
+  Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint;
+  var Handled: Boolean);
+begin
+  EditMouseWheel(Shift, WheelDelta, MousePos, Handled);
+end;
+
+procedure TCustomEditButton.InternalOnEditMouseWheelUp(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  EditMouseWheelUp(Shift, MousePos, Handled);
+end;
+
+procedure TCustomEditButton.InternalOnEditMouseWheelDown(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  EditMouseWheelDown(Shift, MousePos, Handled);
+end;
+
 procedure TCustomEditButton.InternalOnEditUtf8KeyPress(Sender: TObject;
   var UTF8Key: TUTF8Char);
 begin
@@ -1062,6 +1128,11 @@ end;
 function TCustomEditButton.GetSelText: String;
 begin
   Result := FEdit.SelText;
+end;
+
+function TCustomEditButton.GetSpacing: Integer;
+begin
+  Result := FButton.Spacing;
 end;
 
 function TCustomEditButton.GetTabStop: Boolean;
@@ -1163,18 +1234,11 @@ begin
   Result := FButton.Caption;
 end;
 
-procedure TCustomEditButton.SetButtonAlign(AValue: TButtonAlign);
+function TCustomEditButton.GetButtonCursor: TCursor;
 begin
-  if FButtonAlign = AValue then
-    exit;
-  FButtonAlign := AValue;
-  case FButtonAlign of
-    BaRight:
-      FButton.Align := alRight;
-    BaLeft:
-      FButton.Align := alLeft;
-  end;
+  Result := FButton.Cursor;
 end;
+
 
 procedure TCustomEditButton.SetButtonHint(AValue: TTranslateString);
 begin
@@ -1306,6 +1370,11 @@ begin
   FButton.Caption := AValue;
 end;
 
+procedure TCustomEditButton.SetButtonCursor(AValue: TCursor);
+begin
+  FButton.Cursor := AValue;
+end;
+
 class function TCustomEditButton.GetControlClassDefaultSize: TSize;
 begin
   Result.CX := 80 + 23; //as TCustomEdit + TCustomSpeedButton
@@ -1361,7 +1430,6 @@ begin
   if Cursor = AValue then
     Exit;
   inherited SetCursor(AValue);
-  FButton.Cursor := AValue;
   FEdit.Cursor := AValue;
 end;
 
@@ -1381,6 +1449,17 @@ end;
 procedure TCustomEditButton.SetHideSelection(AValue: Boolean);
 begin
   FEdit.HideSelection := AValue;
+end;
+
+procedure TCustomEditButton.SetLayout(AValue: TLeftRight);
+begin
+  if (FLayout = AValue) then
+    Exit;
+  FLayout := AValue;
+  case FLayout of
+    taLeftJustify : FButton.Align := alRight;
+    taRightJustify: FButton.Align := alLeft;
+  end;
 end;
 
 procedure TCustomEditButton.SetMaxLength(AValue: Integer);
@@ -1544,6 +1623,24 @@ begin
   if Assigned(FOnEditMouseMove) then FOnEditMouseMove(Self, Shift, X, Y);
 end;
 
+procedure TCustomEditButton.EditMouseWheel(Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  if Assigned(FOnEditMouseWheel) then FOnEditMouseWheel(Self, Shift, WheelDelta, MousePos, Handled);
+end;
+
+procedure TCustomEditButton.EditMouseWheelUp(Shift: TShiftState;
+  MousePos: TPoint; var Handled: Boolean);
+begin
+  if Assigned(FOnEditMouseWheelUp) then FOnEditMouseWheelUp(Self, Shift, MousePos, Handled);
+end;
+
+procedure TCustomEditButton.EditMouseWheelDown(Shift: TShiftState;
+  MousePos: TPoint; var Handled: Boolean);
+begin
+  if Assigned(FOnEditMouseWheelDown) then FOnEditMouseWheelDown(Self, Shift, MousePos, Handled);
+end;
+
 procedure TCustomEditButton.EditUtf8KeyPress(var UTF8Key: TUTF8Char);
 begin
   if Assigned(FOnEditUtf8KeyPress) then FOnEditUtf8KeyPress(Self, Utf8Key);
@@ -1628,6 +1725,11 @@ begin
   FEdit.SelText := AValue;
 end;
 
+procedure TCustomEditButton.SetSpacing(const Value: integer);
+begin
+  FButton.Spacing := Value;
+end;
+
 procedure TCustomEditButton.SetTabStop(AValue: Boolean);
 begin
   inherited TabStop := AValue;
@@ -1645,7 +1747,7 @@ begin
   FEdit.ParentColor := False;
   FInitialColor := {$ifdef UseCLDefault}clDefault{$else}clWindow{$endif};
   BorderStyle := bsNone;
-  FButtonAlign := BaRight;
+  FLayout := taLeftjustify;
   FButtonOnlyWhenFocused := False;
   FDirectInput := True;
   FIsReadOnly := False;
@@ -1659,6 +1761,7 @@ begin
   begin
     Align := alRight;
     OnClick := @InternalOnButtonClick;
+    Spacing := 4;
     Parent := Self;
   end;
   B := GetDefaultGlyph;
@@ -1695,6 +1798,9 @@ begin
     OnMouseEnter := @InternalOnEditMouseEnter;
     OnMouseLeave := @InternalOnEditMouseLeave;
     OnMouseMove := @InternalOnEditMouseMove;
+    OnMouseWheel := @InternalOnEditMouseWheel;
+    OnMouseWheelUp := @InternalOnEditMouseWheelUp;
+    OnMouseWheelDown := @InternalOnEditMouseWheelDown;
     OnStartDrag := @InternalOnEditStartDrag;
     OnUtf8KeyPress := @InternalOnEditUtf8KeyPress;
 
@@ -2313,24 +2419,226 @@ begin
     Result:=Def;
 end;
 
+// Tries to parse string when DateOrder = doNone when string maybe contains
+// literal day or monthnames. For example when ShortDateFormat = 'dd-mmm-yyy'
+// Returns NullDate upon failure.
+function ParseDateNoPredefinedOrder(SDate: String; FS: TFormatSettings): TDateTime;
+var
+  Fmt: String;
+  DPos, MPos, YPos: SizeInt;
+  DStr, MStr, YStr: String;
+  LD, LM, LY: LongInt;
+  DD, MM, YY: Word;
+const
+  Digits = ['0'..'9'];
+
+  procedure GetPositions(out DPos, MPos, YPos: SizeInt);
+  begin
+    DStr := '';
+    MStr := '';
+    YStr := '';
+    DPos := Pos('D', Fmt);
+    MPos := Pos('M', Fmt);
+    YPos := Pos('Y', Fmt);
+    if (YPos = 0) or (MPos = 0) or (DPos = 0) then Exit;
+    if (YPos > DPos) then YPos := 3 else YPos := 1;
+    if (DPos < MPos) then
+    begin
+      if (YPos = 3) then
+      begin
+        DPos := 1;
+        MPos := 2;
+      end
+      else
+      begin
+        DPos := 2;
+        MPos := 3;
+      end;
+    end
+    else
+    begin
+      if (YPos = 3) then
+      begin
+        DPos := 2;
+        MPos := 1;
+      end
+      else
+      begin
+        DPos := 3;
+        MPos := 2;
+      end;
+    end;
+  end;
+
+  procedure ReplaceLiterals;
+  var
+    i, P: Integer;
+    Sub: String;
+  begin
+    if (Pos('MMMM',Fmt) > 0) then
+    begin //long monthnames
+      //writeln('Literal monthnames');
+      for i := 1 to 12 do
+      begin
+        Sub := FS.LongMonthNames[i];
+        P := Pos(Sub, SDate);
+        if (P > 0) then
+        begin
+          Delete(SDate, P, Length(Sub));
+          Insert(IntToStr(i), SDate, P);
+          Break;
+        end;
+      end;
+    end
+    else
+    begin
+      if (Pos('MMM',Fmt) > 0) then
+      begin //short monthnames
+        for i := 1 to 12 do
+        begin
+          Sub := FS.ShortMonthNames[i];
+          P := Pos(Sub, SDate);
+          if (P > 0) then
+          begin
+            Delete(SDate, P, Length(Sub));
+            Insert(IntToStr(i), SDate, P);
+            Break;
+          end;
+        end;
+      end;
+    end;
+
+    if (Pos('DDDD',Fmt) > 0) then
+    begin  //long daynames
+      //writeln('Literal daynames');
+      for i := 1 to 7 do
+      begin
+        Sub := FS.LongDayNames[i];
+        P := Pos(Sub, SDate);
+        if (P > 0) then
+        begin
+          Delete(SDate, P, Length(Sub));
+          Break;
+        end;
+      end;
+    end
+    else
+    begin
+      if (Pos('DDD',Fmt) > 0) then
+      begin //short daynames
+        for i := 1 to 7 do
+        begin
+          Sub := FS.ShortDayNames[i];
+          P := Pos(Sub, SDate);
+          if (P > 0) then
+          begin
+            Delete(SDate, P, Length(Sub));
+            Break;
+          end;
+        end;
+      end;
+    end;
+    SDate := Trim(SDate);
+    //writeln('ReplaceLiterals -> ',SDate);
+  end;
+
+  procedure Split(out DStr, MStr, YStr: String);
+  var
+    i, P: Integer;
+    Sep: Set of Char;
+    Sub: String;
+  begin
+    DStr := '';
+    MStr := '';
+    YStr := '';
+    Sep := [];
+    for i :=  1 to Length(Fmt) do
+      if not (Fmt[i] in Digits) then Sep := Sep + [Fmt[i]];
+    //get fist part
+    P := 1;
+    while (P <= Length(SDate)) and (SDate[P] in Digits) do Inc(P);
+    Sub := Copy(SDate, 1, P-1);
+    Delete(SDate, 1, P);
+    if (DPos = 1) then DStr := Sub else if (MPos = 1) then MStr := Sub else YStr := Sub;
+    //get second part
+    if (SDate = '') then Exit;
+    while (Length(SDate) > 0) and (SDate[1] in Sep) do Delete(SDate, 1, 1);
+    if (SDate = '') then Exit;
+    P := 1;
+    while (P <= Length(SDate)) and (SDate[P] in Digits) do Inc(P);
+    Sub := Copy(SDate, 1, P-1);
+    Delete(SDate, 1, P);
+    if (DPos = 2) then DStr := Sub else if (MPos = 2) then MStr := Sub else YStr := Sub;
+    //get thirdpart
+    if (SDate = '') then Exit;
+    while (Length(SDate) > 0) and (SDate[1] in Sep) do Delete(SDate, 1, 1);
+    if (SDate = '') then Exit;
+    Sub := SDate;
+    if (DPos = 3) then DStr := Sub else if (MPos = 3) then MStr := Sub else YStr := Sub;
+  end;
+
+  procedure AdjustYear(var YY: Word);
+  var
+    CY, CM, CD: Word;
+  begin
+    DecodeDate(Date, CY, CM, CD);
+    LY := CY Mod 100;
+    CY := CY - LY;
+    if ((YY - LY) <= 50) then
+      YY := CY + YY
+    else
+      YY := CY + YY - 100;
+  end;
+
+begin
+  Result := NullDate;  //assume failure
+  if (Length(SDate) < 5) then Exit; //y-m-d is minimum we support
+  Fmt := UpperCase(FS.ShortDateFormat); //only care about y,m,d so this will do
+  GetPositions(DPos, MPos, YPos);
+  ReplaceLiterals;
+  if (not (SDate[1] in Digits)) or (not (SDate[Length(SDate)] in Digits)) then Exit;
+  Split(Dstr, MStr, YStr);
+  if not TryStrToInt(DStr, LD) or
+     not TryStrToInt(Mstr, LM) or
+     not TryStrToInt(YStr, LY) then Exit;
+  DD := LD;
+  MM := LM;
+  YY := LY;
+  if (YY < 100) and (Pos('YYYY', UpperCase(Fmt)) = 0) then
+  begin
+    AdjustYear(YY);
+  end;
+  if not TryEncodeDate(YY, MM, DD, Result) then
+    Result := NullDate;
+end;
+
 function TDateEdit.GetDate: TDateTime;
 var
   ADate: string;
+  Def: TDateTime;
 begin
   if FDefaultToday then
-    Result := SysUtils.Date
+    Def := SysUtils.Date
   else
-    Result := NullDate;
+    Def := NullDate;
   ADate := Trim(Text);
   if ADate <> '' then
   begin
     if Assigned(FOnCustomDate) then
       FOnCustomDate(Self, ADate);
     if (DateOrder = doNone) then
-      Result := StrToDateDef(ADate, Result)
+    begin
+      if not TryStrToDate(ADate, Result) then
+      begin
+        Result := ParseDateNoPredefinedOrder(ADate, DefaultFormatSettings);
+        if (Result = NullDate) then Result := Def;
+      end;
+    end
     else
       Result := ParseDate(ADate,DateOrder,Result)
-  end;
+  end
+  else
+    Result := Def;
 end;
 
 procedure TDateEdit.SetDate(Value: TDateTime);
@@ -2435,7 +2743,7 @@ var
   B : Boolean;
 begin
   D:=AsFloat;
-  with CreateCalculatorForm(Self,FLayout,0) do
+  with CreateCalculatorForm(Self,FCalculatorLayout,0) do
     try
       Caption:=DialogTitle;
       Value:=D;

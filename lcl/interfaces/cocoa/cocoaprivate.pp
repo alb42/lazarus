@@ -17,8 +17,11 @@ unit CocoaPrivate;
 {$mode objfpc}{$H+}
 {$modeswitch objectivec1}
 {$interfaces corba}
+
 {.$DEFINE COCOA_DEBUG_SETBOUNDS}
 {.$DEFINE COCOA_DEBUG_LISTVIEW}
+{.$DEFINE COCOA_SPIN_DEBUG}
+{.$DEFINE COCOA_SPINEDIT_INSIDE_CONTAINER}
 
 interface
 
@@ -29,8 +32,13 @@ uses
   // Libs
   MacOSAll, CocoaAll, CocoaUtils, CocoaGDIObjects,
   // LCL
-  LMessages, LCLMessageGlue, ExtCtrls,
-  LCLType, LCLProc, Controls, ComCtrls;
+  LMessages, LCLMessageGlue, ExtCtrls, Graphics,
+  LCLType, LCLProc, Controls, ComCtrls, Spin;
+
+const
+  SPINEDIT_DEFAULT_STEPPER_WIDTH = 15;
+  SPINEDIT_EDIT_SPACING_FOR_SELECTION = 4;
+  STATUSBAR_DEFAULT_HEIGHT = 18;
 
 type
 
@@ -216,6 +224,8 @@ type
     procedure frameDidChange(sender: NSNotification); message 'frameDidChange:';
   public
     callback: IButtonCallback;
+    Glyph: TBitmap;
+    procedure dealloc; override;
     function initWithFrame(frameRect: NSRect): id; override;
     function acceptsFirstResponder: Boolean; override;
     function becomeFirstResponder: Boolean; override;
@@ -236,7 +246,6 @@ type
     procedure mouseMoved(event: NSEvent); override;
     procedure resetCursorRects; override;
     function lclIsHandle: Boolean; override;
-
   end;
 
   TCocoaFieldEditor = objcclass;
@@ -285,6 +294,10 @@ type
     procedure lclClearCallback; override;
     procedure resetCursorRects; override;
     function lclIsHandle: Boolean; override;
+    // key
+    procedure keyDown(event: NSEvent); override;
+    procedure keyUp(event: NSEvent); override;
+    procedure flagsChanged(event: NSEvent); override;
   end;
 
   { TCocoaPanel }
@@ -443,9 +456,9 @@ type
   TCocoaStatusBar = objcclass(TCocoaCustomControl)
   public
     StatusBar : TStatusBar;
+    panelCell : NSCell;
     procedure drawRect(dirtyRect: NSRect); override;
-    procedure DrawSection(Ctx: CGContextRef; const r: TRect; data: TStatusItemData); message 'DrawSection:r:data:';
-    //procedure DrawStatusBar(Ctx: CGContextRef; const bnd: TRect; Items: array of TStatusItemData); message 'DrawStatusBar:bnd:Items:';
+    procedure dealloc; override;
   end;
 
   TCocoaComboBox = objcclass;
@@ -751,6 +764,60 @@ type
 
   TCocoaSliderCell = objcclass(NSSliderCell)
   end;
+
+  { TCocoaSpinEdit }
+{$IFDEF COCOA_SPINEDIT_INSIDE_CONTAINER}
+  TCocoaSpinEdit = objcclass(NSControl)
+  public
+    callback: ICommonCallback;
+    Stepper: NSStepper;
+    Edit: NSTextField;
+    Spin: TCustomFloatSpinEdit;
+    procedure dealloc; override;
+    procedure UpdateControl(ASpinEdit: TCustomFloatSpinEdit); message 'UpdateControl:';
+    procedure CreateSubcontrols(ASpinEdit: TCustomFloatSpinEdit; const AParams: TCreateParams); message 'CreateSubControls:AParams:';
+    procedure PositionSubcontrols(const ALeft, ATop, AWidth, AHeight: Integer); message 'PositionSubcontrols:ATop:AWidth:AHeight:';
+    procedure CalculateSubcontrolPos(const ASpinLCLBounds: TRect; out AEditBounds, AStepperBounds: TRect); message 'CalculateSubcontrolPos:AEditBounds:AStepperBounds:';
+    procedure StepperChanged(sender: NSObject); message 'StepperChanged:';
+    // lcl
+    function acceptsFirstResponder: Boolean; override;
+    function becomeFirstResponder: Boolean; override;
+    function resignFirstResponder: Boolean; override;
+    function lclGetCallback: ICommonCallback; override;
+    procedure lclClearCallback; override;
+    function lclIsHandle: Boolean; override;
+    // NSViewFix
+    function fittingSize: NSSize; override;
+  end;
+{$ELSE}
+  TCocoaSpinEdit = objcclass(NSTextField, NSTextFieldDelegateProtocol)
+    callback: ICommonCallback;
+    Stepper: NSStepper;
+    NumberFormatter: NSNumberFormatter;
+    Spin: TCustomFloatSpinEdit;
+    procedure dealloc; override;
+    procedure UpdateControl(ASpinEdit: TCustomFloatSpinEdit); message 'UpdateControl:';
+    procedure CreateSubcontrols(ASpinEdit: TCustomFloatSpinEdit; const AParams: TCreateParams); message 'CreateSubControls:AParams:';
+    procedure PositionSubcontrols(const ALeft, ATop, AWidth, AHeight: Integer); message 'PositionSubcontrols:ATop:AWidth:AHeight:';
+    procedure StepperChanged(sender: NSObject); message 'StepperChanged:';
+    function GetFieldEditor: TCocoaFieldEditor; message 'GetFieldEditor';
+    // NSTextFieldDelegateProtocol
+    procedure controlTextDidChange(obj: NSNotification); override;
+    // lcl
+    function acceptsFirstResponder: Boolean; override;
+    function becomeFirstResponder: Boolean; override;
+    function RealResignFirstResponder: Boolean; message 'RealResignFirstResponder';
+    function resignFirstResponder: Boolean; override;
+    function lclGetCallback: ICommonCallback; override;
+    procedure lclClearCallback; override;
+    procedure resetCursorRects; override;
+    function lclIsHandle: Boolean; override;
+    procedure lclSetVisible(AVisible: Boolean); override;
+    procedure lclSetFrame(const r: TRect); override;
+    // NSViewFix
+    function fittingSize: NSSize; override;
+  end;
+{$ENDIF}
 
 procedure SetViewDefaults(AView: NSView);
 function CheckMainThread: Boolean;
@@ -1087,9 +1154,17 @@ function TCocoaWindow.windowWillReturnFieldEditor_toObject(sender: NSWindow;
   client: id): id;
 begin
   //DebugLn('[TCocoaWindow.windowWillReturnFieldEditor_toObject]');
+  Result := nil;
   if (fieldEditor = nil) then
+  begin
     fieldEditor := TCocoaFieldEditor.alloc.init;
-  Result := fieldEditor;
+    fieldEditor.setFieldEditor(True);
+  end;
+  if client.isKindOfClass_(TCocoaTextField) or
+     client.isKindOfClass_(TCocoaSecureTextField) then
+  begin
+    Result := fieldEditor;
+  end;
 end;
 
 procedure TCocoaWindow.windowWillClose(notification: NSNotification);
@@ -1418,6 +1493,14 @@ begin
     callback.frameDidChange;
 end;
 
+procedure TCocoaButton.dealloc;
+begin
+  if Assigned(Glyph) then
+    FreeAndNil(Glyph);
+
+  inherited dealloc;
+end;
+
 function TCocoaButton.initWithFrame(frameRect: NSRect): id;
 begin
   Result := inherited initWithFrame(frameRect);
@@ -1574,6 +1657,7 @@ end;
 function TCocoaTextField.RealResignFirstResponder: Boolean;
 begin
   callback.ResignFirstResponder;
+  Result := True;
 end;
 
 // Do not propagate this event to the LCL,
@@ -1619,6 +1703,24 @@ end;
 function TCocoaTextView.lclIsHandle: Boolean;
 begin
   Result := True;
+end;
+
+procedure TCocoaTextView.keyDown(event: NSEvent);
+begin
+  if not Assigned(callback) or not callback.KeyEvent(event) then
+    inherited keyDown(event);
+end;
+
+procedure TCocoaTextView.keyUp(event: NSEvent);
+begin
+  if not Assigned(callback) or not callback.KeyEvent(event) then
+    inherited keyUp(event);
+end;
+
+procedure TCocoaTextView.flagsChanged(event: NSEvent);
+begin
+  if not Assigned(callback) or not callback.KeyEvent(event) then
+    inherited flagsChanged(event);
 end;
 
 function TCocoaTextView.acceptsFirstResponder: Boolean;
@@ -1702,6 +1804,7 @@ end;
 function TCocoaSecureTextField.RealResignFirstResponder: Boolean;
 begin
   callback.ResignFirstResponder;
+  Result := True;
 end;
 
 function TCocoaSecureTextField.resignFirstResponder: Boolean;
@@ -2497,7 +2600,7 @@ end;
 function TCocoaTabControl.tabView_shouldSelectTabViewItem(tabView: NSTabView;
   tabViewItem: NSTabViewItem): Boolean;
 begin
-
+  Result := True;
 end;
 
 procedure TCocoaTabControl.tabView_willSelectTabViewItem(tabView: NSTabView;
@@ -2868,119 +2971,59 @@ end;
 { TCocoaStatusBar }
 
 procedure TCocoaStatusBar.drawRect(dirtyRect: NSRect);
-
-  procedure DrawStatusBar(Ctx: CGContextRef;
-    const bnd: TRect; Items: TStatusItemDataArray);
-  var
-    i   : Integer;
-    x   : Integer;
-    xn  : Integer;
-    r   : TRect;
-  const
-    dummy : TStatusItemData = (Text: nil; Width:0; align: taLeftJustify);
-    ExtraWidth=2;
-  begin
-    if length(Items) = 0 then
-    begin
-      DrawSection(Ctx, bnd, dummy);
-      //if Assigned(OnItemDraw) then OnItemDraw(-1, bnd, dummy);
-      Exit;
-    end;
-
-    x := bnd.Left;
-    for i := 0 to length(Items)-1 do
-    begin
-      xn := x + Items[i].Width;
-      r := Types.Rect(x, bnd.Top, xn+ExtraWidth, bnd.Bottom);
-      if i = length(Items)-1 then
-        r := Types.Rect(x, bnd.Top, bnd.Right, bnd.Bottom);
-      DrawSection(Ctx, r, Items[i]);
-      dec(r.Right, ExtraWidth);
-      //if Assigned(OnItemDraw) then OnItemDraw(i, r, Items[i]);
-      x := xn;
-    end;
-  end;
-
 var
-  R         : TRect;
-  items     : array of TStatusItemData;
-  i         : Integer;
-  Ctx: CGContextRef;
+  R    : TRect;
+  i    : Integer;
+  txt  : NSString;
+  nr   : NSRect;
+  x    : Integer;
+const
+  CocoaAlign: array [TAlignment] of Integer = (NSNaturalTextAlignment, NSRightTextAlignment, NSCenterTextAlignment);
 begin
   //inherited NSControl.drawRect(dirtyRect);
   if callback = nil then Exit;
+
+  if not Assigned(panelCell) then Exit;
+
+  panelCell.setControlView(Self);
+  FillChar(nr, sizeof(nr), 0);
+
   r := lclClientFrame();
+  nr.size.height := STATUSBAR_DEFAULT_HEIGHT;
+
   if StatusBar.SimplePanel then
   begin
-    SetLength(items, 1);
-    items[0].Width := r.Right-r.Left;
-    items[0].Text := NSStringUtf8(StatusBar.SimpleText);
-    items[0].Align := taLeftJustify; //todo: select proper Justify based on lanuage text-mode (r2l, l2r)!
+    nr.size.width := r.Right-r.Left;
+    txt := NSStringUtf8(StatusBar.SimpleText);
+    panelCell.setAlignment( NSNaturalTextAlignment );
+    panelCell.setTitle( txt );
+    panelCell.drawWithFrame_inView(nr, Self);
+    txt.release;
   end
   else
   begin
-    SetLength(items, StatusBar.Panels.Count);
-    for i:=0 to length(items)-1 do
+    x:=0;
+    for i:=0 to StatusBar.Panels.Count-1 do
     begin
-      items[i].Width := StatusBar.Panels[i].Width;
-      items[i].Text := NSStringUtf8(StatusBar.Panels[i].Text);
-      items[i].Align := StatusBar.Panels[i].Alignment;
+      if i=StatusBar.Panels.Count-1 then
+        nr.size.width := r.Right-x+1
+      else
+        nr.size.width := StatusBar.Panels[i].Width+1;
+      nr.origin.x := x;
+      inc(x, StatusBar.Panels[i].Width);
+      txt := NSStringUtf8(StatusBar.Panels[i].Text);
+      panelCell.setTitle(txt);
+      panelCell.setAlignment(CocoaAlign[StatusBar.Panels[i].Alignment]);
+      panelCell.drawWithFrame_inView(nr, Self);
+      txt.release;
     end;
-  end;
-  Ctx := NSGraphicsContext.currentContext().graphicsPort();
-
-  DrawStatusBar(Ctx, r, items);
-
-  // Release all NSStrings
-  for i:=0 to length(items)-1 do
-  begin
-    items[i].Text.release;
   end;
 end;
 
-procedure TCocoaStatusBar.DrawSection(Ctx: CGContextRef; const r: TRect;
-  data: TStatusItemData);
-var
-  cr    : CGRect;
-  info  : HIThemeButtonDrawInfo;
-  txtinfo : HIThemeTextInfo;
-  lStr: string;
-const
-  txtHorzFlush : array [TAlignment] of Integer =
-    (kHIThemeTextHorizontalFlushLeft,kHIThemeTextHorizontalFlushRight,kHIThemeTextHorizontalFlushCenter);
-  StatusHeight = 15;
+procedure TCocoaStatusBar.dealloc;
 begin
-  // Otherwise the text gets printed upside down!
-  CGContextTranslateCTM(Ctx, 0, StatusHeight);
-  CGContextScaleCTM(Ctx, 1, -1);
-  try
-    cr:=RectToCGRect(r);
-    FillChar(info{%H-}, sizeof(info), 0);
-    info.kind:=kThemeListHeaderButton;
-    info.state:=kThemeStateActive;
-    HIThemeDrawButton( cr, info, ctx, 0, nil);
-
-    cr.origin.x:=cr.origin.x+2;
-    cr.origin.y:=cr.origin.y+1;
-    cr.size.width:=cr.size.width-6;
-    if data.Text <> nil then
-      lStr := NSStringToString(data.Text);
-    if (data.Text <> nil) and (lStr <> '') then
-    begin
-      FillChar(txtinfo{%H-}, sizeof(txtinfo), 0);
-      txtinfo.version:=1;
-      //txtinfo.fontID:=kThemeMiniSystemFont;
-      txtinfo.horizontalFlushness:=txtHorzFlush[data.align];
-      txtinfo.fontID:=kThemeSmallSystemFont;
-      txtinfo.state:=kThemeStateActive;
-      HIThemeSetTextFill(kThemeTextColorListView, nil, ctx, 0);
-      HIThemeDrawTextBox(CFStringRef(data.Text), cr, txtinfo, ctx, 0);
-    end;
-  finally
-    // It is very important to restore the coordinates ;)
-    CGContextScaleCTM(Ctx, 1, -1);
-    CGContextTranslateCTM(Ctx, 0, -1 * StatusHeight);
-  end;
+  if Assigned(panelCell) then panelCell.release;
+  inherited;
 end;
 
 { TCocoaComboBoxList }
@@ -3290,6 +3333,411 @@ begin
   if callback <> nil then
     callback.SendOnChange();
 end;
+
+{ TCocoaSpinEdit }
+
+{$IFDEF COCOA_SPINEDIT_INSIDE_CONTAINER}
+
+procedure TCocoaSpinEdit.dealloc;
+begin
+  if Stepper <> nil then
+    Stepper.release;
+  if Edit <> nil then
+    Edit.release;
+  inherited dealloc;
+end;
+
+procedure TCocoaSpinEdit.UpdateControl(ASpinEdit: TCustomFloatSpinEdit);
+begin
+  Stepper.setMaxValue(ASpinEdit.MaxValue);
+  Stepper.setMinValue(ASpinEdit.MinValue);
+  Stepper.setIncrement(ASpinEdit.Increment);
+  Stepper.setDoubleValue(ASpinEdit.Value);
+
+  // update the UI too
+  StepperChanged(Self);
+end;
+
+procedure TCocoaSpinEdit.CreateSubcontrols(ASpinEdit: TCustomFloatSpinEdit; const AParams: TCreateParams);
+var
+  lParams: TCreateParams;
+  lEditRect, lStepperRect: TRect;
+begin
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.CreateSubcontrols]');
+  {$ENDIF}
+
+  Spin := ASpinEdit;
+  CalculateSubcontrolPos(Types.Bounds(AParams.X, AParams.Y, AParams.Width,
+    AParams.Height), lEditRect, lStepperRect);
+
+  // Now creates the subcontrols
+  lParams := AParams;
+  lParams.WndParent := HWND(Self);
+  lParams.Style := AParams.Style or WS_VISIBLE;
+
+  // Stepper
+  lParams.X := lStepperRect.Left;
+  lParams.Y := lStepperRect.Top;
+  lParams.Width := lStepperRect.Right - lStepperRect.Left;
+  lParams.Height := lStepperRect.Bottom - lStepperRect.Top;
+  Stepper := NSStepper.alloc.lclInitWithCreateParams(lParams);
+  Stepper.setValueWraps(False);
+
+  // Edit
+  lParams.X := lEditRect.Left;
+  lParams.Y := lEditRect.Top;
+  lParams.Width := lEditRect.Right - lEditRect.Left;
+  lParams.Height := lEditRect.Bottom - lEditRect.Top;
+  Edit := NSTextField.alloc.lclInitWithCreateParams(lParams);
+
+  // Change event for the stepper
+  Stepper.setTarget(Self);
+  Stepper.setAction(objcselector('StepperChanged:'));
+end;
+
+procedure TCocoaSpinEdit.PositionSubcontrols(const ALeft, ATop, AWidth, AHeight: Integer);
+var
+  lNSStepperRect, lRect: NSRect;
+  lStepperRect, lEditRect: TRect;
+begin
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.PositionSubcontrols] AHeight=', AHeight);
+  {$ENDIF}
+
+  CalculateSubcontrolPos(Types.Bounds(ALeft, ATop, AWidth, AHeight), lEditRect, lStepperRect);
+
+  // Stepper
+  LCLToNSRect(lStepperRect, AHeight, lNSStepperRect);
+  Stepper.setBounds(lNSStepperRect);
+
+  // Edit
+  LCLToNSRect(lEditRect, AHeight, lRect);
+  Edit.setBounds(lRect);
+
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn(':<[TCocoaSpinEdit.PositionSubcontrols] Edit=> X=', lRect.origin.x,
+    ' Y=', lRect.origin.y, ' W=', lRect.size.width, ' H=', lRect.size.height,
+    ' Stepper X=', lNSStepperRect.origin.x, ' Y=', lNSStepperRect.origin.y,
+    ' W=', lNSStepperRect.size.width, ' H=', lNSStepperRect.size.height,
+    ' frame.size.height=', frame.size.height);
+  {$ENDIF}
+end;
+
+procedure TCocoaSpinEdit.CalculateSubcontrolPos(
+  const ASpinLCLBounds: TRect; out AEditBounds, AStepperBounds: TRect);
+var
+  lWidth, lHeight: Integer;
+begin
+  lWidth := ASpinLCLBounds.Right - ASpinLCLBounds.Left;
+  lHeight := ASpinLCLBounds.Bottom - ASpinLCLBounds.Top;
+
+  // Stepper
+  AStepperBounds.Left := lWidth - SPINEDIT_DEFAULT_STEPPER_WIDTH;
+  AStepperBounds.Top := SPINEDIT_EDIT_SPACING_FOR_SELECTION;
+  AStepperBounds.Right := lWidth;
+  AStepperBounds.Bottom := lHeight - SPINEDIT_EDIT_SPACING_FOR_SELECTION;
+
+  // Edit
+  AEditBounds.Left := SPINEDIT_EDIT_SPACING_FOR_SELECTION;
+  AEditBounds.Top := SPINEDIT_EDIT_SPACING_FOR_SELECTION;
+  AEditBounds.Right := lWidth - SPINEDIT_DEFAULT_STEPPER_WIDTH;
+  AEditBounds.Bottom := lHeight - SPINEDIT_EDIT_SPACING_FOR_SELECTION;
+
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.CalculateSubcontrolPos] lWidth=', lWidth, ' lHeight=', lHeight,
+    ' Stepper.Left=', AStepperBounds.Left, ' Stepper.Top=', AStepperBounds.Top,
+    ' Stepper.Right=', AStepperBounds.Right, ' Stepper.Bottom=', AStepperBounds.Bottom,
+    ' Edit.Left=', AEditBounds.Left, ' Edit.Top=', AEditBounds.Top,
+    ' Edit.Right=', AEditBounds.Right, ' Edit.Bottom=', AEditBounds.Bottom
+    );
+  {$ENDIF}
+end;
+
+procedure TCocoaSpinEdit.StepperChanged(sender: NSObject);
+var
+  lNSStr: NSString;
+  lStr: string;
+begin
+  lStr := Format('%.*f', [Spin.DecimalPlaces, Stepper.doubleValue()]);
+  lNSStr := CocoaUtils.NSStringUtf8(lStr);
+  Edit.setStringValue(lNSStr);
+  lNSStr.release;
+end;
+
+function TCocoaSpinEdit.acceptsFirstResponder: Boolean;
+begin
+  Result := True;
+end;
+
+function TCocoaSpinEdit.becomeFirstResponder: Boolean;
+begin
+  Result := Edit.becomeFirstResponder;
+  if Assigned(callback) then
+    callback.BecomeFirstResponder;
+end;
+
+function TCocoaSpinEdit.resignFirstResponder: Boolean;
+begin
+  Result := inherited resignFirstResponder;
+  if Assigned(callback) then
+    callback.ResignFirstResponder;
+end;
+
+function TCocoaSpinEdit.lclGetCallback: ICommonCallback;
+begin
+  Result := callback;
+end;
+
+procedure TCocoaSpinEdit.lclClearCallback;
+begin
+  callback := nil;
+end;
+
+function TCocoaSpinEdit.lclIsHandle: Boolean;
+begin
+  Result := True;
+end;
+
+function TCocoaSpinEdit.fittingSize: NSSize;
+begin
+  Result.width := -1;
+  Edit.sizeToFit();
+  Result.height := Edit.bounds.size.height + SPINEDIT_EDIT_SPACING_FOR_SELECTION * 2;
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.fittingSize] width=', Result.width,
+    ' height=', Result.height);
+  {$ENDIF}
+end;
+
+function TCocoaTextField.lclIsHandle: Boolean;
+begin
+  Result := True;
+end;
+
+{$ELSE}
+
+procedure TCocoaSpinEdit.dealloc;
+var
+  lFieldEditor: TCocoaFieldEditor;
+begin
+  lFieldEditor := GetFieldEditor();
+  if (lFieldEditor <> nil) and (lFieldEditor.lastEditBox = Self) then
+  begin
+    lFieldEditor.lastEditBox := nil;
+  end;
+
+  if Stepper <> nil then
+    Stepper.release;
+  if NumberFormatter <> nil then
+    NumberFormatter.release;
+
+  inherited dealloc;
+end;
+
+procedure TCocoaSpinEdit.UpdateControl(ASpinEdit: TCustomFloatSpinEdit);
+begin
+  Stepper.setMaxValue(ASpinEdit.MaxValue);
+  Stepper.setMinValue(ASpinEdit.MinValue);
+  Stepper.setIncrement(ASpinEdit.Increment);
+  Stepper.setDoubleValue(ASpinEdit.Value);
+
+  // update the UI too
+  StepperChanged(Self);
+end;
+
+procedure TCocoaSpinEdit.CreateSubcontrols(ASpinEdit: TCustomFloatSpinEdit; const AParams: TCreateParams);
+var
+  lParams: TCreateParams;
+begin
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.CreateSubcontrols]');
+  {$ENDIF}
+
+  Spin := ASpinEdit;
+
+  // Now creates the subcontrols
+  lParams := AParams;
+  //lParams.Style := AParams.Style or WS_VISIBLE;
+
+  // Stepper
+  lParams.X := AParams.X + AParams.Width - SPINEDIT_DEFAULT_STEPPER_WIDTH;
+  lParams.Width := SPINEDIT_DEFAULT_STEPPER_WIDTH;
+  Stepper := NSStepper.alloc.lclInitWithCreateParams(lParams);
+  Stepper.setValueWraps(False);
+
+  // Change event for the stepper
+  Stepper.setTarget(Self);
+  Stepper.setAction(objcselector('StepperChanged:'));
+
+  // Accept numbers only
+  setDelegate(Self);
+
+  { The default way to do this in Cocoa is with NSNumberFormatter
+    But it is a bit annoying, it just disallows losing focus from the control
+    instead of the Windows like solution to just override with the last value
+    If we ever want the Cocoa behavior, instead of implementing controlTextDidChange
+    do this:
+  var
+  lNSStr: NSString;
+  lStr: string;
+  i: Integer;
+
+  NumberFormatter := NSNumberFormatter.alloc.init;
+  lStr := '##0';
+  if ASpinEdit.DecimalPlaces > 0 then lStr := lStr + '.';
+  for i := 0 to ASpinEdit.DecimalPlaces-1 do
+    lStr := lStr + '0';
+  lNSStr := CocoaUtils.NSStringUtf8(lStr);
+  NumberFormatter.setFormat(lNSStr);
+  lNSStr.release;
+  NumberFormatter.setNumberStyle(NSNumberFormatterDecimalStyle);
+  setFormatter(NumberFormatter);}
+end;
+
+procedure TCocoaSpinEdit.PositionSubcontrols(const ALeft, ATop, AWidth, AHeight: Integer);
+begin
+  lclSetFrame(Types.Bounds(ALeft, ATop, AWidth, AHeight));
+end;
+
+procedure TCocoaSpinEdit.StepperChanged(sender: NSObject);
+var
+  lNSStr: NSString;
+  lStr: string;
+begin
+  lStr := Format('%.*f', [Spin.DecimalPlaces, Stepper.doubleValue()]);
+  lNSStr := CocoaUtils.NSStringUtf8(lStr);
+  setStringValue(lNSStr);
+  lNSStr.release;
+end;
+
+function TCocoaSpinEdit.GetFieldEditor: TCocoaFieldEditor;
+var
+  lFieldEditor: TCocoaFieldEditor;
+  lText: NSText;
+begin
+  Result := nil;
+  if window = nil then Exit;
+  lText := window.fieldEditor_forObject(True, Self);
+  if (lText <> nil) and lText.isKindOfClass_(TCocoaFieldEditor) then
+  begin
+    Result := TCocoaFieldEditor(lText);
+  end;
+end;
+
+procedure TCocoaSpinEdit.controlTextDidChange(obj: NSNotification);
+var
+  lValid: Boolean = False;
+  lValue: String;
+  lFloat: Double;
+begin
+  lValue := CocoaUtils.NSStringToString(stringValue());
+  lValid := SysUtils.TryStrToFloat(lValue, lFloat);
+  Spin.Value := lFloat;
+end;
+
+function TCocoaSpinEdit.acceptsFirstResponder: Boolean;
+begin
+  Result := True;
+end;
+
+function TCocoaSpinEdit.becomeFirstResponder: Boolean;
+begin
+  Result := inherited becomeFirstResponder;
+  callback.BecomeFirstResponder;
+end;
+
+function TCocoaSpinEdit.RealResignFirstResponder: Boolean;
+begin
+  callback.ResignFirstResponder;
+  Result := True;
+end;
+
+// See TCocoaTextField.resignFirstResponder as to why this is done here
+function TCocoaSpinEdit.resignFirstResponder: Boolean;
+var
+  lFieldEditor: TCocoaFieldEditor;
+begin
+  //DebugLn('[TCocoaTextField.resignFirstResponder]');
+  Result := inherited resignFirstResponder;
+  lFieldEditor := GetFieldEditor();
+  if (lFieldEditor <> nil) then
+  begin
+    lFieldEditor.lastEditBox := Self;
+  end;
+end;
+
+function TCocoaSpinEdit.lclGetCallback: ICommonCallback;
+begin
+  Result := callback;
+end;
+
+procedure TCocoaSpinEdit.lclClearCallback;
+begin
+  callback := nil;
+end;
+
+procedure TCocoaSpinEdit.resetCursorRects;
+begin
+  // this will not work well because
+  // cocoa replaced TextField and TextView cursors in
+  // mouseEntered, mouseMoved and CursorUpdate
+  if not callback.resetCursorRects then
+    inherited resetCursorRects;
+end;
+
+function TCocoaSpinEdit.lclIsHandle: Boolean;
+begin
+  Result := True;
+end;
+
+procedure TCocoaSpinEdit.lclSetVisible(AVisible: Boolean);
+begin
+  inherited lclSetVisible(AVisible);
+  Stepper.setHidden(not AVisible);
+end;
+
+procedure TCocoaSpinEdit.lclSetFrame(const r: TRect);
+var
+  ns, lStepperNS: NSRect;
+  svHeight: CGFloat;
+  lRect, lStepperRect: TRect;
+begin
+  lRect := r;
+  lStepperRect := r;
+  lRect.Right := lRect.Right - SPINEDIT_DEFAULT_STEPPER_WIDTH;
+  lStepperRect.Left := lRect.Right;
+  svHeight := GetNSViewSuperViewHeight(Self);
+  if Assigned(superview)  then
+  begin
+    LCLToNSRect(lRect, svHeight, ns);
+    LCLToNSRect(lStepperRect, svHeight, lStepperNS);
+  end
+  else
+  begin
+    ns := RectToNSRect(lRect);
+    lStepperNS := RectToNSRect(lStepperRect);
+  end;
+  {$IFDEF COCOA_DEBUG_SETBOUNDS}
+  WriteLn(Format('LCLViewExtension.lclSetFrame: %s Bounds=%s height=%d ns_pos=%d %d ns_size=%d %d',
+    [NSStringToString(Self.ClassName), dbgs(r), Round(svHeight),
+     Round(ns.origin.x), Round(ns.origin.y), Round(ns.size.width), Round(ns.size.height)]));
+  {$ENDIF}
+  setFrame(ns);
+  Stepper.setFrame(lStepperNS);
+end;
+
+function TCocoaSpinEdit.fittingSize: NSSize;
+begin
+  Result.width := -1;
+  sizeToFit();
+  Result.height := bounds.size.height;
+  {$IFDEF COCOA_SPIN_DEBUG}
+  WriteLn('[TCocoaSpinEdit.fittingSize] width=', Result.width, ' height=', Result.height);
+  {$ENDIF}
+end;
+
+{$ENDIF}
 
 end.
 

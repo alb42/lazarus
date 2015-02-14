@@ -246,7 +246,7 @@ const
 
 function TPSExec.InnerfuseCall(_Self, Address: Pointer; CallingConv: TPSCallingConvention; Params: TPSList; res: PPSVariantIFC): Boolean;
 var
-  a, Stack: ansistring;
+  Stack: ansistring;
   I: Longint;
   RegUsage: Byte;
   CallData: TPSList;
@@ -543,6 +543,7 @@ begin
             if not GetPtr(rp(Params[0])) then exit; // this goes first
             RegUsage := 2;
             EDX := Longint(_Self);
+            DisposePPSVariantIFC(Params[0]);
             Params.Delete(0);
           end else
 {$ENDIF}

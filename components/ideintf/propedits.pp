@@ -31,7 +31,7 @@ uses
   GraphType, FPCAdds, // for StrToQWord in older fpc versions
   StringHashList, ButtonPanel, Graphics, StdCtrls, Buttons, Menus, LCLType,
   ExtCtrls, ComCtrls, LCLIntf, Dialogs, EditBtn, PropertyStorage, Grids, ValEdit,
-  FileUtil, FileCtrl, ObjInspStrConsts, PropEditUtils,
+  FileUtil, FileCtrl, ObjInspStrConsts, PropEditUtils, Themes,
   // Forms with .lfm files
   FrmSelectProps, StringsPropEditDlg, KeyValPropEditDlg, CollectionPropEditForm,
   FileFilterPropEditor;
@@ -336,7 +336,7 @@ type
     function GetValue: ansistring; virtual;
     function GetHint({%H-}HintType: TPropEditHint; {%H-}x, {%H-}y: integer): string; virtual;
     function GetDefaultValue: ansistring; virtual;
-    function GetVisualValue: ansistring;
+    function GetVisualValue: ansistring; virtual;
     procedure GetValues({%H-}Proc: TGetStrProc); virtual;
     procedure Initialize; virtual;
     procedure Revert; virtual;
@@ -442,8 +442,6 @@ type
     procedure SetValue(const NewValue: ansistring); override;
   end;
 
-const PropCheckBoxSquareWidth = 15;
-
 type
   { TBoolPropertyEditor
     Default property editor for all boolean properties }
@@ -451,12 +449,11 @@ type
   TBoolPropertyEditor = class(TEnumPropertyEditor)
   public
     function OrdValueToVisualValue(OrdValue: longint): string; override;
+    function GetVisualValue: ansistring; override;
     procedure GetValues(Proc: TGetStrProc); override;
     procedure SetValue(const NewValue: ansistring); override;
-    {$IFDEF UseOICheckBox}
     procedure PropDrawValue(ACanvas: TCanvas; const ARect: TRect;
                             AState: TPropEditDrawState); override;
-    {$ENDIF}
   end;
 
 { TInt64PropertyEditor
@@ -1210,6 +1207,8 @@ type
   TPropHookModified = procedure(Sender: TObject) of object;
   TPropHookRevert = procedure(Instance:TPersistent; PropInfo:PPropInfo) of object;
   TPropHookRefreshPropertyValues = procedure of object;
+  // other
+  TPropHookGetCheckboxForBoolean = procedure(var Value: Boolean) of object;
 
   TPropHookType = (
     // lookup root
@@ -1249,7 +1248,9 @@ type
     htRevert,
     htRefreshPropertyValues,
     // dependencies
-    htAddDependency
+    htAddDependency,
+    // other
+    htGetCheckboxForBoolean
     );
 
   { TPropertyEditorHook }
@@ -1324,8 +1325,9 @@ type
     procedure Revert(Instance: TPersistent; PropInfo: PPropInfo);
     procedure RefreshPropertyValues;
     // dependencies
-    procedure AddDependency(const AClass: TClass;
-                            const AnUnitname: shortstring);
+    procedure AddDependency(const AClass: TClass; const AnUnitname: shortstring);
+    // other
+    function GetCheckboxForBoolean: Boolean;
   public
     // Handlers
     procedure RemoveAllHandlersForObject(const HandlerObject: TObject);
@@ -1447,6 +1449,8 @@ type
                                  const OnAddDependency: TPropHookAddDependency);
     procedure RemoveHandlerAddDependency(
                                  const OnAddDependency: TPropHookAddDependency);
+    procedure AddHandlerGetCheckboxForBoolean(
+                 const OnGetCheckboxForBoolean: TPropHookGetCheckboxForBoolean);
   end;
 
 //==============================================================================
@@ -3222,6 +3226,15 @@ begin
     Result := 'False'
   else
     Result := 'True';
+  if FPropertyHook.GetCheckboxForBoolean then
+    Result := '(' + Result + ')';
+end;
+
+function TBoolPropertyEditor.GetVisualValue: ansistring;
+begin
+  Result := inherited GetVisualValue;
+  if Result = '' then
+    Result := oisMixed;
 end;
 
 procedure TBoolPropertyEditor.GetValues(Proc: TGetStrProc);
@@ -3234,85 +3247,56 @@ procedure TBoolPropertyEditor.SetValue(const NewValue: ansistring);
 var
   I: Integer;
 begin
-  if (CompareText(NewValue, 'False') = 0) or (CompareText(NewValue, 'F') = 0) then
+  if (CompareText(NewValue, 'False') = 0)
+  or (CompareText(NewValue, '(False)') = 0)
+  or (CompareText(NewValue, 'F') = 0) then
     I := 0
   else 
-  if (CompareText(NewValue, 'True') = 0) or (CompareText(NewValue, 'T') = 0) then
+  if (CompareText(NewValue, 'True') = 0)
+  or (CompareText(NewValue, '(True)') = 0)
+  or (CompareText(NewValue, 'T') = 0) then
     I := 1
   else
     I := StrToInt(NewValue);
   SetOrdValue(I);
 end;
 
-{$IFDEF UseOICheckBox}
 procedure TBoolPropertyEditor.PropDrawValue(ACanvas: TCanvas; const ARect: TRect;
                                             AState: TPropEditDrawState);
-const
-  FRAME_LIGHT_GRAY = $00E2EFF1;
-  FRAME_GRAY       = $0099A8AC;
-  FRAME_DARK_GRAY  = $00646F71;
 var
   BRect: TRect;
-  DestPos: TPoint;
-  i: Integer;
+  Details: TThemedElementDetails;
+  Check: TThemedButton;
+  Sz: TSize;
+  TopMargin: Integer;
+  VisVal: String;
 begin
-  // Draw a fake checkbox image (partly copied and modified from CustomDrawn code)
-  // first the square background
-  ACanvas.Pen.Style := psClear;
-  ACanvas.Brush.Style := bsSolid;
-  ACanvas.Brush.Color := clWhite;
   BRect := ARect;
-  BRect.Right:=BRect.Left+PropCheckBoxSquareWidth;
-  Inc(BRect.Top);
-  Dec(BRect.Bottom,3);
-  ACanvas.Rectangle(BRect);
-  // the square frame
-  Inc(BRect.Left);
-  Dec(BRect.Right);
-  Inc(BRect.Top);
-  Dec(BRect.Bottom);
-  // The Frame, except the lower-bottom which is white anyway
-  // outter top-right
-  ACanvas.Pen.Style := psSolid;
-  ACanvas.Pen.Color := FRAME_GRAY;
-  ACanvas.MoveTo(BRect.Left,    BRect.Bottom);
-  ACanvas.LineTo(BRect.Left,    BRect.Top);
-  ACanvas.LineTo(BRect.Right,   BRect.Top);
-  // inner top-right
-  ACanvas.Pen.Color := FRAME_DARK_GRAY;
-  ACanvas.MoveTo(BRect.Left+1,  BRect.Bottom-1);
-  ACanvas.LineTo(BRect.Left+1,  BRect.Top+1);
-  ACanvas.LineTo(BRect.Right-1, BRect.Top+1);
-  // inner bottom-right
-  ACanvas.Pen.Color := FRAME_LIGHT_GRAY;
-  ACanvas.MoveTo(BRect.Left+1,  BRect.Bottom-1);
-  ACanvas.LineTo(BRect.Right-1, BRect.Bottom-1);
-  ACanvas.LineTo(BRect.Right-1, BRect.Top);
-  // outter bottom-right
-  ACanvas.Pen.Color := clWhite;
-  ACanvas.MoveTo(BRect.Left,    BRect.Bottom);
-  ACanvas.LineTo(BRect.Right,   BRect.Bottom);
-  ACanvas.LineTo(BRect.Right,   BRect.Top);
-  // The Tickmark
-  if GetOrdValue <> 0 then begin
-    ACanvas.Pen.Color := clGray;
-    ACanvas.Pen.Style := psSolid;
-    DestPos.X := BRect.Left+3;
-    DestPos.Y := BRect.Top+6;
-    // 4 lines going down and to the right
-    for i := 0 to 3 do
-      ACanvas.Line(DestPos.X+i, DestPos.Y+i, DestPos.X+i, DestPos.Y+3+i);
-    // Now 5 lines going up and to the right
-    for i := 4 to 8 do
-     ACanvas.Line(DestPos.X+i, DestPos.Y+6-i, DestPos.X+i, DestPos.Y+9-i);
+  if FPropertyHook.GetCheckboxForBoolean then
+  begin
+    VisVal := GetVisualValue;
+    // Draw the box using theme services.
+    if (VisVal = '') or (VisVal = oisMixed) then
+      Check := tbCheckBoxMixedNormal
+    else if GetOrdValue <> 0 then
+      Check := tbCheckBoxCheckedNormal
+    else
+      Check := tbCheckBoxUncheckedNormal;
+    Details := ThemeServices.GetElementDetails(Check);
+    Sz := ThemeServices.GetDetailSize(Details);
+    TopMargin := (ARect.Bottom - ARect.Top - Sz.cy) div 2;
+    Inc(BRect.Top, TopMargin);
+    // Left varies by widgetset and theme etc. Real Checkbox itself has a left margin.
+    Inc(BRect.Left, 2);                // ToDo: How to find out the real margin?
+    BRect.Right := BRect.Left + Sz.cx;
+    BRect.Bottom := BRect.Top + Sz.cy;
+    ThemeServices.DrawElement(ACanvas.Handle, Details, BRect, nil);
+    // Write text after the box
+    BRect := ARect;
+    Inc(BRect.Left, Sz.cx + 4);
   end;
-
-  // Write text after the image
-  BRect := ARect;
-  Inc(BRect.Left, 17);
   inherited PropDrawValue(ACanvas, BRect, AState);
 end;
-{$ENDIF}
 
 { TInt64PropertyEditor }
 
@@ -3424,7 +3408,6 @@ procedure TStringPropertyEditor.SetValue(const NewValue: ansistring);
 begin
   SetStrValue(NewValue);
 end;
-
 
 { TWideStringPropertyEditor }
 
@@ -5856,6 +5839,16 @@ begin
     TPropHookRefreshPropertyValues(FHandlers[htRefreshPropertyValues][i])();
 end;
 
+function TPropertyEditorHook.GetCheckboxForBoolean: Boolean;
+var
+  i: Integer;
+begin
+  Result:=False;
+  i:=GetHandlerCount(htGetCheckboxForBoolean);
+  if i > 0 then
+    TPropHookGetCheckboxForBoolean(FHandlers[htGetCheckboxForBoolean][0])(Result);
+end;
+
 procedure TPropertyEditorHook.RemoveAllHandlersForObject(const HandlerObject: TObject);
 var
   HookType: TPropHookType;
@@ -6141,8 +6134,7 @@ begin
   RemoveHandler(htSetSelectedPersistents,TMethod(OnSetSelection));
 end;
 
-procedure TPropertyEditorHook.AddHandlerGetObject(
-  const OnGetObject: TPropHookGetObject);
+procedure TPropertyEditorHook.AddHandlerGetObject(const OnGetObject: TPropHookGetObject);
 begin
   AddHandler(htGetObject,TMethod(OnGetObject));
 end;
@@ -6233,6 +6225,12 @@ procedure TPropertyEditorHook.RemoveHandlerAddDependency(
   const OnAddDependency: TPropHookAddDependency);
 begin
   RemoveHandler(htAddDependency,TMethod(OnAddDependency));
+end;
+
+procedure TPropertyEditorHook.AddHandlerGetCheckboxForBoolean(
+  const OnGetCheckboxForBoolean: TPropHookGetCheckboxForBoolean);
+begin
+  AddHandler(htGetCheckboxForBoolean,TMethod(OnGetCheckboxForBoolean));
 end;
 
 procedure TPropertyEditorHook.SetLookupRoot(APersistent: TPersistent);
@@ -6878,7 +6876,7 @@ begin
   RegisterPropertyEditor(TypeInfo(AnsiString), TFilterComboBox, 'Filter', TFileDlgFilterProperty);
   RegisterPropertyEditor(TypeInfo(AnsiString), TFileNameEdit, 'Filter', TFileDlgFilterProperty);
   RegisterPropertyEditor(TypeInfo(AnsiString), TCustomPropertyStorage, 'Filename', TFileNamePropertyEditor);
-  RegisterPropertyEditor(TypeInfo(TStrings), TValueListEditor, '', TValueListPropertyEditor);
+  RegisterPropertyEditor(TypeInfo(TStrings), TValueListEditor, 'Strings', TValueListPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TAnchorSide), TControl, 'AnchorSideLeft', THiddenPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TAnchorSide), TControl, 'AnchorSideTop', THiddenPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TAnchorSide), TControl, 'AnchorSideRight', THiddenPropertyEditor);

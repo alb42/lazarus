@@ -17,7 +17,8 @@ unit IDEWindowIntf;
 interface
 
 uses
-  Math, Classes, SysUtils, LCLProc, LazConfigStorage, Forms, Controls, LCLIntf;
+  Math, Classes, SysUtils, LCLProc, LazConfigStorage, LazUTF8, Forms, Controls,
+  LCLIntf;
 
   //----------------------------------------------------------------------------
   // layout settings of modal forms (dialogs) in the IDE
@@ -306,6 +307,13 @@ type
     iwcsNormal,
     iwcsDocked
     );
+  TIWGetFormState = (
+    iwgfDisabled, // create if not exist with disabled autosizing
+    iwgfEnabled, // create if not exists
+    iwgfShow, // create and show
+    iwgfShowOnTop // create, show and bring to front
+    );
+  TIWGetFormStates = set of TIWGetFormState;
 
   TCreateIDEWindowMethod = procedure(Sender: TObject; aFormName: string;
                 var AForm: TCustomForm; DoDisableAutoSizing: boolean) of object;
@@ -462,14 +470,14 @@ implementation
 function StrToIDEWindowPlacement(const s: string): TIDEWindowPlacement;
 begin
   for Result:=Low(TIDEWindowPlacement) to High(TIDEWindowPlacement) do
-    if AnsiCompareText(s,IDEWindowPlacementNames[Result])=0 then exit;
+    if UTF8CompareText(s,IDEWindowPlacementNames[Result])=0 then exit;
   Result:=iwpDefault;
 end;
 
 function StrToIDEWindowState(const s: string): TIDEWindowState;
 begin
   for Result:=Low(TIDEWindowState) to High(TIDEWindowState) do
-    if AnsiCompareText(s,IDEWindowStateNames[Result])=0 then exit;
+    if UTF8CompareText(s,IDEWindowStateNames[Result])=0 then exit;
   Result:=iwsNormal;
 end;
 

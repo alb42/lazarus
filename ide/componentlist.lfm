@@ -7,6 +7,7 @@ object ComponentListForm: TComponentListForm
   ClientHeight = 467
   ClientWidth = 300
   KeyPreview = True
+  OnActivate = FormActivate
   OnClose = FormClose
   OnKeyDown = FormKeyDown
   OnShow = FormShow
@@ -152,10 +153,10 @@ object ComponentListForm: TComponentListForm
       AnchorSideLeft.Side = asrBottom
       AnchorSideTop.Control = LabelSearch
       AnchorSideTop.Side = asrCenter
-      Left = 70
-      Height = 21
+      Left = 92
+      Height = 28
       Top = 2
-      Width = 203
+      Width = 204
       OnAfterFilter = TreeFilterEdAfterFilter
       ButtonWidth = 23
       NumGlyphs = 1

@@ -17,15 +17,15 @@ Type
 
   TUpDownButton = Class(TSpeedButton)
   private
-    BTimer : TTimer;
+    FMouseTimer : TTimer;
     FUpDown : TCustomUpDown;
     FButtonType : TUDBtnType;
   protected
-    procedure ButtonMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure ButtonMouseUp(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure DoubleClick(Sender: TObject);
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer
+      ); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+      override;
+    procedure DblClick; override;
   public
     constructor CreateWithParams(UpDown : TCustomUpDown;
       ButtonType : TUDBtnType);
@@ -34,17 +34,17 @@ Type
     procedure Paint; override;
   end;
 
-procedure TUpDownButton.ButtonMouseDown(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
+procedure TUpDownButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X,
+  Y: Integer);
 begin
   if Button = mbLeft then begin
     With FUpDown do begin
-      BTimerProc := @Self.Click;
-      BTimerBounds := Bounds(Self.ClientOrigin.X, Self.ClientOrigin.Y,
+      FMouseTimerEvent := @Self.Click;
+      FMouseDownBounds := Bounds(Self.ClientOrigin.X, Self.ClientOrigin.Y,
         Self.Width,Self.Height);
-      If Not Assigned(BTimer) then
-        BTimer := TTimer.Create(FUpDown);
-      With BTimer do begin
+      If Not Assigned(FMouseTimer) then
+        FMouseTimer := TTimer.Create(FUpDown);
+      With FMouseTimer do begin
         Enabled := False;
         Interval := 300;
         OnTimer := @BTimerExec;
@@ -54,19 +54,18 @@ begin
   end;
 end;
 
-procedure TUpDownButton.ButtonMouseUp(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
+procedure TUpDownButton.MouseUp(Button: TMouseButton; Shift: TShiftState; X,
+  Y: Integer);
 begin
   With FUpDown do
-    If Assigned(BTimer) then begin
-      BTimer.Free;
-      BTimer := nil;
-      BTimerBounds := Rect(0,0,0,0);
-      BTimerProc := nil;
+    If Assigned(FMouseTimer) then begin
+      FreeAndNil(FMouseTimer);
+      FMouseDownBounds := Rect(0,0,0,0);
+      FMouseTimerEvent := nil;
     end;
 end;
 
-procedure TUpDownButton.DoubleClick(Sender: TObject);
+procedure TUpDownButton.DblClick;
 begin
   Click;
 end;
@@ -121,9 +120,6 @@ begin
 
   Parent := FUpDown;
   ControlStyle := ControlStyle + [csNoFocus, csNoDesignSelectable];
-  OnMouseDown := @ButtonMouseDown;
-  OnMouseUp := @ButtonMouseUp;
-  OnDblClick := @DoubleClick;
 end;
 
 procedure TUpDownButton.Paint;
@@ -213,12 +209,10 @@ begin
   ControlStyle := ControlStyle  - [csDoubleClicks] +
                   [csClickEvents, csOpaque, csReplicatable, csNoFocus];
   FOrientation := udVertical;
-  MinBtn := TUpDownButton.CreateWithParams(Self, btPrev);
-  MaxBtn := TUpDownButton.CreateWithParams(Self, btNext);
+  FMinBtn := TUpDownButton.CreateWithParams(Self, btPrev);
+  FMaxBtn := TUpDownButton.CreateWithParams(Self, btNext);
   with GetControlClassDefaultSize do
     SetInitialBounds(0, 0, CX, CY);
-  BTimerProc := nil;
-  BTimerBounds := Rect(0,0,0,0);
   FArrowKeys := True;
   FMax := 100;
   FIncrement := 1;
@@ -234,11 +228,11 @@ end;
 
 procedure TCustomUpDown.BTimerExec(Sender : TObject);
 begin
-  If Assigned(BTimerProc)
-     and PtInRect(BTimerBounds,Mouse.CursorPos) then begin
+  If Assigned(FMouseTimerEvent)
+     and PtInRect(FMouseDownBounds,Mouse.CursorPos) then begin
     if TTimer(Sender).Interval > 100
       then TTimer(Sender).Interval := TTimer(Sender).Interval - 25;
-    BTimerProc;
+    FMouseTimerEvent;
   end;
 end;
 
@@ -260,17 +254,19 @@ end;
 
 procedure TCustomUpDown.UpdateOrientation;
 var
-  d: Integer;
+  d, r: Integer;
 begin
   If FOrientation = udHorizontal then begin
     d:=ClientWidth div 2;
-    MinBtn.SetBounds(0,0,d,ClientHeight);
-    MaxBtn.SetBounds(d,0,d,ClientHeight);
+    r:=ClientWidth mod 2;
+    FMinBtn.SetBounds(0,0,d,ClientHeight);
+    FMaxBtn.SetBounds(d+r,0,d,ClientHeight);
   end
   else begin
     d:=ClientHeight div 2;
-    MaxBtn.SetBounds(0,0,ClientWidth,d);
-    MinBtn.SetBounds(0,d,ClientWidth,d);
+    r:=ClientHeight mod 2;
+    FMaxBtn.SetBounds(0,0,ClientWidth,d);
+    FMinBtn.SetBounds(0,d+r,ClientWidth,d);
   end;
 end;
 
@@ -365,16 +361,16 @@ begin
       udVertical:
         case Key of
           VK_Up:
-            TCustomSpeedButton(MaxBtn).Click;
+            TCustomSpeedButton(FMaxBtn).Click;
           VK_Down:
-            TCustomSpeedButton(MinBtn).Click;
+            TCustomSpeedButton(FMinBtn).Click;
         end;
       udHorizontal:
         case Key of
           VK_Left:
-            TCustomSpeedButton(MinBtn).Click;
+            TCustomSpeedButton(FMinBtn).Click;
           VK_Right:
-            TCustomSpeedButton(MaxBtn).Click;
+            TCustomSpeedButton(FMaxBtn).Click;
         end;
     end;
   end
@@ -397,16 +393,16 @@ begin
     SetVisible(FAssociate.Visible);
 end;
 
-procedure TCustomUpDown.DoOnResize;
+procedure TCustomUpDown.DoSetBounds(ALeft, ATop, AWidth, AHeight: integer);
 begin
-  inherited DoOnResize;
+  inherited;
   UpdateOrientation;
 end;
 
 procedure TCustomUpDown.SetEnabled(Value: Boolean);
 begin
-  MinBtn.Enabled := Value;
-  MaxBtn.Enabled := Value;
+  FMinBtn.Enabled := Value;
+  FMaxBtn.Enabled := Value;
   inherited SetEnabled(Value);
 end;
 
@@ -414,6 +410,23 @@ class function TCustomUpDown.GetControlClassDefaultSize: TSize;
 begin
   Result.CX := 17;
   Result.CY := 31;
+end;
+
+procedure TCustomUpDown.CalculatePreferredSize(var PreferredWidth,
+  PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  case Orientation of
+  udHorizontal:
+    begin
+      PreferredWidth:=31;
+      PreferredHeight:=17;
+    end;
+  udVertical:
+    begin
+      PreferredWidth:=17;
+      PreferredHeight:=31;
+    end;
+  end;
 end;
 
 procedure TCustomUpDown.Notification(AComponent: TComponent;

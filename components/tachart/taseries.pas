@@ -146,7 +146,6 @@ type
     procedure Assign(ASource: TPersistent); override;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-
     procedure Draw(ADrawer: IChartDrawer); override;
     function Extent: TDoubleRect; override;
   published
@@ -202,7 +201,6 @@ type
     procedure Assign(ASource: TPersistent); override;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-
     procedure Draw(ADrawer: IChartDrawer); override;
   public
     procedure BeginUpdate;
@@ -245,7 +243,6 @@ type
     procedure GetLegendItems(AItems: TChartLegendItems); override;
   public
     procedure Assign(ASource: TPersistent); override;
-
     procedure Draw(ADrawer: IChartDrawer); override;
   published
     property AxisIndexX;
@@ -271,6 +268,7 @@ type
     function GetSeriesColor: TColor;
     procedure SavePosToCoord(var APoint: TDoublePoint);
     procedure SetArrow(AValue: TChartArrow);
+    procedure SetAxisIndexX(AValue: TChartAxisIndex);
     procedure SetLineStyle(AValue: TLineStyle);
     procedure SetPen(AValue: TPen);
     procedure SetPosition(AValue: Double);
@@ -289,12 +287,13 @@ type
     function GetNearestPoint(
       const AParams: TNearestPointParams;
       out AResults: TNearestPointResults): Boolean; override;
+    function IsEmpty: Boolean; override;
     procedure MovePoint(var AIndex: Integer; const ANewPos: TDoublePoint); override;
 
   published
     property Active default true;
     property Arrow: TChartArrow read FArrow write SetArrow;
-    property AxisIndexX;
+    property AxisIndexX write SetAxisIndexX;
     property LineStyle: TLineStyle
       read FLineStyle write SetLineStyle default lsHorizontal;
     property Pen: TPen read FPen write SetPen;
@@ -493,6 +492,7 @@ var
     i, j: Integer;
     p, pPrev: TDoublePoint;
     pNan, pPrevNan: Boolean;
+    scaled_depth: Integer;
   begin
     if LineType = ltNone then exit;
     // For extremely long series (10000 points or more), the Canvas.Line call
@@ -542,9 +542,10 @@ var
         ADrawer.SetBrushParams(bsSolid, LinePen.Color);
         ADrawer.SetPenParams(LinePen.Style, clBlack);
       end;
+      scaled_depth := ADrawer.Scale(Depth);
       for i := 0 to High(breaks) - 1 do
         for j := breaks[i] to breaks[i + 1] - 2 do
-          ADrawer.DrawLineDepth(points[j], points[j + 1], Depth);
+          ADrawer.DrawLineDepth(points[j], points[j + 1], scaled_depth);
     end;
   end;
 
@@ -767,6 +768,12 @@ begin
     case LineStyle of
       lsHorizontal: begin
         p := YGraphToImage(AxisToGraphX(Position));
+        // The "X" here is correct:
+        // The constant line series needs only a single axis, which is its
+        // "x axis" - the user will set the axis index to that of the y axis
+        // for the case of a horizontal line. Therefore, AxisToGraph must get
+        // the transformation from the line's x axis (even if it is the y axis
+        // of the chart!).
         DrawLineHoriz(ADrawer, p);
         if Arrow.Inverted then
           Arrow.Draw(ADrawer, Point(ClipRect.Left, p), 0, Pen)
@@ -821,6 +828,11 @@ begin
   Result := FPen.Color;
 end;
 
+function TConstantLine.IsEmpty: Boolean;
+begin
+  Result := false;
+end;
+
 procedure TConstantLine.MovePoint(
   var AIndex: Integer; const ANewPos: TDoublePoint);
 begin
@@ -838,6 +850,16 @@ procedure TConstantLine.SetArrow(AValue: TChartArrow);
 begin
   FArrow.Assign(AValue);
   UpdateParentChart;
+end;
+
+procedure TConstantLine.SetAxisIndexX(AValue: TChartAxisIndex);
+begin
+  inherited AxisIndexX := AValue;
+  AxisIndexY := AValue;
+  // Make sure that both axis indexes have the same value. The ConstantLineSeries
+  // does use only the x axis index, but transformations of the y axis outside
+  // this unit may require tha y axis index - which would not be correct without
+  // this here...
 end;
 
 procedure TConstantLine.SetLineStyle(AValue: TLineStyle);
@@ -928,6 +950,7 @@ end;
 procedure TBarSeries.Draw(ADrawer: IChartDrawer);
 var
   pointIndex, stackIndex: Integer;
+  scaled_depth: Integer;
 
   procedure DrawBar(const AR: TRect);
   var
@@ -956,9 +979,10 @@ var
     ADrawer.Rectangle(AR);
 
     if Depth = 0 then exit;
-    ADrawer.DrawLineDepth(AR.Left, AR.Top, AR.Right - 1, AR.Top, Depth);
+
+    ADrawer.DrawLineDepth(AR.Left, AR.Top, AR.Right - 1, AR.Top, scaled_depth);
     ADrawer.DrawLineDepth(
-      AR.Right - 1, AR.Top, AR.Right - 1, AR.Bottom - 1, Depth);
+      AR.Right - 1, AR.Top, AR.Right - 1, AR.Bottom - 1, scaled_depth);
   end;
 
 var
@@ -1004,6 +1028,8 @@ begin
   ext2 := ParentChart.CurrentExtent;
   ExpandRange(ext2.a.X, ext2.b.X, 1.0);
   ExpandRange(ext2.a.Y, ext2.b.Y, 1.0);
+
+  scaled_depth := ADrawer.Scale(Depth);
 
   PrepareGraphPoints(ext2, true);
   if IsRotated then
@@ -1189,6 +1215,7 @@ procedure TAreaSeries.Draw(ADrawer: IChartDrawer);
 var
   pts: TPointArray;
   numPts: Integer;
+  scaled_depth: Integer;
 
   procedure PushPoint(const AP: TPoint); overload;
   begin
@@ -1282,7 +1309,7 @@ var
       if Depth > 0 then
         // Rendering is incorrect when values cross zero level.
         for i := 1 to n2 - 2 do
-          ADrawer.DrawLineDepth(pts[i], pts[i + 1], Depth);
+          ADrawer.DrawLineDepth(pts[i], pts[i + 1], scaled_depth);
       ADrawer.Polygon(pts, 0, numPts);
     end;
     if AreaLinesPen.Style <> psClear then begin
@@ -1307,6 +1334,8 @@ begin
 
   PrepareGraphPoints(ext, true);
   if Length(FGraphPoints) = 0 then exit;
+
+  scaled_depth := ADrawer.Scale(Depth);
 
   SetLength(pts, Length(FGraphPoints) * 4 + 4);
   SetLength(prevPts, Length(pts));

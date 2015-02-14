@@ -415,6 +415,7 @@ begin
     else TreeView.AlphaSort;
   end;
   Update;
+  Changed(ncTextChanged);
   // Update accessibility information
   lSelfAX := TreeView.GetAccessibleObject.GetChildAccessibleObjectWithDataObject(Self);
   if lSelfAX <> nil then
@@ -435,6 +436,7 @@ begin
     else
       TreeView.AlphaSort;
   end;
+  Changed(ncDataChanged);
 end;
 
 function TTreeNode.GetState(NodeState: TNodeState): Boolean;
@@ -450,6 +452,7 @@ begin
   if TreeView<>nil then
     TreeView.FStates:=TreeView.FStates+[tvsScrollbarChanged,tvsTopsNeedsUpdate];
   Update;
+  Changed(ncHeightChanged);
 end;
 
 procedure TTreeNode.SetImageEffect(AValue: TGraphicsDrawEffect);
@@ -457,6 +460,7 @@ begin
   if FNodeEffect=AValue then exit;
   FNodeEffect := AValue;
   Update;
+  Changed(ncImageEffect);
 end;
 
 procedure TTreeNode.SetImageIndex(AValue: TImageIndex);
@@ -464,6 +468,7 @@ begin
   if FImageIndex=AValue then exit;
   FImageIndex := AValue;
   Update;
+  Changed(ncImageIndex);
 end;
 
 procedure TTreeNode.SetIndex(const AValue: Integer);
@@ -503,6 +508,7 @@ begin
   if FSelectedIndex = AValue then exit;
   FSelectedIndex := AValue;
   Update;
+  Changed(ncSelectedIndex);
 end;
 
 procedure TTreeNode.SetVisible(const AValue: Boolean);
@@ -515,6 +521,7 @@ begin
                                         tvsTopItemNeedsUpdate,tvsBottomItemNeedsUpdate,
                                         tvsMaxLvlNeedsUpdate,tvsMaxRightNeedsUpdate];
   Update;
+  Changed(ncVisibility);
 end;
 
 procedure TTreeNode.SetOverlayIndex(AValue: Integer);
@@ -522,6 +529,7 @@ begin
   if FOverlayIndex = AValue then exit;
   FOverlayIndex := AValue;
   Update;
+  Changed(ncOverlayIndex)
 end;
 
 procedure TTreeNode.SetStateIndex(AValue: Integer);
@@ -529,6 +537,7 @@ begin
   if FStateIndex = AValue then exit;
   FStateIndex := AValue;
   Update;
+  Changed(ncStateIndex);
 end;
 
 function TTreeNode.AreParentsExpandedAndVisible: Boolean;
@@ -1529,6 +1538,7 @@ begin
       TreeView.OnChange := OldOnChange;
     end;
   end;
+  Changed(ncParentChanged)
 end;
 
 procedure TTreeNode.MultiSelectGroup;
@@ -1890,6 +1900,11 @@ begin
   Stream.WriteBuffer(Info^, Size);
   for I := 0 to ItemCount - 1 do
     Items[I].WriteDelphiData(Stream, Info);
+end;
+
+procedure TTreeNode.Changed(ChangeReason: TTreeNodeChangeReason);
+begin
+  TreeView.NodeChanged(self,ChangeReason);
 end;
 
 function TTreeNode.GetOwner: TPersistent;
@@ -3257,7 +3272,7 @@ begin
     Result:=0;
     OnCompare(Node1.TreeView,Node1, Node2, Result);
   end else
-    Result := Utf8CompareStr(Node1.Text,Node2.Text);
+    Result := LazUTF8.Utf8CompareStr(Node1.Text,Node2.Text);
 end;
 
 procedure TCustomTreeView.SetAutoExpand(Value: Boolean);
@@ -4685,6 +4700,9 @@ var
     Points: PPoint;
     Details: TThemedElementDetails;
     R: TRect;
+    PrevColor: TColor;
+  const
+    cShiftHorzArrow = 2; //paint horz arrow N pixels upper than MidY
   begin
     with Canvas do
     begin
@@ -4718,7 +4736,8 @@ var
             LineTo(MidX, R.Bottom - 2);
 	  end;
         end;
-      tvestArrow:
+      tvestArrow,
+      tvestArrowFill:
         begin
           // draw an arrow. down for collapse and right for expand
           R := Rect(ALeft, ATop, ARight, ABottom);
@@ -4726,9 +4745,9 @@ var
           if CollapseSign then
           begin
             // draw an arrow down
-            Points[0] := Point(R.Left, MidY);
-            Points[1] := Point(R.Right - 1, MidY);
-            Points[2] := Point(MidX, R.Bottom - 1);
+            Points[0] := Point(R.Left, MidY - cShiftHorzArrow);
+            Points[1] := Point(R.Right - 1, MidY - cShiftHorzArrow);
+            Points[2] := Point(MidX, R.Bottom - 1 - cShiftHorzArrow);
           end else
           begin
             // draw an arrow right
@@ -4736,7 +4755,18 @@ var
             Points[1] := Point(R.Right - 2, MidY);
             Points[2] := Point(MidX - 1, R.Bottom - 1);
           end;
+
+          if ExpandSignType = tvestArrowFill then
+          begin
+            PrevColor := Brush.Color;
+            Brush.Color := ExpandSignColor;
+          end;
           Polygon(Points, 3, False);
+          if ExpandSignType = tvestArrowFill then
+          begin
+            Brush.Color := PrevColor;
+          end;
+
           FreeMem(Points);
         end;
       end;
@@ -5035,7 +5065,11 @@ end;
 
 procedure TCustomTreeView.Change(Node: TTreeNode);
 begin
-  if Assigned(FOnChange) then FOnChange(Self, Node);
+  if Assigned(FOnChange) then begin
+    FCallingOnChange := True;
+    FOnChange(Self, Node);
+    FCallingOnChange := False;
+  end;
 end;
 
 procedure TCustomTreeView.Delete(Node: TTreeNode);
@@ -5165,6 +5199,7 @@ begin
   LogicalX:=X;
   if ([ssDouble, ssTriple, ssQuad] * Shift) = [] then
   begin
+    // single click or first of a multi click
     if (Button = mbLeft) and (CursorNode <> nil) then
     begin
       if CursorNode.HasChildren and ShowButtons and
@@ -5214,7 +5249,8 @@ begin
         end;
       end;
     end;
-  end else
+  end
+  else // multi click
   if not (tvoNoDoubleClickExpand in Options) and (ssDouble in Shift)
      and (Button = mbLeft) and (CursorNode<>nil) then
     CursorNode.Expanded := not CursorNode.Expanded;
@@ -5262,6 +5298,12 @@ begin
   FStates:=FStates-[tvsDblClicked,tvsTripleClicked,tvsQuadClicked,
                     tvsEditOnMouseUp,tvsSingleSelectOnMouseUp];
   inherited MouseLeave;
+end;
+
+procedure TCustomTreeView.NodeChanged(Node: TTreeNode; ChangeReason: TTreeNodeChangeReason);
+begin
+  if assigned(FOnNodeChanged) then
+     OnNodeChanged(self,Node,ChangeReason);
 end;
 
 procedure TCustomTreeView.Notification(AComponent: TComponent; Operation: TOperation);
@@ -5330,7 +5372,7 @@ procedure TCustomTreeView.LoadFromFile(const FileName: string);
 var
   Stream: TStream;
 begin
-  Stream := TFileStream.Create(UTF8ToSys(FileName), fmOpenRead or fmShareDenyWrite);
+  Stream := TFileStreamUTF8.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     LoadFromStream(Stream);
   finally
@@ -5352,7 +5394,7 @@ procedure TCustomTreeView.SaveToFile(const FileName: string);
 var
   Stream: TStream;
 begin
-  Stream := TFileStream.Create(UTF8ToSys(FileName), fmCreate);
+  Stream := TFileStreamUTF8.Create(FileName, fmCreate);
   try
     SaveToStream(Stream);
   finally
@@ -5475,8 +5517,8 @@ begin
     Exclude(FStates, tvsSelectionChanged);
     DoSelectionChanged;
     FChangeTimer.Enabled := False;
-    FChangeTimer.Enabled := True;
-    //debugln('TCustomTreeView.InternalSelectionChanged');
+    if not FCallingOnChange then  // Prevent recursive loop from OnChange handler.
+      FChangeTimer.Enabled := True;
   end;
 end;
 
@@ -5646,8 +5688,7 @@ begin
   end;
 end;
 
-procedure TCustomTreeView.WriteDebugReport(const Prefix: string;
-  AllNodes: boolean);
+procedure TCustomTreeView.WriteDebugReport(const Prefix: string; AllNodes: boolean);
 begin
   DbgOut('%s%s.WriteDebugReport Self=%p', [Prefix, ClassName, Pointer(Self)]);
   ConsistencyCheck;

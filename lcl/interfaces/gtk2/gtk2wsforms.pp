@@ -1,4 +1,3 @@
-{ $Id$}
 {
  *****************************************************************************
  *                              Gtk2WSForms.pp                               * 
@@ -733,31 +732,40 @@ begin
     GtkWindowShowModal(AForm, GtkWindow);
   end else
   begin
-    if ShowNonModalOverModal then
-    // issue #21459
+    if ShowNonModalOverModal then begin
+      // issue #21459
+    end
     else if not GTK_IS_WINDOW(GtkWindow) then begin
+      //
     end
     else if (AForm.FormStyle <> fsMDIChild) and AForm.HandleObjectShouldBeVisible
       and (ModalWindows <> nil) and (ModalWindows.Count > 0)
       and (AForm.PopupParent = nil) and (AForm.BorderStyle = bsNone)
     then begin
+      // showing a non modal form with bsNone above a modal form
       gtk_window_set_transient_for(GtkWindow, nil);
       gtk_window_set_modal(GtkWindow, True);
     end else begin
-      // see bug 23876
+      // hiding/showing normal form
+      // clear former mods, e.g. when a modal form becomes a normal form, see bug 23876
+      {$IFDEF HASX}
+      gtk_window_set_modal(GtkWindow, False);
+      gtk_window_set_transient_for(GtkWindow, nil); //untransient
+      {$ELSE}
       gtk_window_set_transient_for(GtkWindow, nil); //untransient
       gtk_window_set_modal(GtkWindow, False);
+      {$ENDIF}
     end;
 
     {$IFDEF HASX}
     // issue #26018
     if AWinControl.HandleObjectShouldBeVisible and
       not (csDesigning in AForm.ComponentState) and
-      not (TCustomForm(AWinControl).FormStyle in fsAllStayOnTop) and
-      not (fsModal in TCustomForm(AWinControl).FormState) and
-      (TCustomForm(AWinControl).PopupMode = pmAuto) and
-      (TCustomForm(AWinControl).BorderStyle = bsNone) and
-      (TCustomForm(AWinControl).PopupParent = nil) then
+      not (AForm.FormStyle in fsAllStayOnTop) and
+      not (fsModal in AForm.FormState) and
+      (AForm.PopupMode = pmAuto) and
+      (AForm.BorderStyle = bsNone) and
+      (AForm.PopupParent = nil) then
     begin
       TempGdkWindow := {%H-}PGdkWindow(Gtk2WidgetSet.GetForegroundWindow);
       if (TempGdkWindow <> nil) and (GdkWindowObject_modal_hint(GDK_WINDOW_OBJECT(TempGdkWindow)^) = 0) then

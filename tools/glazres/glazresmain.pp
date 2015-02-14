@@ -101,6 +101,7 @@ const
   ErrFileIsResource = 'ERROR: Cannot add resource file to itself ("%s")';
   ErrCreate = 'ERROR: Cannot create "%s"';
   ErrNoResourceName = 'ERROR: No resourcename found for "%s"';
+  MsgCreatingLrs = 'Creating "%s"';
   MsgProcessing = 'Processing "%s"';
   MsgResourceNameType = ' Resource name = "%s", Type = "%s"';
   ErrRead = 'ERROR: Cannot read from "%s"';
@@ -237,7 +238,7 @@ var
   TheCanvas: TCanvas;
 begin
   //Objective: draw only the FileName, not the fully qualified path.
-  if (odPainted in State) then Exit;
+  //if (odPainted in State) then Exit;
   TheCanvas := (Control as TCustomListBox).Canvas;
 
   ItemText := ExtractFileName(FileListBox.Items[Index]);
@@ -434,7 +435,6 @@ begin
   ResourceFileName := ExtractFileName(FullResourceFileName);
   ClearMessages;
 
-  FullResourceFilename := ExpandFileNameUTF8(ResourceFilename);
   // check that all resources exists and are not the destination file
   for Index := 0 to FileCount-1 do
   begin
@@ -444,14 +444,15 @@ begin
       AddMessageFmt(ErrFileNotfound,[S]);
       exit;
     end;
-    if CompareFileNames(ExpandFileNameUTF8(S), FullResourceFilename, True) = 0 then
+    if CompareFilenamesIgnoreCase(ExpandFileNameUTF8(S), FullResourceFilename) = 0 then
     begin
       AddMessageFmt(ErrFileIsResource,[S]);
       exit;
     end;
   end;
   try
-    ResFileStream:=TFileStreamUtf8.Create(ResourceFilename,fmCreate);
+    AddMessageFmt(MsgCreatingLrs,[FullResourceFilename]);
+    ResFileStream:=TFileStreamUtf8.Create(FullResourceFileName,fmCreate);
   except
     AddMessageFmt(ErrCreate,[ResourceFileName]);
     exit;

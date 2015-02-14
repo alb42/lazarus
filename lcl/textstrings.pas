@@ -24,7 +24,7 @@ unit TextStrings;
 interface
 
 uses
-  Classes, SysUtils, LCLStrConsts;
+  Classes, SysUtils, LCLStrConsts, LazUtf8Classes;
   
 type
   { TTextStrings }
@@ -80,6 +80,8 @@ type
     function Add(const S: string): Integer; override;
     function AddObject(const S: string; AObject: TObject): Integer; override;
     procedure AddStrings(TheStrings: TStrings); override;
+    procedure LoadFromFile(const FileName: string); override;
+    procedure SaveToFile(const FileName: string); override;
   public
     property Text: string read FText write SetTextStr;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
@@ -725,24 +727,47 @@ procedure TTextStrings.AddStrings(TheStrings: TStrings);
 var
   s: String;
   i: Integer;
-  OldCount: Integer;
   AddEachLine: Boolean;
+  SrcTextStrings: TTextStrings;
+  SrcItem: PTextLineRange;
+  DstItem: PTextLineRange;
 begin
   if TheStrings.Count=0 then exit;
+  if FLineCount=0 then begin
+    if TheStrings is TTextStrings then begin
+      // copy Text, lineranges
+      SrcTextStrings:=TTextStrings(TheStrings);
+      FText:=SrcTextStrings.Text;
+      ClearArrays;
+      if not SrcTextStrings.FArraysValid then exit;
+      // copy line range list
+      FLineCount:=SrcTextStrings.Count;
+      FLineCapacity:=FLineCount;
+      FLineRanges:=AllocMem(FLineCount*SizeOf(TTextLineRange));
+      SrcItem:=SrcTextStrings.FLineRanges;
+      DstItem:=FLineRanges;
+      for i:=0 to FLineCount-1 do begin
+        DstItem^:=SrcItem^;
+        inc(SrcItem);
+        inc(DstItem);
+      end;
+      FArraysValid:=true;
+      exit;
+    end;
+  end;
   AddEachLine:=false;
   if FArraysValid then begin
     for i:=0 to FLineCount-1 do
       if FLineRanges[i].TheObject<>nil then begin
-        // objects have to be kept
+        // old objects have to be kept
         AddEachLine:=true;
         break;
       end;
   end;
   if not AddEachLine then begin
     for i:=0 to TheStrings.Count-1 do begin
-      s:=TheStrings[i];
-      if (Pos(#10,s)>0) or (Pos(#13,s)>0) then begin
-        // TheStrings contains a line with line breaks (multi lines)
+      if TheStrings.Objects[i]<>nil then begin
+        // new objects have to be kept
         AddEachLine:=true;
         break;
       end;
@@ -754,7 +779,7 @@ begin
       AddObject(TheStrings[i],TheStrings.Objects[i]);
   end else begin
     // append the whole text at once
-    OldCount:=Count;
+    // Beware: #10,#13 characters in lines are now converted to multiple lines
     if (FText<>'') and (not (FText[length(FText)] in [#10,#13])) then
       s:=LineEnding
     else
@@ -762,12 +787,30 @@ begin
     FArraysValid:=false;
     FText:=FText+s+TheStrings.Text;
     BuildArrays;
-    for i:=0 to TheStrings.Count-1 do begin
-      if i+OldCount<Count then
-        FLineRanges[i+OldCount].TheObject:=TheStrings.Objects[i]
-      else
-        AddObject('',TheStrings.Objects[i]);
-    end;
+  end;
+end;
+
+procedure TTextStrings.LoadFromFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(TheStream);
+  finally
+    TheStream.Free;
+  end;
+end;
+
+procedure TTextStrings.SaveToFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmCreate);
+  try
+    SaveToStream(TheStream);
+  finally
+    TheStream.Free;
   end;
 end;
 

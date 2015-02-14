@@ -1,4 +1,3 @@
-#
 msgid ""
 msgstr ""
 "MIME-Version: 1.0\n"
@@ -82,7 +81,7 @@ msgstr "Általános könyvtárnevek helyettesítése makrókkal"
 
 #: externhelpfrm.ehrsselectafilefromthesourceeditor
 msgid "Select a file from the source editor"
-msgstr "Fájlt választása a forráskód-szerkesztőből"
+msgstr "Fájlt választása a forráskódszerkesztőből"
 
 #: externhelpfrm.ehrsselectfile
 msgid "Select file"

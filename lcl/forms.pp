@@ -869,6 +869,7 @@ type
                           AData: pointer): TRect; virtual;
     function OffsetHintRect(NewPos: TPoint; dy: Integer = 15): Boolean;
     procedure InitializeWnd; override;
+    function IsHintMsg(Msg: TMsg): Boolean; virtual;
     procedure ReleaseHandle;
     procedure Paint; override;
     procedure SetBounds(ALeft, ATop, AWidth, AHeight: integer); override;
@@ -1238,6 +1239,11 @@ type
                    // and place all forms there to immitate a mobile platform
   );
 
+  TApplicationExceptionDlg = (
+    aedOkCancelDialog,  // Exception handler window will be a dialog with Ok/Cancel buttons
+    aedOkMessageBox     // Exception handler window will be a simple message box
+  );
+
   TApplicationShowGlyphs = (
     sbgAlways,  // show them always (default)
     sbgNever,   // show them never
@@ -1261,6 +1267,7 @@ type
     FComponentsToRelease: TFPList;
     FComponentsReleasing: TFPList;
     FCreatingForm: TForm;// currently created form (CreateForm), candidate for MainForm
+    FExceptionDialog: TApplicationExceptionDlg;
     FExtendedKeysSupport: Boolean;
     FFindGlobalComponentEnabled: boolean;
     FFlags: TApplicationFlags;
@@ -1499,6 +1506,7 @@ type
     property CaptureExceptions: boolean read FCaptureExceptions
                                         write SetCaptureExceptions;
     property ExtendedKeysSupport: Boolean read FExtendedKeysSupport write FExtendedKeysSupport; // See VK_LSHIFT in LCLType for more details
+    property ExceptionDialog: TApplicationExceptionDlg read FExceptionDialog write FExceptionDialog;
     property FindGlobalComponentEnabled: boolean read FFindGlobalComponentEnabled
                                                write FFindGlobalComponentEnabled;
     property Flags: TApplicationFlags read FFlags write SetFlags;
@@ -1562,6 +1570,7 @@ type
   TApplicationProperties = class(TLCLComponent)
   private
     FCaptureExceptions: boolean;
+    FExceptionDialogType: TApplicationExceptionDlg;
     FHelpFile: string;
     FHint: string;
     FHintColor: TColor;
@@ -1592,6 +1601,7 @@ type
     FOnQueryEndSession : TQueryEndSessionEvent;
     FOnMinimize : TNotifyEvent;
     FOnRestore : TNotifyEvent;
+    procedure SetExceptionDialog(AValue: TApplicationExceptionDlg);
   protected
     procedure SetCaptureExceptions(const AValue : boolean);
     procedure SetHelpFile(const AValue : string);
@@ -1630,6 +1640,8 @@ type
   published
     property CaptureExceptions: boolean read FCaptureExceptions
                                         write SetCaptureExceptions default True;
+    property ExceptionDialog: TApplicationExceptionDlg read FExceptionDialogType
+                                                       write SetExceptionDialog default aedOkCancelDialog;
     property HelpFile: string read FHelpFile write SetHelpFile;
     property Hint: string read FHint write SetHint;
     property HintColor: TColor read FHintColor write SetHintColor default DefHintColor;

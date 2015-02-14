@@ -53,13 +53,16 @@ type
     FRoot: string;
     FShellListView: TCustomShellListView;
     FFileSortType: TFileSortType;
+    FInitialRoot: String;
     { Setters and getters }
     function GetPath: string;
     procedure SetFileSortType(const AValue: TFileSortType);
+    procedure SetObjectTypes(AValue: TObjectTypes);
     procedure SetPath(AValue: string);
     procedure SetRoot(const AValue: string);
     procedure SetShellListView(const Value: TCustomShellListView);
   protected
+    procedure Loaded; override;
     { Other methods specific to Lazarus }
     function  PopulateTreeNodeWithFiles(
       ANode: TTreeNode; ANodePath: string): Boolean;
@@ -82,7 +85,7 @@ type
     procedure Refresh(ANode: TTreeNode); overload;
 
     { Properties }
-    property ObjectTypes: TObjectTypes read FObjectTypes write FObjectTypes;
+    property ObjectTypes: TObjectTypes read FObjectTypes write SetObjectTypes;
     property ShellListView: TCustomShellListView read FShellListView write SetShellListView;
     property FileSortType: TFileSortType read FFileSortType write SetFileSortType;
     property Root: string read FRoot write SetRoot;
@@ -294,6 +297,8 @@ const
   SShellCtrlsInvalidPathRelative = 'Invalid relative pathname:'#13'"%s"'#13
                                     +'in relation to rootpath:'#13'"%s"';
 
+function DbgS(OT: TObjectTypes): String; overload;
+
 procedure Register;
 
 implementation
@@ -301,6 +306,19 @@ implementation
 {$ifdef windows}
 uses Windows;
 {$endif}
+
+
+
+function DbgS(OT: TObjectTypes): String; overload;
+begin
+  Result := '[';
+  if (otFolders in OT) then Result := Result + 'otFolders,';
+  if (otNonFolders in OT) then Result := Result + 'otNonFolders,';
+  if (otHidden in OT) then Result := Result + 'otHidden';
+  if Result[Length(Result)] = ',' then System.Delete(Result, Length(Result), 1);
+  Result := Result + ']';
+end;
+
 
 {
 uses ShlObj;
@@ -361,11 +379,25 @@ begin
     Value.ShellTreeView := Self;
 end;
 
+procedure TCustomShellTreeView.Loaded;
+begin
+  inherited Loaded;
+  if (FInitialRoot = '') then
+    PopulateWithBaseFiles()
+  else
+    SetRoot(FInitialRoot);
+end;
+
 procedure TCustomShellTreeView.SetRoot(const AValue: string);
 var
   RootNode: TTreeNode;
 begin
   if FRoot=AValue then exit;
+  if (csLoading in ComponentState) then
+  begin
+    FInitialRoot := AValue;
+    Exit;
+  end;
   //Delphi raises an unspecified exception in this case, but don't crash the IDE at designtime
   if not (csDesigning in ComponentState)
      and (AValue <> '')
@@ -426,6 +458,28 @@ begin
   end;
 end;
 
+procedure TCustomShellTreeView.SetObjectTypes(AValue: TObjectTypes);
+var
+  CurrPath: String;
+begin
+  if FObjectTypes = AValue then Exit;
+  FObjectTypes := AValue;
+  if (csLoading in ComponentState) then Exit;
+  CurrPath := GetPath;
+  try
+    BeginUpdate;
+    Refresh(nil);
+    try
+       SetPath(CurrPath);
+    except
+      // CurrPath may have been removed in the mean time by another process, just ignore
+      on E: EInvalidPath do ;//
+    end;
+  finally
+    EndUpdate;
+  end;
+end;
+
 function TCustomShellTreeView.CanExpand(Node: TTreeNode): Boolean;
 var
   OldAutoExpand: Boolean;
@@ -442,14 +496,13 @@ end;
 constructor TCustomShellTreeView.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FInitialRoot := '';
 
   // Initial property values
 
   ObjectTypes:= [otFolders];
 
-  // Populates the base dirs
-
-  PopulateWithBaseFiles();
+  // Populating the base dirs is done in Loaded
 end;
 
 destructor TCustomShellTreeView.Destroy;
@@ -560,10 +613,11 @@ begin
         IsValidDirectory := (DirInfo.Name <> '.') and (DirInfo.Name <> '..');
 
         IsHidden := (DirInfo.Attr and faHidden = faHidden);
-        {$IFDEF Unix}
-        if (DirInfo.Name<>'') and (DirInfo.Name[1]='.') then
-          IsHidden:=true;
-        {$ENDIF}
+        //LinuxToWinAttr already does this in FF/FN
+        //{$IFDEF Unix}
+        //if (DirInfo.Name<>'') and (DirInfo.Name[1]='.') then
+        //  IsHidden:=true;
+        //{$ENDIF}
 
         // First check if we show hidden files
         if IsHidden then AddFile := (otHidden in AObjectTypes)
@@ -657,6 +711,43 @@ var
   i: Integer;
   Files: TStringList;
   NewNode: TTreeNode;
+
+   function HasSubDir(Const ADir: String): Boolean;
+   var
+     SR: TSearchRec;
+     FindRes: LongInt;
+     Attr: Longint;
+     IsHidden: Boolean;
+   begin
+     Result:=False;
+     try
+       Attr := faDirectory;
+       if (otHidden in fObjectTypes) then Attr := Attr or faHidden;
+       FindRes := FindFirstUTF8(AppendPathDelim(ADir) + AllFilesMask, Attr , SR);
+       while (FindRes = 0) do
+       begin
+         if ((SR.Attr and faDirectory <> 0) and (SR.Name <> '.') and
+            (SR.Name <> '..')) then
+         begin
+           IsHidden := ((Attr and faHidden) > 0);
+           //LinuxToWinAttr already does this in FF/FN
+           //{$IFDEF Unix}
+           //if (SR.Name<>'') and (SR.Name[1]='.') then
+           //  IsHidden := True;
+           //{$ENDIF}
+           if not (IsHidden and (not ((otHidden in fObjectTypes)))) then
+           begin
+             Result := True;
+             Break;
+           end;
+         end;
+         FindRes := FindNextUtf8(SR);
+       end;
+     finally
+       FindCloseUTF8(SR);
+     end; //try
+   end;
+
 begin
   Result := False;
   // avoids crashes in the IDE by not populating during design
@@ -670,7 +761,12 @@ begin
     for i := 0 to Files.Count - 1 do
     begin
       NewNode := Items.AddChildObject(ANode, Files.Strings[i], nil); //@Files.Strings[i]);
-      NewNode.HasChildren := Files.Objects[i] <> nil; // This marks if the node is a directory
+      // This marks if the node is a directory
+      if (fObjectTypes * [otNonFolders] = []) then
+        NewNode.HasChildren := ((Files.Objects[i] <> nil) and
+                               HasSubDir(AppendpathDelim(ANodePath)+Files[i]))
+      else
+        NewNode.HasChildren := (Files.Objects[i] <> nil);
     end;
   finally
     Files.Free;
@@ -717,7 +813,8 @@ var
   NewNode: TTreeNode;
 begin
   // avoids crashes in the IDE by not populating during design
-  if (csDesigning in ComponentState) then Exit;
+  // also do not populate before loading is done
+  if ([csDesigning, csLoading] * ComponentState <> []) then Exit;
 
   // This allows showing "/" in Linux, but in Windows it makes no sense to show the base
   if GetBasePath() <> '' then

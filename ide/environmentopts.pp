@@ -336,7 +336,7 @@ type
     // messages
     fMsgViewDblClickJumps: boolean;
     fMsgViewFocus: boolean;
-    FHideMessagesIcons: boolean;
+    FShowMessagesIcons: boolean;
     FMsgViewStayOnTop: boolean;
     FMsgViewShowTranslations: boolean;
     FMsgViewAlwaysDrawFocused: boolean;
@@ -473,8 +473,6 @@ type
 
     // macros
     procedure InitMacros(AMacroList: TTransferMacroList);
-    function MacroFuncCompPath(const {%H-}s:string; const {%H-}Data: PtrInt;
-                               var {%H-}Abort: boolean): string;
     function MacroFuncFPCSrcDir(const {%H-}s:string; const {%H-}Data: PtrInt;
                                 var {%H-}Abort: boolean): string;
     function MacroFuncLazarusDir(const {%H-}s:string; const {%H-}Data: PtrInt;
@@ -491,14 +489,15 @@ type
                               var {%H-}Abort: boolean): string;
 
     // auto save
-    property AskSaveSessionOnly: boolean read FAskSaveSessionOnly write FAskSaveSessionOnly; // ask even if only project session needs saving
+    // ask even if only project session needs saving
+    property AskSaveSessionOnly: boolean read FAskSaveSessionOnly write FAskSaveSessionOnly;
+    //
     property AutoSaveEditorFiles: boolean read FAutoSaveEditorFiles write FAutoSaveEditorFiles;
     property AutoSaveProject: boolean read FAutoSaveProject write FAutoSaveProject;
     property AutoSaveIntervalInSecs: integer read FAutoSaveIntervalInSecs write FAutoSaveIntervalInSecs;
        
     // window layouts
-    property IDEDialogLayoutList: TIDEDialogLayoutList
-                           read FIDEDialogLayoutList write FIDEDialogLayoutList;
+    property IDEDialogLayoutList: TIDEDialogLayoutList read FIDEDialogLayoutList;
     property SingleTaskBarButton: boolean read FSingleTaskBarButton
                                                write FSingleTaskBarButton;
     property HideIDEOnRun: boolean read FHideIDEOnRun write FHideIDEOnRun;
@@ -521,10 +520,8 @@ type
     // window menu list
     property IDENameForDesignedFormList: boolean read FIDENameForDesignedFormList
                                                write FIDENameForDesignedFormList;
-
     // component palette
-    property ComponentPaletteOptions: TCompPaletteOptions read FComponentPaletteOptions
-                                                         write FComponentPaletteOptions;
+    property ComponentPaletteOptions: TCompPaletteOptions read FComponentPaletteOptions;
 
     // form editor
     property ShowBorderSpacing: boolean read FShowBorderSpacing write FShowBorderSpacing;
@@ -534,8 +531,7 @@ type
     property GridSizeX: integer read FGridSizeX write FGridSizeX;
     property GridSizeY: integer read FGridSizeY write FGridSizeY;
     property ShowGuideLines: boolean read FShowGuideLines write FShowGuideLines;
-    property SnapToGuideLines: boolean
-                                 read FSnapToGuideLines write FSnapToGuideLines;
+    property SnapToGuideLines: boolean read FSnapToGuideLines write FSnapToGuideLines;
     property GuideLineColorLeftTop: TColor read FGuideLineColorLeftTop
                                            write FGuideLineColorLeftTop;
     property GuideLineColorRightBottom: TColor read FGuideLineColorRightBottom
@@ -566,8 +562,7 @@ type
                                              write FSwitchToFavoritesOITab;
 
     // object inspector
-    property ObjectInspectorOptions: TOIOptions read FObjectInspectorOptions
-                                                write FObjectInspectorOptions;
+    property ObjectInspectorOptions: TOIOptions read FObjectInspectorOptions;
 
     // project inspector
     property ProjInspSortAlphabetically: boolean read FProjInspSortAlphabetically
@@ -583,13 +578,11 @@ type
 
     // hints
     property CheckDiskChangesWithLoading: boolean read FCheckDiskChangesWithLoading
-                                             write FCheckDiskChangesWithLoading;
-    property ShowHintsForComponentPalette: boolean
-                                            read FShowHintsForComponentPalette
-                                            write FShowHintsForComponentPalette;
-    property ShowHintsForMainSpeedButtons: boolean
-                                            read FShowHintsForMainSpeedButtons
-                                            write FShowHintsForMainSpeedButtons;
+                                                 write FCheckDiskChangesWithLoading;
+    property ShowHintsForComponentPalette: boolean read FShowHintsForComponentPalette
+                                                  write FShowHintsForComponentPalette;
+    property ShowHintsForMainSpeedButtons: boolean read FShowHintsForMainSpeedButtons
+                                                  write FShowHintsForMainSpeedButtons;
     
     // files
     property LazarusDirectory: string read GetLazarusDirectory
@@ -602,34 +595,28 @@ type
                                               write FCompilerFileHistory;
     property FPCSourceDirectory: string read GetFPCSourceDirectory
                                         write SetFPCSourceDirectory;
-    property FPCSourceDirHistory: TStringList read FFPCSourceDirHistory
-                                              write FFPCSourceDirHistory;
-    property MakeFilename: string read GetMakeFilename
-                                      write SetMakeFilename;
-    property MakeFileHistory: TStringList read FMakeFileHistory
-                                              write FMakeFileHistory;
-    property DebuggerFilename: string read GetDebuggerFilename
-                                      write SetDebuggerFilename;
-    property DebuggerFileHistory: TStringList read FDebuggerFileHistory
-                                              write FDebuggerFileHistory;
+    property FPCSourceDirHistory: TStringList read FFPCSourceDirHistory;
+    property MakeFilename: string read GetMakeFilename write SetMakeFilename;
+    property MakeFileHistory: TStringList read FMakeFileHistory;
+    property DebuggerFilename: string read GetDebuggerFilename write SetDebuggerFilename;
+    property DebuggerFileHistory: TStringList read FDebuggerFileHistory;
     property DebuggerSearchPath: string read GetDebuggerSearchPath
                                       write SetDebuggerSearchPath;
     property DebuggerShowStopMessage: boolean read FDebuggerShowStopMessage
                                               write FDebuggerShowStopMessage;
     property DebuggerResetAfterRun: boolean read FDebuggerResetAfterRun
                                               write FDebuggerResetAfterRun;
-    property ShowCompileDialog: boolean read  FShowCompileDialog
-                                        write FShowCompileDialog;
-    property AutoCloseCompileDialog: boolean read  FAutoCloseCompileDialog
-                                             write FAutoCloseCompileDialog;
+    // ShowCompileDialog and AutoCloseCompileDialog are currently not used.
+    // But maybe someone will implement them again. Keep them till 1.4.2
+    property ShowCompileDialog: boolean read  FShowCompileDialog write FShowCompileDialog;
+    property AutoCloseCompileDialog: boolean read  FAutoCloseCompileDialog write FAutoCloseCompileDialog;
     property TestBuildDirectory: string read GetTestBuildDirectory
                                         write SetTestBuildDirectory;
-    property TestBuildDirHistory: TStringList read FTestBuildDirHistory
-                                              write FTestBuildDirHistory;
+    property TestBuildDirHistory: TStringList read FTestBuildDirHistory;
     property CompilerMessagesFilename: string read GetCompilerMessagesFilename
               write SetCompilerMessagesFilename; // non English translation file
-    property CompilerMessagesFileHistory: TStringList read FCompilerMessagesFileHistory
-                                                     write FCompilerMessagesFileHistory;
+    property CompilerMessagesFileHistory: TStringList read FCompilerMessagesFileHistory;
+
     // Primary-config verification
     property LastCalledByLazarusFullPath: String read FLastCalledByLazarusFullPath write FLastCalledByLazarusFullPath;
 
@@ -658,20 +645,17 @@ type
     property DebuggerEventLogColors[AIndex: TDBGEventType]: TDebuggerEventLogColor read GetDebuggerEventLogColors write SetDebuggerEventLogColors;
 
     // recent files and directories
-    property RecentOpenFiles: TStringList read FRecentOpenFiles
-                                          write FRecentOpenFiles;
+    property RecentOpenFiles: TStringList read FRecentOpenFiles;
     property MaxRecentOpenFiles: integer read FMaxRecentOpenFiles
                                          write FMaxRecentOpenFiles;
     procedure AddToRecentOpenFiles(const AFilename: string);
     procedure RemoveFromRecentOpenFiles(const AFilename: string);
-    property RecentProjectFiles: TStringList read FRecentProjectFiles
-                                             write FRecentProjectFiles;
+    property RecentProjectFiles: TStringList read FRecentProjectFiles;
     property MaxRecentProjectFiles: integer read FMaxRecentProjectFiles
                                             write FMaxRecentProjectFiles;
     procedure AddToRecentProjectFiles(const AFilename: string);
     procedure RemoveFromRecentProjectFiles(const AFilename: string);
-    property RecentPackageFiles: TStringList read FRecentPackageFiles
-                                          write FRecentPackageFiles;
+    property RecentPackageFiles: TStringList read FRecentPackageFiles;
     property MaxRecentPackageFiles: integer read FMaxRecentPackageFiles
                                          write FMaxRecentPackageFiles;
     property LastSavedProjectFile: string read FLastSavedProjectFile
@@ -718,7 +702,7 @@ type
       write fMsgViewDblClickJumps; // true=dbl click jump to error, false=single click jumps
     property MsgViewFocus: boolean read fMsgViewFocus
       write fMsgViewFocus; // when showing the message window, focus it
-    property HideMessagesIcons: boolean read fHideMessagesIcons write fHideMessagesIcons;
+    property ShowMessagesIcons: boolean read FShowMessagesIcons write FShowMessagesIcons;
     property MsgViewStayOnTop: boolean read FMsgViewStayOnTop write FMsgViewStayOnTop;
     property MsgViewShowTranslations: boolean read FMsgViewShowTranslations
              write FMsgViewShowTranslations;
@@ -727,7 +711,7 @@ type
     property MsgViewFilenameStyle: TMsgWndFileNameStyle read FMsgViewFilenameStyle
                        write FMsgViewFilenameStyle;
     property MsgViewColors[c: TMsgWndColor]: TColor read GetMsgViewColors write SetMsgViewColors;
-    property MsgViewFilters: TLMsgViewFilters read FMsgViewFilters write FMsgViewFilters;
+    property MsgViewFilters: TLMsgViewFilters read FMsgViewFilters;
 
     // glyphs
     property ShowButtonGlyphs: TApplicationShowGlyphs read FShowButtonGlyphs write FShowButtonGlyphs;
@@ -933,7 +917,7 @@ begin
   // messages view
   fMsgViewDblClickJumps:=true;
   fMsgViewFocus:=DefaultMsgViewFocus;
-  FHideMessagesIcons:=false;
+  FShowMessagesIcons:=true;
   FMsgViewStayOnTop:=false;
   FMsgViewShowTranslations:=false;
   FMsgViewAlwaysDrawFocused:=false;
@@ -1051,8 +1035,9 @@ end;
 
 procedure TEnvironmentOptions.DoAfterWrite(Restore: boolean);
 begin
-  if not Restore then
-    Save(False);
+  // Note! Data is saved when the IDE is closed.
+  //if not Restore then
+  //  Save(False);
   inherited DoAfterWrite(Restore);
 end;
 
@@ -1386,8 +1371,8 @@ begin
         Path+'MsgViewDblClickJumps/Value',false);
       fMsgViewFocus:=XMLConfig.GetValue(
         Path+'MsgViewFocus/Value',DefaultMsgViewFocus);
-      FHideMessagesIcons:=XMLConfig.GetValue(
-        Path+'Desktop/HideMessagesIcons/Value',false);
+      FShowMessagesIcons:=XMLConfig.GetValue(
+        Path+'Desktop/ShowMessagesIcons/Value',true);
       FMsgViewStayOnTop:=XMLConfig.GetValue(
         Path+'MsgView/StayOnTop/Value',false);
       FMsgViewShowTranslations:=XMLConfig.GetValue(
@@ -1465,7 +1450,7 @@ begin
         Path+'LowercaseDefaultFilename/Value',true);
 
       // component palette
-      FComponentPaletteOptions.Load;
+      FComponentPaletteOptions.Load(XMLConfig);
 
       // fpdoc
       FPDocPaths := XMLConfig.GetValue(Path+'LazDoc/Paths','');
@@ -1769,8 +1754,8 @@ begin
         fMsgViewDblClickJumps,false);
       XMLConfig.SetDeleteValue(Path+'MsgViewFocus/Value',
         fMsgViewFocus,DefaultMsgViewFocus);
-      XMLConfig.SetDeleteValue(Path+'Desktop/HideMessagesIcons/Value',
-        FHideMessagesIcons,false);
+      XMLConfig.SetDeleteValue(Path+'Desktop/ShowMessagesIcons/Value',
+        FShowMessagesIcons,true);
       XMLConfig.SetDeleteValue(
         Path+'MsgView/StayOnTop/Value',FMsgViewStayOnTop,false);
       XMLConfig.SetDeleteValue(
@@ -1827,7 +1812,7 @@ begin
                                FLowercaseDefaultFilename,true);
 
       // component palette
-      FComponentPaletteOptions.Save;
+      FComponentPaletteOptions.Save(XMLConfig);
 
       // fpdoc
       XMLConfig.SetDeleteValue(Path+'LazDoc/Paths',FPDocPaths,'');
@@ -2083,8 +2068,6 @@ end;
 
 procedure TEnvironmentOptions.InitMacros(AMacroList: TTransferMacroList);
 begin
-  AMacroList.Add(TTransferMacro.Create('CompPath','',
-                 lisCompilerFilename,@MacroFuncCompPath,[]));
   AMacroList.Add(TTransferMacro.Create('FPCSrcDir','',
                  lisFreePascalSourceDirectory,@MacroFuncFPCSrcDir,[]));
   AMacroList.Add(TTransferMacro.Create('LazarusDir','',
@@ -2101,13 +2084,6 @@ begin
                  lisConfigDirectory,@MacroFuncConfDir,[]));
   AMacroList.Add(TTransferMacro.Create('Home',GetUserDir,
                  lisUserSHomeDirectory, nil, []));
-end;
-
-function TEnvironmentOptions.MacroFuncCompPath(const s: string;
-  const Data: PtrInt; var Abort: boolean): string;
-// CompPath returns the default compiler file name of the environment options
-begin
-  Result:=GetParsedCompilerFilename;
 end;
 
 function TEnvironmentOptions.MacroFuncFPCSrcDir(const s: string;
@@ -2219,7 +2195,7 @@ begin
     else
       FXMLCfg:=TRttiXMLConfig.Create(Filename);
     FConfigStore:=TXMLOptionsStorage.Create(FXMLCfg);
-    ComponentPaletteOptions.ConfigStore:=FConfigStore;
+    //ComponentPaletteOptions.ConfigStore:=FConfigStore;
     ObjectInspectorOptions.ConfigStore:=FConfigStore;
     FDbgConfigStore:=TXMLOptionsStorage.Create(FXMLCfg, 'EnvironmentOptions/Debugger/');
     FDebuggerConfig.ConfigStore := FDbgConfigStore;

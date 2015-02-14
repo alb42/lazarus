@@ -235,10 +235,12 @@ resourceString
   rsFormStreamingError = 'Form streaming "%s" error: %s';
   rsFixedColsTooBig = 'FixedCols can''t be > ColCount';
   rsFixedRowsTooBig = 'FixedRows can''t be > RowCount';
-  rsGridFileDoesNotExists = 'Grid file doesn''t exists';
+  rsGridFileDoesNotExist = 'Grid file doesn''t exist';
   rsNotAValidGridFile = 'Not a valid grid file';
   rsIndexOutOfRange = 'Index Out of range Cell[Col=%d Row=%d]';
   rsGridIndexOutOfRange = 'Grid index out of range.';
+  rsGridHasNoRows = 'Cannot insert columns into a grid when it has no rows';
+  rsGridHasNoCols = 'Cannot insert rows into a grid when it has no columns';
   rsERRORInLCL = 'ERROR in LCL: ';
   rsCreatingGdbCatchableError = 'Creating gdb catchable error:';
   rsAControlCanNotHaveItselfAsParent = 'A control can''t have itself as a parent';
@@ -387,7 +389,7 @@ resourceString
   rsHelpHelpNodeHasNoHelpDatabase = 'Help node "%s" has no Help Database';
   rsHelpThereIsNoViewerForHelpType = 'There is no viewer for help type "%s"';
   rsHelpHelpDatabaseDidNotFoundAViewerForAHelpPageOfType = 'Help Database "%s" '
-    +'did not found a viewer for a help page of type %s';
+    +'did not find a viewer for a help page of type %s';
   rsHelpAlreadyRegistered = '%s: Already registered';
   rsHelpNotRegistered = '%s: Not registered';
   rsHelpHelpDatabaseNotFound = 'Help Database "%s" not found';

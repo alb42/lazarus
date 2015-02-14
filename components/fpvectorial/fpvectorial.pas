@@ -12,7 +12,7 @@ AUTHORS: Felipe Monteiro de Carvalho
 unit fpvectorial;
 
 {$ifdef fpc}
-  {$mode delphi}
+  {$mode objfpc}{$h+}
 {$endif}
 
 {$define USE_LCL_CANVAS}
@@ -29,7 +29,7 @@ interface
 uses
   Classes, SysUtils, Math, TypInfo, contnrs, types,
   // FCL-Image
-  fpcanvas, fpimage,
+  fpcanvas, fpimage, fpwritebmp,
   // lazutils
   laz2_dom,
   // LCL
@@ -118,7 +118,7 @@ type
     Width: Integer;
   end;
 
-  TvBrushKind = (bkSimpleBrush, bkRadialGradient);
+  TvBrushKind = (bkSimpleBrush, bkHorizontalGradient, bkVerticalGradient, vkOtherLinearGradient, bkRadialGradient);
   TvCoordinateUnit = (vcuDocumentUnit, vcuPercentage);
 
   TvBrush = record
@@ -150,7 +150,7 @@ type
   TvSetStyleElement = (
     // Pen, Brush and Font
     spbfPenColor, spbfPenStyle, spbfPenWidth,
-    spbfBrushColor, spbfBrushStyle, spbfBrushGradient,
+    spbfBrushColor, spbfBrushStyle, spbfBrushGradient, spbfBrushKind,
     spbfFontColor, spbfFontSize, spbfFontName, spbfFontBold, spbfFontItalic,
     spbfFontUnderline, spbfFontStrikeThrough, spbfAlignment,
     // TextAnchor
@@ -807,8 +807,8 @@ type
     AdjacentFormula: TvFormula;
   public
     Top, Left, Width, Height: Double;
-    function CalculateHeight(ADest: TFPCustomCanvas): Double; // in milimeters
-    function CalculateWidth(ADest: TFPCustomCanvas): Double; // in milimeters
+    function CalculateHeight(ADest: TFPCustomCanvas): Double; // in millimeters
+    function CalculateWidth(ADest: TFPCustomCanvas): Double; // in millimeters
     function AsText: string;
     procedure PositionSubparts(ADest: TFPCustomCanvas; ABaseX, ABaseY: Double);
     procedure Render(ADest: TFPCustomCanvas; var ARenderInfo: TvRenderInfo; ADestX: Integer = 0;
@@ -843,8 +843,8 @@ type
     function  CalculateRPNFormulaValue: Double;
     procedure Clear; override;
     //
-    function CalculateHeight(ADest: TFPCustomCanvas): Double; virtual; // in milimeters
-    function CalculateWidth(ADest: TFPCustomCanvas): Double; virtual; // in milimeters
+    function CalculateHeight(ADest: TFPCustomCanvas): Double; virtual; // in millimeters
+    function CalculateWidth(ADest: TFPCustomCanvas): Double; virtual; // in millimeters
     procedure PositionSubparts(ADest: TFPCustomCanvas; ABaseX, ABaseY: Double); override;
     procedure CalculateBoundingBox(ADest: TFPCustomCanvas; var ALeft, ATop, ARight, ABottom: Double); override;
     procedure Render(ADest: TFPCustomCanvas; var ARenderInfo: TvRenderInfo; ADestX: Integer = 0;
@@ -856,8 +856,8 @@ type
 
   TvVerticalFormulaStack = class(TvFormula)
   public
-    function CalculateHeight(ADest: TFPCustomCanvas): Double; override; // in milimeters
-    function CalculateWidth(ADest: TFPCustomCanvas): Double; override; // in milimeters
+    function CalculateHeight(ADest: TFPCustomCanvas): Double; override; // in millimeters
+    function CalculateWidth(ADest: TFPCustomCanvas): Double; override; // in millimeters
     procedure PositionSubparts(ADest: TFPCustomCanvas; ABaseX, ABaseY: Double); override;
     procedure CalculateBoundingBox(ADest: TFPCustomCanvas; var ALeft, ATop, ARight, ABottom: Double); override;
     procedure Render(ADest: TFPCustomCanvas; var ARenderInfo: TvRenderInfo; ADestX: Integer = 0;
@@ -1105,6 +1105,8 @@ type
     function AddCell : TvTableCell;
     function GetCellCount: Integer;
     function GetCell(AIndex: Integer) : TvTableCell;
+    //
+    function GenerateDebugTree(ADestRoutine: TvDebugAddItemProc; APageItem: Pointer): Pointer; override;
   end;
 
   (*
@@ -1147,6 +1149,10 @@ type
     function GetRow(AIndex: Integer) : TvTableRow;
 
     function AddColWidth(AValue : Double) : Integer;
+    //
+    procedure Render(ADest: TFPCustomCanvas; var ARenderInfo: TvRenderInfo; ADestX: Integer = 0;
+      ADestY: Integer = 0; AMulX: Double = 1.0; AMulY: Double = 1.0); override;
+    function GenerateDebugTree(ADestRoutine: TvDebugAddItemProc; APageItem: Pointer): Pointer; override;
   end;
 
   { TvEmbeddedVectorialDoc }
@@ -1410,6 +1416,8 @@ type
   { TvCustomVectorialReader }
 
   TvCustomVectorialReader = class
+  protected
+    class function GetTextContentsFromNode(ANode: TDOMNode): DOMString;
   public
     { General reading methods }
     constructor Create; virtual;
@@ -1691,6 +1699,41 @@ begin
   ColWidths[High(ColWidths)] := AValue;
 end;
 
+procedure TvTable.Render(ADest: TFPCustomCanvas; var ARenderInfo: TvRenderInfo;
+  ADestX: Integer; ADestY: Integer; AMulX: Double; AMulY: Double);
+begin
+  // First calculate the column widths
+
+
+  // Now calculate the row heights
+
+
+  // Now draw the table
+end;
+
+function TvTable.GenerateDebugTree(ADestRoutine: TvDebugAddItemProc;
+  APageItem: Pointer): Pointer;
+var
+  i: Integer;
+  lCurRow: TvTableRow;
+begin
+  {ColWidths: array of Double;       // Can be left empty for simple tables
+                                    // MUST be fully defined for merging cells
+  ColWidthsUnits : TvUnits;         // Cannot mix ColWidth Units.
+  Borders : TvTableBorders;         // Defaults: single/black/inside and out
+  PreferredWidth : TvDimension;     // Optional. Units mm.
+  CellSpacing : Double;             // Units mm. Gap between Cells.}
+  //FExtraDebugStr := Format(' RotationAngle(degrees)=%f', [BackgroundColor]);
+  Result := inherited GenerateDebugTree(ADestRoutine, APageItem);
+
+  // Add rows
+  for i := 0 to GetRowCount()-1 do
+  begin
+    lCurRow := GetRow(i);
+    lCurRow.GenerateDebugTree(ADestRoutine, Result);
+  end;
+end;
+
 { TvEmbeddedVectorialDoc }
 
 constructor TvEmbeddedVectorialDoc.create(APage: TvPage);
@@ -1807,6 +1850,8 @@ begin
     Brush.Style := AFrom.Brush.Style;
   {if spbfBrushGradient in AFrom.SetElements then
     Brush.Gra := AFrom.Brush.Style;}
+  if spbfBrushKind in AFrom.SetElements then
+    Brush.Kind := AFrom.Brush.Kind;
 
   // Font
 
@@ -1869,6 +1914,8 @@ begin
     ADest.Brush.Style := Brush.Style;
   {if spbfBrushGradient in SetElements then
     Brush.Gra := AFrom.Brush.Style;}
+  if spbfBrushKind in SetElements then
+    ADest.Brush.Kind := Brush.Kind;
 
   // Font
 
@@ -1931,7 +1978,7 @@ begin
     // Page style
     sseMarginTop, sseMarginBottom, sseMarginLeft, sseMarginRight
     );
-{   Font.Size, Font.Name, Font.Orientation,
+   Font.Size, Font.Name, Font.Orientation,
     BoolToStr(Font.Underline),
     BoolToStr(Font.StrikeThrough),
     GetEnumName(TypeInfo(TvTextAnchor), integer(TextAnchor))}
@@ -1980,6 +2027,23 @@ end;
 function TvTableRow.GetCell(AIndex: Integer): TvTableCell;
 begin
   Result := TvTableCell(Cells[AIndex]);
+end;
+
+function TvTableRow.GenerateDebugTree(ADestRoutine: TvDebugAddItemProc;
+  APageItem: Pointer): Pointer;
+var
+  i: Integer;
+  lCurCell: TvTableCell;
+begin
+  FExtraDebugStr := Format(' Height=%f CellSpacing=%f', [Height, CellSpacing]);
+  Result := inherited GenerateDebugTree(ADestRoutine, APageItem);
+
+  // Add cells
+  for i := 0 to GetCellCount()-1 do
+  begin
+    lCurCell := GetCell(i);
+    lCurCell.GenerateDebugTree(ADestRoutine, Result);
+  end;
 end;
 
 { T2DEllipticalArcSegment }
@@ -2043,7 +2107,7 @@ begin
 
   // SolveNumerically
 
-  lT1 := SolveNumericallyAngle(AlignedEllipseCenterEquationT1, 0.0001, 20);
+  lT1 := SolveNumericallyAngle(@AlignedEllipseCenterEquationT1, 0.0001, 20);
 
   CX1 := E1.X - RX*cos(lt1);
   CY1 := E1.Y - RY*sin(lt1);
@@ -2589,8 +2653,8 @@ var
   lStr: string;
   lCurPathSeg: TPathSegment;
 begin
-  lStr := Format('[%s] Name=%s Pen.Color=%s Pen.Style=%s Brush.Color=%s Brush.Style=%s',
-    [Self.ClassName, Self.Name,
+  lStr := Format('[%s] Name=%s X=%f Y=%f Pen.Color=%s Pen.Style=%s Brush.Color=%s Brush.Style=%s',
+    [Self.ClassName, Self.Name, X, Y,
     GenerateDebugStrForFPColor(Pen.Color),
     GetEnumName(TypeInfo(TFPPenStyle), integer(Pen.Style)),
     GenerateDebugStrForFPColor(Brush.Color),
@@ -3020,7 +3084,7 @@ var
   CurveLength: Integer;
   t: Double;
   // For polygons
-  Points: array of TPoint;
+  lPoints: array of TPoint;
   // for elliptical arcs
   BoxLeft, BoxTop, BoxRight, BoxBottom: Double;
   EllipseRect: TRect;
@@ -3056,8 +3120,8 @@ begin
     DeleteObject(ClipRegion);
     // debug info
     {$ifdef DEBUG_CANVAS_CLIP_REGION}
-    ConvertPathToPoints(CurPath.ClipPath, ADestX, ADestY, AMulX, AMulY, Points);
-    ACanvas.Polygon(Points);
+    ConvertPathToPoints(CurPath.ClipPath, ADestX, ADestY, AMulX, AMulY, lPoints);
+    ACanvas.Polygon(lPoints);
     {$endif}
   end;
   {$endif}
@@ -3133,18 +3197,18 @@ begin
       CoordY3 := CoordToCanvasY(Cur2DBSegment.Y3);
       CoordX4 := CoordToCanvasX(Cur2DBSegment.X);
       CoordY4 := CoordToCanvasY(Cur2DBSegment.Y);
-      SetLength(Points, 0);
+      SetLength(lPoints, 0);
       AddBezierToPoints(
         Make2DPoint(CoordX, CoordY),
         Make2DPoint(CoordX2, CoordY2),
         Make2DPoint(CoordX3, CoordY3),
         Make2DPoint(CoordX4, CoordY4),
-        Points
+        lPoints
       );
 
       ADest.Brush.Style := Brush.Style;
-      if Length(Points) >= 3 then
-        ADest.Polygon(Points);
+      if Length(lPoints) >= 3 then
+        ADest.Polygon(lPoints);
 
       PosX := Cur2DSegment.X;
       PosY := Cur2DSegment.Y;
@@ -3184,7 +3248,7 @@ begin
       CoordX3 := CoordToCanvasX(Cur2DArcSegment.XRotation);
       CoordX4 := CoordToCanvasX(Cur2DArcSegment.X);
       CoordY4 := CoordToCanvasY(Cur2DArcSegment.Y);
-      SetLength(Points, 0);
+      SetLength(lPoints, 0);
 
       Cur2DArcSegment.CalculateEllipseBoundingBox(nil, BoxLeft, BoxTop, BoxRight, BoxBottom);
 
@@ -3720,6 +3784,14 @@ begin
   {$endif}
   begin
     ADest.Ellipse(x1, y1, x2, y2);
+  end;
+  // Apply brush gradient
+  if Brush.Kind in [bkHorizontalGradient, bkVerticalGradient] then
+  begin
+    {PrepareBrushBitmap(x2, y2);
+    BrushBitmap.Canvas.Ellipse(0, 0, x2-x1, y2-y1);
+    AlphaBlendBrushBitmap(ADest, x1, y1);
+    FreeAndNil(BrushBitmap);}
   end;
 end;
 
@@ -4283,6 +4355,8 @@ var
   lFinalX, lFinalY, lFinalW, lFinalH: Integer;
   {$ifdef USE_LCL_CANVAS}
   lBitmap: TBitmap;
+  lMemoryStream: TMemoryStream;
+  lImageWriter: TFPWriterBMP;
   {$endif}
 begin
   if (RasterImage = nil) then Exit;
@@ -4293,8 +4367,20 @@ begin
 
   {$ifdef USE_LCL_CANVAS}
   lBitmap := TBitmap.Create;
+  lMemoryStream := TMemoryStream.Create;
+  lImageWriter := TFPWriterBMP.Create;
   try
-    lBitmap.LoadFromIntfImage(TLazIntfImage(RasterImage));
+    // Previous try, but didn't work for some particular PNG images =(
+    // For example: qr_www_lazarus_freepascal_org.svg
+    // The image appeared corrupted in Qt, as if with wrong pixel format =(
+    // It also didn't work in Gtk at all due to not matching Gdk format =(
+    // But if it worked it would have been faster =)
+    // Old code:
+    // lBitmap.LoadFromIntfImage(TLazIntfImage(RasterImage));
+    // New code:
+    RasterImage.SaveToStream(lMemoryStream, lImageWriter);
+    lMemoryStream.Position := 0;
+    lBitmap.LoadFromStream(lMemoryStream);
 
     // without stretch support
     //TCanvas(ADest).Draw(lFinalX, lFinalY, lBitmap);
@@ -4306,6 +4392,8 @@ begin
     if lFinalH < 0 then lFinalH := lFinalH * -1;
     TCanvas(ADest).StretchDraw(Bounds(lFinalX, lFinalY, lFinalW, lFinalH), lBitmap);
   finally
+    lImageWriter.Free;
+    lMemoryStream.Free;
     lBitmap.Free;
   end;
   {$endif}
@@ -4757,14 +4845,14 @@ end;
 function TvFormula.GetFirstElement: TvFormulaElement;
 begin
   if FElements.Count = 0 then Exit(nil);
-  Result := FElements.Items[0];
+  Result := TvFormulaElement(FElements.Items[0]);
   FCurIndex := 1;
 end;
 
 function TvFormula.GetNextElement: TvFormulaElement;
 begin
   if FElements.Count <= FCurIndex then Exit(nil);
-  Result := FElements.Items[FCurIndex];
+  Result := TvFormulaElement(FElements.Items[FCurIndex]);
   Inc(FCurIndex);
 end;
 
@@ -4845,7 +4933,7 @@ begin
   try
     for i := 0 to AInfix.Count-1 do
     begin
-      CurItem := AInfix.Items[i];
+      CurItem := TvFormulaElement(AInfix.Items[i]);
       case CurItem.Kind of
       fekVariable:
       begin
@@ -5010,7 +5098,7 @@ end;
 procedure TvFormula.Clear;
 begin
   inherited Clear;
-  FElements.ForEachCall(CallbackDeleteElement, nil);
+  FElements.ForEachCall(@CallbackDeleteElement, nil);
   FElements.Clear;
 end;
 
@@ -5169,14 +5257,14 @@ end;
 function TvEntityWithSubEntities.GetFirstEntity: TvEntity;
 begin
   if FElements.Count = 0 then Exit(nil);
-  Result := FElements.Items[0];
+  Result := TvEntity(FElements.Items[0]);
   FCurIndex := 1;
 end;
 
 function TvEntityWithSubEntities.GetNextEntity: TvEntity;
 begin
   if FElements.Count <= FCurIndex then Exit(nil);
-  Result := FElements.Items[FCurIndex];
+  Result := TvEntity(FElements.Items[FCurIndex]);
   Inc(FCurIndex);
 end;
 
@@ -5209,7 +5297,7 @@ function TvEntityWithSubEntities.DeleteEntity(AIndex: Cardinal): Boolean;
 var
   lEntity: TvEntity;
 begin
-  lEntity := FElements.Items[AIndex];
+  lEntity := TvEntity(FElements.Items[AIndex]);
   FElements.Remove(lEntity);
   lEntity.Free;
   Result := True;
@@ -5241,7 +5329,7 @@ end;
 procedure TvEntityWithSubEntities.Clear;
 begin
   inherited Clear;
-  FElements.ForEachCall(CallbackDeleteElement, nil);
+  FElements.ForEachCall(@CallbackDeleteElement, nil);
   FElements.Clear;
 end;
 
@@ -5893,7 +5981,7 @@ end;
 
 procedure TvVectorialPage.Clear;
 begin
-  FEntities.ForEachCall(CallbackDeleteEntity, nil);
+  FEntities.ForEachCall(@CallbackDeleteEntity, nil);
   FEntities.Clear();
   ClearTmpPath();
   ClearLayerSelection();
@@ -7008,6 +7096,8 @@ end;
 function TvVectorialDocument.AddPage: TvVectorialPage;
 begin
   Result := TvVectorialPage.Create(Self);
+  Result.Width := Width;
+  Result.Height := Height;
   FPages.Add(Result);
   if FCurrentPageIndex < 0 then FCurrentPageIndex := FPages.Count-1;
 end;
@@ -7300,6 +7390,34 @@ begin
 end;
 
 { TvCustomVectorialReader }
+
+class function TvCustomVectorialReader.GetTextContentsFromNode(ANode: TDOMNode): DOMString;
+var
+  lNodeTextTmp: DOMString;
+  lContentNode: TDOMNode;
+begin
+  Result := '';
+
+  for lContentNode in ANode.GetEnumeratorAllChildren() do
+  begin
+    if lContentNode is TDOMText then
+      lNodeTextTmp := TDOMText(lContentNode).TextContent
+    else if lContentNode is TDOMEntityReference then
+    begin
+      lNodeTextTmp := UTF8LowerCase(lContentNode.NodeName);
+      case lNodeTextTmp of
+      'pi': lNodeTextTmp := 'π';
+      'invisibletimes': lNodeTextTmp := '';
+      else
+        lNodeTextTmp := '';//lContentNode.NodeName;
+      end;
+    end
+    else
+      lNodeTextTmp := lContentNode.NodeName;
+
+    Result := Result + lNodeTextTmp;
+  end;
+end;
 
 constructor TvCustomVectorialReader.Create;
 begin

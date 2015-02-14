@@ -39,8 +39,8 @@ uses
   {$IFDEF Windows}
   Windows,
   {$ENDIF}
-  Classes, SysUtils, LazUTF8, LazDbgLog, LazFileCache, LazFileUtils,
-  LazUTF8Classes, LazLogger, AVL_Tree, CodeToolsStrConsts;
+  Classes, SysUtils, LazUtilities, LazDbgLog, LazLogger, LazUTF8, LazFileCache,
+  LazFileUtils, LazUTF8Classes, AVL_Tree, CodeToolsStrConsts;
 
 type
   TFPCStreamSeekType = int64;
@@ -224,22 +224,25 @@ function GetEnvironmentVariableUTF8(const EnvVar: String): String; inline;
 
 procedure InvalidateFileStateCache(const Filename: string = ''); inline;
 
-// basic utility -> should go to RTL
+// basic utility -> moved to LazUtilities
 function ComparePointers(p1, p2: Pointer): integer; inline;
 procedure MergeSort(List: PPointer; ListLength: PtrInt;
-                    Compare: TListSortCompare);
+                    const Compare: TListSortCompare); inline;
 function GetNextDelimitedItem(const List: string; Delimiter: char;
-                              var Position: integer): string;
+                              var Position: integer): string; inline;
 function HasDelimitedItem(const List: string; Delimiter: char; FindItem: string
-                          ): boolean;
+                          ): boolean; inline;
 function FindNextDelimitedItem(const List: string; Delimiter: char;
-                               var Position: integer; FindItem: string): string;
+                               var Position: integer; FindItem: string): string; inline;
 function AVLTreeHasDoubles(Tree: TAVLTree): TAVLTreeNode;
 
+// store date locale independent, thread safe
 const DateAsCfgStrFormat='YYYYMMDD';
-function DateToCfgStr(const Date: TDateTime): string;
-function CfgStrToDate(const s: string; out Date: TDateTime): boolean;
+const DateTimeAsCfgStrFormat='YYYY/MM/DD HH:NN:SS';
+function DateToCfgStr(const Date: TDateTime; const aFormat: string = DateAsCfgStrFormat): string;
+function CfgStrToDate(const s: string; out Date: TDateTime; const aFormat: string = DateAsCfgStrFormat): boolean;
 
+function SimpleFormat(const Fmt: String; const Args: Array of const): String;
 
 // debugging
 procedure RaiseCatchableException(const Msg: string);
@@ -365,6 +368,93 @@ uses
   {$ENDIF}
 {$ENDIF}
 {$ENDIF}
+
+function SimpleFormat(const Fmt: String; const Args: array of const): String;
+var
+  Used: array of boolean;
+  p: Integer;
+  StartPos: Integer;
+
+  procedure ReplaceArg(i: integer; var s: string);
+  var
+    Arg: String;
+  begin
+    if (i<Low(Args)) or (i>High(Args)) then exit;
+    case Args[i].VType of
+    vtInteger:    Arg:=dbgs(Args[i].vinteger);
+    vtInt64:      Arg:=dbgs(Args[i].VInt64^);
+    vtQWord:      Arg:=dbgs(Args[i].VQWord^);
+    vtBoolean:    Arg:=dbgs(Args[i].vboolean);
+    vtExtended:   Arg:=dbgs(Args[i].VExtended^);
+    vtString:     Arg:=Args[i].VString^;
+    vtAnsiString: Arg:=AnsiString(Args[i].VAnsiString);
+    vtChar:       Arg:=Args[i].VChar;
+    vtPChar:      Arg:=Args[i].VPChar;
+    else exit;
+    end;
+    Used[i]:=true;
+    ReplaceSubstring(s,StartPos,p-StartPos,Arg);
+    p:=StartPos+length(Arg);
+  end;
+
+var
+  RunIndex: Integer;
+  FixedIndex: Integer;
+begin
+  Result:=Fmt;
+  if Low(Args)>High(Args) then exit;
+  SetLength(Used,High(Args)-Low(Args)+1);
+  for RunIndex:=Low(Args) to High(Args) do
+    Used[RunIndex]:=false;
+  RunIndex:=Low(Args);
+  p:=1;
+  while p<=length(Result) do
+  begin
+    if Result[p]='%' then
+    begin
+      StartPos:=p;
+      inc(p);
+      case Result[p] of
+      's':
+        begin
+          inc(p);
+          ReplaceArg(RunIndex,Result);
+          inc(RunIndex);
+        end;
+      '0'..'9':
+        begin
+          FixedIndex:=0;
+          while (p<=length(Result)) and (Result[p] in ['0'..'9']) do
+          begin
+            if FixedIndex<High(Args) then
+              FixedIndex:=FixedIndex*10+ord(Result[p])-ord('0');
+            inc(p);
+          end;
+          if (p<=length(Result)) and (Result[p]=':') then
+          begin
+            inc(p);
+            if (p<=length(Result)) and (Result[p]='s') then
+              inc(p);
+          end;
+          ReplaceArg(FixedIndex,Result);
+        end;
+      else
+        inc(p);
+      end;
+    end else
+      inc(p);
+  end;
+
+  // append all missing arguments
+  for RunIndex:=Low(Args) to High(Args) do
+  begin
+    if Used[RunIndex] then continue;
+    Result+=',';
+    StartPos:=length(Result)+1;
+    p:=StartPos;
+    ReplaceArg(RunIndex,Result);
+  end;
+end;
 
 procedure RaiseCatchableException(const Msg: string);
 begin
@@ -1466,227 +1556,234 @@ begin
   Result:='';
 end;
 
-function FilenameIsMatching(const Mask, Filename: string;
-  MatchExactly: boolean): boolean;
+function FilenameIsMatching(const Mask, Filename: string; MatchExactly: boolean
+  ): boolean;
 (*
   check if Filename matches Mask
   if MatchExactly then the complete Filename must match, else only the
   start
 
-  Filename matches exactly or is a file/directory in a subdirectory of mask
-  Mask can contain the wildcards * and ? and the set operator {,}
-  The wildcards will _not_ match PathDelim
+  Filename matches exactly or is a file/directory in a subdirectory of mask.
+  Mask can contain the wildcards * and ? and the set operator {,}.
+  The wildcards will *not* match PathDelim.
+  You can nest the {} sets.
   If you need the asterisk, the question mark or the PathDelim as character
-  just put the SpecialChar character in front of it.
+  just put the SpecialChar character in front of it (e.g. #*, #? #/).
 
   Examples:
-    /abc           matches /abc, /abc/p, /abc/xyz/filename
-                   but not /abcd
-    /abc/x?z/www   matches /abc/xyz/www, /abc/xaz/www
-                   but not /abc/x/z/www
-    /abc/x*z/www   matches /abc/xz/www, /abc/xyz/www, /abc/xAAAz/www
-                   but not /abc/x/z/www
-    /abc/x\*z/www  matches /abc/x*z/www, /abc/x*z/www/ttt
-
-    /a{b,c,d}e     matches /abe, /ace, /ade
+    /abc             matches /abc, /abc/, /abc/p, /abc/xyz/filename
+                     but not /abcd
+    /abc/            matches /abc, /abc/, /abc//, but not /abc/.
+    /abc/x?z/www     matches /abc/xyz/www, /abc/xaz/www
+                     but not /abc/x/z/www
+    /abc/x*z/www     matches /abc/xz/www, /abc/xyz/www, /abc/xAAAz/www
+                     but not /abc/x/z/www
+    /abc/x#*z/www    matches /abc/x*z/www, /abc/x*z/www/ttt
+    /a{b,c,d}e       matches /abe, /ace, /ade
+    *.p{as,p,}       matches a.pas, unit1.pp, b.p but not b.inc
+    *.{p{as,p,},inc} matches a.pas, unit1.pp, b.p, b.inc but not c.lfm
 *)
+{off $DEFINE VerboseFilenameIsMatching}
 
-  function FindDirectoryStart(const AFilename: string;
-    CurPos: integer): integer;
+  function Check(MaskP, FileP: PChar): boolean;
+  var
+    Level: Integer;
+    MaskStart: PChar;
+    FileStart: PChar;
   begin
-    Result:=CurPos;
-    while (Result<=length(AFilename))
-    and (AFilename[Result]=PathDelim) do
-      inc(Result);
-  end;
-
-  function FindDirectoryEnd(const AFilename: string; CurPos: integer): integer;
-  begin
-    Result:=CurPos;
-    while (Result<=length(AFilename)) do begin
-      if AFilename[Result]=SpecialChar then
-        inc(Result,2)
-      else if (AFilename[Result]=PathDelim) then
-        break
-      else
-        inc(Result);
-    end;
-  end;
-
-  function CharsEqual(c1, c2: char): boolean;
-  begin
-    {$ifdef CaseInsensitiveFilenames}
-    Result:=(FPUpChars[c1]=FPUpChars[c2]);
-    {$else}
-    Result:=(c1=c2);
-    {$endif}
-  end;
-
-var
-  DirStartMask, DirEndMask,
-  DirStartFile, DirEndFile,
-  BracketMaskPos, BracketFilePos: integer;
-  StopChar: LongInt;
-  Fits: Boolean;
-
-  function TryNextOr: boolean;
-  begin
+    {$IFDEF VerboseFilenameIsMatching}
+    debugln(['  Check Mask="',MaskP,'" FileP="',FileP,'"']);
+    {$ENDIF}
     Result:=false;
-    if BracketMaskPos<1 then exit;
     repeat
-      inc(DirStartMask);
-      if DirStartMask>=DirEndMask then exit; // error, missing }
-      if Mask[DirStartMask]=SpecialChar then begin
-        // special char -> next char is normal char
-        inc(DirStartMask);
-      end else if Mask[DirStartMask]='}' then begin
-        // bracket found (= end of Or operator)
-        // -> filename does not match
-        exit;
-      end else if Mask[DirStartMask]=',' then begin
-        // next Or found
-        // -> reset filename position and compare
-        inc(DirStartMask);
-        DirStartFile:=BracketFilePos;
-        exit(true);
+      case MaskP^ of
+      #0:
+        begin
+          // the whole Mask fits the start of Filename
+          // trailing PathDelim in FileP are ok
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check END Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          if FileP^=#0 then exit(true);
+          if FileP^<>PathDelim then exit(false);
+          while FileP^=PathDelim do inc(FileP);
+          Result:=(FileP^=#0) or (not MatchExactly);
+          exit;
+        end;
+      SpecialChar:
+        begin
+          // match on character
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check specialchar Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          inc(MaskP);
+          if MaskP^=#0 then exit;
+          if MaskP^<>FileP^ then exit;
+          inc(MaskP);
+          inc(FileP);
+        end;
+      PathDelim:
+        begin
+          // match PathDelim(s) or end of filename
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check PathDelim Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          if not (FileP^ in [#0,PathDelim]) then exit;
+          // treat several PathDelim as one
+          while MaskP^=PathDelim do inc(MaskP);
+          while FileP^=PathDelim do inc(FileP);
+          if MaskP^=#0 then
+            exit((FileP^=#0) or not MatchExactly);
+        end;
+      '?':
+        begin
+          // match any one character, but PathDelim
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check any one char Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          if FileP^ in [#0,PathDelim] then exit;
+          inc(MaskP);
+          inc(FileP,UTF8CharacterLength(FileP));
+        end;
+      '*':
+        begin
+          // match 0 or more characters, but PathDelim
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check any chars Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          while MaskP^='*' do inc(MaskP);
+          repeat
+            if Check(MaskP,FileP) then exit(true);
+            if FileP^ in [#0,PathDelim] then exit;
+            inc(FileP);
+          until false;
+        end;
+      '{':
+        begin
+          // OR options separated by comma
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check { Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          inc(MaskP);
+          repeat
+            if Check(MaskP,FileP) then begin
+              {$IFDEF VerboseFilenameIsMatching}
+              debugln(['  Check { option fits -> end']);
+              {$ENDIF}
+              exit(true);
+            end;
+            {$IFDEF VerboseFilenameIsMatching}
+            debugln(['  Check { skip to next option ...']);
+            {$ENDIF}
+            // skip to next option in MaskP
+            Level:=1;
+            repeat
+              case MaskP^ of
+              #0: exit;
+              SpecialChar:
+                begin
+                  inc(MaskP);
+                  if MaskP^=#0 then exit;
+                  inc(MaskP);
+                end;
+              '{': inc(Level);
+              '}':
+                begin
+                  dec(Level);
+                  if Level=0 then exit; // no option fits
+                end;
+              ',':
+                if Level=1 then break;
+              end;
+              inc(MaskP);
+            until false;
+            {$IFDEF VerboseFilenameIsMatching}
+            debugln(['  Check { next option: "',MaskP,'"']);
+            {$ENDIF}
+            inc(MaskP)
+          until false;
+        end;
+      '}':
+        begin
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check } Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          inc(MaskP);
+        end;
+      ',':
+        begin
+          // OR option fits => continue behind the {}
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check Skipping to end of {} Mask="',MaskP,'" ...']);
+          {$ENDIF}
+          Level:=1;
+          repeat
+            inc(MaskP);
+            case MaskP^ of
+            #0: exit;
+            SpecialChar:
+              begin
+                inc(MaskP);
+                if MaskP^=#0 then exit;
+                inc(MaskP);
+              end;
+            '{': inc(Level);
+            '}':
+              begin
+                dec(Level);
+                if Level=0 then break;
+              end;
+            end;
+          until false;
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check Skipped to end of {} Mask="',MaskP,'"']);
+          {$ENDIF}
+          inc(MaskP);
+        end;
+      #128..#255:
+        begin
+          // match UTF-8 characters
+          {$IFDEF VerboseFilenameIsMatching}
+          debugln(['  Check UTF-8 chars Mask="',MaskP,'" FileP="',FileP,'"']);
+          {$ENDIF}
+          MaskStart:=MaskP;
+          FileStart:=FileP;
+          while not (MaskP^ in [#0,SpecialChar,PathDelim,'?','*','{',',','}']) do
+          begin
+            if FileP^ in [#0,PathDelim] then exit;
+            inc(MaskP,UTF8CharacterLength(MaskP));
+            inc(FileP,UTF8CharacterLength(FileP));
+          end;
+          if CompareFilenames(MaskStart,MaskP-MaskStart,FileStart,FileP-FileStart)<>0 then
+            exit;
+        end;
+      else
+        // match ASCII characters
+        repeat
+          case MaskP^ of
+          #0,SpecialChar,PathDelim,'?','*','{',',','}': break;
+          {$IFDEF CaseInsensitiveFilenames}
+          'a'..'z','A'..'Z':
+            if FPUpChars[MaskP^]<>FPUpChars[FileP^] then exit;
+          {$ENDIF}
+          else
+            if MaskP^<>FileP^ then exit;
+          end;
+          inc(MaskP);
+          inc(FileP);
+        until false;
       end;
     until false;
   end;
 
 begin
-  //debugln(['[FilenameIsMatching] Mask="',Mask,'" Filename="',Filename,'" MatchExactly=',MatchExactly]);
-  Result:=false;
-  if (Filename='') then exit;
-  if (Mask='') then begin
-    Result:=true;  exit;
-  end;
-  // test every directory
-  DirStartMask:=1;
-  DirStartFile:=1;
-  repeat
-    // find start of directories
-    DirStartMask:=FindDirectoryStart(Mask,DirStartMask);
-    DirStartFile:=FindDirectoryStart(Filename,DirStartFile);
-    // find ends of directories
-    DirEndMask:=FindDirectoryEnd(Mask,DirStartMask);
-    DirEndFile:=FindDirectoryEnd(Filename,DirStartFile);
-    //debugln('  Compare "',copy(Mask,DirStartMask,DirEndMask-DirStartMask),'"',
-      // ' "',copy(Filename,DirStartFile,DirEndFile-DirStartFile),'"');
-    // compare directories
-    BracketMaskPos:=0;
-    while (DirStartMask<DirEndMask) do begin
-      //debugln(['FilenameIsMatching ',DirStartMask,' ',Mask[DirStartMask],' - ',DirStartFile,' ',Pchar(Filename)[DirStartFile-1]]);
-      case Mask[DirStartMask] of
-      '?':
-        if DirStartFile<DirEndFile then begin
-          inc(DirStartMask);
-          inc(DirStartFile);
-          continue;
-        end else begin
-          if not TryNextOr then exit;
-        end;
-      '*':
-        begin
-          inc(DirStartMask);
-          Fits:=false;
-          if (DirStartMask=DirEndMask) then begin
-            Fits:=true;
-          end else begin
-            StopChar:=DirStartMask;
-            if (BracketMaskPos>0) and (Mask[StopChar] in [',','}']) then begin
-              while (StopChar<DirEndMask) and (Mask[StopChar]<>'}') do
-                inc(StopChar);
-              inc(StopChar);
-            end;
-            if StopChar>=DirEndMask then
-              Fits:=true
-            else begin
-              while (DirStartFile<DirEndFile)
-              and (not CharsEqual(Filename[DirStartFile],Mask[StopChar]))
-              do
-                inc(DirStartFile);
-              Fits:=DirStartFile<DirEndFile;
-            end;
-          end;
-          if (not Fits) and (not TryNextOr) then exit;
-          continue;
-        end;
-      '{':
-        if BracketMaskPos<1 then begin
-          inc(DirStartMask);
-          BracketMaskPos:=DirStartMask;
-          BracketFilePos:=DirStartFile;
-          continue;
-        end else begin
-          // treat as normal character
-        end;
-      ',':
-        if BracketMaskPos>0 then begin
-          // Bracket operator fits complete
-          // -> skip rest of Bracket operator
-          repeat
-            inc(DirStartMask);
-            if DirStartMask>=DirEndMask then exit; // error, missing }
-            if Mask[DirStartMask]=SpecialChar then begin
-              // special char -> next char is normal char
-              inc(DirStartMask);
-            end else if Mask[DirStartMask]='}' then begin
-              // bracket found (= end of Or operator)
-              inc(DirStartMask);
-              break;
-            end;
-          until false;
-          BracketMaskPos:=0;
-          continue;
-        end else begin
-          // treat as normal character
-        end;
-      '}':
-        if BracketMaskPos>0 then begin
-          // Bracket operator fits complete
-          inc(DirStartMask);
-          BracketMaskPos:=0;
-          continue;
-        end else begin
-          // treat as normal character
-        end;
-      end;
-      if Mask[DirStartMask]=SpecialChar then begin
-        // special char -> next char is normal char
-        inc(DirStartMask);
-        if (DirStartMask>=DirEndMask) then exit;
-      end;
-      // compare char
-      if (DirStartFile<DirEndFile)
-      and CharsEqual(Mask[DirStartMask],Filename[DirStartFile]) then begin
-        inc(DirStartMask);
-        inc(DirStartFile);
-      end else begin
-        // chars different
-        if (BracketMaskPos=0) or (not TryNextOr) then begin
-          // filename does not match
-          exit;
-        end;
-      end;
-    end;
-    if BracketMaskPos>0 then exit;
-    if (DirStartMask<DirEndmask) or (DirStartFile<DirEndFile) then exit;
-    // find starts of next directories
-    DirStartMask:=DirEndMask+1;
-    DirStartFile:=DirEndFile+1;
-  until (DirStartFile>length(Filename)) or (DirStartMask>length(Mask));
+  if Filename='' then exit(false);
+  if Mask='' then exit(true);
+  {$IFDEF VerboseFilenameIsMatching}
+  debugln(['FilenameIsMatching2 Mask="',Mask,'" File="',Filename,'" Exactly=',MatchExactly]);
+  {$ENDIF}
 
-  DirStartMask:=FindDirectoryStart(Mask,DirStartMask);
-
-  // check that complete mask matches
-  Result:=(DirStartMask>length(Mask));
-
-  if MatchExactly then begin
-    DirStartFile:=FindDirectoryStart(Filename,DirStartFile);
-    // check that the complete Filename matches
-    Result:=(Result and (DirStartFile>length(Filename)));
-  end;
-  //debugl('  [FilenameIsMatching] Result=',Result,' ',DirStartMask,',',length(Mask),'  ',DirStartFile,',',length(Filename));
+  Result:=Check(PChar(Mask),PChar(Filename));
 end;
 
 function FindNextDirectoryInFilename(const Filename: string;
@@ -1735,112 +1832,31 @@ end;
 
 function ComparePointers(p1, p2: Pointer): integer;
 begin
-  if p1>p2 then
-    Result:=1
-  else if p1<p2 then
-    Result:=-1
-  else
-    Result:=0;
+  Result:=LazUtilities.ComparePointers(p1,p2);
 end;
 
 procedure MergeSort(List: PPointer; ListLength: PtrInt;
-  Compare: TListSortCompare);
-var
-  MergeList: PPointer;
-
-  procedure Merge(Pos1, Pos2, Pos3: PtrInt);
-  // merge two sorted arrays
-  // the first array ranges Pos1..Pos2-1, the second ranges Pos2..Pos3
-  var Src1Pos,Src2Pos,DestPos,cmp,i:PtrInt;
-  begin
-    while (Pos3>=Pos2) and (Compare(List[Pos2-1],List[Pos3])<=0) do
-      dec(Pos3);
-    if (Pos1>=Pos2) or (Pos2>Pos3) then exit;
-    Src1Pos:=Pos2-1;
-    Src2Pos:=Pos3;
-    DestPos:=Pos3;
-    while (Src2Pos>=Pos2) and (Src1Pos>=Pos1) do begin
-      cmp:=Compare(List[Src1Pos],List[Src2Pos]);
-      if cmp>0 then begin
-        MergeList[DestPos]:=List[Src1Pos];
-        dec(Src1Pos);
-      end else begin
-        MergeList[DestPos]:=List[Src2Pos];
-        dec(Src2Pos);
-      end;
-      dec(DestPos);
-    end;
-    while Src2Pos>=Pos2 do begin
-      MergeList[DestPos]:=List[Src2Pos];
-      dec(Src2Pos);
-      dec(DestPos);
-    end;
-    for i:=DestPos+1 to Pos3 do
-      List[i]:=MergeList[i];
-  end;
-
-  procedure Sort(const Pos1, Pos2: PtrInt);
-  // sort List from Pos1 to Pos2, usig MergeList as temporary buffer
-  var cmp, mid: PtrInt;
-  begin
-    if Pos1>=Pos2 then begin
-      // one element is always sorted -> nothing to do
-    end else if Pos1+1=Pos2 then begin
-      // two elements can be sorted easily
-      cmp:=Compare(List[Pos1],List[Pos2]);
-      if cmp>0 then begin
-        MergeList[Pos1]:=List[Pos1];
-        List[Pos1]:=List[Pos2];
-        List[Pos2]:=MergeList[Pos1];
-      end;
-    end else begin
-      mid:=(Pos1+Pos2) shr 1;
-      Sort(Pos1,mid);
-      Sort(mid+1,Pos2);
-      Merge(Pos1,mid+1,Pos2);
-    end;
-  end;
-
-// sort ascending
+  const Compare: TListSortCompare);
 begin
-  if ListLength<=1 then exit;
-  GetMem(MergeList,SizeOf(Pointer)*ListLength);
-  try
-    Sort(0,ListLength-1);
-  finally
-    FreeMem(MergeList);
-  end;
+  LazUtilities.MergeSort(List,ListLength,Compare);
 end;
 
 function GetNextDelimitedItem(const List: string; Delimiter: char;
   var Position: integer): string;
-var
-  StartPos: LongInt;
 begin
-  StartPos:=Position;
-  while (Position<=length(List)) and (List[Position]<>Delimiter) do
-    inc(Position);
-  Result:=copy(List,StartPos,Position-StartPos);
-  if Position<=length(List) then inc(Position); // skip Delimiter
+  Result:=LazUtilities.GetNextDelimitedItem(List,Delimiter,Position);
 end;
 
 function HasDelimitedItem(const List: string; Delimiter: char; FindItem: string
   ): boolean;
-var
-  p: Integer;
 begin
-  p:=1;
-  Result:=FindNextDelimitedItem(List,Delimiter,p,FindItem)<>'';
+  Result:=LazUtilities.HasDelimitedItem(List,Delimiter,FindItem);
 end;
 
 function FindNextDelimitedItem(const List: string; Delimiter: char;
   var Position: integer; FindItem: string): string;
 begin
-  while Position<=length(List) do begin
-    Result:=GetNextDelimitedItem(List,Delimiter,Position);
-    if Result=FindItem then exit;
-  end;
-  Result:='';
+  Result:=LazUtilities.FindNextDelimitedItem(List,Delimiter,Position,FindItem);
 end;
 
 function AVLTreeHasDoubles(Tree: TAVLTree): TAVLTreeNode;
@@ -1856,39 +1872,103 @@ begin
   end;
 end;
 
-function DateToCfgStr(const Date: TDateTime): string;
+function DateToCfgStr(const Date: TDateTime; const aFormat: string): string;
+var
+  NeedDate: Boolean;
+  NeedTime: Boolean;
+  Year: word;
+  Month: word;
+  Day: word;
+  Hour: word;
+  Minute: word;
+  Second: word;
+  MilliSecond: word;
+  p: Integer;
+  w: Word;
+  StartP: Integer;
+  s: String;
+  l: Integer;
 begin
-  try
-    Result:=FormatDateTime(DateAsCfgStrFormat,Date);
-  except
-    Result:='';
+  Result:=aFormat;
+  NeedDate:=false;
+  NeedTime:=false;
+  for p:=1 to length(aFormat) do
+    case aFormat[p] of
+    'Y','M','D': NeedDate:=true;
+    'H','N','S','Z': NeedTime:=true;
+    end;
+  if NeedDate then
+    DecodeDate(Date,Year,Month,Day);
+  if NeedTime then
+    DecodeTime(Date,Hour,Minute,Second,MilliSecond);
+  p:=1;
+  while p<=length(aFormat) do begin
+    case aFormat[p] of
+    'Y': w:=Year;
+    'M': w:=Month;
+    'D': w:=Day;
+    'H': w:=Hour;
+    'N': w:=Minute;
+    'S': w:=Second;
+    'Z': w:=MilliSecond;
+    else
+      inc(p);
+      continue;
+    end;
+    StartP:=p;
+    repeat
+      inc(p);
+    until (p>length(aFormat)) or (aFormat[p]<>aFormat[p-1]);
+    l:=p-StartP;
+    s:=IntToStr(w);
+    if length(s)<l then
+      s:=StringOfChar('0',l-length(s))+s
+    else if length(s)>l then
+      raise Exception.Create('date format does not fit');
+    ReplaceSubstring(Result,StartP,l,s);
+    p:=StartP+length(s);
   end;
   //debugln('DateToCfgStr "',Result,'"');
 end;
 
-function CfgStrToDate(const s: string; out Date: TDateTime): boolean;
+function CfgStrToDate(const s: string; out Date: TDateTime;
+  const aFormat: string): boolean;
+
+  procedure AddDecimal(var d: word; c: char); inline;
+  begin
+    d:=d*10+ord(c)-ord('0');
+  end;
+
 var
   i: Integer;
-  Year, Month, Day: word;
+  Year, Month, Day, Hour, Minute, Second, MilliSecond: word;
 begin
   //debugln('CfgStrToDate "',s,'"');
-  Result:=true;
-  if length(s)<>length(DateAsCfgStrFormat) then begin
-    Result:=false;
-    exit;
+  if length(s)<>length(aFormat) then begin
+    Date:=0.0;
+    exit(false);
   end;
   try
     Year:=0;
     Month:=0;
     Day:=0;
-    for i:=1 to length(DateAsCfgStrFormat) do begin
-      case DateAsCfgStrFormat[i] of
-      'Y': Year:=Year*10+ord(s[i])-ord('0');
-      'M': Month:=Month*10+ord(s[i])-ord('0');
-      'D': Day:=Day*10+ord(s[i])-ord('0');
+    Hour:=0;
+    Minute:=0;
+    Second:=0;
+    MilliSecond:=0;
+    for i:=1 to length(aFormat) do begin
+      case aFormat[i] of
+      'Y': AddDecimal(Year,s[i]);
+      'M': AddDecimal(Month,s[i]);
+      'D': AddDecimal(Day,s[i]);
+      'H': AddDecimal(Hour,s[i]);
+      'N': AddDecimal(Minute,s[i]);
+      'S': AddDecimal(Second,s[i]);
+      'Z': AddDecimal(MilliSecond,s[i]);
       end;
     end;
-    Date:=EncodeDate(Year,Month,Day);
+    Date:=ComposeDateTime(EncodeDate(Year,Month,Day),EncodeTime(Hour,Minute,Second,MilliSecond));
+    Result:=true;
   except
     Result:=false;
   end;
@@ -2323,13 +2403,13 @@ end;
 
 function CompareCTLineInfoCacheItems(Data1, Data2: Pointer): integer;
 begin
-  Result:=ComparePointers(PCTLineInfoCacheItem(Data1)^.Addr,
+  Result:=LazUtilities.ComparePointers(PCTLineInfoCacheItem(Data1)^.Addr,
                           PCTLineInfoCacheItem(Data2)^.Addr);
 end;
 
 function CompareAddrWithCTLineInfoCacheItem(Addr, Item: Pointer): integer;
 begin
-  Result:=ComparePointers(Addr,PCTLineInfoCacheItem(Item)^.Addr);
+  Result:=LazUtilities.ComparePointers(Addr,PCTLineInfoCacheItem(Item)^.Addr);
 end;
 
 function FileAgeToStr(aFileAge: longint): string;

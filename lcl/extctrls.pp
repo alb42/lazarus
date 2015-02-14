@@ -122,6 +122,7 @@ type
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
+    procedure ShowControl(AControl: TControl); override;
 {    function TabIndexAtClientPos(ClientPos: TPoint): integer;
     function TabRect(AIndex: Integer): TRect;
     function GetImageIndex(ThePageIndex: Integer): Integer; virtual;
@@ -403,6 +404,9 @@ type
     property OnCanResize;
     property OnChangeBounds;
     property OnMoved;
+    property OnMouseWheel;
+    property OnMouseWheelDown;
+    property OnMouseWheelUp;
     property ParentColor;
     property ParentShowHint;
     property PopupMenu;
@@ -476,6 +480,7 @@ type
     FTransparent: Boolean;
     FStretch: Boolean;
     FUseAncestorCanvas: boolean;
+    FPainting: boolean;
     function  GetCanvas: TCanvas;
     procedure SetAntialiasingMode(AValue: TAntialiasingMode);
     procedure SetPicture(const AValue: TPicture);
@@ -496,6 +501,7 @@ type
     destructor Destroy; override;
     property Canvas: TCanvas read GetCanvas;
     function DestRect: TRect; virtual;
+    procedure Invalidate; override;
   public
     property AntialiasingMode: TAntialiasingMode read FAntialiasingMode write SetAntialiasingMode default amDontCare;
     property Align;

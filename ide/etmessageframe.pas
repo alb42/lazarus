@@ -1052,10 +1052,17 @@ end;
 procedure TMessagesCtrl.FetchNewMessages;
 var
   i: Integer;
+  LastLineWasVisible: Boolean;
 begin
   if csDestroying in ComponentState then exit;
   BeginUpdate;
   try
+    for i:=0 to ViewCount-1 do begin
+      LastLineWasVisible:=IsLastLineVisible(Views[i]);
+      //debugln(['TMessagesCtrl.FetchNewMessages ScrollTop=',ScrollTop,' ScrollTopMax=',ScrollTopMax,' Last=',View.GetShownLineCount(false,true),' LineTop=',GetLineTop(View,View.GetShownLineCount(false,true),true),' IsLastLineVisible=',LastLineWasVisible]);
+      if LastLineWasVisible and (not Views[i].Running) then
+        AutoScrollToNewMessage:=true; // this view stopped running -> let other views take over the focus
+    end;
     for i:=0 to ViewCount-1 do
       FetchNewMessages(Views[i]);
   finally
@@ -1073,12 +1080,9 @@ begin
   if IndexOfView(View)<0 then exit;
 
   LastLineWasVisible:=IsLastLineVisible(View);
-  //debugln(['TMessagesCtrl.FetchNewMessages START ScrollTop=',ScrollTop,' ScrollTopMax=',ScrollTopMax,' Last=',View.GetShownLineCount(false,true),' LineTop=',GetLineTop(View,View.GetShownLineCount(false,true),true),' IsLastLineVisible=',IsLastLineVisible(View)]);
-
   OldLineCount:=View.Lines.Count;
-  if (not View.Running) and LastLineWasVisible then
-    AutoScrollToNewMessage:=true; // this view stoped running -> let other views take over the focus
-  if not View.ApplyPending then exit;
+  if not View.ApplyPending then
+    exit; // no new lines
   CreateSourceMarks(View,OldLineCount);
   UpdateScrollBar(true);
   Invalidate;
@@ -2407,7 +2411,7 @@ begin
   HeaderBackground[lmvtsFailed]:=EnvironmentOptions.MsgViewColors[mwFailed];
   NewOptions:=Options;
   SetOption(mcoSingleClickOpensFile,not EnvironmentOptions.MsgViewDblClickJumps);
-  SetOption(mcoShowMsgIcons,not EnvironmentOptions.HideMessagesIcons);
+  SetOption(mcoShowMsgIcons,EnvironmentOptions.ShowMessagesIcons);
   SetOption(mcoShowTranslated,EnvironmentOptions.MsgViewShowTranslations);
   SetOption(mcoAlwaysDrawFocused,EnvironmentOptions.MsgViewAlwaysDrawFocused);
   Options:=NewOptions;
@@ -3156,6 +3160,8 @@ begin
         s+='Desktop: '+Proc.Desktop+LineEnding;
       s+='Parameters:'+LineEnding;
       s+=Proc.Parameters.Text+LineEnding;
+      s+='Command Line:'+LineEnding;
+      s+=Proc.CommandLine+LineEnding;
       s+='ProcessID:'+LineEnding+IntToStr(Proc.ProcessID)+LineEnding+LineEnding;
       if Tool.Terminated then
         s+='Terminated'+LineEnding+LineEnding

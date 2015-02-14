@@ -29,7 +29,7 @@ interface
 
 uses
   Classes, SysUtils, math, AVL_Tree, LazLogger, Forms, Controls, Graphics,
-  Dialogs, StdCtrls, LCLProc, ComCtrls, LCLType, ExtCtrls, Buttons,
+  Dialogs, StdCtrls, ComCtrls, ExtCtrls, Buttons, LCLType, LazUTF8,
   CodeToolsCfgScript, KeywordFuncLists, LazarusIDEStrConsts,
   IDEOptionsIntf, CompOptsIntf, IDECommands, LazIDEIntf, Project, PackageDefs,
   CompilerOptions, Compiler, AllCompilerOptions, CustomDefines,
@@ -99,6 +99,8 @@ type
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
+    function HasSupportForUtf8Rtl: Boolean;
+    function SupportUtf8Rtl: Boolean;
     property StatusMessage: string read FStatusMessage write SetStatusMessage;
     property DefaultVariables: TCTCfgScriptVariables read FDefaultVariables;
     property CompletionValues: TStrings read FCompletionValues;
@@ -110,6 +112,9 @@ type
 implementation
 
 {$R *.lfm}
+
+const
+  FcUTF8 = '-FcUTF8';
 
 { TCompilerOtherOptionsFrame }
 
@@ -166,6 +171,20 @@ begin
   finally
     EditForm.Free;
   end;
+end;
+
+function TCompilerOtherOptionsFrame.HasSupportForUtf8Rtl: Boolean;
+begin
+  Result := Pos(FcUTF8, memoCustomOptions.Text) > 0;
+end;
+
+function TCompilerOtherOptionsFrame.SupportUtf8Rtl: Boolean;
+// Add a compiler flag for WideString/UnicodeString/UTF8String literals.
+// Returns true if the flag was really added and did not exist earlier.
+begin
+  Result := not HasSupportForUtf8Rtl;
+  if Result then
+    memoCustomOptions.Lines.Add(FcUTF8);
 end;
 
 // Events dealing with conditionals SynEdit :

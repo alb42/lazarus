@@ -215,838 +215,1724 @@ begin
     DisposeWindowInfo(Buddy);
 end;
 
-{------------------------------------------------------------------------------
- Function: WindowProc
- Params: Window - The window that receives a message
-         Msg    - The message received
-         WParam - Word parameter
-         LParam - Long-integer parameter
-  Returns: 0 if Msg is handled; non-zero long-integer result otherwise
-
-  Handles the messages sent to the specified window, in parameter Window, by
-  Windows or other applications
- ------------------------------------------------------------------------------}
-function
-{$ifdef MSG_DEBUG}
-  RealWindowProc
-{$else}
-  WindowProc
-{$endif}
-  (Window: HWnd; Msg: UInt; WParam: Windows.WParam;
-    LParam: Windows.LParam): LResult; stdcall;
+function GetLCLWindowFromPoint(BaseControl: TControl; const Point: TPoint): HWND;
 var
-  LMessage: TLMessage;
-  menuItem: TObject;
-  menuHDC: HDC;
-  PLMsg: PLMessage;
-  R: TRect;
-  P: TPoint;
-  NewLeft, NewTop, NewWidth, NewHeight: integer;
-  lWinControl, ChildWinControl: TWinControl;
-  ChildWindowInfo: PWin32WindowInfo;
-  TargetObject: TObject;
-  WinProcess, WmSysCommandProcess: Boolean;
-  NotifyUserInput: Boolean;
-  OverlayWindow: HWND;
-  TargetWindow: HWND;
-  eraseBkgndCommand: TEraseBkgndCommand;
-  WindowInfo: PWin32WindowInfo;
-  Flags: dword;
-  WindowDC: HDC;
-  WindowPlacement: TWINDOWPLACEMENT;
-  WindowColor: TColor;
-
-  LMScroll: TLMScroll; // used by WM_HSCROLL
-  LMKey: TLMKey; // used by WM_KEYDOWN WM_KEYUP
-  LMChar: TLMChar; // used by WM_CHAR
-  LMMouse: TLMMouse; // used by WM_LBUTTONDBLCLK
-  LMContextMenu: TLMContextMenu;
-  LMMouseMove: TLMMouseMove; // used by WM_MOUSEMOVE
-  LMMouseEvent: TLMMouseEvent; // used by WM_MOUSEWHEEL
-  LMMove: TLMMove; // used by WM_MOVE
-  LMNotify: TLMNotify; // used by WM_NOTIFY
-  DrawListItemStruct: TDrawListItemStruct; //used by WM_DRAWITEM
-  CancelEndSession : Boolean;//use by WM_QUERYENDSESSION
-
-  NMHdr: PNMHdr absolute LParam; // used by WM_NOTIFY
-  TmpSize: TSize; // used by WM_MEASUREITEM
-  Info: TComboboxInfo;
-  OrgCharCode: word; // used in WM_CHAR handling
-
-  function GetMenuParent(ASearch, AParent: HMENU): HMENU;
-  var
-    c, i: integer;
-    sub: HMENU;
+  ParentForm: TCustomForm;
+  ParentRect: TRect;
+  TheControl: TControl;
+begin
+  Result := 0;
+  ParentForm := GetParentForm(BaseControl);
+  if ParentForm <> nil then
   begin
-    c := GetMenuItemCount(AParent);
-    for i:= 0 to c - 1 do
+    TheControl := ParentForm.ControlAtPos(ParentForm.ScreenToClient(Point), [capfAllowDisabled, capfAllowWinControls,
+      capfRecursive, capfHasScrollOffset]);
+    if TheControl is TWinControl then
+      Result := TWinControlAccess(TheControl).WindowHandle;
+    if Result = 0 then
     begin
-      sub := GetSubMenu(AParent, i);
-      if sub = ASearch
-      then begin
-        Result := AParent;
-        Exit;
-      end;
-
-      Result := GetMenuParent(ASearch, sub);
-      if Result <> 0 then Exit;
+      ParentRect := Rect(ParentForm.Left, ParentForm.Top,
+        ParentForm.Left + ParentForm.Width, ParentForm.Top + ParentForm.Height);
+      if PtInRect(ParentRect, Point) then
+        Result := ParentForm.Handle;
     end;
-    Result := 0;
   end;
+end;
 
-  function GetPopMenuItemObject: TObject;
-  var
-    MainMenuHandle: HMENU;
-    MenuInfo: MENUITEMINFO;
+// Used by WindowProc :
+
+function GetMenuParent(ASearch, AParent: HMENU): HMENU;
+var
+  c, i: integer;
+  sub: HMENU;
+begin
+  c := GetMenuItemCount(AParent);
+  for i:= 0 to c - 1 do
   begin
-    MenuInfo.cbSize := MMenuItemInfoSize;
-    MenuInfo.fMask := MIIM_DATA;
-
-    MainMenuHandle := GetMenuParent(HMENU(WParam), GetMenu(Window));
-    if GetMenuItemInfo(MainMenuHandle, LOWORD(LParam), true, @MenuInfo) then
-      Result := TObject(MenuInfo.dwItemData)
-    else
-      Result := nil;
+    sub := GetSubMenu(AParent, i);
+    if sub = ASearch then
+      Exit(AParent);
+    Result := GetMenuParent(ASearch, sub);     // Recursive call
+    if Result <> 0 then Exit;
   end;
+  Result := 0;
+end;
 
-  function GetMenuItemObject(ByPosition: Boolean): TObject;
-  var
-    MenuInfo: MENUITEMINFO;
-    PopupMenu: TPopupMenu;
+function GetIsNativeControl(AWindow: HWND): Boolean;
+var
+  S: String;
+begin
+  S := WndClassName(AWindow);
+  Result := (S <> ClsName) and (S <> ClsHintName);
+end;
+
+procedure ClearSiblingRadioButtons(RadioButton: TRadioButton);
+var
+  Parent: TWinControl;
+  Sibling: TControl;
+  WinControl: TWinControlAccess absolute Sibling;
+  LParamFlag: LRESULT;
+  i: Integer;
+begin
+  Parent := RadioButton.Parent;
+  for i:= 0 to Parent.ControlCount - 1 do
   begin
-    // first we have to decide if the command is from a popup menu
-    // or from the window main menu
-    // if the 'PopupMenu' property exists, there is a big probability
-    // that the command is from a popup menu
-
-    PopupMenu := WindowInfo^.PopupMenu;
-    if Assigned(PopupMenu) then
+    Sibling := Parent.Controls[i];
+    if (Sibling is TRadioButton) and (Sibling <> RadioButton) then
     begin
-      Result := PopupMenu.FindItem(LOWORD(Integer(WParam)), fkCommand);
-      if Assigned(Result) then
-        Exit;
+      // Pass previous state through LParam so the event handling can decide
+      // when to propagate LM_CHANGE (New State <> Previous State)
+      LParamFlag := Windows.SendMessage(WinControl.WindowHandle, BM_GETCHECK, 0, 0);
+      // Pass SKIP_LMCHANGE through LParam if previous state is already unchecked
+      if LParamFlag = BST_UNCHECKED then
+        LParamFlag := SKIP_LMCHANGE;
+      Windows.SendMessage(WinControl.WindowHandle, BM_SETCHECK,
+        Windows.WParam(BST_UNCHECKED), Windows.LParam(LParamFlag));
     end;
-
-    // nothing found, process main menu
-    MenuInfo.cbSize := MMenuItemInfoSize;
-    MenuInfo.fMask := MIIM_DATA;
-
-    if GetMenuItemInfo(GetMenu(Window), LOWORD(Integer(WParam)), ByPosition, @MenuInfo) then
-      Result := TObject(MenuInfo.dwItemData)
-    else
-      Result := nil;
   end;
+end;
 
-  function GetIsNativeControl(AWindow: HWND): Boolean;
-  var
-    S: String;
+// sets the text of the combobox,
+// because some events are risen, before the text is actually changed
+procedure UpdateComboBoxText(ComboBox: TCustomComboBox);
+var
+  Index: Integer;
+begin
+  Index := ComboBox.ItemIndex;
+  // Index might be -1, if current text is not in the list.
+  if (Index>=0) then
+    TWin32WSWinControl.SetText(ComboBox, ComboBox.Items[Index]);
+end;
+
+procedure EnableChildWindows(WinControl: TWinControl; Enable: boolean);
+var
+  i: integer;
+  ChildControl: TWinControl;
+begin
+  for i := 0 to WinControl.ControlCount-1 do
   begin
-    S := WndClassName(AWindow);
-    Result := (S <> ClsName) and (S <> ClsHintName);
-  end;
-  
-  procedure SendPaintMessage(ControlDC: HDC);
-  var
-    DC: HDC;
-    DoubleBufferBitmapOld: HBITMAP;
-    PaintRegion: HRGN;
-    PS : TPaintStruct;
-    PaintMsg: TLMPaint;
-    ORect: TRect;
-    WindowOrg: Windows.POINT;
-{$ifdef DEBUG_DOUBLEBUFFER}
-    ClipBox: Windows.RECT;
-{$endif}
-    ParentPaintWindow: HWND;
-    WindowWidth, WindowHeight: Integer;
-    DCIndex: integer;
-    parLeft, parTop: integer;
-    useDoubleBuffer: boolean;
-    isNativeControl: boolean;
-    needParentPaint: boolean;
-    BufferWasSaved: Boolean;
-    BackupBuffer: TDoubleBuffer;
-  begin
-    // note: ignores the received DC
-    // do not use default deliver message
-    if lWinControl = nil then
+    if WinControl.Controls[i] is TWinControl then
     begin
-      lWinControl := GetWin32WindowInfo(Window)^.PWinControl;
-      if lWinControl = nil then exit;
-    end;
-
-    // create a paint message
-    isNativeControl := GetIsNativeControl(Window);
-    needParentPaint := GetNeedParentPaint(WindowInfo, lWinControl);
-    // if needParentPaint and not isTabPage then background will be drawn in
-    // WM_ERASEBKGND and WM_CTLCOLORSTATIC for native controls
-    // sent by default paint handler
-    if WindowInfo^.isTabPage or (needParentPaint and (not isNativeControl or (ControlDC <> 0))) then
-      ParentPaintWindow := Windows.GetParent(Window)
-    else
-      ParentPaintWindow := 0;
-{$IFDEF DBG_SendPaintMessage}
-    DebugLnEnter(['>>> SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window),
-       ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl),
-       ' NativeCtrl=', dbgs(isNativeControl), ' ndParentPaint=', dbgs(needParentPaint),
-       ' isTab=', dbgs(WindowInfo^.isTabPage)    ]);
-    try
-{$ENDIF}
-
-    // if painting background of some control for tabpage, don't handle erase background
-    // in parent of tabpage
-    if WindowInfo^.isTabPage then
-      PushEraseBkgndCommand(ecDiscard);
-
-    // check if double buffering is requested
-    useDoubleBuffer := (ControlDC = 0) and (lWinControl.DoubleBuffered or ThemeServices.ThemesEnabled);
-    if useDoubleBuffer then
-    begin
-      if CurDoubleBuffer.DC <> 0 then
+      ChildControl := TWinControl(WinControl.Controls[i]);
+      if Enable then
       begin
-        // we've been called from another paint handler. To prevent killing of
-        // not own DC and HBITMAP lets save then and restore on exit
-        BackupBuffer := CurDoubleBuffer;
-        FillChar(CurDoubleBuffer, SizeOf(CurDoubleBuffer), 0);
-        BufferWasSaved := True;
+        if ChildControl.Enabled then
+          EnableWindow(ChildControl.Handle, true);
       end
       else
-        BufferWasSaved := False;
-      CurDoubleBuffer.DC := Windows.CreateCompatibleDC(0);
-      GetWindowSize(Window, WindowWidth, WindowHeight);
-      if (CurDoubleBuffer.BitmapWidth < WindowWidth) or (CurDoubleBuffer.BitmapHeight < WindowHeight) then
-      begin
-        DC := Windows.GetDC(0);
-        if CurDoubleBuffer.Bitmap <> 0 then
-          Windows.DeleteObject(CurDoubleBuffer.Bitmap);
-        CurDoubleBuffer.BitmapWidth := WindowWidth;
-        CurDoubleBuffer.BitmapHeight := WindowHeight;
-        CurDoubleBuffer.Bitmap := Windows.CreateCompatibleBitmap(DC, WindowWidth, WindowHeight);
-        Windows.ReleaseDC(0, DC);
-      end;
-      DoubleBufferBitmapOld := Windows.SelectObject(CurDoubleBuffer.DC, CurDoubleBuffer.Bitmap);
-      PaintMsg.DC := CurDoubleBuffer.DC;
+        EnableWindow(ChildControl.Handle, false);
+
+      EnableChildWindows(ChildControl, Enable);   // Recursive call
     end;
+  end;
+end;
 
-{$ifdef MSG_DEBUG}
-    if useDoubleBuffer then
-      DebugLn(MessageStackDepth, ' *double buffering on DC: ', IntToHex(CurDoubleBuffer.DC, sizeof(HDC)*2))
-    else
-      DebugLn(MessageStackDepth, ' *painting, but not double buffering');
-{$endif}
+// A helper class for WindowProc to make it easier to split code into smaller pieces.
+// The original function was about 2400 lines.
 
-    WinProcess := false;
-    try
-      if ControlDC = 0 then
-      begin
-        // ignore first erase background on themed control, paint will do everything
-        if ThemeServices.ThemesEnabled then
-          PushEraseBkgndCommand(ecDoubleBufferNoRemove);
-        DC := Windows.BeginPaint(Window, @PS);
-{$IFDEF DBG_SendPaintMessage}
-        if ThemeServices.ThemesEnabled then
-          DebugLn(['SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Remove one from EraseBkgndStack val=', (EraseBkgndStack and 3)]);
-{$ENDIF}
-        if ThemeServices.ThemesEnabled then
-          EraseBkgndStack := EraseBkgndStack shr EraseBkgndStackShift;
-        if useDoubleBuffer then
-        begin
+type
+  TWindowProcHelper = class
+  private
+    // WindowProc parameters
+    Window: HWnd;            // DWord / QWord
+    Msg: UInt;               // LongWord
+    WParam: Windows.WParam;  // PtrInt
+    LParam: Windows.LParam;  // PtrInt
+    // Other variables
+    LMessage: TLMessage;
+    PLMsg: PLMessage;
+    lWinControl: TWinControl;
+    WinProcess: Boolean;
+    NotifyUserInput: Boolean;
+    WindowInfo: PWin32WindowInfo;
+    // Used by SendPaintMessage
+    BackupBuffer: TDoubleBuffer;
+    WindowWidth, WindowHeight: Integer;
+    PaintMsg: TLMPaint;
+    RTLLayout: Boolean;
+    // Structures for message handling
+    OrgCharCode: word; // used in WM_CHAR handling
+    LMScroll: TLMScroll; // used by WM_HSCROLL
+    LMKey: TLMKey; // used by WM_KEYDOWN WM_KEYUP
+    LMChar: TLMChar; // used by WM_CHAR
+    LMMouse: TLMMouse; // used by WM_LBUTTONDBLCLK
+    LMContextMenu: TLMContextMenu;
+    LMMouseMove: TLMMouseMove; // used by WM_MOUSEMOVE
+    LMMouseEvent: TLMMouseEvent; // used by WM_MOUSEWHEEL
+    LMMove: TLMMove; // used by WM_MOVE
+    LMNotify: TLMNotify; // used by WM_NOTIFY
+    DrawListItemStruct: TDrawListItemStruct; //used by WM_DRAWITEM
+    NMHdr: PNMHdr; // used by WM_NOTIFY
+
+    procedure CalcClipRgn(PaintRegion: HRGN);
+    function DoChildEdit(out WinResult: LResult): Boolean;
+    procedure DoCmdCheckBoxParam;
+    function DoCmdComboBoxParam: Boolean;
+    procedure DoMsgActivateApp;
+    procedure DoMsgChar(var WinResult: LResult);
+    procedure DoMsgColor(ChildWindowInfo: PWin32WindowInfo);
+    procedure DoMsgDrawItem;
+    procedure DoMsgEnable;
+    function DoMsgEraseBkgnd(var WinResult: LResult): Boolean;
+    procedure DoMsgKeyDownUp(aMsg: Cardinal; var WinResult: LResult);
+    procedure DoMsgLButtonCommon;
+    procedure DoMsgLButtonDoubleClick;
+    procedure DoMsgLButtonDown;
+    procedure DoMsgMeasureItem;
+    procedure DoMsgMouseMove;
+    procedure DoMsgMouseUpDownClick(aMsg: Cardinal);
+    procedure DoMsgContextMenu;
+    function DoMsgMouseWheel(var WinResult: LResult): Boolean;
+    function DoMsgMove: Boolean;
+    procedure DoMsgNCLButtonDown;
+    function DoMsgNotify(var WinResult: LResult): Boolean;
+    procedure DoMsgShowWindow;
+    procedure DoMsgSize;
+    procedure DoMsgSysKey(aMsg: Cardinal);
+    procedure DoSysCmdKeyMenu;
+    procedure DoSysCmdMinimize;
+    procedure DoSysCmdRestore;
+    function GetPopMenuItemObject: TObject;
+    function GetMenuItemObject(ByPosition: Boolean): TObject;
+    function PrepareDoubleBuffer(vDC: HDC; out DoubleBufferBitmapOld: HBITMAP): Boolean;
+    procedure SetLMCharData(aMsg: Cardinal; UpdateKeyData: Boolean = False);
+    procedure SetLMKeyData(aMsg: Cardinal; UpdateKeyData: Boolean = False);
+    procedure SetLMessageAndParams(aMsg: Cardinal; ResetWinProcess: Boolean = False);
+    procedure SendPaintMessage(ControlDC: HDC);
+    procedure HandleScrollMessage(LMsg: integer);
+    procedure HandleSetCursor;
+    procedure HandleSysCommand;
+    function IsComboEditSelection: boolean;
+    procedure HandleBitBtnCustomDraw(ABitBtn: TCustomBitBtn);
+    procedure HandleDropFiles;
+    function HandleUnicodeChar(var AChar: Word): boolean;
+    procedure UpdateDrawItems;
+    procedure UpdateDrawListItem(aMsg: UInt);
+    procedure UpdateLMMovePos(X, Y: Smallint);
+    procedure UpdateUIState(CharCode: Word);
+    function DoWindowProc: LResult;    // Called from the actual WindowProc.
+  end;
+
+// Implementation of TWindowProcHelper
+
+procedure TWindowProcHelper.SetLMCharData(aMsg: Cardinal; UpdateKeyData: Boolean);
+begin
+  LMChar.Msg := aMsg;
+  LMChar.CharCode := Word(WParam);
+  if UpdateKeyData then
+    LMChar.KeyData := LParam;
+end;
+
+procedure TWindowProcHelper.SetLMKeyData(aMsg: Cardinal; UpdateKeyData: Boolean);
+begin
+  LMKey.Msg := aMsg;
+  LMKey.CharCode := Word(WParam);
+  if UpdateKeyData then
+    LMKey.KeyData := LParam;
+end;
+
+procedure TWindowProcHelper.SetLMessageAndParams(aMsg: Cardinal; ResetWinProcess: Boolean);
+begin
+  LMessage.Msg := aMsg;
+  LMessage.WParam := WParam;
+  LMessage.LParam := LParam;
+  if ResetWinProcess then
+    WinProcess := False;
+end;
+
+function TWindowProcHelper.GetPopMenuItemObject: TObject;
+var
+  MainMenuHandle: HMENU;
+  MenuInfo: MENUITEMINFO;
+begin
+  MenuInfo.cbSize := MMenuItemInfoSize;
+  MenuInfo.fMask := MIIM_DATA;
+
+  MainMenuHandle := GetMenuParent(HMENU(WParam), GetMenu(Window));
+  if GetMenuItemInfo(MainMenuHandle, LOWORD(LParam), true, @MenuInfo) then
+    Result := TObject(MenuInfo.dwItemData)
+  else
+    Result := nil;
+end;
+
+function TWindowProcHelper.GetMenuItemObject(ByPosition: Boolean): TObject;
+var
+  MenuInfo: MENUITEMINFO;
+  PopupMenu: TPopupMenu;
+begin
+  // first we have to decide if the command is from a popup menu
+  // or from the window main menu
+  // if the 'PopupMenu' property exists, there is a big probability
+  // that the command is from a popup menu
+
+  PopupMenu := WindowInfo^.PopupMenu;
+  if Assigned(PopupMenu) then
+  begin
+    Result := PopupMenu.FindItem(LOWORD(Integer(WParam)), fkCommand);
+    if Assigned(Result) then
+      Exit;
+  end;
+
+  // nothing found, process main menu
+  MenuInfo.cbSize := MMenuItemInfoSize;
+  MenuInfo.fMask := MIIM_DATA;
+
+  if GetMenuItemInfo(GetMenu(Window), LOWORD(Integer(WParam)), ByPosition, @MenuInfo) then
+    Result := TObject(MenuInfo.dwItemData)
+  else
+    Result := nil;
+end;
+
+function TWindowProcHelper.PrepareDoubleBuffer(vDC: HDC; out DoubleBufferBitmapOld: HBITMAP): Boolean;
+// Returns True if BackupBuffer was saved.
+begin
+  Result := CurDoubleBuffer.DC <> 0;
+  if Result then
+  begin
+    // we've been called from another paint handler. To prevent killing of
+    // not own DC and HBITMAP lets save then and restore on exit
+    BackupBuffer := CurDoubleBuffer;
+    FillChar(CurDoubleBuffer, SizeOf(CurDoubleBuffer), 0);
+  end;
+  CurDoubleBuffer.DC := Windows.CreateCompatibleDC(vDC);
+
+  GetWindowSize(Window, WindowWidth, WindowHeight);
+  if (CurDoubleBuffer.BitmapWidth < WindowWidth) or (CurDoubleBuffer.BitmapHeight < WindowHeight) then
+  begin
+    if CurDoubleBuffer.Bitmap <> 0 then
+      Windows.DeleteObject(CurDoubleBuffer.Bitmap);
+    CurDoubleBuffer.BitmapWidth := WindowWidth;
+    CurDoubleBuffer.BitmapHeight := WindowHeight;
+    CurDoubleBuffer.Bitmap := Windows.CreateCompatibleBitmap(vDC, WindowWidth, WindowHeight);
+    if RTLLayout then  // change the default layout - LTR - of memory DC
+      {if (GetLayout(vDC) and LAYOUT_BITMAPORIENTATIONPRESERVED) > 0 then  // GetLayout is not in win32extra
+        SetLayout(CurDoubleBuffer.DC, LAYOUT_RTL or LAYOUT_BITMAPORIENTATIONPRESERVED)
+      else //}
+        SetLayout(CurDoubleBuffer.DC, LAYOUT_RTL);
+  end;
+  DoubleBufferBitmapOld := Windows.SelectObject(CurDoubleBuffer.DC, CurDoubleBuffer.Bitmap);
+  PaintMsg.DC := CurDoubleBuffer.DC;
+  {$ifdef MSG_DEBUG}
+    DebugLn(MessageStackDepth, ' *double buffering on DC: ', IntToHex(CurDoubleBuffer.DC, sizeof(HDC)*2));
+  {$endif}
+end;
+
+procedure TWindowProcHelper.CalcClipRgn(PaintRegion: HRGN);
+var
+  nSize, BytesCount: DWORD;
+  RgnData: PRgnData;
+  WindowOrg: Windows.POINT;
+  XFORM: TXFORM;
+  MirroredPaintRgn: HRGN;
+begin
+  // winnt returns in screen coordinates
+  // win9x returns in window coordinates
+  if Win32Platform = VER_PLATFORM_WIN32_NT then
+  begin
+    WindowOrg.X := 0;
+    WindowOrg.Y := 0;
+    MapWindowPoints(Window, 0, WindowOrg, 1);
+    if RTLLayout then // We need the left side of the client area in screen coordinates
+      WindowOrg.X := WindowOrg.X - lWinControl.ClientWidth;
+    Windows.OffsetRgn(PaintRegion, -WindowOrg.X, -WindowOrg.Y);
+  end;
+
+  if RTLLayout then // Paint region needs to be mirrored before using it for clipping!
+  begin
+    {
+    //Method 1 - Switch Layout to LTR, Clip, Switch back to RTL
+    //Sometimes it's off by one or two pixels!!
+    SetLayout(CurDoubleBuffer.DC, LAYOUT_LTR);
+    Windows.SelectClipRgn(CurDoubleBuffer.DC, PaintRegion);
+    SetLayout(CurDoubleBuffer.DC, LAYOUT_RTL);//}
+
+    //Method 2 - Create a mirrored region based on the one we have
+    nSize := GetRegionData(PaintRegion, 0, nil);
+    RgnData := GetMem(nSize);
+    XForm.eDx:=0;   XForm.eDy:=0;
+    XForm.eM11:=-1; XForm.eM12:=0;
+    XForm.eM21:=0;  XForm.eM22:=1;
+
+    MirroredPaintRgn := ExtCreateRegion(@XForm, BytesCount, RgnData^);
+    Windows.SelectClipRgn(CurDoubleBuffer.DC, MirroredPaintRgn);
+    Windows.DeleteObject(MirroredPaintRgn);
+    Freemem(RgnData);
+  end
+  else
+    Windows.SelectClipRgn(CurDoubleBuffer.DC, PaintRegion);
+end;
+
+procedure TWindowProcHelper.SendPaintMessage(ControlDC: HDC);
+var
+  DC: HDC;
+  PaintRegion: HRGN;
+  PS : TPaintStruct;
+  DoubleBufferBitmapOld: HBITMAP;
+  ORect: TRect;
 {$ifdef DEBUG_DOUBLEBUFFER}
-          ORect.Left := 0;
-          ORect.Top := 0;
-          ORect.Right := CurDoubleBuffer.BitmapWidth;
-          ORect.Bottom := CurDoubleBuffer.BitmapHeight;
-          Windows.FillRect(CurDoubleBuffer.DC, ORect, GetSysColorBrush(COLOR_DESKTOP));
+  ClipBox: Windows.RECT;
 {$endif}
-          PaintRegion := CreateRectRgn(0, 0, 1, 1);
-          if GetRandomRgn(DC, PaintRegion, SYSRGN) = 1 then
-          begin
-            // winnt returns in screen coordinates
-            // win9x returns in window coordinates
-            if Win32Platform = VER_PLATFORM_WIN32_NT then
-            begin
-              WindowOrg.X := 0;
-              WindowOrg.Y := 0;
-              Windows.ClientToScreen(Window, WindowOrg);
-              Windows.OffsetRgn(PaintRegion, -WindowOrg.X, -WindowOrg.Y);
-            end;
-            Windows.SelectClipRgn(CurDoubleBuffer.DC, PaintRegion);
-          end;
-{$ifdef DEBUG_DOUBLEBUFFER}
-          Windows.GetClipBox(CurDoubleBuffer.DC, ClipBox);
-          DebugLn('Double buffering in DC ', IntToHex(CurDoubleBuffer.DC, sizeof(HDC)*2),
-            ' with clipping rect (',
-            IntToStr(ClipBox.Left), ',', IntToStr(ClipBox.Top), ';',
-            IntToStr(ClipBox.Right), ',', IntToStr(ClipBox.Bottom), ')');
-{$endif}
-          // a copy of the region is selected into the DC, so we
-          // can free our region immediately
-          Windows.DeleteObject(PaintRegion);
-        end;
-      end else begin
-        DC := ControlDC;
-        PaintRegion := 0;
-      end;
-      if ParentPaintWindow <> 0 then
-        GetWin32ControlPos(Window, ParentPaintWindow, parLeft, parTop);
-      //Is not necessary to check the result of GetLCLClientBoundsOffset since
-      //the false condition (lWincontrol = nil or lWincontrol <> TWinControl) is never met
-      //The rect is always initialized with 0
-      GetLCLClientBoundsOffset(lWinControl, ORect);
-      PaintMsg.Msg := LM_PAINT;
-      PaintMsg.PaintStruct := @PS;
-      if not useDoubleBuffer then
-        PaintMsg.DC := DC;
-      if not needParentPaint then
-      begin
-        // send through message to allow message override, moreover use SendMessage
-        // to allow subclass window proc override this message too
+  ParentPaintWindow: HWND;
+  DCIndex: integer;
+  parLeft, parTop: integer;
+  BufferWasSaved: Boolean;
+  useDoubleBuffer: Boolean;
+  isNativeControl: Boolean;
+  needParentPaint: Boolean;
+begin
+  // note: ignores the received DC
+  // do not use default deliver message
+  if lWinControl = nil then
+  begin
+    lWinControl := GetWin32WindowInfo(Window)^.PWinControl;
+    if lWinControl = nil then exit;
+  end;
+
+  // create a paint message
+  isNativeControl := GetIsNativeControl(Window);
+  needParentPaint := GetNeedParentPaint(WindowInfo, lWinControl);
+  // if needParentPaint and not isTabPage then background will be drawn in
+  // WM_ERASEBKGND and WM_CTLCOLORSTATIC for native controls
+  // sent by default paint handler
+  if WindowInfo^.isTabPage or (needParentPaint and (not isNativeControl or (ControlDC <> 0))) then
+    ParentPaintWindow := Windows.GetParent(Window)
+  else
+    ParentPaintWindow := 0;
 {$IFDEF DBG_SendPaintMessage}
-        DebugLnEnter('> SendPaintMessage call WM_ERASEBKGND for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
+  DebugLnEnter(['>>> SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window),
+     ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl),
+     ' NativeCtrl=', dbgs(isNativeControl), ' ndParentPaint=', dbgs(needParentPaint),
+     ' isTab=', dbgs(WindowInfo^.isTabPage)    ]);
+  try
 {$ENDIF}
-        Include(TWinControlAccess(lWinControl).FWinControlFlags, wcfEraseBackground);
-        Windows.SendMessage(lWinControl.Handle, WM_ERASEBKGND, Windows.WPARAM(PaintMsg.DC), 0);
-        Exclude(TWinControlAccess(lWinControl).FWinControlFlags, wcfEraseBackground);
-{$IFDEF DBG_SendPaintMessage}
-        DebugLnExit('< SendPaintMessage back from WM_ERASEBKGND for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
-{$ENDIF}
-      end;
-      if ParentPaintWindow <> 0 then
-      begin
+
+  // if painting background of some control for tabpage, don't handle erase background
+  // in parent of tabpage
+  if WindowInfo^.isTabPage then
+    PushEraseBkgndCommand(ecDiscard);
+
+  // check if double buffering is requested
+  useDoubleBuffer := (ControlDC = 0) and (lWinControl.DoubleBuffered or ThemeServices.ThemesEnabled);
+  BufferWasSaved := False;
 {$ifdef MSG_DEBUG}
-        DebugLn(MessageStackDepth, ' *painting background by sending paint message to parent window ',
-          IntToHex(ParentPaintWindow, 8));
+  if not useDoubleBuffer then
+    DebugLn(MessageStackDepth, ' *painting, but not double buffering');
 {$endif}
-        // tabpage parent and got a dc to draw in, divert paint to parent
-        DCIndex := Windows.SaveDC(PaintMsg.DC);
-        DrawParentBackground(Window, PaintMsg.DC);
-        Windows.RestoreDC(PaintMsg.DC, DCIndex);
-      end;
-      if (ControlDC = 0) or not needParentPaint then
+  WinProcess := false;
+  try
+    if ControlDC = 0 then
+    begin
+      // ignore first erase background on themed control, paint will do everything
+      if ThemeServices.ThemesEnabled then
+        PushEraseBkgndCommand(ecDoubleBufferNoRemove);
+      DC := Windows.BeginPaint(Window, @PS);
+{$IFDEF DBG_SendPaintMessage}
+      if ThemeServices.ThemesEnabled then
+        DebugLn(['SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Remove one from EraseBkgndStack val=', (EraseBkgndStack and 3)]);
+{$ENDIF}
+      if ThemeServices.ThemesEnabled then
+        EraseBkgndStack := EraseBkgndStack shr EraseBkgndStackShift;
+      if useDoubleBuffer then
       begin
-        DCIndex := Windows.SaveDC(PaintMsg.DC);
-        MoveWindowOrgEx(PaintMsg.DC, ORect.Left, ORect.Top);
+        RTLLayout := (GetWindowLong(Window, GWL_EXSTYLE) and WS_EX_LAYOUTRTL) = WS_EX_LAYOUTRTL;
+        BufferWasSaved := PrepareDoubleBuffer(DC, DoubleBufferBitmapOld);
 {$ifdef DEBUG_DOUBLEBUFFER}
-        Windows.GetClipBox(PaintMsg.DC, ClipBox);
-        DebugLn('LCL Drawing in DC ', IntToHex(PaintMsg.DC, 8), ' with clipping rect (',
+        ORect.Left := 0;
+        ORect.Top := 0;
+        ORect.Right := CurDoubleBuffer.BitmapWidth;
+        ORect.Bottom := CurDoubleBuffer.BitmapHeight;
+        Windows.FillRect(CurDoubleBuffer.DC, ORect, GetSysColorBrush(COLOR_DESKTOP));
+{$endif}
+        PaintRegion := CreateRectRgn(0, 0, 1, 1);
+        if GetRandomRgn(DC, PaintRegion, SYSRGN) = 1 then
+          CalcClipRgn(PaintRegion);
+{$ifdef DEBUG_DOUBLEBUFFER}
+        Windows.GetClipBox(CurDoubleBuffer.DC, ClipBox);
+        DebugLn('Double buffering in DC ', IntToHex(CurDoubleBuffer.DC, sizeof(HDC)*2),
+          ' with clipping rect (',
           IntToStr(ClipBox.Left), ',', IntToStr(ClipBox.Top), ';',
           IntToStr(ClipBox.Right), ',', IntToStr(ClipBox.Bottom), ')');
 {$endif}
-{$IFDEF DBG_SendPaintMessage}
-        DebugLnEnter('> SendPaintMessage call DeliverMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
-{$ENDIF}
-        DeliverMessage(lWinControl, PaintMsg);
-{$IFDEF DBG_SendPaintMessage}
-        DebugLnExit('< SendPaintMessage back from DeliverMessage Ufor CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
-{$ENDIF}
-        Windows.RestoreDC(PaintMsg.DC, DCIndex);
+        // a copy of the region is selected into the DC, so we
+        // can free our region immediately
+        Windows.DeleteObject(PaintRegion);
       end;
+    end else begin
+      DC := ControlDC;
+      PaintRegion := 0;
       if useDoubleBuffer then
-        Windows.BitBlt(DC, 0, 0, WindowWidth, WindowHeight, CurDoubleBuffer.DC, 0, 0, SRCCOPY);
-      if ControlDC = 0 then
-        Windows.EndPaint(Window, @PS);
-    finally
-      if useDoubleBuffer then
-      begin
-        SelectObject(CurDoubleBuffer.DC, DoubleBufferBitmapOld);
-        DeleteDC(CurDoubleBuffer.DC);
-        CurDoubleBuffer.DC := 0;
-        if BufferWasSaved then
-        begin
-          if CurDoubleBuffer.Bitmap <> 0 then
-            DeleteObject(CurDoubleBuffer.Bitmap);
-          CurDoubleBuffer := BackupBuffer;
-        end;
-{$ifdef DEBUG_DOUBLEBUFFER}
-        if CopyBitmapToClipboard then
-        begin
-//          Windows.OpenClipboard(0);
-//          Windows.EmptyClipboard;
-//          Windows.SetClipboardData(CF_BITMAP, DoubleBufferBitmap);
-//          Windows.CloseClipboard;
-          CopyBitmapToClipboard := false;
-        end;
+        BufferWasSaved := PrepareDoubleBuffer(DC, DoubleBufferBitmapOld);
+    end;
+
+    if ParentPaintWindow <> 0 then
+      GetWin32ControlPos(Window, ParentPaintWindow, parLeft, parTop);
+    //Is not necessary to check the result of GetLCLClientBoundsOffset since
+    //the false condition (lWincontrol = nil or lWincontrol <> TWinControl) is never met
+    //The rect is always initialized with 0
+    GetLCLClientBoundsOffset(lWinControl, ORect);
+    PaintMsg.Msg := LM_PAINT;
+    PaintMsg.PaintStruct := @PS;
+    if not useDoubleBuffer then
+      PaintMsg.DC := DC;
+    if not needParentPaint then
+    begin
+      // send through message to allow message override, moreover use SendMessage
+      // to allow subclass window proc override this message too
+{$IFDEF DBG_SendPaintMessage}
+      DebugLnEnter('> SendPaintMessage call WM_ERASEBKGND for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
+{$ENDIF}
+      Include(TWinControlAccess(lWinControl).FWinControlFlags, wcfEraseBackground);
+      Windows.SendMessage(lWinControl.Handle, WM_ERASEBKGND, Windows.WPARAM(PaintMsg.DC), 0);
+      Exclude(TWinControlAccess(lWinControl).FWinControlFlags, wcfEraseBackground);
+{$IFDEF DBG_SendPaintMessage}
+      DebugLnExit('< SendPaintMessage back from WM_ERASEBKGND for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
+{$ENDIF}
+    end;
+    if ParentPaintWindow <> 0 then
+    begin
+{$ifdef MSG_DEBUG}
+      DebugLn(MessageStackDepth, ' *painting background by sending paint message to parent window ',
+        IntToHex(ParentPaintWindow, 8));
 {$endif}
-      end;
+      // tabpage parent and got a dc to draw in, divert paint to parent
+      DCIndex := Windows.SaveDC(PaintMsg.DC);
+      DrawParentBackground(Window, PaintMsg.DC);
+      Windows.RestoreDC(PaintMsg.DC, DCIndex);
     end;
-
+    if (ControlDC = 0) or not needParentPaint then
+    begin
+      DCIndex := Windows.SaveDC(PaintMsg.DC);
+      MoveWindowOrgEx(PaintMsg.DC, ORect.Left, ORect.Top);
+{$ifdef DEBUG_DOUBLEBUFFER}
+      Windows.GetClipBox(PaintMsg.DC, ClipBox);
+      DebugLn('LCL Drawing in DC ', IntToHex(PaintMsg.DC, 8), ' with clipping rect (',
+        IntToStr(ClipBox.Left), ',', IntToStr(ClipBox.Top), ';',
+        IntToStr(ClipBox.Right), ',', IntToStr(ClipBox.Bottom), ')');
+{$endif}
 {$IFDEF DBG_SendPaintMessage}
-    finally
-    DebugLnExit('<<< SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
-    end;
+      DebugLnEnter('> SendPaintMessage call DeliverMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
 {$ENDIF}
+      DeliverMessage(lWinControl, PaintMsg);
+{$IFDEF DBG_SendPaintMessage}
+      DebugLnExit('< SendPaintMessage back from DeliverMessage Ufor CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
+{$ENDIF}
+      Windows.RestoreDC(PaintMsg.DC, DCIndex);
+    end;
+    if useDoubleBuffer then
+      Windows.BitBlt(DC, 0, 0, WindowWidth, WindowHeight, CurDoubleBuffer.DC, 0, 0, SRCCOPY);
+    if ControlDC = 0 then
+      Windows.EndPaint(Window, @PS);
+  finally
+    if useDoubleBuffer then
+    begin
+      SelectObject(CurDoubleBuffer.DC, DoubleBufferBitmapOld);
+      DeleteDC(CurDoubleBuffer.DC);
+      CurDoubleBuffer.DC := 0;
+      if BufferWasSaved then
+      begin
+        if CurDoubleBuffer.Bitmap <> 0 then
+          DeleteObject(CurDoubleBuffer.Bitmap);
+        CurDoubleBuffer := BackupBuffer;
+      end;
+{$ifdef DEBUG_DOUBLEBUFFER}
+      if CopyBitmapToClipboard then
+      begin
+//        Windows.OpenClipboard(0);
+//        Windows.EmptyClipboard;
+//        Windows.SetClipboardData(CF_BITMAP, DoubleBufferBitmap);
+//        Windows.CloseClipboard;
+        CopyBitmapToClipboard := false;
+      end;
+{$endif}
+    end;
+  end;
+{$IFDEF DBG_SendPaintMessage}
+  finally
+  DebugLnExit('<<< SendPaintMessage for CtrlDC=', dbgs(ControlDC), ' Window=', dbgs(Window), ' WinCtrl=',dbgs(PtrUInt(lWinControl)), ' ', DbgSName(lWinControl));
+  end;
+{$ENDIF}
+end;
 
+procedure TWindowProcHelper.HandleScrollMessage(LMsg: integer);
+var
+  ScrollInfo: TScrollInfo;
+begin
+  with LMScroll do
+  begin
+    Msg := LMsg;
+    ScrollCode := LOWORD(WParam);
+    SmallPos := 0;
+    ScrollBar := HWND(LParam);
+    Pos := 0;
   end;
 
-  procedure ClearSiblingRadioButtons(RadioButton: TRadioButton);
-  var
-    Parent: TWinControl;
-    Sibling: TControl;
-    WinControl: TWinControlAccess absolute Sibling;
-    LParamFlag: LRESULT;
-    i: Integer;
+  if not (LOWORD(WParam) in [SB_THUMBTRACK, SB_THUMBPOSITION])
+  then begin
+    WindowInfo^.TrackValid := False;
+    Exit;
+  end;
+
+  // Note on thumb tracking
+  // When using the scrollwheel, windows sends SB_THUMBTRACK
+  // messages, but only when scroll.max < 32K. So in that case
+  // Hi(WParam) won't cycle.
+  // When ending scrollbar tracking we also get those
+  // messages. Now Hi(WParam) is cycling.
+  // To get the correct value you need to use GetScrollInfo.
+  //
+  // Now there is a problem. GetScrollInfo returns always the old
+  // position. So in case we get track messages, we'll keep the
+  // last trackposition.
+  // To get the correct position, we use the most significant
+  // part of the last known value (or the value returned by
+  // ScrollInfo). The missing least significant part is given
+  // by Hi(WParam), since it is cycling, the or of both will give
+  // the position
+  // This only works if the difference between the last pos and
+  // the new pos is < 64K, so it might fail if we don't get track
+  // messages
+  // MWE.
+
+  ScrollInfo.cbSize := SizeOf(ScrollInfo);
+  if LOWORD(WParam) = SB_THUMBTRACK
+  then begin
+    ScrollInfo.fMask := SIF_TRACKPOS;
+    // older windows versions may not support trackpos, so fill it with some default
+    if WindowInfo^.TrackValid
+    then ScrollInfo.nTrackPos := Integer(WindowInfo^.TrackPos and $FFFF0000) or HIWORD(WParam)
+    else ScrollInfo.nTrackPos := HIWORD(WParam);
+  end
+  else begin
+    ScrollInfo.fMask := SIF_POS;
+    ScrollInfo.nPos := HIWORD(WParam);
+  end;
+
+  if LParam <> 0
+  then begin
+    // The message is send by a scrollbar
+    GetScrollInfo(HWND(LParam), SB_CTL, ScrollInfo);
+  end
+  else begin
+    // The message is send by a window's standard scrollbar
+    if LMsg = LM_HSCROLL
+    then GetScrollInfo(Window, SB_HORZ, ScrollInfo)
+    else GetScrollInfo(Window, SB_VERT, ScrollInfo);
+  end;
+
+  if LOWORD(WParam) = SB_THUMBTRACK
+  then begin
+    LMScroll.Pos := ScrollInfo.nTrackPos;
+    WindowInfo^.TrackPos := ScrollInfo.nTrackPos;
+    WindowInfo^.TrackValid := True;
+  end
+  else begin
+    if WindowInfo^.TrackValid
+    then LMScroll.Pos := LongInt(WindowInfo^.TrackPos and $FFFF0000) or HIWORD(WParam)
+    else LMScroll.Pos := (ScrollInfo.nPos and $FFFF0000) or HIWORD(WParam);
+  end;
+
+  if LMScroll.Pos < High(LMScroll.SmallPos)
+  then LMScroll.SmallPos := LMScroll.Pos
+  else LMScroll.SmallPos := High(LMScroll.SmallPos);
+end;
+
+procedure TWindowProcHelper.HandleSetCursor;
+var
+  lControl: TControl;
+  BoundsOffset: TRect;
+  ACursor: TCursor;
+  MouseMessage: Word;
+  P: TPoint;
+begin
+  if Assigned(lWinControl) then
   begin
-    Parent := RadioButton.Parent;
-    for i:= 0 to Parent.ControlCount - 1 do
+    if not (csDesigning in lWinControl.ComponentState) and (LOWORD(LParam) = HTCLIENT) then
     begin
-      Sibling := Parent.Controls[i];
-      if (Sibling is TRadioButton) and (Sibling <> RadioButton) then
+      ACursor := Screen.Cursor;
+      if ACursor = crDefault then
       begin
-        // Pass previous state through LParam so the event handling can decide
-        // when to propagate LM_CHANGE (New State <> Previous State)
-        LParamFlag := Windows.SendMessage(WinControl.WindowHandle, BM_GETCHECK, 0, 0);
-        // Pass SKIP_LMCHANGE through LParam if previous state is already unchecked
-        if LParamFlag = BST_UNCHECKED then
-          LParamFlag := SKIP_LMCHANGE;
-        Windows.SendMessage(WinControl.WindowHandle, BM_SETCHECK,
-          Windows.WParam(BST_UNCHECKED), Windows.LParam(LParamFlag));
+        Windows.GetCursorPos(Windows.POINT(P));
+        Windows.ScreenToClient(Window, Windows.POINT(P));
+        if GetLCLClientBoundsOffset(lWinControl, BoundsOffset) then
+        begin
+          Dec(P.X, BoundsOffset.Left);
+          Dec(P.Y, BoundsOffset.Top);
+        end;
+        // TGraphicControl controls do not get WM_SETCURSOR messages...
+        lControl := lWinControl.ControlAtPos(P, [capfOnlyClientAreas,
+          capfAllowWinControls, capfHasScrollOffset, capfRecursive]);
+        if lControl = nil then
+          lControl := lWinControl;
+        ACursor := lControl.Cursor;
+      end;
+      if ACursor <> crDefault then
+      begin
+        // DebugLn('Set cursor. Control = ', LControl.Name, ' cur = ',ACursor);
+        Windows.SetCursor(Screen.Cursors[ACursor]);
+        LMessage.Result := 1;
+      end;
+    end
+    else
+    if (LOWORD(LParam) = Word(HTERROR)) then
+    begin
+      MouseMessage := HIWORD(LParam);
+      // a mouse click on a window
+      if ((MouseMessage = WM_LBUTTONDOWN) or
+          (MouseMessage = WM_RBUTTONDOWN) or
+          (MouseMessage = WM_XBUTTONDOWN)) and
+         Assigned(Screen) and Assigned(Screen.ActiveCustomForm) and
+         Screen.ActiveCustomForm.HandleAllocated and
+         (GetForegroundWindow <> Screen.ActiveCustomForm.Handle) then
+      begin
+        // A mouse click is happen on our application window which is not active
+        // we need to active it ourself. This is needed only when click is happen
+        // on disabled window (e.g. ShowModal is called and non modal window is clicked)
+        Win32WidgetSet.AppBringToFront;
+        LMessage.Result := 1;
       end;
     end;
   end;
+  if LMessage.Result = 0 then
+    SetLMessageAndParams(LM_SETCURSOR);
+  WinProcess := False;
+end;
 
-  // sets the text of the combobox,
-  // because some events are risen, before the text is actually changed
-  procedure UpdateComboBoxText(ComboBox: TCustomComboBox);
-  var
-    Index: Integer;
+procedure TWindowProcHelper.DoSysCmdKeyMenu;
+var
+  ParentForm: TCustomForm;
+  TargetWindow, prevFocus: HWND;
+begin
+  ParentForm := GetParentForm(lWinControl);
+  if (ParentForm <> nil) and ((ParentForm.Menu = nil) or (csDesigning in ParentForm.ComponentState))
+  and (Application <> nil) and (Application.MainForm <> nil)
+  and (Application.MainForm <> ParentForm)
+  and Application.MainForm.HandleAllocated then
   begin
-    with ComboBox do begin
-      Index := ItemIndex;
-      // Index might be -1, if current text is not in the list.
-      if (Index>=0) then
-        TWin32WSWinControl.SetText(ComboBox, Items[Index]);
+    TargetWindow := Application.MainFormHandle;
+    if IsWindowEnabled(TargetWindow) and IsWindowVisible(TargetWindow) then
+    begin
+      prevFocus := Windows.GetFocus;
+      Windows.SetFocus(targetWindow);
+      PLMsg^.Result := Windows.SendMessage(TargetWindow, WM_SYSCOMMAND, WParam, LParam);
+      Windows.SetFocus(prevFocus);
+      WinProcess := False;
     end;
   end;
+end;
 
-  procedure EnableChildWindows(WinControl: TWinControl; Enable: boolean);
-  var
-    i: integer;
-    ChildControl: TWinControl;
+procedure TWindowProcHelper.DoSysCmdMinimize;
+begin
+  if Assigned(lWinControl) and (Application.MainForm = lWinControl)
+  and not Application.MainFormOnTaskBar then
+    Window := Win32WidgetSet.AppHandle; //redirection
+
+  if (Window = Win32WidgetSet.AppHandle) and not Application.MainFormOnTaskBar then
   begin
-    for i := 0 to WinControl.ControlCount-1 do
+    HidePopups(Win32WidgetSet.AppHandle);
+    if Assigned(Application.MainForm) then
     begin
-      if WinControl.Controls[i] is TWinControl then
+      Windows.SetWindowPos(Window, HWND_TOP,
+        Application.MainForm.Left, Application.MainForm.Top,
+        Application.MainForm.Width, 0, SWP_NOACTIVATE);
+      if Application.MainForm.HandleAllocated then
+        Windows.ShowWindow(Application.MainFormHandle, SW_HIDE);
+    end;
+
+    PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
+    WinProcess := False;
+    Application.IntfAppMinimize;
+  end
+  else
+  if Assigned(lWinControl) and (lWinControl = Application.MainForm) then
+  begin
+    PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
+    WinProcess := False;
+    Application.IntfAppMinimize;
+  end;
+end;
+
+procedure TWindowProcHelper.DoSysCmdRestore;
+begin
+  if (Window = Win32WidgetSet.AppHandle) and not Application.MainFormOnTaskBar then
+  begin
+    PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
+    WinProcess := False;
+    if Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
+    begin
+      if Application.MainForm.HandleObjectShouldBeVisible then
+        Windows.ShowWindow(Application.MainFormHandle, SW_SHOWNA);
+      RestorePopups;
+    end;
+    Application.IntfAppRestore;
+  end
+  else if Assigned(lWinControl) and (lWinControl = Application.MainForm) then
+    Application.IntfAppRestore;
+end;
+
+procedure TWindowProcHelper.HandleSysCommand;
+begin
+  // forward keystroke to show window menu, if parent form has no menu
+  // if wparam contains SC_KEYMENU, lparam contains key pressed
+  // keymenu+space should always bring up system menu
+  case (WParam and $FFF0) of
+    SC_KEYMENU:
+      if (lWinControl <> nil) and (lParam <> VK_SPACE) then
+        DoSysCmdKeyMenu;
+    SC_MINIMIZE:
+      if Assigned(Application) then
+        DoSysCmdMinimize;
+    SC_RESTORE:
+      if Assigned(Application) then
+        DoSysCmdRestore;
+  end;
+end;
+
+function TWindowProcHelper.IsComboEditSelection: boolean;
+begin
+  Result := WindowInfo^.isComboEdit and (ComboBoxHandleSizeWindow = Windows.GetParent(Window));
+end;
+
+procedure TWindowProcHelper.HandleBitBtnCustomDraw(ABitBtn: TCustomBitBtn);
+var
+  DrawInfo: PNMCustomDraw;
+  ARect: TRect;
+  ShowFocus: Boolean;
+begin
+  DrawInfo := PNMCustomDraw(NMHdr);
+  case DrawInfo^.dwDrawStage of
+    CDDS_PREPAINT, CDDS_POSTPAINT:
+    begin
+      lmNotify.Result := CDRF_DODEFAULT or CDRF_NOTIFYPOSTPAINT;
+      WinProcess := False;
+      if ABitBtn.Focused then
       begin
-        ChildControl := TWinControl(WinControl.Controls[i]);
-        if Enable then
-        begin
-           if ChildControl.Enabled then
-             EnableWindow(ChildControl.Handle, true);
-        end
+        if WindowsVersion >= wv2000 then
+          ShowFocus := (Windows.SendMessage(ABitBtn.Handle, WM_QUERYUISTATE, 0, 0) and UISF_HIDEFOCUS) = 0
         else
-          EnableWindow(ChildControl.Handle, false);
-
-        EnableChildWindows(ChildControl, Enable);
+          ShowFocus := True;
+        if ShowFocus then
+        begin
+          ARect := DrawInfo^.rc;
+          InflateRect(ARect, -3, -3);
+          if not IsRectEmpty(ARect) then
+            Windows.DrawFocusRect(DrawInfo^.hdc, ARect);
+        end;
       end;
     end;
   end;
+end;
 
-  procedure HandleScrollMessage(LMsg: integer);
-  var
-    ScrollInfo: TScrollInfo;
-  begin
-    with LMScroll do
+procedure TWindowProcHelper.HandleDropFiles;
+var
+  Files: Array of String;
+  Drop: HDROP;
+  L: LongWord;
+  I, C: Integer;
+  DropForm: TWinControl;
+{$IFDEF WindowsUnicodeSupport}
+  AnsiBuffer: string;
+  WideBuffer: WideString;
+{$ENDIF}
+begin
+  Drop := HDROP(WParam);
+  try
+    C := DragQueryFile(Drop, $FFFFFFFF, nil, 0); // get dropped files count
+    if C <= 0 then Exit;
+
+    SetLength(Files, C);
+    for I := 0 to C - 1 do
     begin
-      Msg := LMsg;
-      ScrollCode := LOWORD(WParam);
-      SmallPos := 0;
-      ScrollBar := HWND(LParam);
-      Pos := 0;
-    end;
-
-    if not (LOWORD(WParam) in [SB_THUMBTRACK, SB_THUMBPOSITION])
-    then begin
-      WindowInfo^.TrackValid := False;
-      Exit;
-    end;
-
-    // Note on thumb tracking
-    // When using the scrollwheel, windows sends SB_THUMBTRACK
-    // messages, but only when scroll.max < 32K. So in that case
-    // Hi(WParam) won't cycle.
-    // When ending scrollbar tracking we also get those
-    // messages. Now Hi(WParam) is cycling.
-    // To get the correct value you need to use GetScrollInfo.
-    //
-    // Now there is a problem. GetScrollInfo returns always the old
-    // position. So in case we get track messages, we'll keep the
-    // last trackposition.
-    // To get the correct position, we use the most significant
-    // part of the last known value (or the value returned by
-    // ScrollInfo). The missing least significant part is given
-    // by Hi(WParam), since it is cycling, the or of both will give
-    // the position
-    // This only works if the difference between the last pos and
-    // the new pos is < 64K, so it might fail if we don't get track
-    // messages
-    // MWE.
-
-
-    ScrollInfo.cbSize := SizeOf(ScrollInfo);
-    if LOWORD(WParam) = SB_THUMBTRACK
-    then begin
-      ScrollInfo.fMask := SIF_TRACKPOS;
-      // older windows versions may not support trackpos, so fill it with some default
-      if WindowInfo^.TrackValid
-      then ScrollInfo.nTrackPos := Integer(WindowInfo^.TrackPos and $FFFF0000) or HIWORD(WParam)
-      else ScrollInfo.nTrackPos := HIWORD(WParam);
-    end
-    else begin
-      ScrollInfo.fMask := SIF_POS;
-      ScrollInfo.nPos := HIWORD(WParam);
-    end;
-
-    if LParam <> 0
-    then begin
-      // The message is send by a scrollbar
-      GetScrollInfo(HWND(LParam), SB_CTL, ScrollInfo);
-    end
-    else begin
-      // The message is send by a window's standard scrollbar
-      if LMsg = LM_HSCROLL
-      then GetScrollInfo(Window, SB_HORZ, ScrollInfo)
-      else GetScrollInfo(Window, SB_VERT, ScrollInfo);
-    end;
-
-    if LOWORD(WParam) = SB_THUMBTRACK
-    then begin
-      LMScroll.Pos := ScrollInfo.nTrackPos;
-      WindowInfo^.TrackPos := ScrollInfo.nTrackPos;
-      WindowInfo^.TrackValid := True;
-    end
-    else begin
-      if WindowInfo^.TrackValid
-      then LMScroll.Pos := LongInt(WindowInfo^.TrackPos and $FFFF0000) or HIWORD(WParam)
-      else LMScroll.Pos := (ScrollInfo.nPos and $FFFF0000) or HIWORD(WParam);
-    end;
-
-    if LMScroll.Pos < High(LMScroll.SmallPos)
-    then LMScroll.SmallPos := LMScroll.Pos
-    else LMScroll.SmallPos := High(LMScroll.SmallPos);
-  end;
-
-  procedure HandleSetCursor;
-  var
-    lControl: TControl;
-    BoundsOffset: TRect;
-    ACursor: TCursor;
-    MouseMessage: Word;
-  begin
-    if Assigned(lWinControl) then
-    begin
-      if not (csDesigning in lWinControl.ComponentState) and (LOWORD(LParam) = HTCLIENT) then
+      {$IFDEF WindowsUnicodeSupport}
+      if UnicodeEnabledOS then
       begin
-        ACursor := Screen.Cursor;
-        if ACursor = crDefault then
-        begin
-          Windows.GetCursorPos(Windows.POINT(P));
-          Windows.ScreenToClient(Window, Windows.POINT(P));
-          if GetLCLClientBoundsOffset(lWinControl, BoundsOffset) then
-          begin
-            Dec(P.X, BoundsOffset.Left);
-            Dec(P.Y, BoundsOffset.Top);
-          end;
-          // TGraphicControl controls do not get WM_SETCURSOR messages...
-          lControl := lWinControl.ControlAtPos(P, [capfOnlyClientAreas,
-            capfAllowWinControls, capfHasScrollOffset, capfRecursive]);
-          if lControl = nil then
-            lControl := lWinControl;
-          ACursor := lControl.Cursor;
-        end;
-        if ACursor <> crDefault then
-        begin
-          // DebugLn('Set cursor. Control = ', LControl.Name, ' cur = ',ACursor);
-          Windows.SetCursor(Screen.Cursors[ACursor]);
-          LMessage.Result := 1;
-        end;
+        L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
+        SetLength(WideBuffer, L);
+        L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
+        SetLength(WideBuffer, L);
+        Files[I] := UTF16ToUTF8(WideBuffer);
       end
       else
-      if (LOWORD(LParam) = Word(HTERROR)) then
       begin
-        MouseMessage := HIWORD(LParam);
-        // a mouse click on a window
-        if ((MouseMessage = WM_LBUTTONDOWN) or
-            (MouseMessage = WM_RBUTTONDOWN) or
-            (MouseMessage = WM_XBUTTONDOWN)) and
-           Assigned(Screen) and Assigned(Screen.ActiveCustomForm) and
-           Screen.ActiveCustomForm.HandleAllocated and
-           (GetForegroundWindow <> Screen.ActiveCustomForm.Handle) then
-        begin
-          // A mouse click is happen on our application window which is not active
-          // we need to active it ourself. This is needed only when click is happen
-          // on disabled window (e.g. ShowModal is called and non modal window is clicked)
-          Win32WidgetSet.AppBringToFront;
-          LMessage.Result := 1;
-        end;
-      end;
-    end;
-    if LMessage.Result = 0 then
-    begin
-      LMessage.Msg := LM_SETCURSOR;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-    end;
-    WinProcess := False;
-  end;
-
-  procedure HandleSysCommand;
-  var
-    ParentForm: TCustomForm;
-    prevFocus: HWND;
-  begin
-    // forward keystroke to show window menu, if parent form has no menu
-    // if wparam contains SC_KEYMENU, lparam contains key pressed
-    // keymenu+space should always bring up system menu
-    case (WParam and $FFF0) of
-      SC_KEYMENU:
-        if (lWinControl <> nil) and (lParam <> VK_SPACE) then
-        begin
-          ParentForm := GetParentForm(lWinControl);
-          if (ParentForm <> nil) and ((ParentForm.Menu = nil) or (csDesigning in ParentForm.ComponentState))
-            and (Application <> nil) and (Application.MainForm <> nil)
-            and (Application.MainForm <> ParentForm)
-            and Application.MainForm.HandleAllocated then
-          begin
-            TargetWindow := Application.MainFormHandle;
-            if IsWindowEnabled(TargetWindow) and IsWindowVisible(TargetWindow) then
-            begin
-              prevFocus := Windows.GetFocus;
-              Windows.SetFocus(targetWindow);
-              PLMsg^.Result := Windows.SendMessage(TargetWindow, WM_SYSCOMMAND, WParam, LParam);
-              Windows.SetFocus(prevFocus);
-              WinProcess := False;
-            end;
-          end;
-        end;
-
-      SC_MINIMIZE:
-        begin
-          if Assigned(Application) then
-          begin
-            if Assigned(lWinControl) and (Application.MainForm = lWinControl) and not Application.MainFormOnTaskBar then
-              Window := Win32WidgetSet.AppHandle;//redirection
-
-            if (Window = Win32WidgetSet.AppHandle) and not Application.MainFormOnTaskBar then
-            begin
-              HidePopups(Win32WidgetSet.AppHandle);
-              if Assigned(Application.MainForm) then
-              begin
-                Windows.SetWindowPos(Window, HWND_TOP,
-                  Application.MainForm.Left, Application.MainForm.Top,
-                  Application.MainForm.Width, 0, SWP_NOACTIVATE);
-                if Application.MainForm.HandleAllocated then
-                  Windows.ShowWindow(Application.MainFormHandle, SW_HIDE);
-              end;
-
-              PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
-              WinProcess := False;
-              Application.IntfAppMinimize;
-            end
-            else
-            if Assigned(lWinControl) and (lWinControl = Application.MainForm) then
-            begin
-              PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
-              WinProcess := False;
-              Application.IntfAppMinimize;
-            end;
-          end;
-        end;
-
-      SC_RESTORE:
-        begin
-          if Assigned(Application) then
-          begin
-            if (Window = Win32WidgetSet.AppHandle) and not Application.MainFormOnTaskBar then
-            begin
-              PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
-              WinProcess := False;
-              if Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
-              begin
-                if Application.MainForm.HandleObjectShouldBeVisible then
-                  Windows.ShowWindow(Application.MainFormHandle, SW_SHOWNA);
-                RestorePopups;
-              end;
-              Application.IntfAppRestore;
-            end
-            else
-            if Assigned(lWinControl) and (lWinControl = Application.MainForm) then
-            begin
-              Application.IntfAppRestore;
-            end;
-          end;
-        end;
-    end;
-  end;
-
-  function IsComboEditSelection: boolean;
-  begin
-    Result := WindowInfo^.isComboEdit and (ComboBoxHandleSizeWindow = Windows.GetParent(Window));
-  end;
-
-  procedure HandleBitBtnCustomDraw(ABitBtn: TCustomBitBtn);
-  var
-    DrawInfo: PNMCustomDraw absolute NMHdr;
-    ARect: TRect;
-    ShowFocus: Boolean;
-  begin
-    case DrawInfo^.dwDrawStage of
-      CDDS_PREPAINT, CDDS_POSTPAINT:
-      begin
-        lmNotify.Result := CDRF_DODEFAULT or CDRF_NOTIFYPOSTPAINT;
-        WinProcess := False;
-        if ABitBtn.Focused then
-        begin
-          if WindowsVersion >= wv2000 then
-            ShowFocus := (Windows.SendMessage(ABitBtn.Handle, WM_QUERYUISTATE, 0, 0) and UISF_HIDEFOCUS) = 0
-          else
-            ShowFocus := True;
-          if ShowFocus then
-          begin
-            ARect := DrawInfo^.rc;
-            InflateRect(ARect, -3, -3);
-            if not IsRectEmpty(ARect) then
-              Windows.DrawFocusRect(DrawInfo^.hdc, ARect);
-          end;
-        end;
-      end;
-    end;
-  end;
-  
-  procedure HandleDropFiles;
-  var
-    Files: Array of String;
-    Drop: HDROP;
-    L: LongWord;
-    I, C: Integer;
-    DropForm: TWinControl;
-  {$IFDEF WindowsUnicodeSupport}
-    AnsiBuffer: string;
-    WideBuffer: WideString;
-  {$ENDIF}
-  begin
-    Drop := HDROP(WParam);
-    try
-      C := DragQueryFile(Drop, $FFFFFFFF, nil, 0); // get dropped files count
-      if C <= 0 then Exit;
-      
-      SetLength(Files, C);
-      for I := 0 to C - 1 do
-      begin
-        {$IFDEF WindowsUnicodeSupport}
-        if UnicodeEnabledOS then
-        begin
-          L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
-          SetLength(WideBuffer, L);
-          L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
-          SetLength(WideBuffer, L);
-          Files[I] := UTF16ToUTF8(WideBuffer);
-        end
-        else
-        begin
-          L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-          SetLength(AnsiBuffer, L);
-          L := DragQueryFile(Drop, I, @AnsiBuffer[1], L + 1);
-          SetLength(WideBuffer, L);
-          Files[I] := ANSIToUTF8(AnsiBuffer);
-        end;
-        {$ELSE}
         L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-        SetLength(Files[I], L);
-        DragQueryFile(Drop, I, PChar(Files[I]), L + 1);
-        {$ENDIF}
+        SetLength(AnsiBuffer, L);
+        L := DragQueryFile(Drop, I, @AnsiBuffer[1], L + 1);
+        SetLength(WideBuffer, L);
+        Files[I] := ANSIToUTF8(AnsiBuffer);
       end;
-
-      if Length(Files) > 0 then
-      begin
-        DropForm := lWinControl.IntfGetDropFilesTarget;
-        if DropForm is TCustomForm then
-          TCustomForm(DropForm).IntfDropFiles(Files);
-        if Application <> nil then
-          Application.IntfDropFiles(Files);
-      end;
-    finally
-      DragFinish(Drop);
+      {$ELSE}
+      L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
+      SetLength(Files[I], L);
+      DragQueryFile(Drop, I, PChar(Files[I]), L + 1);
+      {$ENDIF}
     end;
-  end;
 
-  // Gets the cursor position relative to a given window
-  function GetClientCursorPos(ClientWindow: HWND) : TSmallPoint;
-  var
-    P: TPoint;
-  begin
-    Windows.GetCursorPos(P);
-    //if the mouse is not over the window is better to set to 0 to avoid weird behaviors
-    if Windows.WindowFromPoint(P) = ClientWindow then
-      Windows.ScreenToClient(ClientWindow, P)
-    else
+    if Length(Files) > 0 then
     begin
-      P.X:=0;
-      P.Y:=0;
+      DropForm := lWinControl.IntfGetDropFilesTarget;
+      if DropForm is TCustomForm then
+        TCustomForm(DropForm).IntfDropFiles(Files);
+      if Application <> nil then
+        Application.IntfDropFiles(Files);
     end;
-    Result := PointToSmallPoint(P);
+  finally
+    DragFinish(Drop);
+  end;
+end;
+
+// returns false if the UnicodeChar is not handled
+function TWindowProcHelper.HandleUnicodeChar(var AChar: Word): boolean;
+var
+  OldUTF8Char, UTF8Char: TUTF8Char;
+  WS: WideString;
+begin
+  Result := False;
+  UTF8Char := UTF16ToUTF8(WideString(WideChar(AChar)));
+  OldUTF8Char := UTF8Char;
+  if Assigned(lWinControl) then
+  begin
+    // if somewhere key is changed to '' then don't process this message
+    WinProcess := not lWinControl.IntfUTF8KeyPress(UTF8Char, 1, False);
+    // if somewhere key is changed then don't perform a regular keypress
+    Result := not WinProcess or (UTF8Char <> OldUTF8Char);
+    if UTF8Char <> OldUTF8Char then
+    begin
+      WS := UTF8ToUTF16(UTF8Char);
+      if Length(WS) > 0 then
+        AChar := Word(WS[1])
+      else
+        AChar := 0;
+    end;
+  end;
+end;
+
+procedure TWindowProcHelper.UpdateUIState(CharCode: Word);
+// This piece of code is taken from ThemeMgr.pas of Mike Lischke
+// Beginning with Windows 2000 the UI in an application may hide focus rectangles and accelerator key indication.
+// We have to take care to show them if the user starts navigating using the keyboard.
+
+  function FindParentForm: TCustomForm; inline;
+  begin
+    if lWinControl <> nil then
+      Result := GetParentForm(lWinControl)
+    else
+    if Application <> nil then
+      Result := Application.MainForm
+    else
+      Result := nil;
   end;
 
-  // returns false if the UnicodeChar is not handled
-  function HandleUnicodeChar(var AChar: Word): boolean;
-  var
-    OldUTF8Char, UTF8Char: TUTF8Char;
-    WS: WideString;
+var
+  ParentForm: TCustomForm;
+begin
+  case CharCode of
+    VK_LEFT..VK_DOWN, VK_TAB:
+      begin
+        ParentForm := FindParentForm;
+        if ParentForm <> nil then
+          SendMessage(ParentForm.Handle, WM_CHANGEUISTATE, MakeLong(UIS_CLEAR, UISF_HIDEFOCUS), 0);
+      end;
+    VK_MENU:
+      begin
+        ParentForm := FindParentForm;
+        if ParentForm <> nil then
+          SendMessage(ParentForm.Handle, WM_CHANGEUISTATE, MakeLong(UIS_CLEAR, UISF_HIDEACCEL), 0);
+      end;
+  end;
+end;
+
+function TWindowProcHelper.DoChildEdit(out WinResult: LResult): Boolean;
+var
+  Info: TComboboxInfo;
+begin
+  // combobox child edit weirdness
+  // prevent combobox WM_SIZE message to get/set/compare text to list, to select text
+  if IsComboEditSelection then
   begin
-    Result := False;
-    UTF8Char := UTF16ToUTF8(WideString(WideChar(AChar)));
-    OldUTF8Char := UTF8Char;
+    case Msg of
+      WM_GETTEXTLENGTH, EM_SETSEL:
+      begin
+        WinResult := 0;
+        Exit(True);
+      end;
+      WM_GETTEXT:
+      begin
+        if WParam > 0 then
+          PChar(LParam)^ := #0;
+        WinResult := 0;
+        Exit(True);
+      end;
+    end;
+  end;
+  lWinControl := WindowInfo^.AWinControl;
+  {for ComboBox IME sends WM_IME_NOTIFY with WParam=WM_IME_ENDCOMPOSITION}
+  if (Msg = WM_IME_NOTIFY) and (WPARAM=WM_IME_ENDCOMPOSITION) then
+    WindowInfo^.IMEComposed:=True;
+
+  // filter messages we want to pass on to LCL
+  if (Msg <> WM_KILLFOCUS) and (Msg <> WM_SETFOCUS)
+    {$ifndef RedirectDestroyMessages}and (Msg <> WM_NCDESTROY){$endif}
+    and not ((Msg >= WM_CUT) and (Msg <= WM_CLEAR))
+    and ((Msg < WM_KEYFIRST) or (Msg > WM_KEYLAST))
+    and ((Msg < WM_MOUSEFIRST) or (Msg > WM_MOUSELAST)) then
+  begin
+    WinResult := CallDefaultWindowProc(Window, Msg, WParam, LParam);
+    Exit(True);
+  end
+  else
+  if (Msg = WM_KILLFOCUS) or (Msg = WM_SETFOCUS) then
+  begin
+    // if focus jumps inside combo then no need to notify LCL
+    Info.cbSize := SizeOf(Info);
+    Win32Extra.GetComboBoxInfo(lWinControl.Handle, @Info);
+    if (HWND(WParam) = Info.hwndList) or
+       (HWND(WParam) = Info.hwndItem) or
+       (HWND(WParam) = Info.hwndCombo) then
+    begin
+      WinResult := CallDefaultWindowProc(Window, Msg, WParam, LParam);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgChar(var WinResult: LResult);
+begin
+  {$ifdef WindowsUnicodeSupport}
+  // first send a IntfUTF8KeyPress to the LCL
+  // if the key was not handled send a CN_CHAR for AnsiChar<=#127
+  OrgCharCode := Word(WParam);
+  if not HandleUnicodeChar(OrgCharCode) then
+  begin
+    PLMsg := @LMChar;
+    with LMChar do
+    begin
+      Msg := CN_CHAR;
+      KeyData := LParam;
+      if UnicodeEnabledOS then
+        CharCode := Word(Char(WideChar(WParam)))
+      else
+        CharCode := Word(WParam);
+      OrgCharCode := CharCode;
+      WinResult := 0;
+    end;
+    WinProcess := false;
+  end
+  else
+    WParam := OrgCharCode;
+  {$else}
+  PLMsg := @LMChar;
+  with LMChar do
+  begin
+    Msg := CN_CHAR;
+    KeyData := LParam;
+    CharCode := Word(WParam);
+    WinResult := 0;
+  end;
+  WinProcess := false;
+  {$endif}
+end;
+
+procedure TWindowProcHelper.DoCmdCheckBoxParam;
+var
+  Flags: dword;
+begin
+  case HIWORD(WParam) of
+    BN_CLICKED:
+      begin
+        // to allow cbGrayed state at the same time as not AllowGrayed
+        // in checkboxes (needed by dbcheckbox for null fields) we need
+        // to handle checkbox state ourselves, according to msdn state
+        // sequence goes from checked->cleared->grayed etc.
+        Flags := SendMessage(lWinControl.Handle, BM_GETCHECK, 0, 0);
+        //do not update the check state if is TRadioButton and is already checked
+        if (Flags <> BST_CHECKED) or not (lWinControl is TRadioButton) then
+        begin
+          if (Flags=BST_CHECKED) then
+            Flags := BST_UNCHECKED
+          else
+          if (Flags=BST_UNCHECKED) and
+             TCustomCheckbox(lWinControl).AllowGrayed then
+            Flags := BST_INDETERMINATE
+          else
+            Flags := BST_CHECKED;
+          //pass 0 through LParam to force sending LM_CHANGE
+          Windows.SendMessage(lWinControl.Handle, BM_SETCHECK, Windows.WPARAM(Flags), 0);
+        end;
+        LMessage.Msg := LM_CLICKED;
+      end;
+    BN_KILLFOCUS:
+      LMessage.Msg := LM_EXIT;
+  end
+end;
+
+function TWindowProcHelper.DoCmdComboBoxParam: Boolean;
+begin
+  case HIWORD(WParam) of
+    CBN_DROPDOWN: TCustomCombobox(lWinControl).IntfGetItems;
+    CBN_EDITCHANGE: LMessage.Msg := LM_CHANGED;
+    { CBN_EDITCHANGE is only sent after the user changes the edit box.
+      CBN_SELCHANGE is sent when the user changes the text by
+      selecting in the list, but before text is actually changed.
+      itemindex is updated, so set text manually }
+    CBN_SELCHANGE:
+    begin
+      if TCustomComboBox(lWinControl).Style in [csSimple, csDropDown] then
+        UpdateComboBoxText(TCustomComboBox(lWinControl));
+      SendSimpleMessage(lWinControl, LM_CHANGED);
+      LMessage.Msg := LM_SELCHANGE;
+    end;
+    CBN_CLOSEUP:
+    begin
+      // according to msdn CBN_CLOSEUP can happen before CBN_SELCHANGE and
+      // unfortunately it is simple truth. but we need correct order in the LCL
+      PostMessage(lWinControl.Handle, CN_COMMAND, WParam, LParam);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgColor(ChildWindowInfo: PWin32WindowInfo);
+var
+  WindowDC: HDC;
+  WindowColor: TColor;
+  ChildWinControl: TWinControl;
+begin
+  WindowDC := HDC(WParam);
+  ChildWinControl := ChildWindowInfo^.WinControl;
+  if ChildWinControl = nil then
+    ChildWinControl := ChildWindowInfo^.AWinControl;
+
+  case Msg of
+    WM_CTLCOLORSTATIC,
+    WM_CTLCOLORBTN: begin
+      if GetNeedParentPaint(ChildWindowInfo, ChildWinControl) and
+        not ChildWindowInfo^.ThemedCustomDraw then
+      begin
+        // need to draw transparently, draw background
+        DrawParentBackground(HWND(LParam), WindowDC);
+        LMessage.Result := GetStockObject(HOLLOW_BRUSH);
+        SetBkMode(WindowDC, TRANSPARENT);
+        WinProcess := false;
+      end;
+    end;
+    WM_CTLCOLORSCROLLBAR: begin
+      WinProcess := false;
+    end;
+  end;
+
+  if WinProcess then
+  begin
+    if ChildWinControl <> nil then
+    begin
+      WindowColor := ChildWinControl.Font.Color;
+      if WindowColor = clDefault then
+        WindowColor := ChildWinControl.GetDefaultColor(dctFont);
+      Windows.SetTextColor(WindowDC, ColorToRGB(WindowColor));
+      WindowColor := ChildWinControl.Brush.Color;
+      if WindowColor = clDefault then
+        WindowColor := ChildWinControl.GetDefaultColor(dctBrush);
+      Windows.SetBkColor(WindowDC, ColorToRGB(WindowColor));
+      LMessage.Result := LResult(ChildWinControl.Brush.Reference.Handle);
+      // Override default handling
+      WinProcess := false;
+    end;
+  end;
+end;
+
+procedure TWindowProcHelper.UpdateDrawListItem(aMsg: UInt);
+var
+  PDrawIS: PDrawItemStruct;
+begin
+  PDrawIS := PDrawItemStruct(LParam);
+  if PDrawIS^.itemID <> dword(-1) then
+  begin
+    LMessage.Msg := aMsg;
+    TLMDrawListItem(LMessage).DrawListItemStruct := @DrawListItemStruct;
+    with DrawListItemStruct do
+    begin
+      ItemID := PDrawIS^.itemID;
+      Area := PDrawIS^.rcItem;
+      ItemState := TOwnerDrawState(PDrawIS^.itemState);
+      DC := PDrawIS^._hDC;
+    end;
+    if (aMsg = LM_DRAWLISTITEM) and (WindowInfo <> @DefaultWindowInfo) then
+    begin
+      WindowInfo^.DrawItemIndex := PDrawIS^.itemID;
+      WindowInfo^.DrawItemSelected := (PDrawIS^.itemState and ODS_SELECTED) = ODS_SELECTED;
+    end;
+    WinProcess := false;
+  end;
+end;
+
+procedure TWindowProcHelper.UpdateDrawItems;
+begin
+  with TLMDrawItems(LMessage) do
+  begin
+    Msg := LM_DRAWITEM;
+    Ctl := 0;
+    DrawItemStruct := PDrawItemStruct(LParam);
+  end;
+  WinProcess := false;
+end;
+
+procedure TWindowProcHelper.DoMsgDrawItem;
+var
+  menuItem: TObject;
+  PDrawIS: PDrawItemStruct;
+begin
+  PDrawIS := PDrawItemStruct(LParam);
+  if (WParam = 0) and (PDrawIS^.ctlType = ODT_MENU) then
+  begin
+    menuItem := TObject(PDrawIS^.itemData);
+    if menuItem is TMenuItem then
+      DrawMenuItem(TMenuItem(menuItem),
+        PDrawIS^._hDC, PDrawIS^.rcItem, PDrawIS^.itemAction, PDrawIS^.itemState);
+    UpdateDrawItems;
+  end
+  else
+  begin
+    WindowInfo := GetWin32WindowInfo(PDrawIS^.hwndItem);
+    if WindowInfo^.WinControl<>nil then
+      lWinControl := WindowInfo^.WinControl;
+    {$IFDEF MSG_DEBUG}
+    debugln(format('Received WM_DRAWITEM type %d handle %x',
+                   [PDrawIS^.ctlType, integer(PDrawIS^.hwndItem)]));
+    {$ENDIF}
+
+    if (lWinControl<>nil) and
+       (((lWinControl is TCustomListbox) and
+          (TCustomListBox(lWinControl).Style <> lbStandard)) or
+       ((lWinControl is TCustomCombobox) and
+          ((TCustomCombobox(lWinControl).Style = csOwnerDrawFixed) or
+          (TCustomCombobox(lWinControl).Style = csOwnerDrawVariable))))
+    then
+      UpdateDrawListItem(LM_DRAWLISTITEM)
+    else
+    if (lWinControl <> nil) and (lWinControl is TListView) and
+      (TListView(lWinControl).ViewStyle = vsReport) and
+      (PDrawIS^.ctlType = ODT_LISTVIEW) and
+      (TListView(lWinControl).OwnerDraw)
+    then
+      UpdateDrawListItem(CN_DRAWITEM)
+    else
+      UpdateDrawItems;
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgEnable;
+begin
+  if WParam <> 0 Then
+    LMessage.Msg := LM_SETEDITABLE;
+  if Window = Win32WidgetSet.AppHandle then
+    if WParam = 0 then
+    begin
+      RemoveStayOnTopFlags(Window);
+      DisabledForms := Screen.DisableForms(nil, DisabledForms);
+    end
+    else begin
+      RestoreStayOnTopFlags(Window);
+      Screen.EnableForms(DisabledForms);
+    end;
+
+  // disable child windows of for example groupboxes, but not of forms
+  if Assigned(lWinControl) and not (lWinControl is TCustomForm) then
+    EnableChildWindows(lWinControl, WParam<>0);
+
+  // ugly hack to give bitbtns a nice look
+  // When no theming active, the internal image needs to be
+  // recreated when the enabled state is changed
+  if not ThemeServices.ThemesEnabled and (lWinControl is TCustomBitBtn) then
+    DrawBitBtnImage(TCustomBitBtn(lWinControl), TCustomBitBtn(lWinControl).Caption);
+end;
+
+function TWindowProcHelper.DoMsgEraseBkgnd(var WinResult: LResult): Boolean;
+var
+  eraseBkgndCommand: TEraseBkgndCommand;
+begin
+  eraseBkgndCommand := TEraseBkgndCommand(EraseBkgndStack and EraseBkgndStackMask);
+{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
+  DebugLnEnter(['>>> Do WM_ERASEBKGND for WParam= ', WParam, ' LParam=',LParam,
+      ' CurDbleBuffer.DC=', dbgs(CurDoubleBuffer.DC), ' Window=', dbgs(Window),
+      ' WinCtrl=',PtrUInt(lWinControl), ' ', DbgSName(lWinControl),
+      ' isTab=', dbgs(WindowInfo^.isTabPage)  ]);
+  try
+  case eraseBkgndCommand of
+    ecDefault: DebugLn(MessageStackDepth, ' *command: default');
+    ecDiscardNoRemove, ecDiscard: DebugLn(MessageStackDepth, ' *command: completely ignore');
+    ecDoubleBufferNoRemove: DebugLn(MessageStackDepth, ' *command: use double buffer');
+  end;
+  DebugLn(MessageStackDepth, ' *erasebkgndstack: ', EraseBkgndStackToString);
+{$endif}
+  if eraseBkgndCommand = ecDoubleBufferNoRemove then
+  begin
+    if CurDoubleBuffer.DC <> 0 then
+      WParam := Windows.WParam(CurDoubleBuffer.DC);
+    if WindowInfo^.isTabPage then
+      EraseBkgndStack := (EraseBkgndStack and not ((1 shl EraseBkgndStackShift)-1))
+        or dword(ecDiscardNoRemove);
+  end
+  else
+  if eraseBkgndCommand <> ecDiscardNoRemove then
+    EraseBkgndStack := EraseBkgndStack shr EraseBkgndStackShift;
+  if eraseBkgndCommand in [ecDiscard, ecDiscardNoRemove] then
+  begin
+    WinResult := 0;
+    Exit(True);
+  end;
+  if not GetNeedParentPaint(WindowInfo, lWinControl) or (eraseBkgndCommand = ecDoubleBufferNoRemove) then
+  begin
+{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
+    DebugLn(['WM_ERASEBKGND  *NO* ParentPaint for WParam= ', WParam, ' LParam=',LParam, ' Window=', dbgs(Window) ]);
+{$endif}
+    SetLMessageAndParams(LM_ERASEBKGND);
+  end else
+  begin
+{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
+    DebugLn(['WM_ERASEBKGND got NeedParentPaint for WParam= ', WParam, ' LParam=',LParam, ' Window=', dbgs(Window) ]);
+{$endif}
+    if not ThemeServices.ThemesEnabled then
+      SendPaintMessage(HDC(WParam));
+    LMessage.Result := 1;
+  end;
+  WinProcess := False;
+{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
+  finally
+  DebugLnExit(['<<< Do WM_ERASEBKGND for WParam= ', WParam, ' LParam=',LParam,
+      ' Window=', dbgs(Window), ' MsgStackDepth=', MessageStackDepth, ' *erasebkgndstack: ', EraseBkgndStackToString
+       ]);
+  end;
+{$endif}
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgKeyDownUp(aMsg: Cardinal; var WinResult: LResult);
+begin
+  NotifyUserInput := True;
+  PLMsg := @LMKey;
+  UpdateUIState(Word(WParam));
+  SetLMKeyData(aMsg, True);
+  WinResult := 0;
+  WinProcess := false;
+end;
+
+procedure TWindowProcHelper.DoMsgLButtonCommon;
+begin
+  MouseDownTime := GetTickCount64;
+  NotifyUserInput := True;
+  PLMsg := @LMMouse;
+  with LMMouse Do
+  begin
+    case MouseDownCount of
+      2: Msg := LM_LBUTTONDBLCLK;
+      3: Msg := LM_LBUTTONTRIPLECLK;
+      4: Msg := LM_LBUTTONQUADCLK;
+      else Msg := LM_LBUTTONDOWN;
+    end;
+    XPos := GET_X_LPARAM(LParam);
+    YPos := GET_Y_LPARAM(LParam);
+    Keys := WParam;
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgLButtonDoubleClick;
+begin
+  // always within the time-window
+  if (MouseDownCount < 1) or (MouseDownCount > 4) then
+    MouseDownCount := 1;
+  inc(MouseDownCount);
+  DoMsgLButtonCommon;
+end;
+
+procedure TWindowProcHelper.DoMsgLButtonDown;
+begin
+  if (MouseDownCount < 1) or (MouseDownCount > 4) then
+    MouseDownCount := 1;
+  if (MouseDownWindow = Window)
+      and (GetTickCount64 - MouseDownTime <= GetDoubleClickTime)
+      and CheckMouseMovement then
+    inc(MouseDownCount)
+  else
+    MouseDownCount := 1;
+  MouseDownWindow := Window;
+  GetCursorPos(MouseDownPos);
+  DoMsgLButtonCommon;
+end;
+
+procedure TWindowProcHelper.DoMsgMouseUpDownClick(aMsg: Cardinal);
+begin
+  NotifyUserInput := True;
+  PLMsg := @LMMouse;
+  with LMMouse Do
+  begin
+    Msg := aMsg;
+    XPos := GET_X_LPARAM(LParam);
+    YPos := GET_Y_LPARAM(LParam);
+    Keys := WParam;
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgContextMenu;
+begin
+  WinProcess := False;
+  NotifyUserInput := True;
+  PLMsg := @LMContextMenu;
+  with LMContextMenu do
+  begin
+    Msg := LM_CONTEXTMENU;
+    XPos := GET_X_LPARAM(LParam);
+    YPos := GET_Y_LPARAM(LParam);
+    hWnd := Window;
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgMouseMove;
+begin
+  NotifyUserInput := True;
+  PLMsg := @LMMouseMove;
+  with LMMouseMove Do
+  begin
+    Msg := LM_MOUSEMOVE;
+    XPos := GET_X_LPARAM(LParam);
+    YPos := GET_Y_LPARAM(LParam);
+    Keys := WParam;
+    // check if this is a spurious WM_MOUSEMOVE message, pos not actually changed
+    if (XPos = WindowInfo^.MouseX) and (YPos = WindowInfo^.MouseY) then
+    begin
+      // do not fire message after all (position not changed)
+      Msg := LM_NULL;
+      NotifyUserInput := false;
+    end else
+    if WindowInfo <> @DefaultWindowInfo then
+    begin
+      // position changed, update window info
+      WindowInfo^.MouseX := XPos;
+      WindowInfo^.MouseY := YPos;
+    end;
+  end;
+end;
+
+function TWindowProcHelper.DoMsgMouseWheel(var WinResult: LResult): Boolean;
+var
+  TargetWindow: HWND;
+  P: TPoint;
+begin
+  NotifyUserInput := True;
+  PLMsg := @LMMouseEvent;
+  with LMMouseEvent Do
+  begin
+    X := GET_X_LPARAM(LParam);
+    Y := GET_Y_LPARAM(LParam);
+    // check if mouse cursor within this window, otherwise send message to
+    // window the mouse is hovering over
+    P.X := X;
+    P.Y := Y;
+    TargetWindow := Win32WidgetSet.WindowFromPoint(P);
+    //fallback to LCL function to get the actual window
+    if TargetWindow = 0 then
+      TargetWindow := GetLCLWindowFromPoint(lWinControl, P);
+    if (TargetWindow = 0) or not IsWindowEnabled(TargetWindow) then
+      Exit(True);
+
+    // check if the window is an edit control of a combobox, if so,
+    // redirect it to the combobox, not the edit control
+    if GetWin32WindowInfo(TargetWindow)^.isComboEdit then
+      TargetWindow := Windows.GetParent(TargetWindow);
+
+    // check InMouseWheelRedirection to prevent recursion
+    if not InMouseWheelRedirection and (TargetWindow <> Window) then
+    begin
+      InMouseWheelRedirection := true;
+      WinResult := SendMessage(TargetWindow, WM_MOUSEWHEEL, WParam, LParam);
+      InMouseWheelRedirection := false;
+      Exit(True);
+    end
+    else if TargetWindow <> Window then
+      Exit(True);
+    // the mousewheel message is for us
+    Msg := LM_MOUSEWHEEL;
+    Windows.ScreenToClient(TargetWindow, P);
+    X := P.X;
+    Y := P.Y;
+    Button := LOWORD(Integer(WParam));
+    WheelDelta := SmallInt(HIWORD(Integer(WParam)));
+    State := KeysToShiftState(Button);
+    WinResult := 0;
+    UserData := Pointer(GetWindowLong(Window, GWL_USERDATA));
+    WinProcess := false;
+  end;
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgNCLButtonDown;
+begin
+  SetLMessageAndParams(Msg);
+  NotifyUserInput := True;
+
+  //Drag&Dock support TCustomForm => Start BeginDrag()
+  if (lWinControl <> nil) and not (csDesigning in lWinControl.ComponentState) then
+  begin
+    if WParam = HTCAPTION  then
+      if lWinControl is TCustomForm then
+        if (TWinControlAccess(lWinControl).DragKind = dkDock)
+        and (TWinControlAccess(lWinControl).DragMode = dmAutomatic) then
+          lWinControl.BeginDrag(true);
+  end;
+  // I see no other way to prevent crash at moment. This message calls WM_CLOSE
+  // which frees our form and we get a destructed lWinControl
+  lWinControl := nil;
+end;
+
+function TWindowProcHelper.DoMsgNotify(var WinResult: LResult): Boolean;
+begin
+  WindowInfo := GetWin32WindowInfo(PNMHdr(LParam)^.hwndFrom);
+{$ifdef MSG_DEBUG}
+  DebugLn([MessageStackDepth, 'Notify code: ', PNMHdr(LParam)^.code]);
+{$endif}
+  if Assigned(WindowInfo^.ParentMsgHandler) then
+  begin
+    LMNotify.Result := 0;
+    if WindowInfo^.ParentMsgHandler(WindowInfo^.WinControl,
+      Window, WM_NOTIFY, WParam, LParam, LMNotify.Result, WinProcess) then
+    begin
+      WinResult := LMNotify.Result;
+      Exit(True);
+    end;
+  end;
+  case PNMHdr(LParam)^.code of
+    MCN_SELCHANGE:
+    begin
+      LMessage.Msg := LM_CHANGED;
+      if WindowInfo^.WinControl <> nil then
+        lWinControl := WindowInfo^.WinControl;
+    end;
+  else
+    PLMsg:=@LMNotify;
+    LMNotify.Msg := LM_NOTIFY;
+    LMNotify.IDCtrl := WParam;
+    LMNotify.NMHdr := PNMHDR(LParam);
+    case LMNotify.NMHdr^.code of
+      NM_CUSTOMDRAW:
+      begin
+        if WindowInfo^.WinControl is TCustomBitBtn then
+          HandleBitBtnCustomDraw(TCustomBitBtn(WindowInfo^.WinControl))
+        else
+        if GetNeedParentPaint(WindowInfo, lWinControl) and WindowInfo^.ThemedCustomDraw then
+        begin
+          case PNMCustomDraw(LParam)^.dwDrawStage of
+            CDDS_PREPAINT:
+            begin
+              WinResult := CDRF_NOTIFYITEMDRAW;
+              WinProcess := false;
+            end;
+            CDDS_ITEMPREPAINT:
+            begin
+              WinResult := CDRF_DODEFAULT;
+              WinProcess := false;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgShowWindow;
+var
+  Flags: dword;
+begin
+  with TLMShowWindow(LMessage) Do
+  begin
+    Msg := LM_SHOWWINDOW;
+    Show := WParam <> 0;
+    Status := LParam;
+  end;
+  if Assigned(lWinControl) and ((WParam <> 0) or not lWinControl.Visible) and
+      ((WParam = 0) or lWinControl.Visible) and Assigned(Application) and
+      (lWinControl = Application.MainForm) and not Application.MainFormOnTaskBar then
+  begin
+    if WParam=0 then
+      Flags := SW_HIDE
+    else
+      Flags := SW_SHOWNOACTIVATE;
+    Windows.ShowWindow(Win32WidgetSet.AppHandle, Flags);
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgSysKey(aMsg: Cardinal);
+begin
+  NotifyUserInput := True;
+  PLMsg := @LMKey;
+  SetLMKeyData(aMsg, True);
+  WinProcess := false;
+end;
+
+procedure TWindowProcHelper.DoMsgMeasureItem;
+var
+  menuItem: TObject;
+  menuHDC: HDC;
+  TmpSize: TSize; // used by WM_MEASUREITEM
+begin
+  case PMeasureItemStruct(LParam)^.CtlType of
+    ODT_MENU:
+      begin
+        menuItem := TObject(PMeasureItemStruct(LParam)^.itemData);
+        if menuItem is TMenuItem then
+        begin
+          menuHDC := GetDC(Window);
+          TmpSize := MenuItemSize(TMenuItem(menuItem), menuHDC);
+          PMeasureItemStruct(LParam)^.itemWidth := TmpSize.cx;
+          PMeasureItemStruct(LParam)^.itemHeight := TmpSize.cy;
+          ReleaseDC(Window, menuHDC);
+          Winprocess := False;
+        end
+        {$ifdef MSG_DEBUG}
+        else
+          DebugLn('WM_MEASUREITEM for a menuitem catched but menuitem is not TmenuItem');
+        {$endif}
+      end;
+    else
+    if WParam <> 0 then
+    begin
+      lWinControl := TWinControl(WParam);
+      //if Assigned(lWinControl) then   <- already tested
+      SetLMessageAndParams(LM_MEASUREITEM, True);
+    end;
+  end;
+end;
+
+procedure TWindowProcHelper.DoMsgActivateApp;
+begin
+  if Window = Win32WidgetSet.AppHandle then
+  begin
+    if WParam <> 0 then // activated
+    begin
+      //WriteLn('Restore');
+      RestoreStayOnTopFlags(Window);
+      if Assigned(Application) then
+        Application.IntfAppActivate(True);
+    end
+    else begin // deactivated
+      //WriteLn('Remove');
+      RemoveStayOnTopFlags(Window);
+      if Assigned(Application) then
+        Application.IntfAppDeactivate(True);
+    end;
+  end;
+end;
+
+procedure TWindowProcHelper.UpdateLMMovePos(X, Y: Smallint);
+begin
+  LMMove.XPos := X;
+  LMMove.YPos := Y;
+end;
+
+function TWindowProcHelper.DoMsgMove: Boolean;
+var
+  NewLeft, NewTop: integer;
+  WindowPlacement: TWINDOWPLACEMENT;
+  R: TRect;
+begin
+  PLMsg := @LMMove;
+  LMMove.Msg := LM_MOVE;
+  // MoveType := WParam;   WParam is not defined!
+  LMMove.MoveType := Move_SourceIsInterface;
+  if GetWindowLong(Window, GWL_STYLE) and WS_CHILD = 0 then
+  begin
+    WindowPlacement.length := SizeOf(WindowPlacement);
+    if IsIconic(Window) and GetWindowPlacement(Window, @WindowPlacement) then
+      UpdateLMMovePos(WindowPlacement.rcNormalPosition.Left,
+                      WindowPlacement.rcNormalPosition.Top)
+    else if Windows.GetWindowRect(Window, @R) then
+      UpdateLMMovePos(R.Left, R.Top)
+    else
+      LMMove.Msg := LM_NULL;
+  end else
+  begin
+    if GetWindowRelativePosition(Window, NewLeft, NewTop) then
+      UpdateLMMovePos(NewLeft, NewTop)
+    else
+      LMMove.Msg := LM_NULL;
+  end;
+  if lWinControl <> nil then
+  begin
+    {$IFDEF VerboseSizeMsg}
+  with LMMove Do begin
+      DebugLn('Win32CallBack WM_MOVE ', dbgsName(lWinControl),
+        ' NewPos=',dbgs(XPos),',',dbgs(YPos));
+  end;
+      {$ENDIF}
+    if (lWinControl.Left = LMMove.XPos) and (lWinControl.Top = LMMove.YPos) then
+      Exit(True);
+  end;
+  Result := False;
+end;
+
+procedure TWindowProcHelper.DoMsgSize;
+var
+  NewWidth, NewHeight: integer;
+  OverlayWindow: HWND;
+{$IFDEF VerboseSizeMsg}
+  R: TRect;
+{$ENDIF}
+begin
+  with TLMSize(LMessage) do
+  begin
+    Msg := LM_SIZE;
+    SizeType := WParam or Size_SourceIsInterface;
+
+    // this is needed since we don't minimize the main form window
+    // we only hide and show it back on mimize and restore in case MainFormOnTaskbar = False
+    if (Window = Win32WidgetSet.AppHandle) and
+       Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
+    begin
+      lWinControl := Application.MainForm;
+      Window := Application.MainFormHandle;
+      // lie LCL about the window state
+      if IsIconic(Win32WidgetSet.AppHandle) then
+        SizeType := SIZE_MINIMIZED or Size_SourceIsInterface
+      else
+      if IsZoomed(Window) then
+        SizeType := SIZE_MAXIMIZED or Size_SourceIsInterface
+      else
+        SizeType := SIZE_RESTORED or Size_SourceIsInterface;
+    end;
+
+    GetWindowSize(Window, NewWidth, NewHeight);
+    Width := NewWidth;
+    Height := NewHeight;
     if Assigned(lWinControl) then
     begin
-      // if somewhere key is changed to '' then don't process this message
-      WinProcess := not lWinControl.IntfUTF8KeyPress(UTF8Char, 1, False);
-      // if somewhere key is changed then don't perform a regular keypress
-      Result := not WinProcess or (UTF8Char <> OldUTF8Char);
-      if UTF8Char <> OldUTF8Char then
-      begin
-        WS := UTF8ToUTF16(UTF8Char);
-        if Length(WS) > 0 then
-          AChar := Word(WS[1])
-        else
-          AChar := 0;
-      end;
+      {$IFDEF VerboseSizeMsg}
+      GetClientRect(Window,R);
+      DebugLn('Win32Callback: WM_SIZE '+ dbgsName(lWinControl)+
+        ' NewSize=', dbgs(Width)+','+dbgs(Height)+
+        ' HasVScroll='+dbgs((GetWindowLong(Window, GWL_STYLE) and WS_VSCROLL) <> 0)+
+        ' HasHScroll='+dbgs((GetWindowLong(Window, GWL_STYLE) and WS_HSCROLL) <> 0)+
+        ' OldClientSize='+dbgs(lWinControl.CachedClientWidth)+','+dbgs(lWinControl.CachedClientHeight)+
+        ' NewClientSize='+dbgs(R.Right)+','+dbgs(R.Bottom));
+      {$ENDIF}
+      lWinControl.InvalidateClientRectCache(false);
     end;
+    OverlayWindow := GetWin32WindowInfo(Window)^.Overlay;
+    if OverlayWindow <> 0 then
+      Windows.SetWindowPos(OverlayWindow, HWND_TOP, 0, 0, NewWidth, NewHeight, SWP_NOMOVE);
   end;
+end;
 
-  procedure UpdateUIState(CharCode: Word);
-  // This piece of code is taken from ThemeMgr.pas of Mike Lischke
-  // Beginning with Windows 2000 the UI in an application may hide focus rectangles and accelerator key indication.
-  // We have to take care to show them if the user starts navigating using the keyboard.
+// This is called from the actual WindowProc.
 
-    function FindParentForm: TCustomForm; inline;
-    begin
-      if lWinControl <> nil then
-        Result := GetParentForm(lWinControl)
-      else
-      if Application <> nil then
-        Result := Application.MainForm
-      else
-        Result := nil;
-    end;
-
-  var
-    ParentForm: TCustomForm;
-  begin
-    case CharCode of
-      VK_LEFT..VK_DOWN, VK_TAB:
-        begin
-          ParentForm := FindParentForm;
-          if ParentForm <> nil then
-            SendMessage(ParentForm.Handle, WM_CHANGEUISTATE, MakeLong(UIS_CLEAR, UISF_HIDEFOCUS), 0);
-        end;
-      VK_MENU:
-        begin
-          ParentForm := FindParentForm;
-          if ParentForm <> nil then
-            SendMessage(ParentForm.Handle, WM_CHANGEUISTATE, MakeLong(UIS_CLEAR, UISF_HIDEACCEL), 0);
-        end;
-    end;
-  end;
-
+function TWindowProcHelper.DoWindowProc: LResult;
+var
+  ChildWindowInfo: PWin32WindowInfo;
+  TargetObject: TObject;
+  TargetWindow: HWND;
+  WmSysCommandProcess: Boolean;
+  CancelEndSession : Boolean; // used by WM_QUERYENDSESSION
+  // used by WM_CHAR, WM_SYSCHAR and WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP
+  CharCodeNotEmpty: boolean;
+  R: TRect;
 begin
   FillChar(LMessage, SizeOf(LMessage), 0);
   PLMsg := @LMessage;
@@ -1056,54 +1942,7 @@ begin
   WindowInfo := GetWin32WindowInfo(Window);
   if WindowInfo^.isChildEdit then
   begin
-    // combobox child edit weirdness
-    // prevent combobox WM_SIZE message to get/set/compare text to list, to select text
-    if IsComboEditSelection then
-    begin
-      case Msg of
-        WM_GETTEXTLENGTH, EM_SETSEL:
-        begin
-          Result := 0;
-          exit;
-        end;
-        WM_GETTEXT:
-        begin
-          if WParam > 0 then
-            PChar(LParam)^ := #0;
-          Result := 0;
-          exit;
-        end;
-      end;
-    end;
-    lWinControl := WindowInfo^.AWinControl;
-    {for ComboBox IME sends WM_IME_NOTIFY with WParam=WM_IME_ENDCOMPOSITION}
-    if (Msg = WM_IME_NOTIFY) and (WPARAM=WM_IME_ENDCOMPOSITION) then
-      WindowInfo^.IMEComposed:=True;
-    
-    // filter messages we want to pass on to LCL
-    if (Msg <> WM_KILLFOCUS) and (Msg <> WM_SETFOCUS)
-      {$ifndef RedirectDestroyMessages}and (Msg <> WM_NCDESTROY){$endif}
-      and not ((Msg >= WM_CUT) and (Msg <= WM_CLEAR))
-      and ((Msg < WM_KEYFIRST) or (Msg > WM_KEYLAST))
-      and ((Msg < WM_MOUSEFIRST) or (Msg > WM_MOUSELAST)) then
-    begin
-      Result := CallDefaultWindowProc(Window, Msg, WParam, LParam);
-      exit;
-    end
-    else
-    if (Msg = WM_KILLFOCUS) or (Msg = WM_SETFOCUS) then
-    begin
-      // if focus jumps inside combo then no need to notify LCL
-      Info.cbSize := SizeOf(Info);
-      Win32Extra.GetComboBoxInfo(lWinControl.Handle, @Info);
-      if (HWND(WParam) = Info.hwndList) or
-         (HWND(WParam) = Info.hwndItem) or
-         (HWND(WParam) = Info.hwndCombo) then
-      begin
-        Result := CallDefaultWindowProc(Window, Msg, WParam, LParam);
-        exit;
-      end;
-    end;
+    if DoChildEdit(Result) then Exit;
   end else begin
     lWinControl := WindowInfo^.WinControl;
   end;
@@ -1126,65 +1965,16 @@ begin
         TWin32Widgetset(Widgetset).CheckPipeEvents;
       end;
     WM_ENTERIDLE: Application.Idle(False);
-    WM_ACTIVATE:
-    begin
-      LMessage.Msg := LM_ACTIVATE;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-    end;
+    WM_ACTIVATE:  SetLMessageAndParams(LM_ACTIVATE);
     WM_IME_ENDCOMPOSITION:
     begin
       {IME Windows the composition has finished}
       WindowInfo^.IMEComposed:=True;
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-      //WinProcess := False;
+      SetLMessageAndParams(Msg);  //WinProcess := False;
     end;
-    WM_CANCELMODE:
-    begin
-      LMessage.Msg := LM_CANCELMODE;
-    end;
-    WM_CAPTURECHANGED:
-    begin
-      LMessage.Msg := LM_CAPTURECHANGED;
-    end;
-    WM_CHAR:
-    begin
-      {$ifdef WindowsUnicodeSupport}
-      // first send a IntfUTF8KeyPress to the LCL
-      // if the key was not handled send a CN_CHAR for AnsiChar<=#127
-      OrgCharCode := Word(WParam);
-      if not HandleUnicodeChar(OrgCharCode) then
-      begin
-        PLMsg := @LMChar;
-        with LMChar do
-        begin
-          Msg := CN_CHAR;
-          KeyData := LParam;
-          if UnicodeEnabledOS then
-            CharCode := Word(Char(WideChar(WParam)))
-          else
-            CharCode := Word(WParam);
-          OrgCharCode := CharCode;
-          Result := 0;
-        end;
-        WinProcess := false;
-      end
-      else
-        WParam := OrgCharCode;
-      {$else}
-      PLMsg:=@LMChar;
-      with LMChar do
-      begin
-        Msg := CN_CHAR;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
-      WinProcess := false;
-      {$endif}
-    end;
+    WM_CANCELMODE:     LMessage.Msg := LM_CANCELMODE;
+    WM_CAPTURECHANGED: LMessage.Msg := LM_CAPTURECHANGED;
+    WM_CHAR:           DoMsgChar(Result);
 
     WM_MENUCHAR:
     begin
@@ -1257,37 +2047,8 @@ begin
         // TToggleBox is a TCustomCheckBox too, but we don't want to handle
         // state changes of TToggleBox ourselfves
         if (lWinControl is TCustomCheckBox) and not (lWinControl is TToggleBox) then
-        begin
-          case HIWORD(WParam) of
-            BN_CLICKED:
-              begin
-                // to allow cbGrayed state at the same time as not AllowGrayed
-                // in checkboxes (needed by dbcheckbox for null fields) we need
-                // to handle checkbox state ourselves, according to msdn state
-                // sequence goes from checked->cleared->grayed etc.
-                Flags := SendMessage(lWinControl.Handle, BM_GETCHECK, 0, 0);
-                //do not update the check state if is TRadioButton and is already checked
-                if (Flags <> BST_CHECKED) or not (lWinControl is TRadioButton) then
-                begin
-                  if (Flags=BST_CHECKED) then
-                    Flags := BST_UNCHECKED
-                  else
-                  if (Flags=BST_UNCHECKED) and
-                     TCustomCheckbox(lWinControl).AllowGrayed then
-                    Flags := BST_INDETERMINATE
-                  else
-                    Flags := BST_CHECKED;
-                  //pass 0 through LParam to force sending LM_CHANGE
-                  Windows.SendMessage(lWinControl.Handle, BM_SETCHECK,
-                    Windows.WPARAM(Flags), 0);
-                end;
-                LMessage.Msg := LM_CLICKED;
-              end;
-            BN_KILLFOCUS:
-              LMessage.Msg := LM_EXIT;
-          end
-        end else
-        if lWinControl is TButtonControl then
+          DoCmdCheckBoxParam
+        else if lWinControl is TButtonControl then
           case HIWORD(WParam) of
             BN_CLICKED:   LMessage.Msg := LM_CLICKED;
             BN_KILLFOCUS: LMessage.Msg := LM_EXIT;
@@ -1310,28 +2071,7 @@ begin
             LBN_SELCHANGE:  LMessage.Msg := LM_SELCHANGE;
           end
         else if lWinControl is TCustomCombobox then
-          case HIWORD(WParam) of
-            CBN_DROPDOWN: TCustomCombobox(lWinControl).IntfGetItems;
-            CBN_EDITCHANGE: LMessage.Msg := LM_CHANGED;
-            { CBN_EDITCHANGE is only sent after the user changes the edit box.
-              CBN_SELCHANGE is sent when the user changes the text by
-              selecting in the list, but before text is actually changed.
-              itemindex is updated, so set text manually }
-            CBN_SELCHANGE:
-            begin
-              if TCustomComboBox(lWinControl).Style in [csSimple, csDropDown] then
-                UpdateComboBoxText(TCustomComboBox(lWinControl));
-              SendSimpleMessage(lWinControl, LM_CHANGED);
-              LMessage.Msg := LM_SELCHANGE;
-            end;
-            CBN_CLOSEUP:
-            begin
-              // according to msdn CBN_CLOSEUP can happen before CBN_SELCHANGE and
-              // unfortunately it is simple truth. but we need correct order in the LCL
-              PostMessage(lWinControl.Handle, CN_COMMAND, WParam, LParam);
-              Exit;
-            end;
-          end;
+          if DoCmdComboBoxParam then Exit;
       end;
 
       // no specific message found? try send a general msg
@@ -1347,64 +2087,14 @@ begin
       // others need to erased with their window color
       // scrollbar also has buttons
       ChildWindowInfo := GetWin32WindowInfo(HWND(LParam));
-      if Assigned(ChildWindowInfo^.ParentMsgHandler) then
-      begin
-        if ChildWindowInfo^.ParentMsgHandler(lWinControl,
-          Window, Msg, WParam, LParam, LMessage.Result, WinProcess) then Exit(LMessage.Result);
-      end;
-      WindowDC := HDC(WParam);
-      ChildWinControl := ChildWindowInfo^.WinControl;
-      if ChildWinControl = nil then
-        ChildWinControl := ChildWindowInfo^.AWinControl;
-
-      case Msg of
-        WM_CTLCOLORSTATIC,
-        WM_CTLCOLORBTN: begin
-          if GetNeedParentPaint(ChildWindowInfo, ChildWinControl) and
-            not ChildWindowInfo^.ThemedCustomDraw then
-          begin
-            // need to draw transparently, draw background
-            DrawParentBackground(HWND(LParam), WindowDC);
-            LMessage.Result := GetStockObject(HOLLOW_BRUSH);
-            SetBkMode(WindowDC, TRANSPARENT);
-            WinProcess := false;
-          end;
-        end;
-        WM_CTLCOLORSCROLLBAR: begin
-          WinProcess := false;
-        end;
-      end;
-
-      if WinProcess then
-      begin
-        if ChildWinControl <> nil then
-        begin
-          WindowColor := ChildWinControl.Font.Color;
-          if WindowColor = clDefault then
-            WindowColor := ChildWinControl.GetDefaultColor(dctFont);
-          Windows.SetTextColor(WindowDC, ColorToRGB(WindowColor));
-          WindowColor := ChildWinControl.Brush.Color;
-          if WindowColor = clDefault then
-            WindowColor := ChildWinControl.GetDefaultColor(dctBrush);
-          Windows.SetBkColor(WindowDC, ColorToRGB(WindowColor));
-          LMessage.Result := LResult(ChildWinControl.Brush.Reference.Handle);
-          // Override default handling
-          WinProcess := false;
-        end;
-      end;
+      if Assigned(ChildWindowInfo^.ParentMsgHandler)
+      and ChildWindowInfo^.ParentMsgHandler(lWinControl,
+        Window, Msg, WParam, LParam, LMessage.Result, WinProcess) then Exit(LMessage.Result);
+      DoMsgColor(ChildWindowInfo);
     end;
-    WM_CLEAR:
-    begin
-      LMessage.Msg := LM_CLEAR;
-    end;
-    WM_COPY:
-    begin
-      LMessage.Msg := LM_COPY;
-    end;
-    WM_CUT:
-    begin
-      LMessage.Msg := LM_CUT;
-    end;
+    WM_CLEAR: LMessage.Msg := LM_CLEAR;
+    WM_COPY:  LMessage.Msg := LM_COPY;
+    WM_CUT:   LMessage.Msg := LM_CUT;
     {$ifndef RedirectDestroyMessages}
     WM_DESTROY:
     begin
@@ -1428,178 +2118,10 @@ begin
         LMessage.Result := 0;
       end;
     end;
-    WM_DRAWITEM:
-    begin
-      if (WParam = 0) and (PDrawItemStruct(LParam)^.ctlType = ODT_MENU) then
-      begin
-        menuItem := TObject(PDrawItemStruct(LParam)^.itemData);
-        if menuItem is TMenuItem then
-        begin
-          DrawMenuItem(TMenuItem(menuItem), PDrawItemStruct(LParam)^._hDC,
-             PDrawItemStruct(LParam)^.rcItem,
-             PDrawItemStruct(LParam)^.itemAction,
-             PDrawItemStruct(LParam)^.itemState);
-        end;
-        with TLMDrawItems(LMessage) do
-        begin
-          Msg := LM_DRAWITEM;
-          Ctl := 0;
-          DrawItemStruct := PDrawItemStruct(LParam);
-        end;
-        WinProcess := false;
-      end
-      else
-      begin
-        WindowInfo := GetWin32WindowInfo(PDrawItemStruct(LParam)^.hwndItem);
-        if WindowInfo^.WinControl<>nil then
-          lWinControl := WindowInfo^.WinControl;
-        {$IFDEF MSG_DEBUG}
-        with PDrawItemStruct(LParam)^ do
-          debugln(format('Received WM_DRAWITEM type %d handle %x', [ctlType, integer(hwndItem)]));
-        {$ENDIF}
-
-        if (lWinControl<>nil) and
-           (((lWinControl is TCustomListbox) and
-              (TCustomListBox(lWinControl).Style <> lbStandard)) or
-           ((lWinControl is TCustomCombobox) and
-              ((TCustomCombobox(lWinControl).Style = csOwnerDrawFixed) or
-              (TCustomCombobox(lWinControl).Style = csOwnerDrawVariable)))) then
-        begin
-          if PDrawItemStruct(LParam)^.itemID <> dword(-1) then
-          begin
-            LMessage.Msg := LM_DRAWLISTITEM;
-            TLMDrawListItem(LMessage).DrawListItemStruct := @DrawListItemStruct;
-            with DrawListItemStruct do
-            begin
-              ItemID := PDrawItemStruct(LParam)^.itemID;
-              Area := PDrawItemStruct(LParam)^.rcItem;
-              ItemState := TOwnerDrawState(PDrawItemStruct(LParam)^.itemState);
-              DC := PDrawItemStruct(LParam)^._hDC;
-            end;
-            if WindowInfo <> @DefaultWindowInfo then
-            begin
-              WindowInfo^.DrawItemIndex := PDrawItemStruct(LParam)^.itemID;
-              WindowInfo^.DrawItemSelected := (PDrawItemStruct(LParam)^.itemState
-                and ODS_SELECTED) = ODS_SELECTED;
-            end;
-            WinProcess := false;
-          end;
-        end else
-        if (lWinControl <> nil) and (lWinControl is TListView) and
-          (TListView(lWinControl).ViewStyle = vsReport) and
-          (PDrawItemStruct(LParam)^.ctlType = ODT_LISTVIEW) and
-          (TListView(lWinControl).OwnerDraw) then
-        begin
-          if PDrawItemStruct(LParam)^.itemID <> dword(-1) then
-          begin
-            LMessage.Msg := CN_DRAWITEM;
-            TLMDrawListItem(LMessage).DrawListItemStruct := @DrawListItemStruct;
-            with DrawListItemStruct do
-            begin
-              ItemID := PDrawItemStruct(LParam)^.itemID;
-              Area := PDrawItemStruct(LParam)^.rcItem;
-              ItemState := TOwnerDrawState(PDrawItemStruct(LParam)^.itemState);
-              DC := PDrawItemStruct(LParam)^._hDC;
-            end;
-            WinProcess := false;
-          end;
-        end else
-        begin
-          with TLMDrawItems(LMessage) do
-          begin
-            Msg := LM_DRAWITEM;
-            Ctl := 0;
-            DrawItemStruct := PDrawItemStruct(LParam);
-          end;
-          WinProcess := false;
-        end;
-      end;
-    end;
-    WM_ENABLE:
-    begin
-      if WParam <> 0 Then
-        LMessage.Msg := LM_SETEDITABLE;
-      if Window = Win32WidgetSet.AppHandle then
-        if WParam = 0 then
-        begin
-          RemoveStayOnTopFlags(Window);
-          DisabledForms := Screen.DisableForms(nil, DisabledForms);
-        end
-        else
-        begin
-          RestoreStayOnTopFlags(Window);
-          Screen.EnableForms(DisabledForms);
-        end;
-        
-      // disable child windows of for example groupboxes, but not of forms
-      if Assigned(lWinControl) and not (lWinControl is TCustomForm) then
-        EnableChildWindows(lWinControl, WParam<>0);
-
-      // ugly hack to give bitbtns a nice look
-      // When no theming active, the internal image needs to be
-      // recreated when the enabled state is changed
-      if not ThemeServices.ThemesEnabled
-      and (lWinControl is TCustomBitBtn)
-      then DrawBitBtnImage(TCustomBitBtn(lWinControl), TCustomBitBtn(lWinControl).Caption);
-    end;
+    WM_DRAWITEM: DoMsgDrawItem;
+    WM_ENABLE:   DoMsgEnable;
     WM_ERASEBKGND:
-    begin
-      eraseBkgndCommand := TEraseBkgndCommand(EraseBkgndStack and EraseBkgndStackMask);
-{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
-      DebugLnEnter(['>>> Do WM_ERASEBKGND for WParam= ', WParam, ' LParam=',LParam,
-          ' CurDbleBuffer.DC=', dbgs(CurDoubleBuffer.DC), ' Window=', dbgs(Window),
-          ' WinCtrl=',PtrUInt(lWinControl), ' ', DbgSName(lWinControl),
-          ' isTab=', dbgs(WindowInfo^.isTabPage)  ]);
-      try
-      case eraseBkgndCommand of
-        ecDefault: DebugLn(MessageStackDepth, ' *command: default');
-        ecDiscardNoRemove, ecDiscard: DebugLn(MessageStackDepth, ' *command: completely ignore');
-        ecDoubleBufferNoRemove: DebugLn(MessageStackDepth, ' *command: use double buffer');
-      end;
-      DebugLn(MessageStackDepth, ' *erasebkgndstack: ', EraseBkgndStackToString);
-{$endif}
-      if eraseBkgndCommand = ecDoubleBufferNoRemove then
-      begin
-        if CurDoubleBuffer.DC <> 0 then
-          WParam := Windows.WParam(CurDoubleBuffer.DC);
-        if WindowInfo^.isTabPage then
-          EraseBkgndStack := (EraseBkgndStack and not ((1 shl EraseBkgndStackShift)-1))
-            or dword(ecDiscardNoRemove);
-      end
-      else
-      if eraseBkgndCommand <> ecDiscardNoRemove then
-        EraseBkgndStack := EraseBkgndStack shr EraseBkgndStackShift;
-      if eraseBkgndCommand in [ecDiscard, ecDiscardNoRemove] then
-      begin
-        Result := 0;
-        exit;
-      end;
-      if not GetNeedParentPaint(WindowInfo, lWinControl) or (eraseBkgndCommand = ecDoubleBufferNoRemove) then
-      begin
-{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
-        DebugLn(['WM_ERASEBKGND  *NO* ParentPaint for WParam= ', WParam, ' LParam=',LParam, ' Window=', dbgs(Window) ]);
-{$endif}
-        LMessage.Msg := LM_ERASEBKGND;
-        LMessage.WParam := WParam;
-        LMessage.LParam := LParam;
-      end else
-      begin
-{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
-        DebugLn(['WM_ERASEBKGND got NeedParentPaint for WParam= ', WParam, ' LParam=',LParam, ' Window=', dbgs(Window) ]);
-{$endif}
-        if not ThemeServices.ThemesEnabled then
-          SendPaintMessage(HDC(WParam));
-        LMessage.Result := 1;
-      end;
-      WinProcess := False;
-{$if defined(MSG_DEBUG) or defined(DBG_SendPaintMessage)}
-      finally
-      DebugLnExit(['<<< Do WM_ERASEBKGND for WParam= ', WParam, ' LParam=',LParam,
-          ' Window=', dbgs(Window), ' MsgStackDepth=', MessageStackDepth, ' *erasebkgndstack: ', EraseBkgndStackToString
-           ]);
-      end;
-{$endif}
-    end;
+      if DoMsgEraseBkgnd(Result) then Exit;
     WM_EXITMENULOOP:
       // is it a popup menu
       if longbool(WPARAM) and Assigned(WindowInfo^.PopupMenu) then
@@ -1610,21 +2132,11 @@ begin
       WinProcess := False;
     end;
     WM_HELP:
-    begin
-      LMessage.Msg := LM_HELP;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
       // Don't ask windows to process the message here. It will be processed
       // either by TCustomForm LM_HELP handler or passed to parent by DefaultHandler
-      WinProcess := False;
-    end;
+      SetLMessageAndParams(LM_HELP, True);
     WM_HOTKEY:
-    begin
-      LMessage.Msg := WM_HOTKEY;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-      WinProcess := false;
-    end;
+      SetLMessageAndParams(WM_HOTKEY, True);
     WM_HSCROLL,
     WM_VSCROLL:
     begin
@@ -1634,41 +2146,20 @@ begin
         ChildWindowInfo := GetWin32WindowInfo(HWND(LParam));
         lWinControl := ChildWindowInfo^.WinControl;
         if Assigned(ChildWindowInfo^.ParentMsgHandler) then
-        begin
           if ChildWindowInfo^.ParentMsgHandler(lWinControl,
             Window, Msg, WParam, LParam, PLMsg^.Result, WinProcess) then Exit(PLMsg^.Result);
-        end;
       end;
       HandleScrollMessage(Msg);
     end;
     WM_KEYDOWN:
     begin
-      NotifyUserInput := True;
-      PLMsg := @LMKey;
-      UpdateUIState(Word(WParam));
-      with LMKey Do
-      begin
-        Msg := CN_KEYDOWN;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
+      DoMsgKeyDownUp(CN_KEYDOWN, Result);
       WindowInfo^.IMEComposed:=False;
-      WinProcess := false;
       IgnoreNextCharWindow := Window;
     end;
     WM_KEYUP:
     begin
-      NotifyUserInput := True;
-      PLMsg:=@LMKey;
-      with LMKey Do
-      begin
-        Msg := CN_KEYUP;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
-      WinProcess := false;
+      DoMsgKeyDownUp(CN_KEYUP, Result);
       if WindowInfo^.IMEComposed then
         LMKey.Msg:=LM_NULL;
     end;
@@ -1681,139 +2172,15 @@ begin
       LMessage.WParam := WParam;
     end;
     //TODO:LM_KILLCHAR,LM_KILLWORD,LM_KILLLINE
-    WM_LBUTTONDBLCLK:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      // always within the time-window
-      if (MouseDownCount < 1) or (MouseDownCount > 4) then MouseDownCount := 1;
-      inc(MouseDownCount);
-      MouseDownTime := GetTickCount;
-      with LMMouse Do
-      begin
-        case MouseDownCount of
-          2: Msg := LM_LBUTTONDBLCLK;
-          3: Msg := LM_LBUTTONTRIPLECLK;
-          4: Msg := LM_LBUTTONQUADCLK;
-          else Msg := LM_LBUTTONDOWN;
-        end;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_LBUTTONDOWN:
-    begin
-      if (MouseDownCount < 1) or (MouseDownCount > 4) then MouseDownCount := 1;
-      if (MouseDownWindow = Window)
-          and (GetTickCount - MouseDownTime <= GetDoubleClickTime)
-          and CheckMouseMovement then
-        inc(MouseDownCount)
-      else
-        MouseDownCount := 1;
-
-      MouseDownTime := GetTickCount;
-      MouseDownWindow := Window;
-      GetCursorPos(MouseDownPos);
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        case MouseDownCount of
-          2: Msg := LM_LBUTTONDBLCLK;
-          3: Msg := LM_LBUTTONTRIPLECLK;
-          4: Msg := LM_LBUTTONQUADCLK;
-          else Msg := LM_LBUTTONDOWN;
-        end;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_LBUTTONUP:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_LBUTTONUP;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_MBUTTONDBLCLK:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_MBUTTONDBLCLK;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_MBUTTONDOWN:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_MBUTTONDOWN;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_MBUTTONUP:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_MBUTTONUP;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_XBUTTONDBLCLK:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_XBUTTONDBLCLK;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_XBUTTONDOWN:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_XBUTTONDOWN;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_XBUTTONUP:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_XBUTTONUP;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
+    WM_LBUTTONDBLCLK: DoMsgLButtonDoubleClick;
+    WM_LBUTTONDOWN:   DoMsgLButtonDown;
+    WM_LBUTTONUP:     DoMsgMouseUpDownClick(LM_LBUTTONUP);
+    WM_MBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_MBUTTONDBLCLK);
+    WM_MBUTTONDOWN:   DoMsgMouseUpDownClick(LM_MBUTTONDOWN);
+    WM_MBUTTONUP:     DoMsgMouseUpDownClick(LM_MBUTTONUP);
+    WM_XBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_XBUTTONDBLCLK);
+    WM_XBUTTONDOWN:   DoMsgMouseUpDownClick(LM_XBUTTONDOWN);
+    WM_XBUTTONUP:     DoMsgMouseUpDownClick(LM_XBUTTONUP);
     WM_MOUSEHOVER:
     begin
       NotifyUserInput := True;
@@ -1824,249 +2191,46 @@ begin
       NotifyUserInput := True;
       LMessage.Msg := LM_MOUSELEAVE;
     end;
-    WM_MOUSEMOVE:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouseMove;
-      with LMMouseMove Do
-      begin
-        Msg := LM_MOUSEMOVE;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-        // check if this is a spurious WM_MOUSEMOVE message, pos not actually changed
-        if (XPos = WindowInfo^.MouseX) and (YPos = WindowInfo^.MouseY) then
-        begin
-          // do not fire message after all (position not changed)
-          Msg := LM_NULL;
-          NotifyUserInput := false;
-        end else
-        if WindowInfo <> @DefaultWindowInfo then
-        begin
-          // position changed, update window info
-          WindowInfo^.MouseX := XPos;
-          WindowInfo^.MouseY := YPos;
-        end;
-      end;
-    end;
-    WM_MOUSEWHEEL:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouseEvent;
-      with LMMouseEvent Do
-      begin
-        X := GET_X_LPARAM(LParam);
-        Y := GET_Y_LPARAM(LParam);
-        // check if mouse cursor within this window, otherwise send message to
-        // window the mouse is hovering over
-        P.X := X;
-        P.Y := Y;
-        TargetWindow := TWin32WidgetSet(WidgetSet).WindowFromPoint(P);
-        if (TargetWindow = 0) or not IsWindowEnabled(TargetWindow) then
-          exit;
-
-        // check if the window is an edit control of a combobox, if so,
-        // redirect it to the combobox, not the edit control
-        if GetWin32WindowInfo(TargetWindow)^.isComboEdit then
-          TargetWindow := Windows.GetParent(TargetWindow);
-
-        // check InMouseWheelRedirection to prevent recursion
-        if not InMouseWheelRedirection and (TargetWindow <> Window) then
-        begin
-          InMouseWheelRedirection := true;
-          Result := SendMessage(TargetWindow, WM_MOUSEWHEEL, WParam, LParam);
-          InMouseWheelRedirection := false;
-          exit;
-        end
-        else
-        if TargetWindow <> Window then
-          exit;
-        // the mousewheel message is for us
-        Msg := LM_MOUSEWHEEL;
-        Windows.ScreenToClient(TargetWindow, P);
-        X := P.X;
-        Y := P.Y;
-        Button := LOWORD(Integer(WParam));
-        WheelDelta := SmallInt(HIWORD(Integer(WParam)));
-        State := KeysToShiftState(Button);
-        Result := 0;
-        UserData := Pointer(GetWindowLong(Window, GWL_USERDATA));
-        WinProcess := false;
-      end;
-    end;
+    WM_MOUSEMOVE:  DoMsgMouseMove;
+    WM_MOUSEWHEEL: if DoMsgMouseWheel(Result) then Exit;
     WM_DROPFILES:
       begin
         {$IFDEF EnableWMDropFiles}
-        LMessage.Msg := LM_DROPFILES;
-        LMessage.WParam := WParam;
-        LMessage.LParam := LParam;
+        SetLMessageAndParams(LM_DROPFILES);
         {$ENDIF}
-        
         HandleDropFiles;
       end;
     //TODO:LM_MOVEPAGE,LM_MOVETOROW,LM_MOVETOCOLUMN
-    WM_NCHITTEST:
-    begin
-      LMessage.msg := LM_NCHITTEST;
-      LMessage.wParam := WParam;
-      LMessage.lParam := LParam;
-    end;
-    WM_NCLBUTTONDOWN:
-    begin
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-      NotifyUserInput := True;
+    WM_NCHITTEST:     SetLMessageAndParams(LM_NCHITTEST);
+    WM_NCLBUTTONDOWN: DoMsgNCLButtonDown;
 
-      //Drag&Dock support TCustomForm => Start BeginDrag()
-      if (lWinControl <> nil) and not (csDesigning in lWinControl.ComponentState) then
-      begin
-        if WParam = HTCAPTION  then
-        begin
-          if lWinControl is TCustomForm then
-          begin
-            if (TWinControlAccess(lWinControl).DragKind = dkDock) and
-               (TWinControlAccess(lWinControl).DragMode = dmAutomatic) then
-              lWinControl.BeginDrag(true);
-          end;
-        end;
-      end;
-      // I see no other way to prevent crash at moment. This message calls WM_CLOSE
-      // which frees our form and we get a destructed lWinControl
-      lWinControl := nil;
-    end;
-    WM_NCMOUSEMOVE, WM_NCMOUSEHOVER:
+    WM_NCMOUSEMOVE,
+    WM_NCMOUSEHOVER:
     begin
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
+      SetLMessageAndParams(Msg);
       NotifyUserInput := True;
       Application.DoBeforeMouseMessage(nil);
     end;
-    WM_NOTIFY:
-    begin
-      WindowInfo := GetWin32WindowInfo(PNMHdr(LParam)^.hwndFrom);
-{$ifdef MSG_DEBUG}
-      DebugLn([MessageStackDepth, 'Notify code: ', PNMHdr(LParam)^.code]);
-{$endif}
-      if Assigned(WindowInfo^.ParentMsgHandler) then
-      begin
-        LMNotify.Result := 0;
-        if WindowInfo^.ParentMsgHandler(WindowInfo^.WinControl,
-          Window, WM_NOTIFY, WParam, LParam, LMNotify.Result, WinProcess) then Exit(LMNotify.Result);
-      end;
-      case PNMHdr(LParam)^.code of
-        MCN_SELCHANGE:
-        begin
-          LMessage.Msg := LM_CHANGED;
-          if WindowInfo^.WinControl <> nil then
-            lWinControl := WindowInfo^.WinControl;
-        end;
-      else
-        PLMsg:=@LMNotify;
-        with LMNotify Do
-        begin
-          Msg := LM_NOTIFY;
-          IDCtrl := WParam;
-          NMHdr := PNMHDR(LParam);
-          with NMHdr^ do
-            case code of
-              NM_CUSTOMDRAW:
-              begin
-                if WindowInfo^.WinControl is TCustomBitBtn then
-                  HandleBitBtnCustomDraw(TCustomBitBtn(WindowInfo^.WinControl))
-                else
-                if GetNeedParentPaint(WindowInfo, lWinControl) and WindowInfo^.ThemedCustomDraw then
-                begin
-                  case PNMCustomDraw(LParam)^.dwDrawStage of
-                    CDDS_PREPAINT:
-                    begin
-                      Result := CDRF_NOTIFYITEMDRAW;
-                      WinProcess := false;
-                    end;
-                    CDDS_ITEMPREPAINT:
-                    begin
-                      Result := CDRF_DODEFAULT;
-                      WinProcess := false;
-                    end;
-                  end;
-                end;
-              end;
-            end;
-        end;
-      end;
-    end;
-    WM_PAINT:
-    begin
-      SendPaintMessage(HDC(WParam));
-      // SendPaintMessage sets winprocess to false
-    end;
+    WM_NOTIFY: if DoMsgNotify(Result) then Exit;
+    WM_PAINT: SendPaintMessage(HDC(WParam)); // SendPaintMessage sets winprocess to false
     WM_PRINTCLIENT:
-    begin
       if ((LParam and PRF_CLIENT) = PRF_CLIENT) and (lWinControl <> nil) then
         SendPaintMessage(HDC(WParam));
-    end;
-    WM_PASTE:
-    begin
-      LMessage.Msg := LM_PASTE;
-    end;
-    WM_RBUTTONDBLCLK:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_RBUTTONDBLCLK;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-      end;
-    end;
-    WM_RBUTTONDOWN:
-    begin
-      NotifyUserInput := True;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_RBUTTONDOWN;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-        Result := 0;
-      end;
-    end;
+    WM_PASTE:         LMessage.Msg := LM_PASTE;
+    WM_RBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_RBUTTONDBLCLK);
+    WM_RBUTTONDOWN:   DoMsgMouseUpDownClick(LM_RBUTTONDOWN);
     WM_RBUTTONUP:
     begin
-      NotifyUserInput := True;
+      DoMsgMouseUpDownClick(LM_RBUTTONUP);
       WinProcess := false;
-      PLMsg:=@LMMouse;
-      with LMMouse Do
-      begin
-        Msg := LM_RBUTTONUP;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        Keys := WParam;
-        Result := 0;
-      end;
+      Result := 0;
     end;
     WM_CONTEXTMENU:
     begin
-      WinProcess := False;
-      NotifyUserInput := True;
-      PLMsg := @LMContextMenu;
-      with LMContextMenu do
-      begin
-        Msg := LM_CONTEXTMENU;
-        XPos := GET_X_LPARAM(LParam);
-        YPos := GET_Y_LPARAM(LParam);
-        hWnd := Window;
-        Result := 0;
-      end;
+      DoMsgContextMenu;
+      Result := 0;
     end;
-    WM_SETCURSOR:
-    begin
-      HandleSetCursor;
-    end;
+    WM_SETCURSOR:  HandleSetCursor;
     CM_ACTIVATE:
     begin
       if (Window = Win32WidgetSet.AppHandle) then
@@ -2094,80 +2258,34 @@ begin
         PostMessage(Window, CM_ACTIVATE, 0, 0);
       LMessage.Msg := LM_SETFOCUS;
     end;
-    WM_SHOWWINDOW:
-    begin
-      with TLMShowWindow(LMessage) Do
-      begin
-        Msg := LM_SHOWWINDOW;
-        Show := WParam <> 0;
-        Status := LParam;
-      end;
-      if Assigned(lWinControl) and ((WParam <> 0) or not lWinControl.Visible) and
-          ((WParam = 0) or lWinControl.Visible) and Assigned(Application) and
-          (lWinControl = Application.MainForm) and not Application.MainFormOnTaskBar then
-      begin
-        if WParam=0 then
-          Flags := SW_HIDE
-        else
-          Flags := SW_SHOWNOACTIVATE;
-        Windows.ShowWindow(Win32WidgetSet.AppHandle, Flags);
-      end;
-    end;
+    WM_SHOWWINDOW: DoMsgShowWindow;
     WM_SYSCHAR:
     begin
-      PLMsg:=@LMChar;
-      with LMChar Do
-      begin
-        Msg := CN_SYSCHAR;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
+      PLMsg := @LMChar;
+      SetLMCharData(CN_SYSCHAR, True);
+      Result := 0;
       WinProcess := false;
     end;
     WM_SYSCOMMAND:
     begin
       HandleSysCommand;
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
+      SetLMessageAndParams(Msg);
       WmSysCommandProcess := WinProcess;
       WinProcess := False;
     end;
     WM_SYSKEYDOWN:
     begin
-      NotifyUserInput := True;
       UpdateUIState(Word(WParam));
-      PLMsg := @LMKey;
-      with LMKey Do
-      begin
-        Msg := CN_SYSKEYDOWN;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
-      WinProcess := false;
+      DoMsgSysKey(CN_SYSKEYDOWN);
+      Result := 0;
       IgnoreNextCharWindow := Window;
     end;
     WM_SYSKEYUP:
     begin
-      NotifyUserInput := True;
-      PLMsg:=@LMKey;
-      with LMKey Do
-      begin
-        Msg := CN_SYSKEYUP;
-        KeyData := LParam;
-        CharCode := Word(WParam);
-        Result := 0;
-      end;
-      WinProcess := false;
+      DoMsgSysKey(CN_SYSKEYUP);
+      Result := 0;
     end;
-    WM_TIMER:
-    begin
-      LMessage.Msg := LM_TIMER;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-    end;
+    WM_TIMER:  SetLMessageAndParams(LM_TIMER);
     WM_WINDOWPOSCHANGING:
     begin
       with TLMWindowPosMsg(LMessage) Do
@@ -2189,44 +2307,9 @@ begin
       if (PWindowPos(LParam)^.flags and SWP_NOSIZE) = 0 then
         Windows.InvalidateRect(Window, nil, True);
     end;
-    WM_MEASUREITEM:
-    begin
-      case PMeasureItemStruct(LParam)^.CtlType of
-        ODT_MENU:
-          begin
-            menuItem := TObject(PMeasureItemStruct(LParam)^.itemData);
-            if menuItem is TMenuItem then
-            begin
-              menuHDC := GetDC(Window);
-              TmpSize := MenuItemSize(TMenuItem(menuItem), menuHDC);
-              PMeasureItemStruct(LParam)^.itemWidth := TmpSize.cx;
-              PMeasureItemStruct(LParam)^.itemHeight := TmpSize.cy;
-              ReleaseDC(Window, menuHDC);
-              Winprocess := False;
-            end
-            {$ifdef MSG_DEBUG}
-            else
-              DebugLn('WM_MEASUREITEM for a menuitem catched but menuitem is not TmenuItem');
-            {$endif}
-          end;
-        else
-        if WParam <> 0 then
-        begin
-          lWinControl := TWinControl(WParam);
-          if Assigned(lWinControl) then
-          begin
-            LMessage.Msg := LM_MEASUREITEM;
-            LMessage.LParam := LParam;
-            LMessage.WParam := WParam;
-            Winprocess := False;
-          end;
-        end;
-      end;
-    end;
-    WM_SETTINGCHANGE:
-      Application.IntfSettingsChange;
+    WM_MEASUREITEM:   DoMsgMeasureItem;
+    WM_SETTINGCHANGE: Application.IntfSettingsChange;
     WM_THEMECHANGED:
-    begin
       // winxp theme changed, recheck whether themes are enabled
       if Window = Win32WidgetSet.AppHandle then
       begin
@@ -2234,12 +2317,9 @@ begin
         Graphics.UpdateHandleObjects;
         ThemeServices.IntfDoOnThemeChange;
       end;
-    end;
     WM_UPDATEUISTATE:
-    begin
       if ThemeServices.ThemesEnabled then
         InvalidateRect(Window, nil, True);
-    end;
 
     { >= WM_USER }
 
@@ -2258,22 +2338,12 @@ begin
     WM_IME_SELECT,
     WM_IME_SETCONTEXT,
     WM_IME_STARTCOMPOSITION:
-    begin
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-      WinProcess := False;
-    end;
+      SetLMessageAndParams(Msg, True);
   else
     // pass along user defined messages
     if Msg >= WM_USER then
-    begin
-      LMessage.Msg := Msg;
-      LMessage.WParam := WParam;
-      LMessage.LParam := LParam;
-      WinProcess := False;
-    end;
-  end;
+      SetLMessageAndParams(Msg, True);
+  end;  // case Msg of
 
   if WinProcess then
   begin
@@ -2282,119 +2352,9 @@ begin
   end;
 
   case Msg of
-    WM_ACTIVATEAPP:
-    begin
-      if Window = Win32WidgetSet.AppHandle then
-      begin
-        if WParam <> 0 then // activated
-        begin
-          //WriteLn('Restore');
-          RestoreStayOnTopFlags(Window);
-          if Assigned(Application) then
-            Application.IntfAppActivate(True);
-        end
-        else
-        begin // deactivated
-          //WriteLn('Remove');
-          RemoveStayOnTopFlags(Window);
-          if Assigned(Application) then
-            Application.IntfAppDeactivate(True);
-        end;
-      end;
-    end;
-    WM_MOVE:
-    begin
-      PLMsg:=@LMMove;
-      with LMMove Do
-      begin
-        Msg := LM_MOVE;
-        // MoveType := WParam;   WParam is not defined!
-        MoveType := Move_SourceIsInterface;
-        if GetWindowLong(Window, GWL_STYLE) and WS_CHILD = 0 then
-        begin
-          WindowPlacement.length := SizeOf(WindowPlacement);
-          if IsIconic(Window) and GetWindowPlacement(Window, @WindowPlacement) then
-          begin
-            with WindowPlacement.rcNormalPosition do
-            begin
-              XPos := Left;
-              YPos := Top;
-            end;
-          end
-          else
-          if Windows.GetWindowRect(Window, @R) then
-          begin
-            XPos := R.Left;
-            YPos := R.Top;
-          end
-          else
-            Msg := LM_NULL;
-        end else
-        begin
-          if GetWindowRelativePosition(Window, NewLeft, NewTop) then
-          begin
-            XPos := NewLeft;
-            YPos := NewTop;
-          end
-          else
-            Msg := LM_NULL;
-        end;
-        if lWinControl <> nil then
-        begin
-          {$IFDEF VerboseSizeMsg}
-          DebugLn('Win32CallBack WM_MOVE ', dbgsName(lWinControl),
-            ' NewPos=',dbgs(XPos),',',dbgs(YPos));
-          {$ENDIF}
-          if (lWinControl.Left = XPos) and (lWinControl.Top = YPos) then
-            Exit;
-        end;
-      end;
-    end;
-    WM_SIZE:
-    begin
-      with TLMSize(LMessage) do
-      begin
-        Msg := LM_SIZE;
-        SizeType := WParam or Size_SourceIsInterface;
-
-        // this is needed since we don't minimize the main form window
-        // we only hide and show it back on mimize and restore in case MainFormOnTaskbar = False
-        if (Window = Win32WidgetSet.AppHandle) and
-           Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
-        begin
-          lWinControl := Application.MainForm;
-          Window := Application.MainFormHandle;
-          // lie LCL about the window state
-          if IsIconic(Win32WidgetSet.AppHandle) then
-            SizeType := SIZE_MINIMIZED or Size_SourceIsInterface
-          else
-          if IsZoomed(Window) then
-            SizeType := SIZE_MAXIMIZED or Size_SourceIsInterface
-          else
-            SizeType := SIZE_RESTORED or Size_SourceIsInterface;
-        end;
-
-        GetWindowSize(Window, NewWidth, NewHeight);
-        Width := NewWidth;
-        Height := NewHeight;
-        if Assigned(lWinControl) then
-        begin
-          {$IFDEF VerboseSizeMsg}
-          GetClientRect(Window,R);
-          DebugLn('Win32Callback: WM_SIZE '+ dbgsName(lWinControl)+
-            ' NewSize=', dbgs(Width)+','+dbgs(Height)+
-            ' HasVScroll='+dbgs((GetWindowLong(Window, GWL_STYLE) and WS_VSCROLL) <> 0)+
-            ' HasHScroll='+dbgs((GetWindowLong(Window, GWL_STYLE) and WS_HSCROLL) <> 0)+
-            ' OldClientSize='+dbgs(lWinControl.CachedClientWidth)+','+dbgs(lWinControl.CachedClientHeight)+
-            ' NewClientSize='+dbgs(R.Right)+','+dbgs(R.Bottom));
-          {$ENDIF}
-          lWinControl.InvalidateClientRectCache(false);
-        end;
-        OverlayWindow := GetWin32WindowInfo(Window)^.Overlay;
-        if OverlayWindow <> 0 then
-          Windows.SetWindowPos(OverlayWindow, HWND_TOP, 0, 0, NewWidth, NewHeight, SWP_NOMOVE);
-      end;
-    end;
+    WM_ACTIVATEAPP: DoMsgActivateApp;
+    WM_MOVE:        if DoMsgMove then Exit;
+    WM_SIZE:        DoMsgSize;
     BM_SETCHECK:
     begin
       //LParam holds BST_CHECKED, BST_UNCHECKED or SKIP_LMCHANGE;
@@ -2443,7 +2403,7 @@ begin
         LMessage.Result := 0;
       end;
     end;
-  end;
+  end;  // case Msg of
 
   // convert from win32 client to lcl client pos.
   //
@@ -2484,14 +2444,11 @@ begin
   // respond to result of LCL handling the message
   case PLMsg^.Msg of
     LM_ERASEBKGND, LM_SETCURSOR, LM_RBUTTONUP, LM_CONTEXTMENU, LM_MOUSEWHEEL:
-    begin
       if PLMsg^.Result = 0 then
         WinProcess := True;
-    end;
+
     WM_SYSCOMMAND:
-    begin
       WinProcess := WmSysCommandProcess;
-    end;
 
     CN_CHAR, CN_SYSCHAR:
     begin
@@ -2545,7 +2502,6 @@ begin
 
   if WinProcess then
   begin
-
     if (Msg=WM_CHAR) and ((WParam=VK_RETURN) or (WPARAM=VK_ESCAPE)) and
        ((lWinControl is TCustomCombobox) or
         ((lWinControl is TCustomEdit) and not (lWinControl is TCustomMemo ))
@@ -2565,40 +2521,25 @@ begin
           begin
             // if want chars, then handled already
             PLMsg^.Result := CallDefaultWindowProc(Window, WM_GETDLGCODE, 0, 0) and DLGC_WANTCHARS;
-            LMChar.CharCode := Word(WParam);
-            LMChar.Msg := LM_CHAR;
+            SetLMCharData(LM_CHAR);
           end;
-          WM_SYSCHAR:
-          begin
-            LMChar.CharCode := Word(WParam);
-            LMChar.Msg := LM_SYSCHAR;
-          end;
-          WM_KEYDOWN:
-          begin
-            LMKey.CharCode := Word(WParam);
-            LMKey.Msg := LM_KEYDOWN;
-          end;
-          WM_KEYUP:
-          begin
-            LMKey.CharCode := Word(WParam);
-            LMKey.Msg := LM_KEYUP;
-          end;
-          WM_SYSKEYDOWN:
-          begin
-            LMKey.CharCode := Word(WParam);
-            LMKey.Msg := LM_SYSKEYDOWN;
-          end;
-          WM_SYSKEYUP:
-          begin
-            LMKey.CharCode := Word(WParam);
-            LMKey.Msg := LM_SYSKEYUP;
-          end;
+          WM_SYSCHAR:    SetLMCharData(LM_SYSCHAR);
+          WM_KEYDOWN:    SetLMKeyData(LM_KEYDOWN);
+          WM_KEYUP:      SetLMKeyData(LM_KEYUP);
+          WM_SYSKEYDOWN: SetLMKeyData(LM_SYSKEYDOWN);
+          WM_SYSKEYUP:   SetLMKeyData(LM_SYSKEYUP);
         end;
 
+        case Msg of
+          WM_CHAR, WM_SYSCHAR:
+            CharCodeNotEmpty := (LMChar.CharCode<>0);
+          else
+            CharCodeNotEmpty := (LMKey.CharCode<>0);
+        end;
         // we cannot tell for sure windows didn't want the key
         // for WM_CHAR check WM_GETDLGCODE/DLGC_WANTCHARS
         // winapi too inconsistent about return value
-        if (lWinControl <> nil) and (PLMsg^.Result = 0) and (LMKey.CharCode<>0) then
+        if (lWinControl <> nil) and (PLMsg^.Result = 0) and CharCodeNotEmpty then
           DeliverMessage(lWinControl, PLMsg^);
 
         // handle Ctrl-A for edit controls
@@ -2606,10 +2547,7 @@ begin
           and (GetKeyState(VK_CONTROL) < 0) and (GetKeyState(VK_MENU) >= 0) then
         begin
           if WndClassName(Window) = EditClsName then
-          begin
-            // select all
-            Windows.SendMessage(Window, EM_SETSEL, 0, -1);
-          end;
+            Windows.SendMessage(Window, EM_SETSEL, 0, -1);  // select all
         end;
       end;
     end;
@@ -2617,10 +2555,8 @@ begin
 
   // ignore WM_(SYS)CHAR message if LCL handled WM_(SYS)KEYDOWN
   if ((Msg = WM_KEYDOWN) or (Msg = WM_SYSKEYDOWN)) then
-  begin
     if (PLMsg^.Result = 0) then
       IgnoreNextCharWindow := 0;
-  end;
 
   { LMInsertText has no Result field }
 
@@ -2633,6 +2569,40 @@ begin
   else if PLMsg = @LMNotify     then Result := LMNotify.Result
   else if PLMsg = @LMMouseEvent then Result := LMMouseEvent.Result
   else                               Result := PLMsg^.Result;
+end;
+
+{------------------------------------------------------------------------------
+ Function: WindowProc
+ Params: Window - The window that receives a message
+         Msg    - The message received
+         WParam - Word parameter
+         LParam - Long-integer parameter
+  Returns: 0 if Msg is handled; non-zero long-integer result otherwise
+
+  Handles the messages sent to the specified window, in parameter Window, by
+  Windows or other applications
+ ------------------------------------------------------------------------------}
+function
+{$ifdef MSG_DEBUG}
+  RealWindowProc
+{$else}
+  WindowProc
+{$endif}
+  (Window: HWnd; Msg: UInt; WParam: Windows.WParam; LParam: Windows.LParam): LResult; stdcall;
+var
+  Helper: TWindowProcHelper;
+begin
+  Helper := TWindowProcHelper.Create;
+  try
+    Helper.Window := Window;
+    Helper.Msg := Msg;
+    Helper.WParam := WParam;
+    Helper.LParam := LParam;
+    Helper.NMHdr := PNMHdr(LParam);
+    Result := Helper.DoWindowProc;
+  finally
+    Helper.Free;
+  end;
 end;
 
 {$ifdef MSG_DEBUG}
@@ -2799,3 +2769,4 @@ end;
   {$UNDEF ASSERT_IS_ON}
   {$C-}
 {$ENDIF}
+

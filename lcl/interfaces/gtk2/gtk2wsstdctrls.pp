@@ -25,7 +25,7 @@ uses
   glib2,  gdk2, gtk2,
   Classes, SysUtils, Math,
   // LCL
-  Controls, Graphics, StdCtrls, LMessages, LCLType, LCLProc,
+  Controls, Graphics, StdCtrls, LMessages, LCLType, LCLProc, LazUtf8Classes,
   // Widgetset
   WSControls, WSProc, WSStdCtrls, Gtk2Int, Gtk2Def,
   Gtk2CellRenderer, Gtk2Globals, Gtk2Proc, InterfaceBase,
@@ -175,6 +175,7 @@ type
     class procedure SetSorted(const {%H-}ACustomListBox: TCustomListBox; AList: TStrings; ASorted: boolean); override;
     class procedure SetTopIndex(const ACustomListBox: TCustomListBox; const NewTopIndex: integer); override;
     class procedure SetFont(const AWinControl: TWinControl; const AFont: TFont); override;
+    class procedure ShowHide(const AWinControl: TWinControl); override;
   end;
 
   { TGtk2WSListBox }
@@ -681,6 +682,15 @@ begin
        [GTK_STATE_NORMAL,GTK_STATE_ACTIVE,GTK_STATE_PRELIGHT,GTK_STATE_SELECTED,
         GTK_STYLE_TEXT]);
   Gtk2WidgetSet.SetWidgetFont(Widget, AFont);
+end;
+
+class procedure TGtk2WSCustomListBox.ShowHide(const AWinControl: TWinControl);
+begin
+  // issue #27276
+  if AWinControl.HandleAllocated and AWinControl.HandleObjectShouldBeVisible and
+    (TCustomListBox(AWinControl).ItemIndex = -1) then
+    SetItemIndex(TCustomListBox(AWinControl), TCustomListBox(AWinControl).ItemIndex);
+  inherited ShowHide(AWinControl);
 end;
 
 function gtk2ListBoxSelectionChangedAfter({%H-}Widget: PGtkWidget;
@@ -2304,7 +2314,8 @@ begin
   g_object_set_data(PGObject(FrameBox), 'widgetinfo', WidgetInfo);
   gtk_widget_show(TempWidget);
   gtk_widget_show(P);
-  gtk_widget_show(FrameBox);
+  if AWinControl.Visible then
+    gtk_widget_show(FrameBox);
 
   Result := TLCLIntfHandle({%H-}PtrUInt(FrameBox));
 
@@ -2902,7 +2913,7 @@ begin
   FrameWidget := {%H-}PGtkFrame(AWinControl.Handle);
   LblWidget := GetLabelWidget(FrameWidget);
 
-  if TStaticText(AWinControl).ShowAccelChar then
+  if TStaticText(AWinControl).ShowAccelChar and (AText <> '') then
   begin
     DC := Widgetset.GetDC(HWND({%H-}PtrUInt(LblWidget)));
     ALabel := TGtk2WidgetSet(WidgetSet).ForceLineBreaks(

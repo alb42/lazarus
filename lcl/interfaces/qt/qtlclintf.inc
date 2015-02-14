@@ -443,8 +443,8 @@ var
 begin
   Result := IsValidDC(DC) and (x2 > x1) and (y2 > y1);
   if Result then begin
-    theWidth  := x2 - x1 +  1;
-    theHeight := y2 - y1 + 1;
+    theWidth  := x2 - x1;
+    theHeight := y2 - y1;
     QPainter_drawPie(TQtDeviceContext(DC).Widget, x1, y1, theWidth, theHeight, Angle1, Angle2);
   end;
 end;
@@ -616,7 +616,7 @@ function TQtWidgetSet.RawImage_DescriptionFromDevice(ADC: HDC; out ADesc: TRawIm
 begin
   Result := true;
 
-  FillStandardDescription(ADesc);
+  FillStandardDescription(ADesc{%H-});
 end;
 
 {------------------------------------------------------------------------------

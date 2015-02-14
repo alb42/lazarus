@@ -15,10 +15,12 @@ interface
 {$I LR_Vers.inc}
 
 uses
-  SysUtils, Math, {$IFDEF UNIX}CLocale,{$ENDIF} Classes, MaskUtils, Controls, FileUtil,
-  Forms, Dialogs, Menus, Variants, DB, Graphics, Printers, osPrinters,
-  DOM, XMLWrite, XMLRead, XMLConf, LCLType, LCLIntf, TypInfo, LCLProc, LR_View, LR_Pars,
-  LR_Intrp, LR_DSet, LR_DBSet, LR_DBRel, LR_Const, LMessages, DbCtrls, LazUtf8Classes;
+  SysUtils, Math, {$IFDEF UNIX}CLocale,{$ENDIF}
+  Classes, MaskUtils, Controls, FileUtil, Forms,
+  Dialogs, Menus, Variants, DB, Graphics, Printers, osPrinters, LazUTF8, DOM,
+  XMLWrite, XMLRead, XMLConf, LCLType, LCLIntf, TypInfo, LR_View, LR_Pars,
+  LR_Intrp, LR_DSet, LR_DBSet, LR_DBRel, LR_Const, DbCtrls, LazUtf8Classes,
+  LazLoggerBase;
 
 const
 // object flags
@@ -37,6 +39,7 @@ const
   flBandOnFirstPage        = $10;
   flBandOnLastPage         = $20;
   flBandRepeatHeader       = $40;
+  flBandPrintChildIfNotVisible = $80;
 
   flPictCenter             = 2;
   flPictRatio              = 4;
@@ -67,7 +70,7 @@ type
                  btSubDetailHeader, btSubDetailData, btSubDetailFooter,
                  btOverlay, btColumnHeader, btColumnFooter,
                  btGroupHeader, btGroupFooter,
-                 btCrossHeader, btCrossData, btCrossFooter, btNone);
+                 btCrossHeader, btCrossData, btCrossFooter, btChild, btNone);
   TfrBandTypes = set of TfrBandType;
   TfrDataSetPosition = (psLocal, psGlobal);
   TfrValueType = (vtNotAssigned, vtDBField, vtOther, vtFRVar);
@@ -187,7 +190,7 @@ type
     procedure SetName(const AValue: string); virtual;
     procedure AfterLoad;virtual;
     procedure AfterCreate;virtual;
-    function ExecMetod(const AName: String; p1, p2, p3: Variant; var Val: Variant):boolean;virtual;
+    function ExecMetod(const {%H-}AName: String; {%H-}p1, {%H-}p2, {%H-}p3: Variant; var {%H-}Val: Variant):boolean;virtual;
     function GetLeft: Integer;virtual;
     function GetTop: Integer;virtual;
     function GetWidth: Integer;virtual;
@@ -209,8 +212,8 @@ type
     procedure AssignTo(Dest: TPersistent); override;
     procedure Assign(Source: TPersistent); override; //virtual; overload;
 
-    procedure BeginUpdate;
-    procedure EndUpdate;
+    procedure BeginUpdate;virtual;
+    procedure EndUpdate;virtual;
     
     procedure CreateUniqueName;
 
@@ -246,6 +249,7 @@ type
     fFrameTyp  : word;
     FTag: string;
     FURLInfo: string;
+    FFindHighlight : boolean;
     function GetDataField: string;
     function GetLeft: Double;
     function GetStretched: Boolean;
@@ -340,6 +344,7 @@ type
 
     property StreamMode: TfrStreamMode read fStreamMode write fStreamMode;
     property Restrictions:TlrRestrictions read FRestrictions write FRestrictions;
+    property FindHighlight : boolean read FFindHighlight write FFindHighlight;
   published
     property Left: double read GetLeft write SetLeft;
     property Top: double read GetTop write SetTop;
@@ -465,6 +470,7 @@ type
     Highlight: TfrHighlightAttr;
     HighlightStr: String;
     LineSpacing, CharacterSpacing: Integer;
+    LastLine: boolean; // are we painting/exporting the last line?
     
     constructor Create(AOwnerPage:TfrPage); override;
     destructor Destroy; override;
@@ -533,13 +539,15 @@ type
     fDataSetStr : String;
     fBandType   : TfrBandType;
     fCondition  : String;
-    
+    fChild      : String;
+
     procedure P1Click(Sender: TObject);
     procedure P2Click(Sender: TObject);
     procedure P3Click(Sender: TObject);
     procedure P4Click(Sender: TObject);
     procedure P5Click(Sender: TObject);
     procedure P6Click(Sender: TObject);
+    procedure P7Click(Sender: TObject);
     function  GetTitleRect: TRect;
     function  TitleSize: Integer;
     procedure CalcTitleSize;
@@ -567,6 +575,7 @@ type
   published
     property DataSet: String read fDataSetStr write fDataSetStr;
     property GroupCondition: String read fCondition write fCondition;
+    property Child: String read fChild write fChild;
 
     property BandType: TfrBandType read fBandType write fBandType;
 
@@ -691,6 +700,7 @@ type
     Positions: Array[TfrDatasetPosition] of Integer;
     LastGroupValue: Variant;
     HeaderBand, FooterBand, LastBand: TfrBand;
+    ChildBand: TfrBand;
     Values: TStringList;
     Count: Integer;
     DisableInit: Boolean;
@@ -723,6 +733,7 @@ type
 
     Typ: TfrBandType;
     PrintIfSubsetEmpty, NewPageAfter, Stretched, PageBreak: Boolean;
+    PrintChildIfNotVisible: Boolean;
     Objects: TFpList;
     DataSet: TfrDataSet;
     IsVirtualDS: Boolean;
@@ -969,6 +980,8 @@ type
     procedure Add(APage: TfrPage);
     procedure Insert(Index: Integer; APage: TfrPage);
     procedure Delete(Index: Integer);
+
+    procedure ResetFindData;
 
     function DoMouseClick(Index: Integer; pt: TPoint; var AInfo: String): Boolean;
     function DoMouseMove(Index: Integer; pt: TPoint; var Cursor: TCursor; var AInfo: String): TfrView;
@@ -1412,11 +1425,12 @@ function FindObjectProps(AObjStr:string; out frObj:TfrObject; out PropName:strin
 
 const
   lrTemplatePath = 'LazReportTemplate/';
-  frCurrentVersion = 27;
+  frCurrentVersion = 28;
     // version 2.5: lazreport: added to binary stream ParentBandType variable
     //                         on TfrView, used to extend export facilities
     // version 2.6: lazreport: added to binary stream Tag property on TfrView
     // version 2.7: lazreport: added to binary stream FOnClick, FOnMouseEnter, FOnMouseLeave, FCursor property on TfrMemoView
+    // version 2.8. lazreport: added support for child bands
 
   frSpecCount = 9;
   frSpecFuncs: Array[0..frSpecCount - 1] of String = ('PAGE#', '',
@@ -1736,7 +1750,8 @@ begin
   frBandNames[btCrossHeader] := sBand19;
   frBandNames[btCrossData] := sBand20;
   frBandNames[btCrossFooter] := sBand21;
-  frBandNames[btNone] := sBand22;
+  frBandNames[btChild] := sBand22;
+  frBandNames[btNone] := sBand23;
 
   frSpecArr[0] := sVar1;
   frSpecArr[1] := sVar2;
@@ -2088,12 +2103,7 @@ begin
     CEnd := Length(Arr)-1;
     if Trimmed then
     begin
-      s := Trim(Text);
-      if Arr[Cini].Space then
-      begin
-        Inc(Cini);
-        Dec(SpcCount);
-      end;
+      s := UTF8Trim(Text, [u8tKeepStart]);
       if Arr[CEnd].Space then
       begin
         Dec(CEnd);
@@ -2251,7 +2261,6 @@ end;
 procedure TlrDetailReports.SaveToXML(XML: TLrXMLConfig; const Path: String);
 var
   i: Integer;
-  P:TlrDetailReport;
 begin
   XML.SetValue(Path+'Count/Value', Count);
   for i:=0 to Count - 1 do
@@ -2401,7 +2410,7 @@ begin
   fFrameWidth := 1;
   fFrameColor := clBlack;
   FFillColor := clNone;
-  fFormat := 2*256 + Ord(DecimalSeparator);
+  fFormat := 2*256 + Ord(DefaultFormatSettings.DecimalSeparator);
   BaseName := 'View';
   FVisible := True;
   StreamMode := smDesigning;
@@ -2503,10 +2512,18 @@ var
   fp: TColor;
 begin
   if DisableDrawing then Exit;
-  if (DocMode = dmPrinting) and (FillColor = clNone) then Exit;
-  fp := FillColor;
-  if (DocMode = dmDesigning) and (fp = clNone) then
-    fp := clWhite;
+  if (DocMode = dmPrinting) then
+    if (FillColor = clNone) and (not FFindHighlight) then Exit;
+
+  if FFindHighlight then
+    fp := clSilver
+  else
+  begin
+    fp := FillColor;
+    if (DocMode = dmDesigning) and (fp = clNone) then
+      fp := clWhite;
+  end;
+
   Canvas.Brush.Bitmap := nil;
   Canvas.Brush.Style := bsSolid;
   Canvas.Brush.Color := fp;
@@ -2696,10 +2713,10 @@ begin
   {$ENDIF}
   with Stream do
   begin
-    if StreamMode = smDesigning then
+//    if StreamMode = smDesigning then
     begin
       if frVersion >= 23 then
-        Name := ReadString(Stream)
+        fName := ReadString(Stream)
       else
         CreateUniqueName;
     end;
@@ -2843,7 +2860,7 @@ begin
 
   with Stream do
   begin
-    if StreamMode = smDesigning then
+//    if StreamMode = smDesigning then
       frWriteString(Stream, Name);
 //    Write(x, 18); // this is equal to, but much faster:
     Write(x, 4);
@@ -3278,6 +3295,7 @@ begin
   FDetailReport:='';
   FOnMouseEnter:=TfrScriptStrings.Create;
   FOnMouseLeave:=TfrScriptStrings.Create;
+  FFindHighlight:=false;
 
   Typ := gtMemo;
   FFont := TFont.Create;
@@ -3524,7 +3542,7 @@ var
   size, size1, maxwidth: Integer;
   b: TWordBreaks;
   WCanvas: TCanvas;
-  desc, aword: string;
+  aword: string;
 
   procedure OutLine(const str: String);
   var
@@ -3545,7 +3563,7 @@ var
   var
     i, cur, beg, last, len: Integer;
     WasBreak, CRLF, IsCR: Boolean;
-    ch: TUTF8char;
+    ch: char;
   begin
 
     CRLF := False;
@@ -3566,25 +3584,28 @@ var
     begin
 
       cur := 1;
-      Len := UTF8Desc(S, Desc);
+      Len := length(s);
 
       while cur <= Len do
       begin
-        Ch := UTF8Char(s, cur, Desc);
+        Ch := s[cur];
 
         // check for items with soft-breaks
         IsCR := Ch=#13;
         if IsCR then
         begin
           //handle composite newline
-          ch := UTF8Char(s, cur+1, desc);
-          //dont increase char index if next char is LF (#10)
-          if ch<>#10 then
-            Inc(Cur);
+          if (cur < length(s)) then
+          begin
+            ch := s[cur+1];
+            //dont increase char index if next char is LF (#10)
+            if s[cur+1]<>#10 then
+              Inc(Cur);
+          end;
         end;
         if Ch=#10 then
         begin
-          OutLine(UTF8Range(s, beg, cur - beg, Desc) + #1);
+          OutLine(copy(s, beg, cur - beg) + #1);
           //increase the char index since it's pointing to CR (#13)
           if IsCR then
             Inc(cur);
@@ -3595,7 +3616,7 @@ var
         end;
 
         if ch <> ' ' then
-        if WCanvas.TextWidth(UTF8Range(s, beg, cur - beg + 1, Desc)) > maxwidth then
+        if WCanvas.TextWidth(copy(s, beg, cur - beg + 1)) > maxwidth then
         begin
 
           WasBreak := False;
@@ -3604,17 +3625,16 @@ var
 
             // in case of breaking in the middle, get the full word
             i := cur;
-            while (i <= Len) and not UTF8CharIn(ch, [' ', '.', ',', '-']) do
+            while (i <= Len) and not (ch in [' ', '.', ',', '-']) do
             begin
               Inc(i);
-              if i<=len then
-                ch := UTF8Char(s, i, Desc);
+              ch := s[i];
             end;
 
             // find word's break points using some simple hyphenator algorithm
             // TODO: implement interface so users can use their own hyphenator
             //       algorithm
-            aWord := UTF8Range(s, last, i - last, Desc);
+            aWord := copy(s, last, i - last);
             if (FHyp<>nil) and (FHyp.Loaded) then
             begin
               try
@@ -3631,7 +3651,7 @@ var
             begin
               i := 1;
               while (i <= Length(b)) and
-                (WCanvas.TextWidth(UTF8Range(s, beg, last - beg + Ord(b[i]), Desc) + '-') <= maxwidth) do
+                (WCanvas.TextWidth(copy(s, beg, last - beg + Ord(b[i])) + '-') <= maxwidth) do
               begin
                 WasBreak := True;
                 cur := last + Ord(b[i]);  // cur now points to next char after breaking word
@@ -3655,26 +3675,26 @@ var
           if WasBreak then
           begin
             // if word has been broken, output the partial word plus an hyphen
-            OutLine(UTF8Range(s, beg, last - beg, Desc) + '-');
+            OutLine(copy(s, beg, last - beg) + '-');
           end else
           begin
             // output the portion of word that fits maxwidth
-            OutLine(UTF8Range(s, beg, last - beg, Desc));
+            OutLine(copy(s, beg, last - beg));
             // if space was found, advance to next no space char
-            while (UTF8Char(s, last, Desc) = ' ') and (last < Length(s)) do
+            while (s[last] = ' ') and (last < Length(s)) do
               Inc(last);
           end;
 
           beg := last;
         end;
 
-        if UTF8CharIn(Ch, [' ', '.', ',', '-']) then
+        if Ch in [' ', '.', ',', '-'] then
           last := cur;
         Inc(cur);
       end;
 
       if beg <> cur then
-        OutLine(UTF8Range(s, beg, cur - beg + 1, Desc) + #1);
+        OutLine(copy(s, beg, cur - beg + 1) + #1);
     end;
   end;
 
@@ -3767,7 +3787,6 @@ var
       n, {nw, w, }curx, lasty: Integer;
       lastyf: Double;
       Ts: TTextStyle;
-      ParaEnd: boolean;
     begin
       lastyf := curyf + thf - LineSpc - 1;
       lastY := Round(lastyf);
@@ -3780,14 +3799,14 @@ var
       begin
         n := Length(St);
         //w := Ord(St[n - 1]) * 256 + Ord(St[n]);
-        ParaEnd := true;
+        LastLine := true;
         SetLength(St, n - 2);
         if Length(St) > 0 then
         begin
           if St[Length(St)] = #1 then
             SetLength(St, Length(St) - 1)
           else
-            ParaEnd := false;
+            LastLine := false;
         end;
 
         // handle any alignment with same code
@@ -3827,7 +3846,7 @@ var
 
         if not Exporting then
         begin
-          if Justify and not ParaEnd then
+          if Justify and not LastLine then
             CanvasTextRectJustify(Canvas, DR, x+gapx, x+dx-1-gapx, round(CurYf), St, true)
           else
             Canvas.TextRect(DR, CurX, round(curYf), St);
@@ -4503,7 +4522,7 @@ end;
 
 procedure TfrCustomMemoView.DoOnClick;
 var
-  FSaveRep,FDetailRep:TfrReport;
+  FSaveRep:TfrReport;
   FSaveView:TfrView;
   FSavePage:TfrPage;
   CmdList, ErrorList:TStringList;
@@ -4831,6 +4850,7 @@ begin
     BandType := TFrBandView(Source).BandType;
     DataSet  := TFrBandView(Source).DataSet;
     GroupCondition:=TFrBandView(Source).GroupCondition;
+    Child := TFrBandView(Source).Child;
   end;
 end;
 
@@ -4841,8 +4861,12 @@ begin
   With Stream do
   if frVersion>23 then begin
     Read(fBandType,SizeOf(BandType));
+    if (frVersion<28) and (fBandType=btChild) then
+      fBandType := btNone; // btNone and btChild were swapped in version 29
     fCondition :=ReadString(Stream);
     fDataSetStr:=ReadString(Stream);
+    if frVersion>=28 then
+      fChild :=ReadString(Stream);
   end else
   begin
     if StreamMode=smDesigning then begin
@@ -4859,6 +4883,7 @@ begin
   RestoreProperty('BandType',XML.GetValue(Path+'BandType/Value','')); // todo chk
   FCondition := XML.GetValue(Path+'Condition/Value', ''); // todo chk
   FDatasetStr := XML.GetValue(Path+'DatasetStr/Value', ''); // todo chk
+  FChild := XML.GetValue(Path+'Child/Value', '');
 end;
 
 procedure TfrBandView.SaveToStream(Stream: TStream);
@@ -4870,6 +4895,7 @@ begin
     Write(fBandType,SizeOf(fBandType));
     frWriteString(Stream, fCondition);
     frWriteString(Stream, fDataSetStr);
+    frWriteString(Stream, fChild);
   end;
 end;
 
@@ -4879,6 +4905,7 @@ begin
   XML.SetValue(Path+'BandType/Value', GetSaveProperty('BandType')); //Ord(FBandType)); // todo: use symbolic values
   XML.SetValue(Path+'Condition/Value', FCondition);
   XML.SetValue(Path+'DatasetStr/Value', FDatasetStr);
+  XML.SetValue(Path+'Child/Value', FChild);
 end;
 
 procedure TfrBandView.Draw(aCanvas: TCanvas);
@@ -5020,7 +5047,7 @@ var
   m: TMenuItem;
 begin
   if BandType in [btReportTitle, btReportSummary, btPageHeader, btCrossHeader,
-    btMasterHeader..btSubDetailFooter, btGroupHeader, btGroupFooter] then
+    btMasterHeader..btSubDetailFooter, btGroupHeader, btGroupFooter, btChild] then
     inherited DefinePopupMenu(Popup);
 
   if BandType in [btReportTitle, btReportSummary, btMasterData, btDetailData,
@@ -5078,6 +5105,15 @@ begin
     m.Caption := sRepeatHeader;
     m.OnClick := @P6Click;
     m.Checked := (Flags and flBandRepeatHeader) <> 0;
+    Popup.Items.Add(m);
+  end;
+
+  if BandType <> btPageFooter then
+  begin
+    m := TMenuItem.Create(Popup);
+    m.Caption := sPrintChildIfNotVisible;
+    m.OnClick := @P7Click;
+    m.Checked := (Flags and flBandPrintChildIfNotVisible) <> 0;
     Popup.Items.Add(m);
   end;
 end;
@@ -5165,6 +5201,16 @@ begin
   begin
     Checked := not Checked;
     Flags := (Flags and not flBandRepeatHeader) + Word(Checked) * flBandRepeatHeader;
+  end;
+end;
+
+procedure TfrBandView.P7Click(Sender: TObject);
+begin
+  frDesigner.BeforeChange;
+  with Sender as TMenuItem do
+  begin
+    Checked := not Checked;
+    Flags := (Flags and not flBandPrintChildIfNotVisible) + Word(Checked) * flBandPrintChildIfNotVisible;
   end;
 end;
 
@@ -6442,7 +6488,8 @@ begin
     DebugLn('ay+ColFoot.dy+ady=%d CurBottomY=%d',[ay+Bands[btColumnFooter].dy+ady,CurBottomY]);
     {$ENDIF}
     if not RowsLayout then begin
-      if ay + Bands[btColumnFooter].dy + ady > CurBottomY then
+      if (Parent.Bands[btColumnFooter] <> self) and
+      	(ay + Bands[btColumnFooter].dy + ady > CurBottomY) then
       begin
         if not PBreak then
           NewColumn(Self);
@@ -6504,6 +6551,7 @@ begin
   {$IFDEF DebugLR}
   DebugLnEnter('DrawPageBreak INI y=%d Maxdy=%d',[y,maxdy]);
   {$ENDIF}
+  SetLength(PgArr,0);
   for i := 0 to Objects.Count - 1 do
   begin
     t :=TfrView(Objects[i]);
@@ -6908,6 +6956,8 @@ begin
         else
         begin
           DoDraw;
+          if (ChildBand <> nil) then
+            ChildBand.Draw;
           if not (Typ in [btMasterData, btDetailData, btSubDetailData, btGroupHeader]) and
             NewPageAfter then
             Parent.NewPage;
@@ -6918,9 +6968,13 @@ begin
     // if band is not visible, just performing aggregate calculations
     // relative to it
     else
-    if Typ in [btMasterData, btDetailData, btSubDetailData] then
-      Parent.DoAggregate([btPageFooter, btMasterFooter, btDetailFooter,
-                          btSubDetailFooter, btGroupFooter, btReportSummary]);
+    begin
+      if (ChildBand <> nil) and PrintChildIfNotVisible then
+        ChildBand.Draw;
+      if Typ in [btMasterData, btDetailData, btSubDetailData] then
+        Parent.DoAggregate([btPageFooter, btMasterFooter, btDetailFooter,
+                            btSubDetailFooter, btGroupFooter, btReportSummary]);
+    end;
 
     // check if multiple pagefooters (in cross-tab report) - resets last of them
     if not DisableInit then
@@ -7322,7 +7376,8 @@ begin
       end;
     end;
 
-  for b := btReportTitle to btGroupFooter do // fill other bands
+  for b := btReportTitle to btChild do // fill other bands
+  if not (b in [btCrossHeader..btCrossFooter]) then
   begin
     FirstBand := True;
     Bnd := Bands[b];
@@ -7357,6 +7412,7 @@ begin
             InitDataSet(TfrBandView(Bt).DataSet);
           Stretched := (Flags and flStretched) <> 0;
           PrintIfSubsetEmpty := (Flags and flBandPrintIfSubsetEmpty) <> 0;
+          PrintChildIfNotVisible := (Flags and flBandPrintChildIfNotVisible) <> 0;
           if Skip then
           begin
             NewPageAfter := False;
@@ -7511,6 +7567,26 @@ begin
         end;
       end;
       i := n + 1;
+    end;
+  end;
+
+  for b := btReportTitle to btChild do
+  begin
+    Bnd := Bands[b];
+    while Bnd <> nil do
+    begin
+      if Bnd.View <> nil then
+      begin
+        s := TfrBandView(Bnd.View).Child;
+
+        for i := 0 to RTObjects.Count - 1 do
+        begin
+          bt :=TfrView(RTObjects[i]);
+          if (bt.Typ = gtBand) and (TfrBandView(bt).BandType=btChild) and (bt.Name=s) then
+            Bnd.ChildBand:=bt.Parent;
+        end;
+      end;
+      Bnd := Bnd.Next;
     end;
   end;
 
@@ -8304,8 +8380,8 @@ begin
 end;
 
 procedure TfrPage.LoadFromXML(XML: TLrXMLConfig; const Path: String);
-var
-  b:byte;
+{var
+  b:byte; }
 begin
   inherited LoadFromXML(XML,Path);
   
@@ -8877,6 +8953,21 @@ begin
   if Pages[Index]^.Stream <> nil then Pages[Index]^.Stream.Free;
   FreeMem(Pages[Index], SizeOf(TfrPageInfo));
   FPages.Delete(Index);
+end;
+
+procedure TfrEMFPages.ResetFindData;
+var
+  i: Integer;
+  j: Integer;
+  P: PfrPageInfo;
+begin
+  for i:=0 to Count - 1 do
+  begin
+    P:=Pages[i];
+    if Assigned(P^.Page) then
+      for j:=0 to P^.Page.Objects.Count - 1 do
+        TfrView(P^.Page.Objects[j]).FindHighlight:=false;
+  end;
 end;
 
 function TfrEMFPages.DoMouseClick(Index: Integer; pt: TPoint; var AInfo: String
@@ -9606,7 +9697,7 @@ begin
     Exit;
   end;
   
-  c := DecimalSeparator;
+  c := DefaultFormatSettings.DecimalSeparator;
   f1 := (AFormat div $01000000) and $0F;
   f2 := (AFormat div $00010000) and $FF;
   try
@@ -9627,7 +9718,7 @@ begin
           if not VarIsNumeric(v) then
             result := v
           else begin
-            DecimalSeparator := Chr(AFormat and $FF);
+            DefaultFormatSettings.DecimalSeparator := Chr(AFormat and $FF);
             case f2 of
               0: Result := FormatFloat('###.##', v);
               1: Result := FloatToStrF(Extended(v), ffFixed, 15, (AFormat div $0100) and $FF);
@@ -9666,7 +9757,7 @@ begin
     on e:exception do
       Result := v;
   end;
-  DecimalSeparator := c;
+  DefaultFormatSettings.DecimalSeparator := c;
 end;
 
 procedure TfrReport.GetVariableValue(const s: String; var aValue: Variant);
@@ -9807,13 +9898,12 @@ procedure TfrReport.OnGetParsFunction(const aName: String; p1, p2, p3: Variant;
 
 function ProcessObjMethods(Method:string):boolean;
 var
-  PgName, ObjName:string;
+  ObjName:string;
   Obj:TfrObject;
   i, j:integer;
 begin
   Result:=false;
   Obj:=nil;
-  PgName:='';
   ObjName:=Copy2SymbDel(Method, '.');
 
   for i:=0 to CurReport.Pages.Count - 1 do
@@ -11419,8 +11509,6 @@ end;
 procedure TfrReport.GetIntrpValue(AName: String; var AValue: Variant);
 var
   t:  TfrObject;
-  Prop: String;
-  n:integer;
   PropName: String;
   PropInfo:PPropInfo;
   St:string;
@@ -12070,7 +12158,7 @@ begin
          S1:=frParser.Calc(p1);
          val := Trim(S1);
        end;
-   21: val := UTF8UpperCase(frParser.Calc(p1)); //Add('UPPERCASE');         {21}
+   21: val := LazUTF8.UTF8UpperCase(frParser.Calc(p1)); //Add('UPPERCASE');         {21}
    22: val := YearOf(frParser.Calc(p1));                      //Add('YEAROF');            {22}
   end;
   
@@ -12157,7 +12245,7 @@ begin
         btSubDetailFooter, btGroupFooter, btCrossFooter, btReportSummary]) and
          ((s2 = '1') or ((s2 <> '1') and CurBand.Visible)) then
       begin
-        VarName := List[FNo] + p1;
+        VarName := List[FNo] + StringReplace(p1, '=', '_', [rfReplaceAll]);
         if IsColumns then
           if AggrBand.Typ = btCrossFooter then
             VarName := VarName + '00' else
@@ -12248,7 +12336,7 @@ begin
   begin
     S:=VarToStr(Value);
     {$IFDEF DebugLR}
-    DebugLn('PropInfo for ',prop,' found, Setting Value=',St);
+    DebugLn('PropInfo for ',propName,' found, Setting Value=',S);
     {$ENDIF}
 
     Case PropInfo^.PropType^.Kind of
@@ -12922,14 +13010,14 @@ end;
 
 function TLrXMLConfig.GetValue(const APath: string; const ADefault: string
   ): string;
-var
-  wValue: widestring;
+{var
+  wValue: widestring;}
 begin
   if frUnWrapRead then
     result := {%H-}inherited GetValue(APath, ADefault{%H-})
   else
   begin
-    result := UTF16ToUTF8(inherited GetValue(APath, ADefault));
+    result := LazUTF8.UTF16ToUTF8(inherited GetValue(APath, ADefault));
 {    WValue := inherited GetValue(UTF8Decode(APath), UTF8Decode(ADefault));
     Result := UTF8Encode(WValue);}
   end;

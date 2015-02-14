@@ -44,8 +44,8 @@ uses
   KeywordFuncLists, FindRenameIdentifier, GenericCheckList, ViewUnit_Dlg,
   DiskDiffsDialog, InputHistory, CheckLFMDlg, LCLMemManager, CodeToolManager,
   CodeToolsStructs, ConvCodeTool, CodeCache, CodeTree, FindDeclarationTool,
-  BasicCodeTools, SynEdit, UnitResources, IDEExternToolIntf, ExtToolDialog,
-  PublishModule, etMessagesWnd;
+  BasicCodeTools, SynEdit, UnitResources, IDEExternToolIntf, ObjectInspector,
+  ExtToolDialog, PublishModule, etMessagesWnd;
 
 type
 
@@ -1816,7 +1816,7 @@ begin
     // show form and select form
     if NewUnitInfo.Component<>nil then begin
       // show form
-      MainIDE.CreateObjectInspector;
+      IDEWindowCreators.ShowForm(DefaultObjectInspectorName,false);
       MainIDE.DoShowDesignerFormOfCurrentSrc;
     end else begin
       MainIDE.DisplayState:= dsSource;
@@ -2411,7 +2411,7 @@ begin
     if Result<>'' then exit;
   end;
 
-  if TheOwner=Self then begin
+  if TheOwner=LazarusIDE then begin
     // search in base IDE
     Result:=FindInBaseIDE;
     if Result<>'' then exit;
@@ -3286,7 +3286,7 @@ begin
   try
     Project1.BeginUpdate(true);
     try
-      Project1.CompilerOptions.CompilerPath:='$(CompPath)';
+      Project1.CompilerOptions.CompilerPath:=DefaultCompilerPath;
       if pfUseDefaultCompilerOptions in Project1.Flags then begin
         MainIDE.DoMergeDefaultProjectOptions(Project1);
         Project1.Flags:=Project1.Flags-[pfUseDefaultCompilerOptions];
@@ -4027,7 +4027,6 @@ var
   md, ActiveMode: TProjectBuildMode;
   BuildActiveMode: Boolean;
   i: Integer;
-  Msg: String;
 begin
   Result := False;
   ModeCnt := 0;
@@ -4059,9 +4058,9 @@ begin
     end;
     // Switch back to original mode.
     Project1.ActiveBuildMode := ActiveMode;
-    MainIDE.UpdateCaption;
-    Msg := Format(lisSelectedModesWereBuilt, [ModeCnt]);
-    IDEMessageDialog(lisSuccess, Msg, mtInformation, [mbOK]);
+    SaveProject([]);
+    IDEMessageDialog(lisSuccess, Format(lisSelectedModesWereBuilt, [ModeCnt]),
+                     mtInformation, [mbOK]);
     Result:=True;
   finally
     ModeList.Free;
@@ -5805,7 +5804,7 @@ begin
     MainIDE.DisplayState := dsForm;
     GlobalDesignHook.LookupRoot := NewComponent;
     TheControlSelection.AssignPersistent(NewComponent);
-    MainIDE.CreateObjectInspector;
+    IDEWindowCreators.ShowForm(DefaultObjectInspectorName,false);
   end;
 
   // show new form

@@ -370,8 +370,10 @@ begin
       LabelRect.origin.x := LabelRect.origin.x - 2;
       LabelRect.origin.y := LabelRect.origin.y - 1;
 
+      {$ifdef i386}
       HIThemeDrawButton(LabelRect, ButtonDrawInfo, DC.CGContext(),
         kHIThemeOrientationNormal, @LabelRect);
+      {$endif}
 
       Result := CGRectToRect(LabelRect);
     end;
@@ -536,7 +538,7 @@ begin
       teTreeview: DrawTreeviewElement(Context, Details, R, ClipRect);
 //      teWindow: DrawWindowElement(Context, Details, R, ClipRect);
     else
-      inherited DrawElement(DC, Details, R, ClipRect);
+      //inherited DrawElement(DC, Details, R, ClipRect); this generates an endless loop
     end;
   end;
 end;

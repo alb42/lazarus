@@ -89,8 +89,8 @@ begin
     csDoubleClicks, csMenuEvents, csSetCaption, csParentBackground, csOpaque];
   FFlat := True;
   Height := 32;
-  FButtonWidth := 23;
-  FButtonHeight := 22;
+  FButtonWidth := cDefButtonWidth;
+  FButtonHeight := cDefButtonHeight;
   Details := ThemeServices.GetElementDetails(ttbSplitButtonDropDownNormal);
   FDropDownWidth := ThemeServices.GetDetailSize(Details).cx;
   FNewStyle := True;
@@ -450,6 +450,7 @@ begin
     for i:=ControlCount-1 downto 0 do
     begin
       CurControl := Controls[i];
+      CurControl.InvalidatePreferredSize;
       NewWidth := CurControl.Width;
       NewHeight := CurControl.Height;
 
@@ -730,6 +731,7 @@ var
   AdjustClientFrame: TRect;
   i: Integer;
   GrowSide: TAnchorKind; // when a line is full, grow the TToolBar in this direction
+  SeparatorWidthChange: Boolean;
 begin
   //DebugLn(['WrapButtons ',DbgSName(Self),' Wrapable=',Wrapable,' ',dbgs(BoundsRect),' Vertical=',IsVertical,' RTL=',UseRightToLeftAlignment,' Simulate=',Simulate]);
   Result := True;
@@ -828,6 +830,28 @@ begin
 
       w := CurControl.Constraints.MinMaxWidth(w);
       h := CurControl.Constraints.MinMaxHeight(h);
+      SeparatorWidthChange := (CurControl is TToolButton) and
+        (TToolButton(CurControl).Style in [tbsSeparator, tbsDivider]);
+      if SeparatorWidthChange then begin
+        if not Vertical then begin
+          SeparatorWidthChange := (w <> CurControl.Width);
+          w := CurControl.Width;
+        end else begin
+          SeparatorWidthChange := (h <> CurControl.Height);
+          h := CurControl.Height;
+        end;
+      end;
+      if Vertical <> FPrevVertical then  //swap h/w when orientation changed
+      begin
+        if (CurControl is TToolButton) and
+          (TToolButton(CurControl).Style in [tbsSeparator, tbsDivider]) then
+          begin
+            if not Vertical then
+              w := CurControl.Height
+            else
+              h := CurControl.Width;
+          end;
+      end;
       if (CurControl.Left <> x) or (CurControl.Top <> y) or
          (CurControl.Width <> w) or (CurControl.Height <> h) then
       begin
@@ -835,13 +859,19 @@ begin
         if not Simulate then
         begin
           //DebugLn(['TToolBar.WrapButtons moving child: ',DbgSName(CurControl),' Old=',dbgs(CurControl.BoundsRect),' New=',dbgs(Bounds(x,y,w,h))]);
-          CurControl.SetBounds(x,y,w,h); // Note: do not use SetBoundsKeepBase
+          if SeparatorWidthChange then
+            CurControl.SetBoundsKeepBase(x,y,w,h)
+          else
+            CurControl.SetBounds(x,y,w,h);
           //DebugLn(['TToolBar.WrapButtons moved child: ',DbgSName(CurControl),' ',dbgs(CurControl.BoundsRect)]);
         end;
       end;
       
       // adjust NewWidth, NewHeight
-      NewWidth := Max(NewWidth, x + w + AdjustClientFrame.Right);
+      if Vertical or RowsLeftToRight then
+        NewWidth := Max(NewWidth, x + w + AdjustClientFrame.Right)
+      else
+        NewWidth := Max(NewWidth, ARect.Right - x + ARect.Left + AdjustClientFrame.Right);
       NewHeight := Max(NewHeight, y + h + AdjustClientFrame.Bottom);
 
       // step to next position
@@ -882,6 +912,7 @@ begin
     FullSizeObstacleControls.Free;
     EndUpdate;
     EnableAlign;
+    FPrevVertical := Vertical;
   end;
 end;
 

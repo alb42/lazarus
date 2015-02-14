@@ -50,12 +50,14 @@ type
   
 implementation
 
+// Replace %20 with space, \ with /
 function FixURL(URL: String):String;
 var
   X: LongInt;
 begin
   X := Pos('%20', Url);
-  while X > 0 do begin
+  while X > 0 do
+  begin
     Delete(Url, X, 3);
     Insert(' ', Url, X);
     X := Pos('%20', Url);
@@ -73,14 +75,16 @@ var
 begin
   if fStop^ then Exit;
   txt := AItem.KeyWord;
+  // Fallback:
   if txt = '' then txt := AItem.Text;
   txt := Trim(txt);
   if not Assigned(fLastNode) or (fLastNode.Text <> txt) then
   begin
+    // Add new child node
     fLastNode := AParentNode;
     NewNode := TContentTreeNode(fTreeView.Items.AddChild(AParentNode, txt));
-    NewNode.Url:=FixURL('/'+AItem.Local);
-    NewNode.Data:=fChm;
+    NewNode.Url := FixURL('/'+AItem.Local);
+    NewNode.Data := fChm;
     if fTreeView.Images <> nil then
     begin
       NewNode.ImageIndex := 3;
@@ -92,7 +96,8 @@ begin
         AParentNode.SelectedIndex := 1;
       end;
     end;
-  end else
+  end
+  else
     NewNode := TContentTreeNode(fLastNode);
 
   Inc(fBranchCount);
@@ -115,7 +120,7 @@ end;
 
 procedure TContentsFiller.DoFill(ParentNode: TTreeNode);
 var
- X: Integer;
+  X: Integer;
 begin
   fTreeView.BeginUpdate;
 

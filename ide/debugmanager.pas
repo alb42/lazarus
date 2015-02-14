@@ -41,8 +41,8 @@ uses
   MemCheck,
   {$ENDIF}
   // LCL
-  Classes, SysUtils, Forms, Controls, Dialogs, ExtCtrls, FileUtil, LCLProc,
-  LCLType, LCLIntf, LazLoggerBase, Laz2_XMLCfg, LazFileCache,
+  Classes, SysUtils, Forms, Controls, Dialogs, ExtCtrls, FileUtil,
+  LCLType, LCLIntf, LazLoggerBase, Laz2_XMLCfg, LazFileCache, LazUTF8,
   // codetools
   CodeCache, CodeToolManager, PascalParserTool, CodeTree,
   // IDEIntf
@@ -182,6 +182,7 @@ type
     procedure ClearDebugEventsLog;
 
     function InitDebugger(AFlags: TDbgInitFlags = []): Boolean; override;
+    function DoSetBreakkPointWarnIfNoDebugger: boolean;
 
     function DoPauseProject: TModalResult; override;
     function DoShowExecutionPoint: TModalResult; override;
@@ -613,6 +614,7 @@ function TDebugManager.GetFullFilename(const AUnitinfo: TDebuggerUnitInfo;
       exit;
     debugln(['TDebugManager.GetFullFilename found ',CodePos.Code.Filename,' Line=',CodePos.Y,' Col=',CodePos.X]);
     AUnitinfo.LocationFullFile := CodePos.Code.Filename;
+    AUnitinfo.SrcLine := CodePos.Y;
     //DumpStack;
     Result:=true;
   end;
@@ -624,6 +626,7 @@ begin
   Result := Filename <> '';
   if Result then exit;
 
+  //debugln(['TDebugManager.GetFullFilename Src=',AUnitinfo.SrcClassName,' Func=',AUnitinfo.FunctionName]);
   if (dlfSearchByFunctionName in AUnitinfo.Flags)
   and (AUnitinfo.FunctionName<>'') then begin
     if FindSrc then exit;
@@ -985,7 +988,7 @@ begin
     ExceptMsg := AExceptionText;
     // if AExceptionText is not a valid UTF8 string,
     // then assume it has the ansi encoding and convert it
-    if FindInvalidUTF8Character(pchar(ExceptMsg),length(ExceptMsg), False) > 0 then
+    if FindInvalidUTF8Character(pchar(ExceptMsg),length(ExceptMsg)) > 0 then
       ExceptMsg := AnsiToUtf8(ExceptMsg);
     msg := Format(lisProjectSRaisedExceptionClassSWithMessageSS,
                   [GetTitle, AExceptionClass, LineEnding, ExceptMsg]);
@@ -2166,8 +2169,8 @@ begin
         end;
       end;
 
-    //todo: this check depends on the debugger class
-    if (NewDebuggerClass <> TProcessDebugger)
+    // check if debugger needs an Exe and the exe is there
+    if (NewDebuggerClass.NeedsExePath)
     and not FileIsExecutable(EnvironmentOptions.GetParsedDebuggerFilename)
     then begin
       if not PromptOnError then
@@ -2342,6 +2345,25 @@ begin
 {$ifdef VerboseDebugger}
   DebugLn('[TDebugManager.DoInitDebugger] END');
 {$endif}
+end;
+
+function TDebugManager.DoSetBreakkPointWarnIfNoDebugger: boolean;
+var
+  DbgClass: TDebuggerClass;
+begin
+  DbgClass:=FindDebuggerClass(EnvironmentOptions.DebuggerConfig.DebuggerClass);
+  if (DbgClass=nil)
+  or (DbgClass.NeedsExePath
+    and (not FileIsExecutableCached(EnvironmentOptions.GetParsedDebuggerFilename)))
+  then begin
+    if IDEQuestionDialog(lisDbgMangNoDebuggerSpecified,
+      Format(lisDbgMangThereIsNoDebuggerSpecifiedSettingBreakpointsHaveNo,[LineEnding]),
+      mtWarning, [mrCancel, mrIgnore, lisDbgMangSetTheBreakpointAnyway])
+      <>mrIgnore
+    then
+      exit(false);
+  end;
+  Result:=true;
 end;
 
 // still part of main, should go here when processdebugger is finished
@@ -2712,17 +2734,8 @@ function TDebugManager.DoCreateBreakPoint(const AFilename: string; ALine: intege
   WarnIfNoDebugger: boolean; out ABrkPoint: TIDEBreakPoint): TModalResult;
 begin
   ABrkPoint := nil;
-  if WarnIfNoDebugger
-  and ((FindDebuggerClass(EnvironmentOptions.DebuggerConfig.DebuggerClass)=nil)
-    or (not FileIsExecutableCached(EnvironmentOptions.GetParsedDebuggerFilename)))
-  then begin
-    if IDEQuestionDialog(lisDbgMangNoDebuggerSpecified,
-      Format(lisDbgMangThereIsNoDebuggerSpecifiedSettingBreakpointsHaveNo,[LineEnding]),
-      mtWarning, [mrCancel, mrIgnore, lisDbgMangSetTheBreakpointAnyway])
-      <>mrIgnore
-    then
-      exit;
-  end;
+  if WarnIfNoDebugger and not DoSetBreakkPointWarnIfNoDebugger then
+    exit(mrCancel);
 
   ABrkPoint := FBreakPoints.Add(AFilename, ALine);
   Result := mrOK;
@@ -2734,16 +2747,8 @@ begin
   LockCommandProcessing;
   try
     ABrkPoint := nil;
-    if WarnIfNoDebugger
-    and ((FindDebuggerClass(EnvironmentOptions.DebuggerConfig.DebuggerClass)=nil)
-      or (not FileIsExecutableCached(EnvironmentOptions.GetParsedDebuggerFilename)))
-    then begin
-      if IDEQuestionDialog(lisDbgMangNoDebuggerSpecified,
-        Format(lisDbgMangThereIsNoDebuggerSpecifiedSettingBreakpointsHaveNo,[LineEnding]),
-        mtWarning, [mrCancel, mrIgnore, lisDbgMangSetTheBreakpointAnyway])<>mrIgnore
-      then
-        exit;
-    end;
+    if WarnIfNoDebugger and not DoSetBreakkPointWarnIfNoDebugger then
+      exit(mrCancel);
 
     ABrkPoint := FBreakPoints.Add(AnAddr);
     Result := mrOK;

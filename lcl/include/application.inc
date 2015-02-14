@@ -85,6 +85,7 @@ var
 begin
   LCLProc.SendApplicationMessageFunction:=@SendApplicationMsg;
 
+  FExceptionDialog := aedOkCancelDialog;
   FShowButtonGlyphs := sbgAlways;
   FShowMenuGlyphs := sbgAlways;
   FMainForm := nil;
@@ -114,7 +115,7 @@ begin
   RegisterFindGlobalComponentProc(@FindApplicationComponent);
 
   {$ifndef wince}// remove ifdef when gettext is fixed
-  LCLGetLanguageIDs(LangDefault, LangFallback);
+  LazGetLanguageIDs(LangDefault, LangFallback);
   if LangDefault <> '' then
     FBidiMode := Direction(LangDefault)
   else
@@ -1443,13 +1444,9 @@ function TApplication.DispatchAction(Msg: Longint; Action: TBasicAction): Boolea
 var
   Form: TCustomForm;
 begin
-  Result := False;
   Form := Screen.ActiveForm;
-  if (Form <> nil) and (Form.Perform(Msg, 0, PtrInt(Action)) = 1) then
-    Result := True
-  else
-  if (MainForm <> Form) and (MainForm <> nil) and (MainForm.Perform(Msg, 0, PtrInt(Action)) = 1) then
-    Result := True;
+  Result := ((Form <> nil) and (Form.Perform(Msg, 0, PtrInt(Action)) = 1)) or
+            ((MainForm <> Form) and (MainForm <> nil) and (MainForm.Perform(Msg, 0, PtrInt(Action)) = 1));
   // Disable action if no "user" handler is available
   if (not Result) and (Action is TCustomAction) and
      TCustomAction(Action).Enabled and TCustomAction(Action).DisableIfNoHandler then
@@ -1547,17 +1544,22 @@ var
 begin
   if AppNoExceptionMessages in FFlags then exit;
   Msg := E.Message;
-  if FindInvalidUTF8Character(PChar(Msg), Length(Msg), False) > 0 then
+  if FindInvalidUTF8Character(PChar(Msg), Length(Msg)) > 0 then
     Msg := AnsiToUtf8(Msg);
   if (Msg <> '') and (Msg[length(Msg)] <> '.') then Msg := Msg + '.';
   if (not Terminated) and (Self <> nil) and (AppInitialized in FFlags) then
   begin
     DisableIdleHandler;
     try
-      MsgResult:=MessageBox(PChar(
-        Format(rsPressOkToIgnoreAndRiskDataCorruptionPressCancelToK,
-               [Msg, LineEnding+LineEnding, LineEnding])),
-        PChar(GetTitle), MB_OKCANCEL + MB_ICONERROR);
+      if ExceptionDialog=aedOkMessageBox then
+      begin
+        MsgResult := mrOk;
+        MessageBox(PChar(msg), PChar(GetTitle), MB_OK + MB_ICONERROR);
+      end else
+        MsgResult:=MessageBox(PChar(
+          Format(rsPressOkToIgnoreAndRiskDataCorruptionPressCancelToK,
+                 [Msg, LineEnding+LineEnding, LineEnding])),
+          PChar(GetTitle), MB_OKCANCEL + MB_ICONERROR);
     finally
       EnableIdleHandler;
     end;

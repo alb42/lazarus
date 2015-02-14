@@ -81,7 +81,7 @@ type
 
   TSVGCoordinateKind = (sckUnknown, sckX, sckY, sckXDelta, sckYDelta, sckXSize, sckYSize);
 
-  TSVGUnit = (suPX, suMM);
+  TSVGUnit = (suPX, suMM, suPT {Points});
 
   { TvSVGVectorialReader }
 
@@ -131,7 +131,7 @@ type
     function ReadUseFromNode(ANode: TDOMNode; AData: TvVectorialPage; ADoc: TvVectorialDocument): TvEntity;
     //
     function  StringWithUnitToFloat(AStr: string; ACoordKind: TSVGCoordinateKind = sckUnknown;
-      ADefaultUnit: TSVGUnit = suPX): Double;
+      ADefaultUnit: TSVGUnit = suPX; ATargetUnit: TSVGUnit = suPX): Double;
     function  StringFloatZeroToOneToWord(AStr: string): Word;
     procedure ConvertSVGCoordinatesToFPVCoordinates(
       const AData: TvVectorialPage;
@@ -166,8 +166,11 @@ const
   // 90 inches per pixel = (1 / 90) * 25.4 = 0.2822
   // FLOAT_MILIMETERS_PER_PIXEL = 0.3528; // DPI 72 = 1 / 72 inches per pixel
 
-  FLOAT_MILIMETERS_PER_PIXEL = 5*0.2822; // DPI 90 = 1 / 90 inches per pixel => Actually I changed the value by this factor! Because otherwise it looks ugly!
+  FLOAT_MILIMETERS_PER_PIXEL = 1; //0.2822; // DPI 90 = 1 / 90 inches per pixel => Actually I changed the value! Because otherwise it looks ugly!
   FLOAT_PIXELS_PER_MILIMETER = 1 / FLOAT_MILIMETERS_PER_PIXEL; // DPI 90 = 1 / 90 inches per pixel
+
+  FLOAT_POINTS_PER_PIXEL = 0.75; // For conversion
+  FLOAT_PIXEL_PER_POINT = 1 / FLOAT_POINTS_PER_PIXEL; // For conversion
 
 { TSVGTextSpanStyle }
 
@@ -932,10 +935,34 @@ function TvSVGVectorialReader.ReadSVGBrushStyleWithKeyAndValue(AKey,
   AValue: string; ADestEntity: TvEntityWithPenAndBrush): TvSetPenBrushAndFontElements;
 var
   OldAlpha: Word;
+  Len: Integer;
+  lDefName: String;
+  i: Integer;
+  lCurBrush: TvEntityWithPenAndBrush;
 begin
   Result := [];
   if AKey = 'fill' then
   begin
+    // Suppose for fill="url(#grad2)"
+    lDefName := Trim(AValue);
+    if Copy(lDefName, 0, 3) = 'url' then
+    begin
+      lDefName := StringReplace(AValue, 'url(#', '', []);
+      lDefName := StringReplace(lDefName, ')', '', []);
+      if lDefName = '' then Exit;
+
+      for i := 0 to FBrushDefs.Count-1 do
+      begin
+        lCurBrush := TvEntityWithPenAndBrush(FBrushDefs.Items[i]);
+        if lCurBrush.Name = lDefName then
+        begin
+          ADestEntity.Brush := lCurBrush.Brush;
+          Exit;
+        end;
+      end;
+      Exit;
+    end;
+
     // We store and restore the old alpha to support the "-opacity" element
     OldAlpha := ADestEntity.Brush.Color.Alpha;
     if ADestEntity.Brush.Style = bsClear then ADestEntity.Brush.Style := bsSolid;
@@ -950,7 +977,14 @@ begin
     Result := Result + [spbfBrushColor, spbfBrushStyle];
   end
   else if AKey = 'fill-opacity' then
-    ADestEntity.Brush.Color.Alpha := StringFloatZeroToOneToWord(AValue);
+    ADestEntity.Brush.Color.Alpha := StringFloatZeroToOneToWord(AValue)
+  // For linear gradient => stop-color:rgb(255,255,0);stop-opacity:1
+  else if AKey = 'stop-color' then
+  begin
+    Len := Length(ADestEntity.Brush.Gradient_colors);
+    SetLength(ADestEntity.Brush.Gradient_colors, Len+1);
+    ADestEntity.Brush.Gradient_colors[Len] := ReadSVGColor(AValue);
+  end;
 end;
 
 function TvSVGVectorialReader.ReadSVGFontStyleWithKeyAndValue(AKey,
@@ -987,8 +1021,8 @@ begin
   end
   else if AKey = 'font-size' then
   begin
-    if ADestEntity <> nil then ADestEntity.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX));
-    if ADestStyle <> nil then ADestStyle.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX));
+    if ADestEntity <> nil then ADestEntity.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX, suPT));
+    if ADestStyle <> nil then ADestStyle.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX, suPT));
     Result := Result + [spbfFontSize];
   end
   else if AKey = 'font-family' then
@@ -1229,13 +1263,15 @@ var
   lCurNode, lCurSubNode: TDOMNode;
   lBrushEntity: TvEntityWithPenAndBrush;
   lCurEntity: TvEntity;
+  lOffset: Double;
+  x1, x2, y1, y2: string;
 begin
   lCurNode := ANode.FirstChild;
   while Assigned(lCurNode) do
   begin
     lEntityName := LowerCase(lCurNode.NodeName);
     case lEntityName of
-      'RadialGradient':
+      'radialgradient':
       begin
         lBrushEntity := TvEntityWithPenAndBrush.Create(nil);
         lBrushEntity.Brush.Kind := bkRadialGradient;
@@ -1283,6 +1319,59 @@ begin
               lBlock.Name := lLayerName;
             end;
           end;}
+
+          lCurSubNode := lCurSubNode.NextSibling;
+        end;
+
+        FBrushDefs.Add(lBrushEntity);
+      end;
+      {
+      <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
+        <stop offset="100%" style="stop-color:rgb(255,0,0);stop-opacity:1" />
+      </linearGradient>
+      }
+      'lineargradient':
+      begin
+        lBrushEntity := TvEntityWithPenAndBrush.Create(nil);
+
+        // <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+        for i := 0 to lCurNode.Attributes.Length - 1 do
+        begin
+          lAttrName := lCurNode.Attributes.Item[i].NodeName;
+          lAttrValue := lCurNode.Attributes.Item[i].NodeValue;
+          if lAttrName = 'id' then
+            lBrushEntity.Name := lAttrValue
+          else if lAttrName = 'x1' then
+            x1 := lAttrValue
+          else if lAttrName = 'x2' then
+            x2 := lAttrValue
+          else if lAttrName = 'y1' then
+            y1 := lAttrValue
+          else if lAttrName = 'y2' then
+            y2 := lAttrValue;
+        end;
+        if x2 = '0%' then lBrushEntity.Brush.Kind := bkVerticalGradient
+        else lBrushEntity.Brush.Kind := bkHorizontalGradient;
+
+        // <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
+        // <stop offset="100%" style="stop-color:rgb(255,0,0);stop-opacity:1" />
+        lCurSubNode := lCurNode.FirstChild;
+        while Assigned(lCurSubNode) do
+        begin
+          lNodeName := LowerCase(lCurSubNode.NodeName);
+
+          for i := 0 to lCurSubNode.Attributes.Length - 1 do
+          begin
+            lAttrName := lCurSubNode.Attributes.Item[i].NodeName;
+            lAttrValue := lCurSubNode.Attributes.Item[i].NodeValue;
+            if lAttrName = 'offset' then
+            begin
+              lOffset := StringWithUnitToFloat(lAttrValue);
+            end
+            else if lAttrName = 'style' then
+              ReadSVGStyle(lAttrValue, lBrushEntity);
+          end;
 
           lCurSubNode := lCurSubNode.NextSibling;
         end;
@@ -1387,12 +1476,12 @@ begin
   begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
     lNodeValue := ANode.Attributes.Item[i].NodeValue;
-    if  lNodeName = 'cx' then
-      cx := StringWithUnitToFloat(lNodeValue)
+    if lNodeName = 'cx' then
+      cx := StringWithUnitToFloat(lNodeValue, sckX, suPX, suMM)
     else if lNodeName = 'cy' then
-      cy := StringWithUnitToFloat(lNodeValue)
+      cy := StringWithUnitToFloat(lNodeValue, sckY, suPX, suMM)
     else if lNodeName = 'r' then
-      cr := StringWithUnitToFloat(lNodeValue)
+      cr := StringWithUnitToFloat(lNodeValue, sckXSize, suPX, suMM)
     else if lNodeName = 'id' then
       lCircle.Name := lNodeValue
     else if lNodeName = 'style' then
@@ -1405,10 +1494,9 @@ begin
     end;
   end;
 
-  ConvertSVGCoordinatesToFPVCoordinates(
-        AData, cx, cy, lCircle.X, lCircle.Y);
-  ConvertSVGDeltaToFPVDelta(
-        AData, cr, 0, lCircle.Radius, dtmp);
+  lCircle.X := lCircle.X + cx;
+  lCircle.Y := lCircle.Y + cy;
+  lCircle.Radius := lCircle.Radius + cr;
 
   Result := lCircle;
 end;
@@ -2578,9 +2666,9 @@ begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
     lNodeValue := ANode.Attributes.Item[i].NodeValue;
     if  lNodeName = 'x' then
-      lx := lx + StringWithUnitToFloat(lNodeValue, sckX, suPX)
+      lx := lx + StringWithUnitToFloat(lNodeValue, sckX, suPX, suMM)
     else if lNodeName = 'y' then
-      ly := ly + StringWithUnitToFloat(lNodeValue, sckY, suPX)
+      ly := ly + StringWithUnitToFloat(lNodeValue, sckY, suPX, suMM)
     else if lNodeName = 'id' then
     begin
       lName := lNodeValue;
@@ -2688,7 +2776,8 @@ begin
 end;
 
 function TvSVGVectorialReader.StringWithUnitToFloat(AStr: string;
-  ACoordKind: TSVGCoordinateKind = sckUnknown; ADefaultUnit: TSVGUnit = suPX): Double;
+  ACoordKind: TSVGCoordinateKind = sckUnknown; ADefaultUnit: TSVGUnit = suPX;
+  ATargetUnit: TSVGUnit = suPX): Double;
 var
   UnitStr, ValueStr: string;
   Len: Integer;
@@ -2708,7 +2797,31 @@ var
         sckYSize:  Result := Result * Page_Height / ViewBox_Height;
       end;
       ViewPortApplied := True;
+    end
+    else
+    begin
+      case ACoordKind of
+        sckY:      Result := Page_Height - Result;
+        sckYDelta: Result := - Result;
+      end;
     end;
+  end;
+
+  procedure DoProcessMM_End();
+  begin
+    if ATargetUnit = suPX then
+      Result := Result / FLOAT_MILIMETERS_PER_PIXEL;
+    DoViewBoxAdjust();
+  end;
+
+  procedure DoProcessPX();
+  begin
+    Result := StrToFloat(ValueStr, FPointSeparator);
+    case ATargetUnit of
+    suMM: Result := Result * FLOAT_MILIMETERS_PER_PIXEL;
+    suPT: Result := Result * FLOAT_POINTS_PER_PIXEL;
+    end;
+    DoViewBoxAdjust();
   end;
 
 begin
@@ -2722,17 +2835,19 @@ begin
   begin
     ValueStr := Copy(AStr, 1, Len-2);
     Result := StrToFloat(ValueStr, FPointSeparator);
+    DoProcessMM_End();
   end
   else if UnitStr = 'cm' then
   begin
     ValueStr := Copy(AStr, 1, Len-2);
-    Result := StrToFloat(ValueStr, FPointSeparator) * 10;
+    Result := StrToFloat(ValueStr, FPointSeparator);
+    Result := Result * 10;
+    DoProcessMM_End();
   end
   else if UnitStr = 'px' then
   begin
     ValueStr := Copy(AStr, 1, Len-2);
-    Result := StrToFloat(ValueStr, FPointSeparator);
-    DoViewBoxAdjust();
+    DoProcessPX();
   end
   else if LastChar = '%' then
   begin
@@ -2744,18 +2859,23 @@ begin
     ValueStr := Copy(AStr, 1, Len-2);
     Result := StrToFloat(ValueStr, FPointSeparator);
   end
+  // Now process default values
   else if ADefaultUnit = suMM then
   begin
-    Result := StringWithUnitToFloat(AStr+'mm', ACoordKind);
+    ValueStr := AStr;
+    Result := StrToFloat(ValueStr, FPointSeparator);
+    DoProcessMM_End();
   end
-  else // If there is no unit, just use StrToFloat
+  else if ADefaultUnit = suPX then
+  begin
+    ValueStr := AStr;
+    DoProcessPX();
+  end
+  else // If there is no unit and no matching default, just use StrToFloat
   begin
     Result := StrToFloat(AStr, FPointSeparator);
     DoViewBoxAdjust();
   end;
-  // Finish the adjustment for some cases where this is substituting ConvertSVGCoordinatesToFPVCoordinates
-  if (not ViewPortApplied) and (ACoordKind = sckY) then
-    Result := Page_Height - Result;
 end;
 
 function TvSVGVectorialReader.StringFloatZeroToOneToWord(AStr: string): Word;
@@ -2924,12 +3044,12 @@ begin
   // ----------------
   // Read the properties of the <svg> tag
   // ----------------
-  AData.Width := StringWithUnitToFloat(Doc.DocumentElement.GetAttribute('width'));
+  AData.Width := StringWithUnitToFloat(Doc.DocumentElement.GetAttribute('width'), sckX, suPX, suMM);
   lStr := Doc.DocumentElement.GetAttribute('height');
   if lStr <> '' then
   begin
     lDocNeedsSizeAutoDetection := False;
-    AData.Height := StringWithUnitToFloat(lStr);
+    AData.Height := StringWithUnitToFloat(lStr, sckX, suPX, suMM);
   end;
   Page_Width := AData.Width;
   Page_Height := AData.Height;

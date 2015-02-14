@@ -12,16 +12,24 @@ msgstr ""
 "Language: hu\n"
 
 #: reconstsunit.sabout
-msgid "About..."
-msgstr "Névjegy..."
+msgid "About ..."
+msgstr "Névjegy ..."
+
+#: reconstsunit.sallfilesexcutablefilesexeexedlldlldll
+msgid "All files (*.*)|*.*|Excutable files (*.exe)|*.exe|DLL (*.dll)|*.dll"
+msgstr "Minden fájl (*.*)|*.*|Futtatható fájlok (*.exe)|*.exe|DLL (*.dll)|*.dll"
+
+#: reconstsunit.sallfilessharedlibsoso
+msgid "All files (*)|*|Shared libraries (*.so)|*.so"
+msgstr "Minden fájl (*)|*|Megosztott függvénytárak (*.so)|*.so"
 
 #: reconstsunit.sbuilddate
-msgid "Build date : "
-msgstr "Építés dátuma:"
+msgid "Build date: "
+msgstr "Építés dátuma: "
 
 #: reconstsunit.scarbonwidgetset
 msgid "Carbon widget set"
-msgstr "Carbon elemkészlet"
+msgstr "Carbon vezérlőkészlet"
 
 #: reconstsunit.sexit
 msgid "Exit"
@@ -32,20 +40,20 @@ msgid "File"
 msgstr "Fájl"
 
 #: reconstsunit.sfpcversion
-msgid "FPC version : "
-msgstr "FPC változat:"
+msgid "FPC version: "
+msgstr "FPC változat: "
 
 #: reconstsunit.sfpguiwidgetset
 msgid "FpGUI widget set"
-msgstr "FpGUI elemkészlet"
+msgstr "FpGUI vezérlőkészlet"
 
 #: reconstsunit.sgtk2widgetset
 msgid "GTK 2 widget set"
-msgstr "GTK 2 elemkészlet"
+msgstr "GTK 2 vezérlőkészlet"
 
 #: reconstsunit.sgtkwidgetset
 msgid "GTK widget set"
-msgstr "GTK elemkészlet"
+msgstr "GTK vezérlőkészlet"
 
 #: reconstsunit.shelp
 msgid "Help"
@@ -64,8 +72,8 @@ msgid "This program is free software under GNU GPL 2 license, see COPYING file"
 msgstr "Ez a program szabad szoftver GNU GPL 2 licenc alatt, lásd a COPYING fájlt!"
 
 #: reconstsunit.sopen
-msgid "Open..."
-msgstr "Megnyitás..."
+msgid "Open ..."
+msgstr "Megnyitás ..."
 
 #: reconstsunit.sotherguiwidgetset
 msgid "Other gui"
@@ -73,33 +81,37 @@ msgstr "Egyéb GUI"
 
 #: reconstsunit.sqtwidgetset
 msgid "QT widget set"
-msgstr "QT elemkészlet"
+msgstr "QT vezérlőkészlet"
 
 #: reconstsunit.sresourceexplorer
 msgid "Resource explorer"
 msgstr "Erőforrás böngésző"
 
+#: reconstsunit.sresources
+msgid "Resources"
+msgstr "Erőforrások"
+
 #: reconstsunit.ssaveresource
-msgid "Save resource..."
-msgstr "Erőforrás mentése..."
+msgid "Save resource ..."
+msgstr "Erőforrás mentése ..."
 
 #: reconstsunit.sstrings
 msgid "Strings"
 msgstr "Karakterláncok"
 
 #: reconstsunit.stargetcpu
-msgid "Target CPU : "
-msgstr "Cél CPU:"
+msgid "Target CPU: "
+msgstr "Cél CPU: "
 
 #: reconstsunit.stargetos
-msgid "Target OS : "
-msgstr "Cél OS:"
+msgid "Target OS: "
+msgstr "Cél OS: "
 
 #: reconstsunit.swin32_64widgetset
 msgid "Win32/Win64 widget set"
-msgstr "Win32/Win64 elemkészlet"
+msgstr "Win32/Win64 vezérlőkészlet"
 
 #: reconstsunit.swincewidgetset
 msgid "WinCE widget set"
-msgstr "WinCE elemkészlet"
+msgstr "WinCE vezérlőkészlet"
 

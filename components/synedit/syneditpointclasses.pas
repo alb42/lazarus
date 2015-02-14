@@ -36,7 +36,7 @@ unit SynEditPointClasses;
 interface
 
 uses
-  Classes, SysUtils, Controls, LCLProc, LCLType, LCLIntf,
+  Classes, SysUtils, Controls, LCLProc, LCLType, LCLIntf, ExtCtrls, Graphics, Forms,
   {$IFDEF SYN_MBCSSUPPORT}
   Imm,
   {$ENDIF}
@@ -75,10 +75,26 @@ type
   TSynEditBaseCaret = class;
   TSynEditCaret = class;
 
+  TSynBlockPersistMode = (
+    sbpDefault,
+    sbpWeak,     // selstart/end are treated as outside the block
+    sbpStrong    // selstart/end are treated as inside the block
+  );
+
+  TSynBeforeSetSelTextEvent = procedure(Sender: TObject; AMode: TSynSelectionMode; ANewText: PChar) of object;
+
+  { TSynBeforeSetSelTextList }
+
+  TSynBeforeSetSelTextList = Class(TMethodList)
+  public
+    procedure CallBeforeSetSelTextHandlers(Sender: TObject; AMode: TSynSelectionMode; ANewText: PChar);
+  end;
+
   { TSynEditSelection }
 
   TSynEditSelection = class(TSynEditPointBase)
   private
+    FOnBeforeSetSelText: TSynBeforeSetSelTextList;
     FAutoExtend: Boolean;
     FCaret: TSynEditCaret;
     FHide: Boolean;
@@ -95,7 +111,7 @@ type
     FEndLinePos: Integer; // 1 based
     FEndBytePos: Integer; // 1 based
     FPersistent: Boolean;
-    FPersistentLock: Integer;
+    FPersistentLock, FWeakPersistentIdx, FStrongPersistentIdx: Integer;
     FIgnoreNextCaretMove: Boolean;
     (* On any modification, remember the position of the caret.
        If it gets moved from there to either end of the block, this should be ignored
@@ -140,9 +156,12 @@ type
     procedure BeginMinimumSelection; // current selection will be minimum while follow caret (autoExtend) // until next setSelStart or end of follow
     procedure SortSelectionPoints;
     procedure IgnoreNextCaretMove;
-    procedure IncPersistentLock;
+    // Mode can NOT be changed in nested calls
+    procedure IncPersistentLock(AMode: TSynBlockPersistMode = sbpDefault); // Weak: Do not extend (but rather move) block, if at start/end
     procedure DecPersistentLock;
     procedure Clear;
+    procedure AddBeforeSetSelTextHandler(AHandler: TSynBeforeSetSelTextEvent);
+    procedure RemoveBeforeSetSelTextHandler(AHandler: TSynBeforeSetSelTextEvent);
     property  Enabled: Boolean read FEnabled write SetEnabled;
     property  ActiveSelectionMode: TSynSelectionMode
                 read FActiveSelectionMode write SetActiveSelectionMode;
@@ -313,11 +332,153 @@ type
     property SkipTabs: Boolean read FSkipTabs write SetSkipTabs;
     property AllowPastEOL: Boolean read FAllowPastEOL write SetAllowPastEOL;
     property KeepCaretX: Boolean read FKeepCaretX write SetKeepCaretX;
-    property MaxLeftChar: TMaxLeftCharFunc write FMaxLeftChar;
+    property MaxLeftChar: TMaxLeftCharFunc read FMaxLeftChar write FMaxLeftChar;
   end;
 
-  TSynCaretType = (ctVerticalLine, ctHorizontalLine, ctHalfBlock, ctBlock);
+  TSynCaretType = (ctVerticalLine, ctHorizontalLine, ctHalfBlock, ctBlock, ctCostum);
   TSynCaretLockFlags = set of (sclfUpdateDisplay, sclfUpdateDisplayType);
+
+  { TSynEditScreenCaretTimer
+    Allow sync between carets which use an internal painter
+  }
+
+  TSynEditScreenCaretTimer = class
+  private
+    FDisplayCycle: Boolean;
+    FTimer: TTimer;
+    FTimerList: TMethodList;
+    FAfterPaintList: TMethodList;
+    FLocCount: Integer;
+    FLocFlags: set of (lfTimer, lfRestart);
+    procedure DoTimer(Sender: TObject);
+    procedure DoAfterPaint(Data: PtrInt);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure AddAfterPaintHandler(AHandler: TNotifyEvent); // called once
+    procedure AddHandler(AHandler: TNotifyEvent);
+    procedure RemoveHandler(AHandler: TNotifyEvent);
+    procedure RemoveHandler(AHandlerOwner: TObject);
+    procedure IncLock;
+    procedure DecLock;
+    procedure AfterPaintEvent;
+
+    procedure RestartCycle;
+    property DisplayCycle: Boolean read FDisplayCycle;
+  end;
+
+  TSynEditScreenCaret = class;
+
+  { TSynEditScreenCaretPainter }
+
+  TSynEditScreenCaretPainter = class
+  private
+    FLeft, FTop, FHeight, FWidth: Integer;
+    FCreated, FShowing: Boolean;
+    FInPaint, FInScroll: Boolean;
+    FPaintClip: TRect;
+    FScrollX, FScrollY: Integer;
+    FScrollRect, FScrollClip: TRect;
+
+    function GetHandle: HWND;
+    function GetHandleAllocated: Boolean;
+  protected
+    FHandleOwner: TWinControl;
+    FOwner: TSynEditScreenCaret;
+    FNeedPositionConfirmed: boolean;
+    procedure Init; virtual;
+    property Handle: HWND read GetHandle;
+    property HandleAllocated: Boolean read GetHandleAllocated;
+
+    procedure BeginScroll(dx, dy: Integer; const rcScroll, rcClip: TRect); virtual;
+    procedure FinishScroll(dx, dy: Integer; const rcScroll, rcClip: TRect; Success: Boolean); virtual;
+    procedure BeginPaint(rcClip: TRect); virtual;
+    procedure FinishPaint(rcClip: TRect); virtual;
+  public
+    constructor Create(AHandleOwner: TWinControl; AOwner: TSynEditScreenCaret);
+    function CreateCaret(w, h: Integer): Boolean; virtual;
+    function DestroyCaret: Boolean; virtual;
+    function HideCaret: Boolean; virtual;
+    function ShowCaret: Boolean; virtual;
+    function SetCaretPosEx(x, y: Integer): Boolean; virtual;
+
+    property Left: Integer read FLeft;
+    property Top: Integer read FTop;
+    property Width: Integer read FWidth;
+    property Height: Integer read FHeight;
+    property Created: Boolean read FCreated;
+    property Showing: Boolean read FShowing;
+    property InPaint: Boolean read FInPaint;
+    property InScroll: Boolean read FInScroll;
+    property NeedPositionConfirmed: boolean read FNeedPositionConfirmed;
+  end;
+
+  TSynEditScreenCaretPainterClass = class of TSynEditScreenCaretPainter;
+
+  { TSynEditScreenCaretPainterSystem }
+
+  TSynEditScreenCaretPainterSystem = class(TSynEditScreenCaretPainter)
+  protected
+    //procedure BeginScroll(dx, dy: Integer; const rcScroll, rcClip: TRect); override;
+    procedure FinishScroll(dx, dy: Integer; const rcScroll, rcClip: TRect; Success: Boolean); override;
+    procedure BeginPaint(rcClip: TRect); override;
+    //procedure FinishPaint(rcClip: TRect); override; // unhide, currently done by editor
+  public
+    function CreateCaret(w, h: Integer): Boolean; override;
+    function DestroyCaret: Boolean; override;
+    function HideCaret: Boolean; override;
+    function ShowCaret: Boolean; override;
+    function SetCaretPosEx(x, y: Integer): Boolean; override;
+  end;
+
+  { TSynEditScreenCaretPainterInternal }
+
+  TSynEditScreenCaretPainterInternal = class(TSynEditScreenCaretPainter)
+  private type
+    TIsInRectState = (irInside, irPartInside, irOutside);
+    TPainterState = (psAfterPaintAdded, psCleanOld, psRemoveTimer);
+    TPainterStates = set of TPainterState;
+  private
+    FColor: TColor;
+    FForcePaintEvents: Boolean;
+    FIsDrawn: Boolean;
+    FSavePen: TPen;
+    FOldX, FOldY, FOldW, FOldH: Integer;
+    FState: TPainterStates;
+    FCanPaint: Boolean;
+
+    procedure DoTimer(Sender: TObject);
+    procedure DoPaint(ACanvas: TCanvas; X, Y, H, W: Integer);
+    procedure Paint;
+    procedure Invalidate;
+    procedure AddAfterPaint(AStates: TPainterStates = []);
+    procedure DoAfterPaint(Sender: TObject);
+    procedure ExecAfterPaint;
+    function CurrentCanvas: TCanvas;
+    procedure SetColor(AValue: TColor);
+    function IsInRect(ARect: TRect): TIsInRectState;
+    function IsInRect(ARect: TRect; X, Y, W, H: Integer): TIsInRectState;
+  protected
+    procedure Init; override;
+
+    procedure BeginScroll(dx, dy: Integer; const rcScroll, rcClip: TRect); override;
+    procedure FinishScroll(dx, dy: Integer; const rcScroll, rcClip: TRect; Success: Boolean); override;
+    procedure BeginPaint(rcClip: TRect); override;
+    procedure FinishPaint(rcClip: TRect); override;
+  public
+    destructor Destroy; override;
+    function CreateCaret(w, h: Integer): Boolean; override;
+    function DestroyCaret: Boolean; override;
+    function HideCaret: Boolean; override;
+    function ShowCaret: Boolean; override;
+    function SetCaretPosEx(x, y: Integer): Boolean; override;
+    property Color: TColor read FColor write SetColor;
+    property ForcePaintEvents: Boolean read FForcePaintEvents write FForcePaintEvents;
+  end;
+
+  // relative dimensions in percent from 0 to 1024 (=100%)
+  TSynCustomCaretSizeFlag = (ccsRelativeLeft, ccsRelativeTop, ccsRelativeWidth, ccsRelativeHeight);
+  TSynCustomCaretSizeFlags = set of TSynCustomCaretSizeFlag;
 
   { TSynEditScreenCaret }
 
@@ -335,6 +496,9 @@ type
     FOnExtraLineCharsChanged: TNotifyEvent;
     FVisible: Boolean;
     FHandleOwner: TWinControl;
+    FCaretPainter: TSynEditScreenCaretPainter;
+    FPaintTimer: TSynEditScreenCaretTimer;
+    FPaintTimerOwned: Boolean;
     function GetHandle: HWND;
     function GetHandleAllocated: Boolean;
     procedure SetCharHeight(const AValue: Integer);
@@ -350,17 +514,20 @@ type
     {$ENDIF}
     FPixelWidth, FPixelHeight: Integer;
     FOffsetX, FOffsetY: Integer;
-    FCurrentPosX, FCurrentPosY: Integer;
-    FCurrentVisible, FCurrentCreated: Boolean;
-    FCurrentClippedWidth: Integer;
+    FCustomPixelWidth, FCustomPixelHeight: Array [TSynCaretType] of Integer;
+    FCustomOffsetX, FCustomOffsetY: Array [TSynCaretType] of Integer;
+    FCustomFlags: Array [TSynCaretType] of TSynCustomCaretSizeFlags;
     FLockCount: Integer;
     FLockFlags: TSynCaretLockFlags;
+    function GetHasPaintTimer: Boolean;
+    function GetPaintTimer: TSynEditScreenCaretTimer;
     procedure SetClipBottom(const AValue: Integer);
     procedure SetClipExtraPixel(AValue: Integer);
     procedure SetClipLeft(const AValue: Integer);
     procedure SetClipRect(const AValue: TRect);
     procedure SetClipTop(const AValue: Integer);
     procedure CalcExtraLineChars;
+    procedure SetPaintTimer(AValue: TSynEditScreenCaretTimer);
     procedure UpdateDisplayType;
     procedure UpdateDisplay;
     procedure ShowCaret;
@@ -369,13 +536,27 @@ type
     property HandleAllocated: Boolean read GetHandleAllocated;
   public
     constructor Create(AHandleOwner: TWinControl);
+    constructor Create(AHandleOwner: TWinControl; APainterClass: TSynEditScreenCaretPainterClass);
+    procedure ChangePainter(APainterClass: TSynEditScreenCaretPainterClass);
     destructor Destroy; override;
+
+    procedure BeginScroll(dx, dy: Integer; const rcScroll, rcClip: TRect);
+    procedure FinishScroll(dx, dy: Integer; const rcScroll, rcClip: TRect; Success: Boolean);
+    procedure BeginPaint(rcClip: TRect);
+    procedure FinishPaint(rcClip: TRect);
+    procedure Lock;
+    procedure UnLock;
+    procedure AfterPaintEvent;  // next async
+
     procedure  Hide; // Keep visible = true
     procedure  DestroyCaret(SkipHide: boolean = False);
-    procedure  Lock;
-    procedure  UnLock;
-    procedure InvalidatePos;
+    procedure ResetCaretTypeSizes;
+    procedure SetCaretTypeSize(AType: TSynCaretType; AWidth, AHeight, AXOffs, AYOffs: Integer;
+                               AFlags: TSynCustomCaretSizeFlags = []);
     property HandleOwner: TWinControl read FHandleOwner;
+    property PaintTimer: TSynEditScreenCaretTimer read GetPaintTimer write SetPaintTimer;
+    property HasPaintTimer: Boolean read GetHasPaintTimer;
+    property Painter: TSynEditScreenCaretPainter read FCaretPainter;
     property CharWidth:   Integer read FCharWidth write SetCharWidth;
     property CharHeight:  Integer read FCharHeight write SetCharHeight;
     property ClipLeft:    Integer read FClipLeft write SetClipLeft;
@@ -393,6 +574,18 @@ type
   end;
 
 implementation
+
+{ TSynBeforeSetSelTextList }
+
+procedure TSynBeforeSetSelTextList.CallBeforeSetSelTextHandlers(Sender: TObject;
+  AMode: TSynSelectionMode; ANewText: PChar);
+var
+  i: Integer;
+begin
+  i:=Count;
+  while NextDownIndex(i) do
+    TSynBeforeSetSelTextEvent(Items[i])(Sender, AMode, ANewText);
+end;
 
 { TSynEditBaseCaret }
 
@@ -1214,6 +1407,7 @@ end;
 constructor TSynEditSelection.Create(ALines : TSynEditStrings; aActOnLineChanges: Boolean);
 begin
   Inherited Create(ALines);
+  FOnBeforeSetSelText := TSynBeforeSetSelTextList.Create;
   FInternalCaret := TSynEditBaseCaret.Create;
   FInternalCaret.Lines := FLines;
 
@@ -1235,6 +1429,7 @@ end;
 
 destructor TSynEditSelection.Destroy;
 begin
+  FreeAndNil(FOnBeforeSetSelText);
   FreeAndNil(FInternalCaret);
   if FHookedLines then begin
     FLines.RemoveEditHandler(@DoLinesEdited);
@@ -1538,7 +1733,7 @@ end;
 procedure TSynEditSelection.DoLinesEdited(Sender: TSynEditStrings; aLinePos, aBytePos, aCount,
   aLineBrkCnt: Integer; aText: String);
 
-  function AdjustPoint(aPoint: Tpoint): TPoint; inline;
+  function AdjustPoint(aPoint: Tpoint; AIsStart: Boolean): TPoint; inline;
   begin
     Result := aPoint;
     if aLineBrkCnt < 0 then begin
@@ -1563,8 +1758,25 @@ procedure TSynEditSelection.DoLinesEdited(Sender: TSynEditStrings; aLinePos, aBy
     else
     if aCount <> 0 then begin
       (* Chars Insert/Deleted *)
-      if (aPoint.y = aLinePos) and (aPoint.x >= aBytePos) then
-        Result.x := Max(aBytePos, Result.x + aCount);
+      if (aPoint.y = aLinePos) then begin
+        if (FWeakPersistentIdx > 0) and (FWeakPersistentIdx > FStrongPersistentIdx) then begin
+          if (AIsStart and (aPoint.x >= aBytePos)) or
+             (not AIsStart and (aPoint.x > aBytePos))
+          then
+            Result.x := Max(aBytePos, Result.x + aCount);
+        end
+        else
+        if (FStrongPersistentIdx > 0) then begin
+          if (AIsStart and (aPoint.x > aBytePos)) or
+             (not AIsStart and (aPoint.x >= aBytePos))
+          then
+            Result.x := Max(aBytePos, Result.x + aCount);
+        end
+        else begin
+          if (aPoint.x >= aBytePos) then
+            Result.x := Max(aBytePos, Result.x + aCount);
+        end;
+      end;
     end;
   end;
 
@@ -1574,8 +1786,8 @@ begin
      ((FCaret <> nil) and (not FCaret.Locked))
   then begin
     if FActiveSelectionMode <> smColumn then begin // TODO: adjust ypos, height in smColumn mode
-      AdjustStartLineBytePos(AdjustPoint(StartLineBytePos));
-      EndLineBytePos := AdjustPoint(EndLineBytePos);
+      AdjustStartLineBytePos(AdjustPoint(StartLineBytePos, True));
+      EndLineBytePos := AdjustPoint(EndLineBytePos, False);
     end;
     // Todo: Change Lines in smColumn
   end
@@ -1850,6 +2062,7 @@ var
   end;
 
 begin
+  FOnBeforeSetSelText.CallBeforeSetSelTextHandlers(Self, PasteMode, Value);
   FIsSettingText := True;
   FStickyAutoExtend := False;
   FLines.BeginUpdate; // Todo: can we get here, without paintlock?
@@ -2166,14 +2379,22 @@ begin
   FIgnoreNextCaretMove := True;
 end;
 
-procedure TSynEditSelection.IncPersistentLock;
+procedure TSynEditSelection.IncPersistentLock(AMode: TSynBlockPersistMode);
 begin
   inc(FPersistentLock);
+  if (sbpWeak = AMode) and (FWeakPersistentIdx = 0) then
+    FWeakPersistentIdx := FPersistentLock;
+  if (sbpStrong = AMode) and (FStrongPersistentIdx = 0) then
+    FStrongPersistentIdx := FPersistentLock;
 end;
 
 procedure TSynEditSelection.DecPersistentLock;
 begin
   dec(FPersistentLock);
+  if FWeakPersistentIdx > FPersistentLock then
+    FWeakPersistentIdx := 0;
+  if FStrongPersistentIdx > FPersistentLock then
+    FStrongPersistentIdx := 0;
   if (FPersistentLock = 0) and (FCaret <> nil) and FCaret.Locked then
     FLastCarePos := Point(FCaret.OldCharPos, FCaret.OldLinePos);
 end;
@@ -2186,26 +2407,649 @@ begin
     StartLineBytePos := StartLineBytePos;
 end;
 
+procedure TSynEditSelection.AddBeforeSetSelTextHandler(AHandler: TSynBeforeSetSelTextEvent);
+begin
+  FOnBeforeSetSelText.Add(TMethod(AHandler));
+end;
+
+procedure TSynEditSelection.RemoveBeforeSetSelTextHandler(AHandler: TSynBeforeSetSelTextEvent);
+begin
+  FOnBeforeSetSelText.Remove(TMethod(AHandler));
+end;
+
+{ TSynEditScreenCaretTimer }
+
+procedure TSynEditScreenCaretTimer.DoAfterPaint(Data: PtrInt);
+begin
+  FAfterPaintList.CallNotifyEvents(Self);
+  while FAfterPaintList.Count > 0 do
+    FAfterPaintList.Delete(FAfterPaintList.Count - 1);
+end;
+
+procedure TSynEditScreenCaretTimer.DoTimer(Sender: TObject);
+begin
+  if FLocCount > 0 then begin
+    include(FLocFlags, lfTimer);
+    exit;
+  end;
+  FDisplayCycle := not FDisplayCycle;
+  FTimerList.CallNotifyEvents(Self);
+end;
+
+constructor TSynEditScreenCaretTimer.Create;
+begin
+  FTimerList := TMethodList.Create;
+  FAfterPaintList := TMethodList.Create;
+  FTimer := TTimer.Create(nil);
+  FTimer.Enabled := False;
+  FTimer.Interval := 500;
+  FTimer.OnTimer := @DoTimer;
+end;
+
+destructor TSynEditScreenCaretTimer.Destroy;
+begin
+  Application.RemoveAsyncCalls(Self);
+  FreeAndNil(FTimer);
+  FreeAndNil(FTimerList);
+  FreeAndNil(FAfterPaintList);
+  inherited Destroy;
+end;
+
+procedure TSynEditScreenCaretTimer.AddAfterPaintHandler(AHandler: TNotifyEvent);
+begin
+  if FAfterPaintList.Count = 0 then
+    Application.QueueAsyncCall(@DoAfterPaint, 0);
+  FAfterPaintList.Add(TMethod(AHandler));
+end;
+
+procedure TSynEditScreenCaretTimer.AddHandler(AHandler: TNotifyEvent);
+begin
+  FTimerList.Add(TMethod(AHandler));
+  if not FTimer.Enabled then
+    RestartCycle;
+end;
+
+procedure TSynEditScreenCaretTimer.RemoveHandler(AHandler: TNotifyEvent);
+begin
+  FTimerList.Remove(TMethod(AHandler));
+  if FTimerList.Count = 0 then
+    FTimer.Enabled := False;
+end;
+
+procedure TSynEditScreenCaretTimer.RemoveHandler(AHandlerOwner: TObject);
+begin
+  FTimerList.RemoveAllMethodsOfObject(AHandlerOwner);
+  FAfterPaintList.RemoveAllMethodsOfObject(AHandlerOwner);
+  if FTimerList.Count = 0 then FTimer.Enabled := False;
+end;
+
+procedure TSynEditScreenCaretTimer.IncLock;
+begin
+  inc(FLocCount);
+end;
+
+procedure TSynEditScreenCaretTimer.DecLock;
+begin
+  if FLocCount > 0 then
+    dec(FLocCount);
+  if FLocCount > 0 then
+    exit;
+
+  if lfRestart in FLocFlags then
+    RestartCycle
+  else;
+  if lfTimer in FLocFlags then
+    DoTimer(nil);
+
+  FLocFlags := [];
+end;
+
+procedure TSynEditScreenCaretTimer.AfterPaintEvent;
+begin
+  Application.RemoveAsyncCalls(Self);
+  DoAfterPaint(0);
+end;
+
+procedure TSynEditScreenCaretTimer.RestartCycle;
+begin
+  if FLocCount > 0 then begin
+    include(FLocFlags, lfRestart);
+    exit;
+  end;
+  if FTimerList.Count = 0 then exit;
+  FTimer.Enabled := False;
+  FDisplayCycle := False;
+  DoTimer(nil);
+  FTimer.Enabled := True;
+end;
+
+{ TSynEditScreenCaretPainter }
+
+function TSynEditScreenCaretPainter.GetHandle: HWND;
+begin
+  Result := FHandleOwner.Handle;
+end;
+
+function TSynEditScreenCaretPainter.GetHandleAllocated: Boolean;
+begin
+  Result := FHandleOwner.HandleAllocated;
+end;
+
+procedure TSynEditScreenCaretPainter.Init;
+begin
+  //
+end;
+
+constructor TSynEditScreenCaretPainter.Create(AHandleOwner: TWinControl;
+  AOwner: TSynEditScreenCaret);
+begin
+  FLeft := -1;
+  FTop := -1;
+  inherited Create;
+  FHandleOwner := AHandleOwner;
+  FOwner := AOwner;
+  Init;
+end;
+
+function TSynEditScreenCaretPainter.CreateCaret(w, h: Integer): Boolean;
+begin
+  FLeft := -1;
+  FTop := -1;
+  FWidth := w;
+  FHeight := h;
+  FCreated := True;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainter.DestroyCaret: Boolean;
+begin
+  FCreated := False;
+  FShowing := False;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainter.HideCaret: Boolean;
+begin
+  FShowing := False;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainter.ShowCaret: Boolean;
+begin
+  FShowing := True;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainter.SetCaretPosEx(x, y: Integer): Boolean;
+begin
+  FLeft := x;
+  FTop := y;
+  FNeedPositionConfirmed := False;
+  Result := True;
+end;
+
+procedure TSynEditScreenCaretPainter.BeginScroll(dx, dy: Integer; const rcScroll,
+  rcClip: TRect);
+begin
+  FInScroll := True;
+  FScrollX := dx;
+  FScrollY := dy;
+  FScrollRect := rcScroll;
+  FScrollClip := rcClip;
+end;
+
+procedure TSynEditScreenCaretPainter.FinishScroll(dx, dy: Integer; const rcScroll,
+  rcClip: TRect; Success: Boolean);
+begin
+  FInScroll := False;
+end;
+
+procedure TSynEditScreenCaretPainter.BeginPaint(rcClip: TRect);
+begin
+  FInPaint := True;
+  FPaintClip := rcClip;
+end;
+
+procedure TSynEditScreenCaretPainter.FinishPaint(rcClip: TRect);
+begin
+  FInPaint := False;
+end;
+
+{ TSynEditScreenCaretPainterSystem }
+
+procedure TSynEditScreenCaretPainterSystem.FinishScroll(dx, dy: Integer; const rcScroll,
+  rcClip: TRect; Success: Boolean);
+begin
+  inherited FinishScroll(dx, dy, rcScroll, rcClip, Success);
+  if Success then
+    inherited SetCaretPosEx(-1, -1);
+  FNeedPositionConfirmed := True;
+end;
+
+procedure TSynEditScreenCaretPainterSystem.BeginPaint(rcClip: TRect);
+begin
+  inherited BeginPaint(rcClip);
+  if Showing then
+    if not HideCaret then
+      DestroyCaret; // only if was Showing
+end;
+
+function TSynEditScreenCaretPainterSystem.CreateCaret(w, h: Integer): Boolean;
+begin
+  // do not create caret during paint / Issue 0021924
+  Result := HandleAllocated and not InPaint;
+  if not Result then
+    exit;
+  inherited CreateCaret(w, h);
+  inherited SetCaretPosEx(-1, -1);
+  Result := LCLIntf.CreateCaret(Handle, 0, w, h);
+  SetCaretRespondToFocus(Handle, False); // Only for GTK
+  if not Result then inherited DestroyCaret;
+end;
+
+function TSynEditScreenCaretPainterSystem.DestroyCaret: Boolean;
+begin
+  Result := inherited DestroyCaret;
+  if HandleAllocated then
+    Result := LCLIntf.DestroyCaret(Handle);
+end;
+
+function TSynEditScreenCaretPainterSystem.HideCaret: Boolean;
+begin
+  inherited HideCaret;
+  if HandleAllocated then
+    Result := LCLIntf.HideCaret(Handle);
+end;
+
+function TSynEditScreenCaretPainterSystem.ShowCaret: Boolean;
+begin
+  Result := HandleAllocated;
+  if not Result then
+    exit;
+  inherited ShowCaret;
+  Result := LCLIntf.ShowCaret(Handle);
+end;
+
+function TSynEditScreenCaretPainterSystem.SetCaretPosEx(x, y: Integer): Boolean;
+begin
+  Result := HandleAllocated;
+  if not Result then
+    exit;
+  inherited SetCaretPosEx(x, y);
+  Result := LCLIntf.SetCaretPosEx(Handle, x, y);
+end;
+
+{ TSynEditScreenCaretPainterInternal }
+
+procedure TSynEditScreenCaretPainterInternal.DoTimer(Sender: TObject);
+begin
+  assert(not((not Showing) and FIsDrawn), 'TSynEditScreenCaretPainterInternal.DoTimer: not((not Showing) and FIsDrawn)');
+  if (FState <> []) then
+    ExecAfterPaint;
+
+  if (not Showing) or NeedPositionConfirmed then exit;
+  if FIsDrawn <> FOwner.PaintTimer.DisplayCycle then
+    Paint;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.DoPaint(ACanvas: TCanvas; X, Y, H, W: Integer);
+var
+  l: Integer;
+  am: TAntialiasingMode;
+begin
+  if ForcePaintEvents and (not FInPaint) then begin
+   Invalidate;
+   exit;
+  end;
+
+  am := ACanvas.AntialiasingMode;
+  FSavePen.Assign(ACanvas.Pen);
+
+  l := Left + Width div 2;
+  ACanvas.MoveTo(l, Top);
+  ACanvas.Pen.Mode := pmNotXOR;
+  ACanvas.Pen.Style := psSolid;
+  ACanvas.Pen.Color := FColor;
+  ACanvas.AntialiasingMode := amOff;
+  ACanvas.pen.EndCap := pecFlat;
+  ACanvas.pen.Width := Width;
+  ACanvas.LineTo(l, Top+Height);
+
+  ACanvas.Pen.Assign(FSavePen);
+  ACanvas.AntialiasingMode := am;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.Paint;
+begin
+  if not HandleAllocated then begin
+    FIsDrawn := False;
+    exit;
+  end;
+
+  if FInPaint or FInScroll then begin
+    if FCanPaint then
+      FIsDrawn := not FIsDrawn; //change the state, that is applied at the end of paint
+    exit;
+  end;
+
+  if (FState <> []) then
+    ExecAfterPaint;
+
+  FIsDrawn := not FIsDrawn;
+  DoPaint(CurrentCanvas, FLeft, FTop, FHeight, FWidth);
+end;
+
+procedure TSynEditScreenCaretPainterInternal.Invalidate;
+var
+  r: TRect;
+begin
+  r.Left := Left;
+  r.Top := Top;
+  r.Right := Left+Width+1;
+  r.Bottom := Top+Height+1;
+  InvalidateRect(Handle, @r, False);
+end;
+
+procedure TSynEditScreenCaretPainterInternal.AddAfterPaint(AStates: TPainterStates);
+begin
+  if not(psAfterPaintAdded in FState) then
+    FOwner.PaintTimer.AddAfterPaintHandler(@DoAfterPaint);
+  FState := FState + [psAfterPaintAdded] + AStates;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.DoAfterPaint(Sender: TObject);
+begin
+  Exclude(FState, psAfterPaintAdded);
+  DoTimer(nil);
+end;
+
+procedure TSynEditScreenCaretPainterInternal.ExecAfterPaint;
+begin
+  if FInPaint or FInScroll then
+    exit;
+
+  if (psCleanOld in FState) then begin
+    DoPaint(CurrentCanvas, FOldX, FOldY, FOldH, FOldW);
+    Exclude(FState, psCleanOld);
+  end;
+
+  if (psRemoveTimer in FState) and not(FInPaint or FInScroll) then begin
+    FOwner.PaintTimer.RemoveHandler(@DoTimer);
+    Exclude(FState, psRemoveTimer);
+  end;
+
+end;
+
+function TSynEditScreenCaretPainterInternal.CurrentCanvas: TCanvas;
+begin
+  Result := TCustomControl(FHandleOwner).Canvas;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.SetColor(AValue: TColor);
+var
+  d: Boolean;
+begin
+  if FColor = AValue then Exit;
+
+  d := FIsDrawn;
+  if FIsDrawn then Paint;
+  FColor := AValue;
+  if d then Paint;
+end;
+
+function TSynEditScreenCaretPainterInternal.IsInRect(ARect: TRect): TIsInRectState;
+begin
+  Result := IsInRect(ARect, Left, Top, Width, Height);
+end;
+
+function TSynEditScreenCaretPainterInternal.IsInRect(ARect: TRect; X, Y, W,
+  H: Integer): TIsInRectState;
+begin
+  if (Y >= ARect.Bottom) or (X >= ARect.Right) or (Y+H < ARect.Top) or (X+W < ARect.Left)
+  then
+    Result := irOutside
+  else
+  if (Y >= ARect.Top) and (X >= ARect.Left) and (Y+H < ARect.Bottom) and (X+W < ARect.Right)
+  then
+    Result := irInside
+  else
+    Result := irPartInside;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.Init;
+begin
+  {$IFDEF LCLCarbon}
+    FForcePaintEvents := True;
+  {$ELSE}
+  {$IFDEF LCLQt}
+    FForcePaintEvents := True;
+  {$ELSE}
+    FForcePaintEvents := False;
+  {$ENDIF}
+  {$ENDIF}
+  FSavePen := TPen.Create;
+  FColor := clBlack;
+  FOldY := -1;
+  FCanPaint := True;
+  inherited Init;
+end;
+
+procedure TSynEditScreenCaretPainterInternal.BeginScroll(dx, dy: Integer; const rcScroll,
+  rcClip: TRect);
+begin
+  assert(not((FInPaint or FInScroll)), 'TSynEditScreenCaretPainterInternal.BeginScroll: not((FInPaint or FInScroll))');
+  if (FState <> []) then
+    ExecAfterPaint;
+
+  {$IFnDEF SynCaretNoHideInSroll}
+  if not ((IsInRect(rcClip) = irOutside) and (IsInRect(rcScroll) = irOutside)) then begin
+    HideCaret;
+    inherited SetCaretPosEx(-1,-1);
+  end;
+  {$ELSE}
+  if ((IsInRect(rcClip) = irPartInside) or (IsInRect(rcScroll) = irPartInside)) and FIsDrawn then begin
+    HideCaret;
+    inherited SetCaretPosEx(-1,-1);
+  end;
+  {$ENDIF}
+
+  FCanPaint := False;
+
+  inherited BeginScroll(dx, dy, rcScroll, rcClip);
+end;
+
+procedure TSynEditScreenCaretPainterInternal.FinishScroll(dx, dy: Integer; const rcScroll,
+  rcClip: TRect; Success: Boolean);
+begin
+  assert(FInScroll, 'TSynEditScreenCaretPainterInternal.FinishScroll: FInScroll');
+  assert((FState-[psAfterPaintAdded]) = [], 'TSynEditScreenCaretPainterInternal.FinishScroll: FState = []');
+  inherited FinishScroll(dx, dy, rcScroll, rcClip, Success);
+  FCanPaint := True;
+  {$IFDEF SynCaretNoHideInSroll}
+  if Success and ((IsInRect(rcClip) = irInside) or (IsInRect(rcScroll) = irInside)) then begin
+    inherited SetCaretPosEx(Left+dx, Top+dy);
+    FNeedPositionConfirmed := True;
+  end;
+  {$ENDIF}
+end;
+
+procedure TSynEditScreenCaretPainterInternal.BeginPaint(rcClip: TRect);
+begin
+  assert(not (FInPaint or FInScroll), 'TSynEditScreenCaretPainterInternal.BeginPaint: not (FInPaint or FInScroll)');
+
+  FCanPaint := IsInRect(rcClip)= irInside;
+
+  if (psCleanOld in FState) and not FCanPaint then begin
+    if IsInRect(rcClip, FOldX, FOldY, FOldW, FOldH) <> irInside then begin
+      debugln(['TSynEditScreenCaretPainterInternal.BeginPaint Invalidate for psCleanOld']);
+      Invalidate;
+    end;
+    Exclude(FState, psCleanOld);
+  end;
+
+  if not(psCleanOld in FState) then begin
+    FOldX := Left;
+    FOldY := Top;
+    FOldW := Width;
+    FOldH := Height;
+  end;
+
+  inherited BeginPaint(rcClip);
+end;
+
+procedure TSynEditScreenCaretPainterInternal.FinishPaint(rcClip: TRect);
+begin
+  assert(FInPaint, 'TSynEditScreenCaretPainterInternal.FinishPaint: FInPaint');
+  assert(FCanPaint = (IsInRect(rcClip)= irInside), 'TSynEditScreenCaretPainterInternal.FinishPaint: FCanPaint = (IsInRect(rcClip)= irInside)');
+  assert(FCanPaint = (IsInRect(FPaintClip)= irInside), 'TSynEditScreenCaretPainterInternal.FinishPaint: FCanPaint = (IsInRect(rcClip)= irInside)');
+
+  // partly restore IF irPartInside;
+  // Better recalc size to remainder outside cliprect
+  if (psCleanOld in FState) and (not ForcePaintEvents) then
+    DoPaint(CurrentCanvas, FOldX, FOldY, FOldH, FOldW);
+
+  // if changes where made, then FIsDrawn is alvays false
+  if FIsDrawn then
+    DoPaint(CurrentCanvas, FLeft, FTop, FHeight, FWidth); // restore any part that is in the cliprect
+
+  inherited FinishPaint(rcClip);
+  FCanPaint := True;
+end;
+
+destructor TSynEditScreenCaretPainterInternal.Destroy;
+begin
+  assert(not(FInPaint or FInScroll), 'TSynEditScreenCaretPainterInternal.Destroy: not(FInPaint or FInScroll)');
+  if FOwner.HasPaintTimer then
+    FOwner.PaintTimer.RemoveHandler(Self);
+  HideCaret;
+  FreeAndNil(FSavePen);
+  inherited Destroy;
+end;
+
+function TSynEditScreenCaretPainterInternal.CreateCaret(w, h: Integer): Boolean;
+begin
+  DestroyCaret;
+  Result := inherited CreateCaret(w, h);
+  if InPaint then  // InScroll ??
+    FCanPaint := IsInRect(FPaintClip) = irInside;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainterInternal.DestroyCaret: Boolean;
+begin
+  HideCaret;
+  inherited DestroyCaret;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainterInternal.HideCaret: Boolean;
+begin
+  inherited HideCaret;
+
+  if (not FCanPaint) and FIsDrawn then begin
+    AddAfterPaint([psCleanOld, psRemoveTimer]);
+    FIsDrawn := False;
+    exit;
+  end;
+
+  FOwner.PaintTimer.RemoveHandler(@DoTimer);
+  if FIsDrawn then Paint;
+  assert(not FIsDrawn, 'TSynEditScreenCaretPainterInternal.HideCaret: not FIsDrawn');
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainterInternal.ShowCaret: Boolean;
+begin
+  if Showing then exit;
+  inherited ShowCaret;
+  Exclude(FState, psRemoveTimer);
+//  Exclude(FState, psCleanOld); // only if not moved
+
+  FOwner.PaintTimer.RemoveHandler(@DoTimer);
+  FOwner.PaintTimer.AddHandler(@DoTimer);
+  FOwner.PaintTimer.RestartCycle;
+  Result := True;
+end;
+
+function TSynEditScreenCaretPainterInternal.SetCaretPosEx(x, y: Integer): Boolean;
+var
+  d: Boolean;
+begin
+  if (not FCanPaint) and FIsDrawn then begin
+    AddAfterPaint([psCleanOld]);
+    FIsDrawn := False;
+  end;
+
+  d := FIsDrawn;
+  if d then Paint;
+  inherited SetCaretPosEx(x, y);
+
+  if InPaint then  // InScroll ??
+    FCanPaint := IsInRect(FPaintClip) = irInside;
+
+  if d then Paint;
+  // else aftecpaint needs show
+  FOwner.PaintTimer.RestartCycle;  // if not d ??
+  Result := True;
+end;
+
 { TSynEditScreenCaret }
 
 constructor TSynEditScreenCaret.Create(AHandleOwner: TWinControl);
 begin
+//  Create(AHandleOwner, TSynEditScreenCaretPainterSystem);
+  Create(AHandleOwner, TSynEditScreenCaretPainterInternal);
+end;
+
+constructor TSynEditScreenCaret.Create(AHandleOwner: TWinControl;
+  APainterClass: TSynEditScreenCaretPainterClass);
+begin
   inherited Create;
+  FCaretPainter := APainterClass.Create(AHandleOwner, Self);
+  FLockCount := -1;
+  ResetCaretTypeSizes;
   FHandleOwner := AHandleOwner;
   FVisible := False;
-  FCurrentVisible := False;
-  FCurrentCreated := False;
-  FCurrentPosX := -1;
-  FCurrentPosY := -1;
-  FCurrentClippedWidth := -1;
   FClipExtraPixel := 0;
   FLockCount := 0;
+end;
+
+procedure TSynEditScreenCaret.ChangePainter(APainterClass: TSynEditScreenCaretPainterClass);
+begin
+  DestroyCaret;
+  FreeAndNil(FCaretPainter);
+  FCaretPainter := APainterClass.Create(FHandleOwner, Self);
+  UpdateDisplay;
 end;
 
 destructor TSynEditScreenCaret.Destroy;
 begin
   DestroyCaret;
+  FreeAndNil(FCaretPainter);
+  if FPaintTimerOwned then
+    FreeAndNil(FPaintTimer);
   inherited Destroy;
+end;
+
+procedure TSynEditScreenCaret.BeginScroll(dx, dy: Integer; const rcScroll, rcClip: TRect);
+begin
+  Painter.BeginScroll(dx, dy, rcScroll, rcClip);
+end;
+
+procedure TSynEditScreenCaret.FinishScroll(dx, dy: Integer; const rcScroll, rcClip: TRect;
+  Success: Boolean);
+begin
+  Painter.FinishScroll(dx, dy, rcScroll, rcClip, Success);
+end;
+
+procedure TSynEditScreenCaret.BeginPaint(rcClip: TRect);
+begin
+  Painter.BeginPaint(rcClip);
+end;
+
+procedure TSynEditScreenCaret.FinishPaint(rcClip: TRect);
+begin
+  Painter.FinishPaint(rcClip);
 end;
 
 procedure TSynEditScreenCaret.Hide;
@@ -2215,14 +3059,12 @@ end;
 
 procedure TSynEditScreenCaret.DestroyCaret(SkipHide: boolean = False);
 begin
-  if FCurrentCreated and HandleAllocated then begin
+  if Painter.Created then begin
     {$IFDeF SynCaretDebug}
-    debugln(['SynEditCaret DestroyCaret for HandleOwner=',FHandleOwner, ' DebugShowCount=', FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', FCurrentVisible]);
+    debugln(['SynEditCaret DestroyCaret for HandleOwner=',FHandleOwner, ' DebugShowCount=', FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', Painter.Showing]);
     {$ENDIF}
-    LCLIntf.DestroyCaret(Handle);
+    FCaretPainter.DestroyCaret;
   end;
-  FCurrentCreated := False;
-  FCurrentVisible := False;
   if not SkipHide then
     FVisible := False;
 end;
@@ -2230,6 +3072,8 @@ end;
 procedure TSynEditScreenCaret.Lock;
 begin
   inc(FLockCount);
+  if FPaintTimer <> nil then
+    FPaintTimer.IncLock;
 end;
 
 procedure TSynEditScreenCaret.UnLock;
@@ -2239,12 +3083,36 @@ begin
     if (sclfUpdateDisplayType in FLockFlags) then UpdateDisplayType;
     if (sclfUpdateDisplay in FLockFlags)     then UpdateDisplay;
   end;
+  if FPaintTimer <> nil then
+    FPaintTimer.DecLock;
 end;
 
-procedure TSynEditScreenCaret.InvalidatePos;
+procedure TSynEditScreenCaret.AfterPaintEvent;
 begin
-  FCurrentPosY := -1;
-  FCurrentPosX := -1;
+  if FPaintTimer <> nil then
+    FPaintTimer.AfterPaintEvent;
+
+end;
+
+procedure TSynEditScreenCaret.ResetCaretTypeSizes;
+var
+  i: TSynCaretType;
+begin
+  for i := low(TSynCaretType) to high(TSynCaretType) do begin
+    FCustomPixelWidth[i] := 0;
+  end;
+  if FLockCount >= 0 then UpdateDisplayType;
+end;
+
+procedure TSynEditScreenCaret.SetCaretTypeSize(AType: TSynCaretType; AWidth, AHeight, AXOffs,
+  AYOffs: Integer; AFlags: TSynCustomCaretSizeFlags);
+begin
+  FCustomPixelWidth[AType] := AWidth;
+  FCustomPixelHeight[AType] := AHeight;
+  FCustomOffsetX[AType] := AXOffs;
+  FCustomOffsetY[AType] := AYOffs;
+  FCustomFlags[AType] := AFlags;
+  if FDisplayType = AType then UpdateDisplayType;
 end;
 
 procedure TSynEditScreenCaret.SetClipRight(const AValue: Integer);
@@ -2281,7 +3149,7 @@ end;
 procedure TSynEditScreenCaret.SetDisplayPos(const AValue: TPoint);
 begin
   if (FDisplayPos.x = AValue.x) and (FDisplayPos.y = AValue.y) and
-     (FVisible = FCurrentVisible)
+     (FVisible = Painter.Showing) and (not Painter.NeedPositionConfirmed)
   then
     exit;
   FDisplayPos := AValue;
@@ -2311,7 +3179,7 @@ begin
   Exclude(FLockFlags, sclfUpdateDisplayType);
 
   case FDisplayType of
-    ctVerticalLine:
+    ctVerticalLine, ctCostum:
       begin
         FPixelWidth     := 2;
         FPixelHeight    := FCharHeight - 2;
@@ -2344,6 +3212,25 @@ begin
         FExtraLinePixel := FCharWidth;
       end;
   end;
+
+  if (FCustomPixelWidth[FDisplayType] <> 0) then begin
+    if ccsRelativeWidth in FCustomFlags[FDisplayType]
+    then FPixelWidth     := FCharWidth * FCustomPixelWidth[FDisplayType] div 1024
+    else FPixelWidth     := FCustomPixelWidth[FDisplayType];
+    if ccsRelativeLeft in FCustomFlags[FDisplayType]
+    then FOffsetX        := FCharWidth * FCustomOffsetX[FDisplayType] div 1024
+    else FOffsetX        := FCustomOffsetX[FDisplayType];
+    FExtraLinePixel := Max(0, FPixelWidth + FOffsetX);
+  end;
+  if (FCustomPixelHeight[FDisplayType] <> 0) then begin
+    if ccsRelativeHeight in FCustomFlags[FDisplayType]
+    then FPixelHeight    := FCharHeight * FCustomPixelHeight[FDisplayType] div 1024
+    else FPixelHeight    := FCustomPixelHeight[FDisplayType];
+    if ccsRelativeTop in FCustomFlags[FDisplayType]
+    then FOffsetY        := FCharHeight * FCustomOffsetY[FDisplayType] div 1024
+    else FOffsetY        := FCustomOffsetY[FDisplayType];
+  end;
+
   CalcExtraLineChars;
   DestroyCaret(True);
   UpdateDisplay;
@@ -2354,6 +3241,21 @@ begin
   if FClipBottom = AValue then exit;
   FClipBottom := AValue;
   UpdateDisplay;
+end;
+
+function TSynEditScreenCaret.GetPaintTimer: TSynEditScreenCaretTimer;
+begin
+  if FPaintTimer = nil then begin
+    FPaintTimer := TSynEditScreenCaretTimer.Create;
+    FPaintTimerOwned := True;
+    FPaintTimer.FLocCount := FLockCount;
+  end;
+  Result := FPaintTimer;
+end;
+
+function TSynEditScreenCaret.GetHasPaintTimer: Boolean;
+begin
+  Result := FPaintTimer <> nil;
 end;
 
 procedure TSynEditScreenCaret.SetClipExtraPixel(AValue: Integer);
@@ -2402,11 +3304,19 @@ procedure TSynEditScreenCaret.CalcExtraLineChars;
 var
   OldExtraChars: Integer;
 begin
+  if FCharWidth = 0 then exit;
   OldExtraChars := FExtraLineChars;
   FExtraLineChars := Max(0, FExtraLinePixel - FClipExtraPixel + FCharWidth - 1)
                      div FCharWidth;
   if (FExtraLineChars <> OldExtraChars) and assigned(FOnExtraLineCharsChanged) then
     FOnExtraLineCharsChanged(Self);
+end;
+
+procedure TSynEditScreenCaret.SetPaintTimer(AValue: TSynEditScreenCaretTimer);
+begin
+  assert(FPaintTimer = nil, 'TSynEditScreenCaret.SetPaintTimer: FPaintTimer = nil');
+  if FPaintTimer = nil then
+    FPaintTimer := AValue;
 end;
 
 procedure TSynEditScreenCaret.UpdateDisplay;
@@ -2425,16 +3335,27 @@ end;
 
 procedure TSynEditScreenCaret.ShowCaret;
 var
-  x, y, w: Integer;
+  x, y, w, h: Integer;
 begin
   if not HandleAllocated then
     exit;
   x := FDisplayPos.x + FOffsetX;
   y := FDisplayPos.y + FOffsetY;
   w := FPixelWidth;
+  h := FPixelHeight;
   if x + w >= FClipRight then
     w := FClipRight - x - 1;
-  if (w <= 0) or
+  if x < FClipLeft then begin
+    w := w - (FClipLeft - w);
+    x := FClipLeft;
+  end;
+  if y + h >= FClipBottom then
+    h := FClipBottom - y - 1;
+  if y < FClipTop then begin
+    h := h - (FClipTop - y);
+    y := FClipTop;
+  end;
+  if (w <= 0) or (h < 0) or
      (x < FClipLeft) or (x >= FClipRight) or
      (y < FClipTop) or (y >= FClipBottom)
   then begin
@@ -2442,37 +3363,26 @@ begin
     exit;
   end;
 
-  if (not FCurrentCreated) or (FCurrentClippedWidth <> w) then begin
+  if (not Painter.Created) or (FCaretPainter.Width <> w) or (FCaretPainter.Height <> h) then begin
     {$IFDeF SynCaretDebug}
-    debugln(['SynEditCaret CreateCaret for HandleOwner=',FHandleOwner, ' DebugShowCount=', FDebugShowCount, ' Width=', w, ' pref-width=', FPixelWidth, ' Height=', FPixelHeight, '  FCurrentCreated=',FCurrentCreated,  ' FCurrentVisible=',FCurrentVisible]);
+    debugln(['SynEditCaret CreateCaret for HandleOwner=',FHandleOwner, ' DebugShowCount=', FDebugShowCount, ' Width=', w, ' pref-width=', FPixelWidth, ' Height=', FPixelHeight, '  FCurrentCreated=',Painter.Created,  ' FCurrentVisible=',Painter.Showing]);
     FDebugShowCount := 0;
     {$ENDIF}
-    //if FCurrentCreated  then
-    //  LCLIntf.DestroyCaret(Handle);
     // // Create caret includes destroy
-    CreateCaret(Handle, 0, w, FPixelHeight);
-    FCurrentCreated := True;
-    FCurrentVisible := False;
-    FCurrentClippedWidth := w;
-    FCurrentPosX := x - 1;
-    SetCaretRespondToFocus(Handle, False); // Only for GTK
+    FCaretPainter.CreateCaret(w, h);
   end;
-  if (x <> FCurrentPosX) or (y <> FCurrentPosY) then begin
+  if (x <> Painter.Left) or (y <> Painter.Top) or (Painter.NeedPositionConfirmed) then begin
     {$IFDeF SynCaretDebug}
     debugln(['SynEditCaret SetPos for HandleOwner=',FHandleOwner, ' x=', x, ' y=',y]);
     {$ENDIF}
-    SetCaretPosEx(Handle, x, y);
-    FCurrentPosX := x;
-    FCurrentPosY := y;
+    FCaretPainter.SetCaretPosEx(x, y);
   end;
-  if (not FCurrentVisible) then begin
+  if (not Painter.Showing) then begin
     {$IFDeF SynCaretDebug}
-    debugln(['SynEditCaret ShowCaret for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', FCurrentVisible]);
+    debugln(['SynEditCaret ShowCaret for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', Painter.Showing]);
     inc(FDebugShowCount);
     {$ENDIF}
-    if LCLIntf.ShowCaret(Handle) then
-      FCurrentVisible := True
-    else begin
+    if not FCaretPainter.ShowCaret then begin
       {$IFDeF SynCaretDebug}
       debugln(['SynEditCaret ShowCaret FAILED for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount]);
       {$ENDIF}
@@ -2485,14 +3395,13 @@ procedure TSynEditScreenCaret.HideCaret;
 begin
   if not HandleAllocated then
     exit;
-  if not FCurrentCreated then exit;
-  if FCurrentVisible then begin
+  if not Painter.Created then exit;
+  if Painter.Showing then begin
     {$IFDeF SynCaretDebug}
-    debugln(['SynEditCaret HideCaret for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', FCurrentVisible]);
+    debugln(['SynEditCaret HideCaret for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount, ' FVisible=', FVisible, ' FCurrentVisible=', Painter.Showing]);
     dec(FDebugShowCount);
     {$ENDIF}
-    if LCLIntf.HideCaret(Handle) then
-      FCurrentVisible := False
+    if FCaretPainter.HideCaret then
     else begin
       {$IFDeF SynCaretDebug}
       debugln(['SynEditCaret HideCaret FAILED for HandleOwner=',FHandleOwner, ' FDebugShowCount=',FDebugShowCount]);

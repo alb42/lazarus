@@ -26,9 +26,9 @@ unit SynPluginSyncroEdit;
 interface
 
 uses
-  Classes, Controls, SysUtils, LCLProc, Forms, Graphics, SynEditMiscClasses,
+  Classes, Controls, SysUtils, Forms, Graphics, SynEditMiscClasses,
   LCLType, SynEdit, SynPluginSyncronizedEditBase, LazSynEditText, SynEditMiscProcs,
-  SynEditMouseCmds, SynEditKeyCmds, SynEditTypes, LCLIntf;
+  SynEditMouseCmds, SynEditKeyCmds, SynEditTypes, LCLIntf, LazUTF8;
 
 type
 
@@ -41,6 +41,7 @@ type
 
   TSynPluginSyncroEditLowerLineCache = class
   private
+    FCaseSensitive: boolean;
     FLines: TSynEditStrings;
     FLower: Array of TSynPluginSyncroEditLowerLineCacheEntry;
     function GetLowLine(aIndex: Integer): String;
@@ -187,6 +188,7 @@ type
 
   TSynPluginSyncroEdit = class(TSynPluginCustomSyncroEdit)
   private
+    FCaseSensitive: boolean;
     FGutterGlyph: TBitmap;
     FLowerLines: TSynPluginSyncroEditLowerLineCache;
     FOnBeginEdit: TNotifyEvent;
@@ -203,6 +205,7 @@ type
 
     FKeystrokesSelecting: TSynEditKeyStrokes;
     FKeystrokes, FKeyStrokesOffCell: TSynEditKeyStrokes;
+    procedure SetCaseSensitive(AValue: boolean);
     procedure SetKeystrokesSelecting(const AValue: TSynEditKeyStrokes);
     procedure SetKeystrokes(const AValue: TSynEditKeyStrokes);
     procedure SetKeystrokesOffCell(const AValue: TSynEditKeyStrokes);
@@ -246,10 +249,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    class function ConvertCommandToBase(Command: TSynEditorCommand): TSynEditorCommand;
-    class function ConvertBaseToCommand(Command: TSynEditorCommand): TSynEditorCommand;
-
   published
+    property CaseSensitive: boolean read FCaseSensitive write SetCaseSensitive default false;
     property GutterGlyph: TBitmap read FGutterGlyph write SetGutterGlyph;
     property KeystrokesSelecting: TSynEditKeyStrokes
       read FKeystrokesSelecting write SetKeystrokesSelecting;
@@ -273,31 +274,30 @@ type
   end;
 
 const
-  emcSynPSyncroEdGutterGlyph         = emcPluginFirst +  0;
+  emcSynPSyncroEdGutterGlyph         = emcPluginFirstSyncro +  0;
 
   emcSynPSyncroEdCount               = 1;
 
-  ecSynPSyncroEdStart              = ecPluginFirst +  0;
+  ecSynPSyncroEdStart              = ecPluginFirstSyncro +  0;
 
-  ecSynPSyncroEdNextCell           = ecPluginFirst +  1;
-  ecSynPSyncroEdNextCellSel        = ecPluginFirst +  2;
-  ecSynPSyncroEdPrevCell           = ecPluginFirst +  3;
-  ecSynPSyncroEdPrevCellSel        = ecPluginFirst +  4;
-  ecSynPSyncroEdCellHome           = ecPluginFirst +  5;
-  ecSynPSyncroEdCellEnd            = ecPluginFirst +  6;
-  ecSynPSyncroEdCellSelect         = ecPluginFirst +  7;
-  ecSynPSyncroEdEscape             = ecPluginFirst +  8;
-  ecSynPSyncroEdNextFirstCell      = ecPluginFirst +  9;
-  ecSynPSyncroEdNextFirstCellSel   = ecPluginFirst + 10;
-  ecSynPSyncroEdPrevFirstCell      = ecPluginFirst + 11;
-  ecSynPSyncroEdPrevFirstCellSel   = ecPluginFirst + 12;
+  ecSynPSyncroEdNextCell           = ecPluginFirstSyncro +  1;
+  ecSynPSyncroEdNextCellSel        = ecPluginFirstSyncro +  2;
+  ecSynPSyncroEdPrevCell           = ecPluginFirstSyncro +  3;
+  ecSynPSyncroEdPrevCellSel        = ecPluginFirstSyncro +  4;
+  ecSynPSyncroEdCellHome           = ecPluginFirstSyncro +  5;
+  ecSynPSyncroEdCellEnd            = ecPluginFirstSyncro +  6;
+  ecSynPSyncroEdCellSelect         = ecPluginFirstSyncro +  7;
+  ecSynPSyncroEdEscape             = ecPluginFirstSyncro +  8;
+  ecSynPSyncroEdNextFirstCell      = ecPluginFirstSyncro +  9;
+  ecSynPSyncroEdNextFirstCellSel   = ecPluginFirstSyncro + 10;
+  ecSynPSyncroEdPrevFirstCell      = ecPluginFirstSyncro + 11;
+  ecSynPSyncroEdPrevFirstCellSel   = ecPluginFirstSyncro + 12;
+
+  // If extending the list, reserve space in SynEditKeyCmds
 
   ecSynPSyncroEdCount              = 13;
 
 implementation
-
-var
-  MouseOffset, KeyOffset: integer;
 
 const
   MAX_CACHE = 50; // Amount of lower-cased lines cached
@@ -337,11 +337,15 @@ var
   i, l: Integer;
 
 begin
+  if FCaseSensitive then begin
+    Result := FLines[aIndex];
+    exit;
+  end;
+
   l := length(FLower);
   for i := 0 to l-1 do
     if FLower[i].LineIndex = aIndex then
       exit(FLower[i].LineText);
-
   Result := UTF8LowerCase(FLines[aIndex]);
   if Result = '' then
     exit;
@@ -935,6 +939,13 @@ begin
     FKeystrokesSelecting.Assign(AValue);
 end;
 
+procedure TSynPluginSyncroEdit.SetCaseSensitive(AValue: boolean);
+begin
+  FCaseSensitive := AValue;
+  FLowerLines.FCaseSensitive := AValue;
+  FLowerLines.Clear;
+end;
+
 procedure TSynPluginSyncroEdit.SetKeystrokes(const AValue: TSynEditKeyStrokes);
 begin
   if AValue = nil then
@@ -1259,9 +1270,9 @@ end;
 procedure TSynPluginSyncroEdit.DoPreActiveEdit(aX, aY, aCount, aLineBrkCnt: Integer;
   aUndoRedo: Boolean);
 begin
-    FWordIndex.Clear;
-    Active := False;
-    Mode := spseInvalid;
+  FWordIndex.Clear;
+  Active := False;
+  Mode := spseInvalid;
 end;
 
 function TSynPluginSyncroEdit.MaybeHandleMouseAction(var AnInfo: TSynEditMouseActionInfo;
@@ -1289,7 +1300,7 @@ function TSynPluginSyncroEdit.DoHandleMouseAction(AnAction: TSynEditMouseAction;
 begin
   Result := False;
 
-  if AnAction.Command = MouseOffset + emcSynPSyncroEdGutterGlyph then begin
+  if AnAction.Command = emcSynPSyncroEdGutterGlyph then begin
     if Mode = spseSelecting then
       StartSyncroMode
     else
@@ -1359,14 +1370,9 @@ begin
   end;
   if keys = nil then exit;
 
-  try
-    keys.UsePluginOffset := True;
-    if not FinishComboOnly then
-      keys.ResetKeyCombo;
-    Command := keys.FindKeycodeEx(Code, SState, Data, IsStartOfCombo, FinishComboOnly, ComboKeyStrokes);
-  finally
-    keys.UsePluginOffset := False;
-  end;
+  if not FinishComboOnly then
+    keys.ResetKeyCombo;
+  Command := keys.FindKeycodeEx(Code, SState, Data, IsStartOfCombo, FinishComboOnly, ComboKeyStrokes);
 
   Handled := (Command <> ecNone) or IsStartOfCombo;
   if IsStartOfCombo then
@@ -1376,16 +1382,13 @@ end;
 procedure TSynPluginSyncroEdit.ProcessSynCommand(Sender: TObject; AfterProcessing: boolean;
   var Handled: boolean; var Command: TSynEditorCommand; var AChar: TUTF8Char; Data: pointer;
   HandlerData: pointer);
-var
-  Cmd: TSynEditorCommand;
 begin
   if Handled or AfterProcessing or not (Active or PreActive) then exit;
 
   if Mode = spseSelecting then begin
     // todo: finish word-hash calculations / check if any cells exist
-    Cmd := ConvertCommandToBase(Command);
     Handled := True;
-    case Cmd of
+    case Command of
       ecSynPSyncroEdStart: StartSyncroMode;
       else
         Handled := False;
@@ -1393,10 +1396,8 @@ begin
   end;
 
   if Mode = spseEditing then begin
-    Cmd := ConvertCommandToBase(Command);
-
     Handled := True;
-    case Cmd of
+    case Command of
       ecSynPSyncroEdNextCell:          NextCell(False, True);
       ecSynPSyncroEdNextCellSel:       NextCell(True, True);
       ecSynPSyncroEdPrevCell:          PreviousCell(False, True);
@@ -1429,15 +1430,12 @@ begin
 
   FKeystrokes := TSynEditSyncroEditKeyStrokes.Create(Self);
   FKeystrokes.ResetDefaults;
-  FKeystrokes.PluginOffset := KeyOffset;
 
   FKeyStrokesOffCell := TSynEditSyncroEditKeyStrokesOffCell.Create(self);
   FKeyStrokesOffCell.ResetDefaults;
-  FKeyStrokesOffCell.PluginOffset := KeyOffset;
 
   FKeystrokesSelecting := TSynEditSyncroEditKeyStrokesSelecting.Create(Self);
   FKeystrokesSelecting.ResetDefaults;
-  FKeystrokesSelecting.PluginOffset := KeyOffset;
 
   FGutterGlyph := TBitMap.Create;
   FGutterGlyph.OnChange := @DoImageChanged;
@@ -1463,27 +1461,12 @@ begin
   FreeAndNil(FKeystrokesSelecting);
 end;
 
-class function TSynPluginSyncroEdit.ConvertCommandToBase(Command: TSynEditorCommand): TSynEditorCommand;
-begin
-  if (Command >= ecPluginFirst + KeyOffset) and
-     (Command <= ecPluginFirst + KeyOffset + ecSynPSyncroEdCount)
-  then Result := Command - KeyOffset
-  else Result := ecNone;
-end;
-
-class function TSynPluginSyncroEdit.ConvertBaseToCommand(Command: TSynEditorCommand): TSynEditorCommand;
-begin
-  if (Command >= ecPluginFirst) and (Command <= ecPluginFirst + ecSynPSyncroEdCount)
-  then Result := Command + KeyOffset
-  else Result := ecNone;
-end;
-
 { TSynPluginSyncroEditMouseActions }
 
 procedure TSynPluginSyncroEditMouseActions.ResetDefaults;
 begin
   Clear;
-  AddCommand(MouseOffset + emcSynPSyncroEdGutterGlyph, False, mbXLeft, ccAny, cdDown, [], []);
+  AddCommand(emcSynPSyncroEdGutterGlyph, False, mbXLeft, ccAny, cdDown, [], []);
 end;
 
 { TSynEditSyncroEditKeyStrokesSelecting }
@@ -1573,14 +1556,13 @@ const
 function IdentToSyncroCommand(const Ident: string; var Cmd: longint): boolean;
 begin
   Result := IdentToInt(Ident, Cmd, EditorSyncroCommandStrs);
-  if Result then inc(Cmd, KeyOffset);
 end;
 
 function SyncroCommandToIdent(Cmd: longint; var Ident: string): boolean;
 begin
-  Result := (Cmd - ecPluginFirst >= KeyOffset) and (Cmd - ecPluginFirst < KeyOffset + ecSynPSyncroEdCount);
+  Result := (Cmd >= ecPluginFirstSyncro) and (Cmd - ecPluginFirstSyncro < ecSynPSyncroEdCount);
   if not Result then exit;
-  Result := IntToIdent(Cmd - KeyOffset, Ident, EditorSyncroCommandStrs);
+  Result := IntToIdent(Cmd, Ident, EditorSyncroCommandStrs);
 end;
 
 procedure GetEditorCommandValues(Proc: TGetStrProc);
@@ -1593,9 +1575,6 @@ end;
 
 
 initialization
-  MouseOffset  := AllocatePluginMouseRange(emcSynPSyncroEdCount, True);
-  KeyOffset    := AllocatePluginKeyRange(ecSynPSyncroEdCount, True);
-
   RegisterKeyCmdIdentProcs(@IdentToSyncroCommand,
                            @SyncroCommandToIdent);
   RegisterExtraGetEditorCommandValues(@GetEditorCommandValues);

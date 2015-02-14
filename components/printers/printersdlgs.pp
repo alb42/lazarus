@@ -13,7 +13,11 @@
 ------------------------------------------------------------------------------}
 unit PrintersDlgs;
 
-{$mode objfpc}{$H+}
+{$mode objfpc}
+{$IFDEF LCLCocoa}
+  {$modeswitch objectivec1}
+{$ENDIF}
+{$H+}
 
 interface
 
@@ -70,30 +74,33 @@ implementation
 {$R printersdlgs.res}
 
 {$IFDEF UNIX}
-  {$IFDEF LCLCarbon}
-    {$IFNDEF NativePrint}
-    
-// add units as needed for carbon, for the moment use cups ones.
-uses Controls, udlgSelectPrinter, udlgPropertiesPrinter, FileUtil;
-{$I cupsprndialogs.inc}
-
-    {$ELSE}
-    
-uses
-  Controls, Math, CarbonProc,
-  MacOSAll,
-  LCLProc;
-{$I carbonprndialogs.inc}
-
+  {$IFDEF DARWIN}
+    {$IFDEF LCLCarbon}
+      {$IFNDEF NativePrint}
+        // add units as needed for carbon, for the moment use cups ones.
+        uses Controls, udlgSelectPrinter, udlgPropertiesPrinter, FileUtil;
+        {$I cupsprndialogs.inc}
+      {$ELSE}
+        uses Controls, Math, CarbonProc, MacOSAll, LCLProc;
+        {$I carbonprndialogs.inc}
+      {$ENDIF}
+    {$ENDIF}
+    {$IFDEF LCLCocoa}
+      uses Controls, Math, CocoaAll, MacOSAll, LCLProc;
+      {$I cocoaprndialogs.inc}
+    {$ENDIF}
+    {$IFDEF LCLQt}
+      uses Controls, qtobjects, qt4, qtint, FileUtil;
+      {$I qtprndialogs.inc}
     {$ENDIF}
   {$ELSE}
     {$IFDEF LCLQt}
-    uses Controls, qtobjects, qt4, qtint, FileUtil;
-    {$I qtprndialogs.inc}
-   {$ELSE}
-uses Controls, udlgSelectPrinter, udlgPropertiesPrinter, udlgPageSetup, FileUtil;
-{$I cupsprndialogs.inc}
-  {$ENDIF}
+      uses Controls, qtobjects, qt4, qtint, FileUtil;
+      {$I qtprndialogs.inc}
+    {$ELSE}
+      uses Controls, udlgSelectPrinter, udlgPropertiesPrinter, udlgPageSetup, FileUtil;
+      {$I cupsprndialogs.inc}
+    {$ENDIF}
   {$ENDIF}
 {$ENDIF}
 

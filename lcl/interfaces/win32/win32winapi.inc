@@ -1131,6 +1131,11 @@ function TWin32WidgetSet.DrawText(DC: HDC; Str: PChar; Count: Integer; var Rect:
 var
   s: AnsiString;
   w: WideString;
+  res: WINBOOL;
+  lf: LOGFONT;
+  aABC: ABC;
+  paABC: LPABC;
+  len: Integer;
 {$endif}
 begin
  {$ifdef WindowsUnicodeSupport}
@@ -1146,12 +1151,47 @@ begin
   if UnicodeEnabledOS then
   begin
     W := UTF8ToUTF16(s);
-    Result := Windows.DrawTextW(DC, PWideChar(W), Length(W), @Rect, Flags);
+    len := Length(W);
+    Result := Windows.DrawTextW(DC, PWideChar(W), len, @Rect, Flags);
   end
   else
   begin
     S := Utf8ToAnsi(S);
-    Result := Windows.DrawText(DC, PChar(S), Length(S), @Rect, Flags);
+    len := Length(S);
+    Result := Windows.DrawText(DC, PChar(S), len, @Rect, Flags);
+  end;
+
+  // Theoretically, we need to augment the returned rect by the text overhang
+  // The overhang is returned in the abcC field as documented in the
+  // following article: http://support.microsoft.com/kb/94646/en-us
+  // for italic text, usually this value is negative, so the adjusted
+  // value could be calculated by Rect.Right:=Rect.Right-aABC.abcC, oddly enough
+  // sometimes this it's positive, yielding an incorrect Rect.Right value.
+  // As the objective is to return a more correct value so the text overhang
+  // is not clipped out, I found the next solution works better most times.
+  //
+  // NOTE. this doesn't solve (most of the times) the problem of right
+  // aligned bold italic text. The DrawText windows function is documented to
+  // clip out text in some special cases, specially when drawing italic text,
+  // but I found it's even worse with drawing bold italic text.
+  if (len>0) and (flags and DT_CALCRECT = DT_CALCRECT) then
+  begin
+
+    GetObject(GetCurrentObject(DC, OBJ_FONT), SizeOf(LOGFONT), @lf);
+
+    if lf.lfItalic<>0 then
+    begin
+
+      paABC := @aABC;
+      if UnicodeEnabledOS then
+        res := GetCharABCWidthsW(DC, Uint(W[len]), Uint(W[len]), paABC)
+      else
+        res := GetCharABCWidthsA(DC, ord(s[len]), ord(s[len]), paABC);
+
+     if res then
+       Rect.Right := Rect.Right + Abs(aABC.abcC);
+
+    end;
   end;
  {$else}
   Result := Windows.DrawText(DC, Str, Count, @Rect, Flags);
@@ -1996,6 +2036,30 @@ begin
 end;
 
 {------------------------------------------------------------------------------
+  Function: GetScrollBarVisible
+  Params: Handle, SBStyle
+  Returns: Boolean
+
+  Returns wether the ControlScrollBar of a given control is visible
+------------------------------------------------------------------------------}
+
+function TWin32WidgetSet.GetScrollBarVisible(Handle: HWND; SBStyle: Integer): boolean;
+var
+  Style: PtrInt;
+begin
+  Result := False;
+  Style := GetWindowLong(Handle, GWL_STYLE);
+  case SBStyle of
+    SB_HORZ: Result := ((Style and WS_HSCROLL) <> 0);
+    SB_VERT: Result := ((Style and WS_VSCROLL) <> 0);
+    SB_BOTH: Result := ((Style and (WS_VSCROLL or WS_HSCROLL)) <> 0);
+    else
+      Result := False;
+  end;//case
+end;
+
+
+{------------------------------------------------------------------------------
   Method:  GetScrollInfo
   Params:  Handle     - handle of window with scroll bar
            BarFlag    - scroll bar flag
@@ -2434,6 +2498,7 @@ function TWin32WidgetSet.IsIconic(handle: HWND): boolean;
 begin
   Result := Windows.IsIconic(handle);
 end;
+
 
 {------------------------------------------------------------------------------
   Function: IntersectClipRect

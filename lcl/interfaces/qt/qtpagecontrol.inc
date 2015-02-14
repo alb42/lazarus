@@ -171,6 +171,9 @@ begin
     QtTabWidget := TQtTabWidget.Create(AWinControl, AParams);
     QtTabWidget.setTabPosition(QTabWidgetTabPositionMap[TCustomTabControl(AWinControl).TabPosition]);
     QtTabWidget.setTabsClosable(nboShowCloseButtons in TCustomTabControl(AWinControl).Options);
+    {$IFDEF DARWIN}
+    QTabWidget_setElideMode(QTabWidgetH(QtTabWidget.Widget), QtElideNone);
+    {$ENDIF}
     QtTabWidget.AttachEvents;
     Result := TLCLIntfHandle(QtTabWidget);
   end;
@@ -314,11 +317,9 @@ begin
 
   TabWidget.BeginUpdate;
   TabWidget.setUpdatesEnabled(false);
-  TabWidget.removeTab(Index);
-  TabWidget.insertTab(NewIndex, Page.Widget, Page.getIcon, Page.getText);
+  QTabBar_moveTab(QTabBarH(TabWidget.TabBar.Widget), Index, NewIndex);
+  // DebugLn('TQtWSCustomTabControl.MovePage from Index=',dbgs(Index),' to ',dbgs(NewIndex),' finished.');
   TabWidget.setUpdatesEnabled(true);
-  if TabWidget.getCurrentIndex <> NewIndex then
-    TabWidget.setCurrentWidget(Page, True);
   TabWidget.EndUpdate;
 end;
 

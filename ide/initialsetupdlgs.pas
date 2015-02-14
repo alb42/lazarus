@@ -40,11 +40,12 @@ unit InitialSetupDlgs;
 interface
 
 uses
-  Classes, SysUtils, strutils, contnrs, LCLProc, Forms, Controls, Buttons, Dialogs, FileUtil,
-  Laz2_XMLCfg, lazutf8classes, LazFileUtils, LazFileCache, Graphics, ComCtrls, ExtCtrls,
-  StdCtrls, DefineTemplates, CodeToolManager, TransferMacros, MacroDefIntf, GDBMIDebugger,
-  DbgIntfDebuggerBase, LazarusIDEStrConsts, LazConf, EnvironmentOpts, IDEProcs, AboutFrm,
-  IDETranslations, InitialSetupProc;
+  Classes, SysUtils, strutils, contnrs, LCLProc, Forms, Controls, Buttons,
+  Dialogs, FileUtil, Laz2_XMLCfg, lazutf8classes, LazFileUtils, LazFileCache,
+  LazLogger, Graphics, ComCtrls, ExtCtrls, StdCtrls, DefineTemplates,
+  CodeToolManager, FileProcs, TransferMacros, MacroDefIntf, GDBMIDebugger,
+  DbgIntfDebuggerBase, LazarusIDEStrConsts, LazConf, EnvironmentOpts, IDEProcs,
+  AboutFrm, IDETranslations, InitialSetupProc;
   
 type
   TInitialSetupDialog = class;
@@ -505,7 +506,7 @@ begin
   Dlg:=TOpenDialog.Create(nil);
   try
     Filename:='gdb'+GetExecutableExt;
-    Dlg.Title:=Format(lisSelectPathTo, [Filename]);
+    Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
     Filter:=dlgAllFiles+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
@@ -534,7 +535,7 @@ begin
   Dlg:=TOpenDialog.Create(nil);
   try
     Filename:='fpc'+GetExecutableExt;
-    Dlg.Title:=Format(lisSelectPathTo, [Filename]);
+    Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
     Filter:=dlgAllFiles+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
@@ -602,7 +603,7 @@ begin
   Dlg:=TOpenDialog.Create(nil);
   try
     Filename:='make'+GetExecutableExt;
-    Dlg.Title:=Format(lisSelectPathTo, [Filename]);
+    Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
     Filter:=dlgAllFiles+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
@@ -733,7 +734,7 @@ procedure TInitialSetupDialog.UpdateCaptions;
 var
   s: String;
 begin
-  Caption:=Format(lisWelcomeToLazarusIDE, [GetLazarusVersionString]);
+  Caption:=SimpleFormat(lisWelcomeToLazarusIDE, [GetLazarusVersionString]);
 
   StartIDEBitBtn.Caption:=lisStartIDE;
 
@@ -750,26 +751,26 @@ begin
   TVNodeDebugger.Text:=DebuggerTabSheet.Caption;
 
   LazDirBrowseButton.Caption:=lisPathEditBrowse;
-  LazDirLabel.Caption:=Format(
+  LazDirLabel.Caption:=SimpleFormat(
     lisTheLazarusDirectoryContainsTheSourcesOfTheIDEAndTh, [PathDelim]);
 
   CompilerBrowseButton.Caption:=lisPathEditBrowse;
-  CompilerLabel.Caption:=Format(lisTheFreePascalCompilerExecutableTypicallyHasTheName,
+  CompilerLabel.Caption:=SimpleFormat(lisTheFreePascalCompilerExecutableTypicallyHasTheName,
     [DefineTemplates.GetDefaultCompilerFilename,
      DefineTemplates.GetDefaultCompilerFilename(GetCompiledTargetCPU)]);
 
   FPCSrcDirBrowseButton.Caption:=lisPathEditBrowse;
-  FPCSrcDirLabel.Caption:=Format(lisTheSourcesOfTheFreePascalPackagesAreRequiredForBro,
+  FPCSrcDirLabel.Caption:=SimpleFormat(lisTheSourcesOfTheFreePascalPackagesAreRequiredForBro,
     [SetDirSeparators('rtl/linux/system.pp')]);
   ScanLabel.Caption := lisScanning;
   StopScanButton.Caption:=lisStop;
 
   MakeExeBrowseButton.Caption:=lisPathEditBrowse;
-  MakeExeLabel.Caption:=Format(
+  MakeExeLabel.Caption:=SimpleFormat(
     lisTheMakeExecutableTypicallyHasTheName, ['make'+GetExecutableExt('')]);
 
   DebuggerBrowseButton.Caption:=lisPathEditBrowse;
-  s:=Format(lisTheDebuggerExecutableTypicallyHasTheNamePleaseGive, [
+  s:=SimpleFormat(lisTheDebuggerExecutableTypicallyHasTheNamePleaseGive, [
     'gdb'+GetExecutableExt]);
   {$IFDEF Windows}
   s+=' '+lisAUsefulSettingOnWindowsSystemsIsLazarusDirMingwBin;
@@ -1218,9 +1219,11 @@ begin
     // first start => choose first best candidate
     Candidate:=GetFirstCandidate(FCandidates[sddtLazarusSrcDir]);
     if Candidate<>nil then
+    begin
       EnvironmentOptions.LazarusDirectory:=Candidate.Caption;
-    if FileExistsCached(EnvironmentOptions.GetParsedLazarusDirectory) then
-      TranslateResourceStrings;
+      if Candidate.Quality=sddqCompatible then
+        TranslateResourceStrings;
+    end;
   end;
   LazDirComboBox.Text:=EnvironmentOptions.LazarusDirectory;
   FLastParsedLazDir:='. .';

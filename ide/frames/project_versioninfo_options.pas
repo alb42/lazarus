@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  Spin, Buttons, Grids, CheckLst, LCLProc,
+  Spin, Buttons, Grids, CheckLst, LazUTF8,
   Project, IDEOptionsIntf, LazarusIDEStrConsts, W32VersionInfo;
 
 type
@@ -135,12 +135,14 @@ var
   Attr: TProjectVersionAttribute;
 begin
   UseVersionInfoCheckBox.Caption := rsIncludeVersionInfoInExecutable;
+  UseVersionInfoCheckBox.Hint := rsIncludeVersionInfoHint;
   VersionInfoGroupBox.Caption := rsVersionNumbering;
   MajorVersionLabel.Caption := rsMajorVersion;
   MinorVersionLabel.Caption := rsMinorVersion;
   RevisionLabel.Caption := rsRevision;
   BuildLabel.Caption := rsBuild;
   AutomaticallyIncreaseBuildCheckBox.Caption := rsAutomaticallyIncreaseBuildNumber;
+  AutomaticallyIncreaseBuildCheckBox.Hint := rsAutomaticallyIncreaseBuildNumberHint;
   LanguageSettingsGroupBox.Caption := rsLanguageOptions;
   LanguageSelectionLabel.Caption := rsLanguageSelection;
   CharacterSetLabel.Caption := rsCharacterSet;

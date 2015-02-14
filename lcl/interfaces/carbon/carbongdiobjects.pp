@@ -401,7 +401,7 @@ var
 implementation
 
 uses
-  CarbonInt, CarbonProc, CarbonCanvas, CarbonDbgConsts;
+  LazUTF8, CarbonInt, CarbonProc, CarbonCanvas, CarbonDbgConsts;
 
 const
   BITMAPINFOMAP: array[TCarbonBitmapType] of CGBitmapInfo = (
@@ -524,7 +524,6 @@ procedure TScanObject.ScanConvex;
 var
   PData, P: PByte;
   X, Xe, Y, SX,EX: Integer;
-  LC, C: Byte;
   {$ifdef DumpRegion}
   Line: string;
   {$endif}
@@ -1068,7 +1067,7 @@ var
   PValue: ATSUAttributeValuePtr;
 begin
   // keep copy of text
-  FTextBuffer := UTF8ToUTF16(Text);
+  FTextBuffer := LazUTF8.UTF8ToUTF16(Text);
   if FTextBuffer='' then
     FTextBuffer:=#0#0;
   TextStyle := Font.Style;
@@ -2070,6 +2069,9 @@ begin
         CGContextSetLineDash(ADC.CGContext, 0, @ADashes[0], Length(ADashes));
       end;
     PS_USERSTYLE:
+      if Length(Dashes) = 0 then
+        CGContextSetLineDash(ADC.CGContext, 0, nil, Length(Dashes))
+      else
       CGContextSetLineDash(ADC.CGContext, 0, @Dashes[0], Length(Dashes));
   else
     CGContextSetLineDash(ADC.CGContext, 0, nil, 0);

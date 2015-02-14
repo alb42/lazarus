@@ -18,8 +18,6 @@
 
 type
 
-  { TCheckGroupStringList }
-
   { TRadioGroupStringList }
 
   TRadioGroupStringList = class(TStringList)
@@ -32,7 +30,7 @@ type
     procedure Assign(Source: TPersistent); override;
   end;
 
-{ TCheckGroupStringList }
+{ TRadioGroupStringList }
 
 procedure TRadioGroupStringList.Changed;
 begin
@@ -129,10 +127,11 @@ procedure TCustomRadioGroup.InitializeWnd;
 begin
   if FCreatingWnd then RaiseGDBException('TCustomRadioGroup.InitializeWnd');
   FCreatingWnd := true;
-  //DebugLn('[TCustomRadioGroup.InitializeWnd] A ',Name,':',ClassName,' FItems.Count=',FItems.Count,' HandleAllocated=',HandleAllocated,' ItemIndex=',ItemIndex);
+  //DebugLn(['[TCustomRadioGroup.InitializeWnd] A ',DbgSName(Self),' FItems.Count=',FItems.Count,' HandleAllocated=',HandleAllocated,' ItemIndex=',ItemIndex]);
   UpdateItems;
   inherited InitializeWnd;
   RealizeItemIndex;
+  //debugln(['TCustomRadioGroup.InitializeWnd END']);
   FCreatingWnd := false;
 end;
 
@@ -232,6 +231,9 @@ begin
         ARadioButton.Checked := (i = FItemIndex);
         ARadioButton.Visible := true;
       end;
+      //FHiddenButton must remain the last item in Controls[], so that Controls[] is in sync with Items[]
+      Self.RemoveControl(FHiddenButton);
+      Self.InsertControl(FHiddenButton);
       FHiddenButton.Checked := (FItemIndex = -1);
       UpdateTabStops;
     end;
@@ -418,6 +420,7 @@ begin
       begin
         if Assigned(FOnClick) then FOnClick(Self);
         if Assigned(FOnSelectionChanged) then FOnSelectionChanged(Self);
+        FLastClickedItemIndex := FItemIndex;
       end;
     end;
   end;
@@ -447,7 +450,7 @@ begin
   if FLastClickedItemIndex=FItemIndex then exit;
   FLastClickedItemIndex:=FItemIndex;
   EditingDone;
-  // for Delphi compatility: OnClick should be invoked, whenever ItemIndex
+  // for Delphi compatibility: OnClick should be invoked, whenever ItemIndex
   // has changed
   if Assigned (FOnClick) then FOnClick(Self);
   // And a better named LCL equivalent
@@ -478,6 +481,7 @@ begin
   inherited ReadState(Reader);
   FReading := False;
   if (fItemIndex<-1) or (fItemIndex>=FItems.Count) then fItemIndex:=-1;
+  FLastClickedItemIndex:=FItemIndex;
 end;
 
 {------------------------------------------------------------------------------

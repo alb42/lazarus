@@ -3277,6 +3277,7 @@ procedure TPascalParserTool.ReadVariableType;
 var
   ParentNode: TCodeTreeNode;
   HasSemicolon: Boolean;
+  CanExternal: Boolean;
 begin
   ReadNextAtom;
   // type
@@ -3331,19 +3332,21 @@ begin
   end;
   //if UpAtomIs('EXTERNAL') then
   //  debugln(['TPascalParserTool.ReadVariableType ',CurNode.Parent.Parent.DescAsString,' ',CurNode.Parent.DescAsString,' ',CurNode.DescAsString]);
-  if (CurNode.Parent.Desc in [ctnVarSection,ctnClassClassVar])
-  and ((CurNode.Parent.Parent.Desc in AllCodeSections)
-       or ((CurNode.Parent.Parent.Desc in (AllClassBaseSections+AllClassInterfaces))
-            and Scanner.Values.IsDefined('CPUJVM')))
-  and (UpAtomIs('PUBLIC') or UpAtomIs('EXPORT') or UpAtomIs('EXTERNAL')
-    or UpAtomIs('WEAKEXTERNAL')) then
+  CanExternal:=(CurNode.Parent.Desc in [ctnVarSection,ctnClassClassVar])
+    and ((CurNode.Parent.Parent.Desc in AllCodeSections)
+         or ((CurNode.Parent.Parent.Desc in (AllClassBaseSections+AllClassInterfaces))
+            and Scanner.Values.IsDefined('CPUJVM')));
+  if CanExternal and (UpAtomIs('PUBLIC') or UpAtomIs('EXPORT')
+    or UpAtomIs('EXTERNAL') or UpAtomIs('WEAKEXTERNAL')) then
   begin
     // examples:
     //   a: b; public;
+    //   a: b; public name 'c' section 'd';
     //   a: b; external;
     //   a: b; external c;
     //   a: b; external name 'c';
     //   a: b; external 'library' name 'c';
+    //   a: b; section 'c';
     if UpAtomIs('EXTERNAL') or UpAtomIs('WEAKEXTERNAL') then begin
       // read external identifier
       ReadNextAtom;
@@ -3370,6 +3373,14 @@ begin
     end;
     if CurPos.Flag<>cafSemicolon then
       SaveRaiseCharExpectedButAtomFound(';');
+  end else if CanExternal and Scanner.Values.IsDefined('EMBEDDED')
+  and UpAtomIs('SECTION') then begin
+    // section 'sectionname'
+    ReadNextAtom;
+    if (not AtomIsStringConstant)
+    and (not AtomIsIdentifier) then
+      SaveRaiseStringExpectedButAtomFound(ctsStringConstant);
+    ReadConstant(true,false,[]);
   end else if CurPos.Flag=cafEND then begin
     UndoReadNextAtom;
   end else begin
@@ -3621,6 +3632,8 @@ function TPascalParserTool.KeyWordFuncConst: boolean;
       ;
       c =4;
       ErrorBase : Pointer = nil;public name 'FPC_ERRORBASE';
+      devcfg3: longWord = DEVCFG3_DEFAULT; section '.devcfg3';
+
 
     implementation
 
@@ -3763,7 +3776,7 @@ begin
       SaveRaiseStringExpectedButAtomFound(ctsIdentifier);
     end;
     CreateChildNode;
-    CurNode.Desc:=ctnLabelType;
+    CurNode.Desc:=ctnLabel;
     CurNode.EndPos:=CurPos.EndPos;
     EndChildNode;
     ReadNextAtom;
@@ -3822,6 +3835,7 @@ end;
 
 procedure TPascalParserTool.ReadConst;
 // ErrorBase : Pointer = nil;public name 'FPC_ERRORBASE';
+// devcfg3: longWord = DEVCFG3_DEFAULT; section '.devcfg3';
 begin
   ReadNextAtom;
   if (CurPos.Flag=cafColon) then begin
@@ -3858,6 +3872,12 @@ begin
           ReadNextAtom;
           if CurPos.Flag<>cafSemicolon then
             SaveRaiseStringExpectedButAtomFound(';');
+        end else
+        if UpAtomIs('SECTION') then begin
+          ReadNextAtom;
+          if not AtomIsStringConstant then
+            SaveRaiseStringExpectedButAtomFound(ctsStringConstant);
+          ReadNextAtomIsChar(';');
         end else
         begin
           UndoReadNextAtom;
@@ -4548,7 +4568,7 @@ function TPascalParserTool.KeyWordFuncTypeLabel: boolean;
 // 'label;'
 begin
   CreateChildNode;
-  CurNode.Desc:=ctnLabelType;
+  CurNode.Desc:=ctnLabel;
   CurNode.EndPos:=CurPos.EndPos;
   EndChildNode;
   ReadNextAtom;

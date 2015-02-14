@@ -143,6 +143,7 @@ type
     procedure RecogniseRecordBody;
     procedure RecogniseRecVariant;
     procedure RecogniseRestrictedType;
+    procedure RecogniseSpecializeType;
     procedure RecogniseSetType;
     procedure RecogniseSimpleType;
     procedure RecogniseStringType;
@@ -1160,6 +1161,13 @@ begin
 
   PushNode(nTypeDecl);
 
+
+  //Recognise generic keyword (for fpc)
+  if (fcTokenList.FirstSolidTokenType = ttGeneric) then
+  begin
+   Recognise(ttGeneric);
+  end;
+
   // Delph.Net Attribute?
   if (fcTokenList.FirstSolidTokenType = ttOpenSquareBracket) then
     RecogniseAttributes;
@@ -1582,6 +1590,8 @@ begin
 
     ttArray, ttSet, ttFile, ttRecord:
           RecogniseStrucType;
+    ttSpecialize:
+      RecogniseSpecializeType;
     ttHat:
       RecognisePointerType;
     ttString, ttAnsiString, ttWideString:
@@ -1838,6 +1848,13 @@ begin
   end
   else
     Recognise([ttAnsiString, ttWideString]);
+end;
+
+//Recognise specialize keyword in type definition (for fpc)
+procedure TBuildParseTree.RecogniseSpecializeType;
+begin
+ Recognise(ttSpecialize);
+ RecogniseType;
 end;
 
 procedure TBuildParseTree.RecogniseStrucType;
@@ -2313,7 +2330,7 @@ const
   OperatorTokens: TTokenTypeSet = [ttPlus, ttMinus, ttTimes, ttFloatDiv, ttExponent,
     ttEquals, ttGreaterThan, ttLessThan, ttGreaterThanOrEqual, ttLessThanOrEqual,
     ttAssign, ttPlusAssign, ttMinusAssign, ttTimesAssign, ttFloatDivAssign, ttXor,
-    ttAnd, ttOr];
+    ttAnd, ttOr, ttEnumerator];
 begin
   Recognise(OperatorTokens);
 end;
@@ -3943,6 +3960,11 @@ begin
           Recognise(ttMessage);
           RecogniseConstantExpression;
         end;
+        ttEnumerator:
+        begin
+          Recognise(ttEnumerator);
+          RecogniseIdentifier(False, idStrict);
+        end
         else
           Recognise(ProcedureDirectives);
       end;
@@ -5308,7 +5330,7 @@ const
 
   for non-array properties it is followed by an identifier
   }
-  PropertyDirectives = [ttDefault, ttNoDefault, ttStored];
+  PropertyDirectives = [ttDefault, ttNoDefault, ttStored, ttEnumerator];
 begin
   if ((fcTokenList.FirstSolidTokenType = ttSemicolon) and
     (fcTokenList.SolidTokenType(2) in PropertyDirectives)) or
@@ -5338,6 +5360,11 @@ begin
           if fcTokenList.FirstSolidTokenType <> ttSemicolon then
             RecogniseConstantExpression;
         end;
+        ttEnumerator:
+        begin
+          Recognise(ttEnumerator);
+          RecogniseIdentifier(False, idStrict);
+      end;
       end;
 
       PopNode;

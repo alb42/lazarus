@@ -86,7 +86,6 @@ type
     FListener: TListener;
     FMarkValues: TChartValueTextArray;
     FTitlePos: Integer;
-
     procedure GetMarkValues;
     procedure VisitSource(ASource: TCustomChartSource; var AData);
   private
@@ -100,6 +99,7 @@ type
     FGroup: Integer;
     FHelper: TAxisDrawHelper;
     FInverted: Boolean;
+    FLabelSize: Integer;
     FMargin: TChartDistance;
     FMarginsForMarks: Boolean;
     FMinors: TChartMinorAxisList;
@@ -118,6 +118,7 @@ type
     procedure SetAxisPen(AValue: TChartAxisPen);
     procedure SetGroup(AValue: Integer);
     procedure SetInverted(AValue: Boolean);
+    procedure SetLabelSize(AValue: Integer);
     procedure SetMargin(AValue: TChartDistance);
     procedure SetMarginsForMarks(AValue: Boolean);
     procedure SetMarks(AValue: TChartAxisMarks);
@@ -166,6 +167,7 @@ type
     property Group: Integer read FGroup write SetGroup default 0;
     // Inverts the axis scale from increasing to decreasing.
     property Inverted: boolean read FInverted write SetInverted default false;
+    property LabelSize: Integer read FLabelSize write SetLabelSize default 0;
     property Margin: TChartDistance read FMargin write SetMargin default 0;
     property MarginsForMarks: Boolean
       read FMarginsForMarks write SetMarginsForMarks default true;
@@ -585,7 +587,7 @@ begin
     FValueMin := GetTransform.AxisToGraph(axisMin);
     FValueMax := GetTransform.AxisToGraph(axisMax);
   end;
-  if Inverted then
+  if Inverted and (Length(FMarkValues) > 0) then
     for i := 0 to High(FMarkValues) div 2 do begin
       t := FMarkValues[i];
       FMarkValues[i] := FMarkValues[High(FMarkValues) - i];
@@ -691,13 +693,18 @@ begin
   FHelper.FValueMin := TDoublePointBoolArr(AExtent.a)[v];
   FHelper.FValueMax := TDoublePointBoolArr(AExtent.b)[v];
   GetMarkValues;
-  sz := Marks.Measure(d, not v, TickLength, FMarkValues);
+  if FLabelSize = 0 then
+    // Default distance (= length of marks)
+    sz := Marks.Measure(d, not v, TickLength, FMarkValues)
+  else
+    // User-defined distance
+    sz := d.Scale(FLabelSize);
   FHelper.GetClipRange(rmin, rmax);
   minc := MaxInt;
   maxc := -MaxInt;
   for i := 0 to High(FMarkValues) do begin
     cv := FMarkValues[i].FValue;
-    if not IsNan(pv) then begin
+    if (FLabelSize = 0) and (not IsNan(pv)) then begin
       for j := 0 to Minors.Count - 1 do
         with Minors[j] do begin
           minorValues := GetMarkValues(pv, cv);
@@ -817,6 +824,13 @@ begin
   StyleChanged(Self);
 end;
 
+procedure TChartAxis.SetLabelSize(AValue: Integer);
+begin
+  if FLabelSize = AValue then exit;
+  FLabelSize := Max(AValue, 0);
+  StyleChanged(Self);
+end;
+
 procedure TChartAxis.SetMargin(AValue: TChartDistance);
 begin
   if FMargin = AValue then exit;
@@ -913,12 +927,12 @@ begin
     calLeft:
       begin
         Alignment := calRight;
-        Title.Font.Orientation := -Title.Font.Orientation;
+        Title.LabelFont.Orientation := -Title.LabelFont.Orientation;
       end;
     calRight:
       begin
         Alignment := calLeft;
-        Title.Font.Orientation := -Title.Font.Orientation;
+        Title.LabelFont.Orientation := -Title.LabelFont.Orientation;
       end;
     calBottom,
     calTop:

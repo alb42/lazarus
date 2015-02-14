@@ -22,7 +22,7 @@
   
   Abstract:
     This unit is part of the IDE's help system. It implements the help for
-    sources via fpdoc files and pascal comments.
+    sources via fpdoc files and Pascal comments.
 }
 unit CodeHelp;
 
@@ -40,7 +40,7 @@ interface
 
 uses
   Classes, SysUtils, LazFileCache, LCLProc, Forms, Controls, FileUtil, Dialogs,
-  AvgLvlTree, LCLType,
+  AvgLvlTree, LCLType, LazUTF8,
   Laz2_DOM, Laz2_XMLRead, Laz2_XMLWrite,
   // codetools
   CodeAtom, CodeTree, CodeToolManager, FindDeclarationTool, BasicCodeTools,

@@ -257,6 +257,10 @@ msgctxt "objinspstrconsts.ilesadd"
 msgid "Add"
 msgstr "Pridėti"
 
+#: objinspstrconsts.itcssearchandreplace
+msgid "Search and replace"
+msgstr ""
+
 #: objinspstrconsts.liisaddvalue
 msgid "Add value"
 msgstr "Pridėti vertę"
@@ -615,6 +619,10 @@ msgstr "Kaukės…"
 #: objinspstrconsts.oismethod
 msgid "Method"
 msgstr "Metodas"
+
+#: objinspstrconsts.oismixed
+msgid "(Mixed)"
+msgstr ""
 
 #: objinspstrconsts.oismovedown
 msgid "Move &Down"

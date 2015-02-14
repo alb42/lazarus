@@ -78,6 +78,7 @@ type
     // we need to detect:    type TFoo = procedure; // must not fold
     //                       var  foo: procedure;   // must not fold
     rsAfterEqualOrColon,   // very first word after "=" or ":"
+    rsAfterEqual,          // between "=" and ";" (or block end) // a ^ means ctrl-char, not pointer to type
 
     // Detect if class/object is   type TFoo = class; // forward declaration
     //                                  TBar = class of TFoo;
@@ -85,14 +86,17 @@ type
     // Also included after class modifiers "sealed" and "abstract"
     rsAtClass,
     rsAfterClass,
+    rsAfterIdentifierOrValue, // anywhere where a ^ deref can happen "foo^", "foo^^", "foo()^", "foo[]^"
+    rsAfterIdentifierOrValueAdd,
 
     rsAtClosingBracket,   // ')'
     rsAtCaseLabel,
     rsInProcHeader,       // Declaration or implementation header of a Procedure, function, constructor...
     rsAfterClassMembers,  // Encountered a procedure, function, property, constructor or destructor in a class
     rsAfterClassField,    // after ";" of a field (static needs highlight)
-    rsVarTypeInSpecification // between ":"/"=" and ";" in a var or type section (or class members)
-                             // var a: Integer; type b = Int64;
+    rsVarTypeInSpecification, // between ":"/"=" and ";" in a var or type section (or class members)
+                              // var a: Integer; type b = Int64;
+    rsInTypeBlock
   );
   TRangeStates = set of TRangeState;
 
@@ -450,6 +454,7 @@ type
     procedure OctalProc;
     procedure LFProc;
     procedure LowerProc;
+    procedure CaretProc;
     procedure NullProc;
     procedure NumberProc;
     procedure PointProc;
@@ -1374,6 +1379,7 @@ begin
       if TopPascalCodeFoldBlockType in [cfbtProcedure]
       then StartPascalCodeFoldBlock(cfbtLocalVarType)
       else StartPascalCodeFoldBlock(cfbtVarType);
+      fRange := fRange + [rsInTypeBlock];
     end;
     Result := tkKey;
   end
@@ -2283,8 +2289,9 @@ begin
       '0'..'9': fProcTable[I] := @NumberProc;
       'A'..'Z', 'a'..'z', '_':
         fProcTable[I] := @IdentProc;
+      '^': fProcTable[I] := @CaretProc;
       '{': fProcTable[I] := @BraceOpenProc;
-      '}', '!', '"', '('..'/', ':'..'@', '['..'^', '`', '~':
+      '}', '!', '"', '('..'/', ':'..'@', '[', ']', '\', '`', '~':
         begin
           case I of
             '(': fProcTable[I] := @RoundOpenProc;
@@ -2737,6 +2744,36 @@ begin
   if fLine[Run] in ['=', '>'] then inc(Run);
 end;
 
+procedure TSynPasSyn.CaretProc;
+var
+  t: TPascalCodeFoldBlockType;
+begin
+  inc(Run);
+  fTokenID := tkSymbol;
+
+  t := TopPascalCodeFoldBlockType;
+  if ( (t in PascalStatementBlocks - [cfbtAsm])  or               //cfbtClass, cfbtClassSection,
+       ( ( (t in [cfbtVarType, cfbtLocalVarType]) or
+           ((t in [cfbtProcedure]) and (PasCodeFoldRange.BracketNestLevel > 0))
+         ) and
+         (fRange * [rsInTypeBlock, rsAfterEqual] = [rsAfterEqual])
+     )) and
+     not(rsAfterIdentifierOrValue in fRange)
+  then begin
+    if Run<fLineLen then begin
+      if (Run+1 < fLineLen) and (fLine[Run] = '{') and (fLine[Run+1] = '$')  then begin
+        // "{$" directive takes precedence
+        fTokenID := tkSymbol;
+        exit;
+      end;
+      inc(Run);
+    end;
+    fTokenID := tkString;
+  end
+  else
+    fRange := fRange + [rsAfterIdentifierOrValueAdd];
+end;
+
 procedure TSynPasSyn.NullProc;
 begin
   if (Run = 0) and (rsSlash in fRange) then begin
@@ -2842,6 +2879,7 @@ procedure TSynPasSyn.RoundCloseProc;
 begin
   inc(Run);
   fTokenID := tkSymbol;
+  fRange := fRange + [rsAfterIdentifierOrValueAdd];
   PasCodeFoldRange.DecBracketNestLevel;
   if (PasCodeFoldRange.BracketNestLevel = 0) then begin
     if (fRange * [rsAfterClass] <> []) then
@@ -2861,6 +2899,7 @@ procedure TSynPasSyn.SquareCloseProc;
 begin
   inc(Run);
   fTokenID := tkSymbol;
+  fRange := fRange + [rsAfterIdentifierOrValueAdd];
   PasCodeFoldRange.DecBracketNestLevel;
 end;
 
@@ -2868,7 +2907,7 @@ procedure TSynPasSyn.EqualSignProc;
 begin
   inc(Run);
   fTokenID := tkSymbol;
-  fRange := fRange + [rsAfterEqualOrColon];
+  fRange := fRange + [rsAfterEqualOrColon, rsAfterEqual];
   if (TopPascalCodeFoldBlockType in [cfbtVarType, cfbtLocalVarType, cfbtClass, cfbtClassSection, cfbtRecord]) and
      not(rsAfterClassMembers in fRange)
   then
@@ -2906,7 +2945,7 @@ begin
      (PasCodeFoldRange.BracketNestLevel = 0)
   then
     fRange := fRange - [rsProperty, rsInProcHeader];
-  fRange := fRange - [rsVarTypeInSpecification];
+  fRange := fRange - [rsVarTypeInSpecification, rsAfterEqual];
 end;
 
 procedure TSynPasSyn.SlashProc;
@@ -3029,18 +3068,17 @@ begin
           if (FTokenID = tkKey) then
             fRange := fRange - [rsAtCaseLabel];
         end;
+
         if not (FTokenID in [tkSpace, tkComment, tkIDEDirective, tkDirective]) then begin
           if (PasCodeFoldRange.BracketNestLevel = 0) and
              not(rsAtClosingBracket in fRange)
           then
             fRange := fRange - [rsAfterClass];
-          if rsAfterEqualOrColon in FOldRange then
-            fRange := fRange - [rsAfterEqualOrColon];
-          if rsAtPropertyOrReadWrite in FOldRange then
-            fRange := fRange - [rsAtPropertyOrReadWrite];
-          fRange := fRange - [rsAtClosingBracket];
-          if rsAfterClassField in FOldRange then
-            fRange := fRange - [rsAfterClassField];
+
+          fRange := fRange -
+            (FOldRange * [rsAfterEqualOrColon, rsAtPropertyOrReadWrite, rsAfterClassField, rsAfterIdentifierOrValue]) -
+            [rsAtClosingBracket];
+
           if rsAtClass in fRange then begin
             if FOldRange * [rsAtClass, rsAfterClass] <> [] then
               fRange := fRange + [rsAfterClass] - [rsAtClass]
@@ -3053,6 +3091,9 @@ begin
           if rsAtClass in fRange then
             fRange := fRange + [rsAfterClass];
         end;
+
+        if (FTokenID = tkIdentifier) or (rsAfterIdentifierOrValueAdd in fRange) then
+          fRange := fRange + [rsAfterIdentifierOrValue] - [rsAfterIdentifierOrValueAdd];
       end
   end;
   if FAtLineStart and not(FTokenID in [tkSpace, tkComment, tkIDEDirective]) then
@@ -3745,6 +3786,9 @@ var
   nd: TSynFoldNodeInfo;
 begin
   BlockType := TopPascalCodeFoldBlockType;
+  if BlockType in [cfbtVarType, cfbtLocalVarType] then
+    fRange := fRange - [rsInTypeBlock];
+  fRange := fRange - [rsAfterEqual];
   DecreaseLevel := TopCodeFoldBlockType < CountPascalCodeFoldBlockOffset;
   if FCatchNodeInfo then begin // exclude subblocks, because they do not increase the foldlevel yet
     BlockEnabled := FFoldConfig[ord(BlockType)].Enabled;

@@ -38,9 +38,9 @@ uses
   // FPC
   Classes, SysUtils, Math, Types, maps,
   // LCL
-  InterfaceBase, LCLProc, LCLType, LMessages, LCLMessageGlue, LCLStrConsts,
+  InterfaceBase, LCLProc, LazUTF8, LCLType, LMessages, LCLMessageGlue, LCLStrConsts,
   Controls, ExtCtrls, Forms,
-  Dialogs, StdCtrls, Comctrls, LCLIntf, GraphType, GraphUtil, Themes, CheckLst,
+  Dialogs, StdCtrls, LCLIntf, GraphType, GraphUtil, Themes,
   // WS
   qtproc;
 
@@ -313,13 +313,12 @@ uses
  {$IFDEF HASX11}
  XAtom, X, XLib, XKB, xkblib,
  {$ENDIF}
- QtWSFactory,
  QtCaret,
  QtThemes,
 ////////////////////////////////////////////////////
   Graphics, buttons, Menus,
   // Bindings
-  qtprivate, qtwidgets, qtobjects, qtsystemtrayicon;
+  QtWSFactory, qtwidgets, qtobjects, qtsystemtrayicon;
 
 function DTFlagsToQtFlags(const Flags: Cardinal): Integer;
 begin

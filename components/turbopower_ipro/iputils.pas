@@ -398,7 +398,7 @@ begin
     Result := 0;
 end;
 
-{ Find Nth from the rightmost occurance of character C in string S }
+{ Find Nth from the rightmost occurrence of character C in string S }
 { * If C not found returns 0 }
 function RNthCharPos(C: AnsiChar; const S : string; Nth: Integer): Integer;
 var
@@ -551,7 +551,7 @@ function InternetSumOfFile(const FileName : string) : DWORD;
 var
   FileSt : TFileStream;
 begin
-  FileSt := TFileStream.Create(UTF8ToSys(FileName), CrcFileMode);
+  FileSt := TFileStreamUTF8.Create(FileName, CrcFileMode);
   try
     Result := InternetSumOfStream(FileSt, 0);
   finally
@@ -2646,7 +2646,7 @@ begin
   if (Hr > 24) or (Mn > 60) or (Sc > 60) then Exit;
 
   { tests passed, generate final result }
-  Result := EncodeDate(Yr, Mo, Dy) + EncodeTime(Hr, Mn, Sc, 0);
+  Result := ComposeDateTime(EncodeDate(Yr, Mo, Dy),EncodeTime(Hr, Mn, Sc, 0));
 end;
 
 

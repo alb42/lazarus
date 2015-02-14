@@ -689,20 +689,19 @@ end;
 
 { TQtWSCustomListView }
 
+type
+  TCustomListViewHack = class(TCustomListView);
+
+class function TQtWSCustomListView.IsIconView(const AList: TCustomListView): boolean;
+begin
+  Result := TCustomListViewHack(AList).ViewStyle <> vsReport;
+end;
+
 {------------------------------------------------------------------------------
   Method: TQtWSCustomListView.CreateHandle
   Params:  None
   Returns: Nothing
  ------------------------------------------------------------------------------}
-
-class function TQtWSCustomListView.IsIconView(const AList: TCustomListView): boolean;
-begin
-  Result := TListView(AList).ViewStyle <> vsReport;
-end;
-
-type
-  TCustomListViewHack = class(TCustomListView);
-
 class function TQtWSCustomListView.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
@@ -714,8 +713,8 @@ begin
   if IsIconView(TCustomListView(AWinControl)) then
   begin
     QtListWidget := TQtListWidget.Create(AWinControl, AParams);
-    QtListWidget.ViewStyle := Ord(TListView(AWinControl).ViewStyle);
-    if TListView(AWinControl).ViewStyle in [vsIcon, vsSmallIcon] then
+    QtListWidget.ViewStyle := Ord(TCustomListViewHack(AWinControl).ViewStyle);
+    if TCustomListViewHack(AWinControl).ViewStyle in [vsIcon, vsSmallIcon] then
     begin
       // emabarcadero docs says
       // vsIcon, vsSmallIcon
@@ -742,10 +741,11 @@ begin
   end else
   begin
     QtTreeWidget := TQtTreeWidget.Create(AWinControl, AParams);
-    QtTreeWidget.ViewStyle := Ord(TListView(AWinControl).ViewStyle);
+    QtTreeWidget.ViewStyle := Ord(TCustomListViewHack(AWinControl).ViewStyle);
     QtTreeWidget.OwnerDrawn := ALV.IsCustomDrawn(dtControl, cdPrePaint) or (ALV.OwnerDraw and
       (ALV.ViewStyle = vsReport));
     QtTreeWidget.setStretchLastSection(False);
+    QTreeView_setItemsExpandable(QTreeViewH(QtTreeWidget.Widget), False);
     QtTreeWidget.setRootIsDecorated(False);
     QtTreeWidget.AttachEvents;
     Result := TLCLIntfHandle(QtTreeWidget);
@@ -794,10 +794,10 @@ begin
 
   QtTreeWidget := TQtTreeWidget(ALV.Handle);
 
-  if QtTreeWidget.ColCount <> TListView(ALV).Columns.Count then
-   	QtTreeWidget.ColCount := TListView(ALV).Columns.Count;
+  if QtTreeWidget.ColCount <> TCustomListViewHack(ALV).Columns.Count then
+   	QtTreeWidget.ColCount := TCustomListViewHack(ALV).Columns.Count;
 
-  if (QtTreeWidget.ColCount <= 1) and TListView(ALV).ShowColumnHeaders then
+  if (QtTreeWidget.ColCount <= 1) and TCustomListViewHack(ALV).ShowColumnHeaders then
     QtTreeWidget.setHeaderVisible(True);
 
   TWI := QtTreeWidget.headerItem;
@@ -814,7 +814,7 @@ begin
   if (csDesigning in ALV.ComponentState) then
     exit;
 
-	QtTreeWidget.Header.Clickable := TListView(ALV).ColumnClick;
+	QtTreeWidget.Header.Clickable := TCustomListViewHack(ALV).ColumnClick;
 end;
 
 {------------------------------------------------------------------------------
@@ -978,13 +978,13 @@ begin
   begin
     ImgList := TImageList.Create(nil);
     try
-      if (TListView(ALV).ViewStyle = vsIcon) and
-        Assigned(TListView(ALV).LargeImages) then
-        ImgList.Assign(TListView(ALV).LargeImages);
+      if (TCustomListViewHack(ALV).ViewStyle = vsIcon) and
+        Assigned(TCustomListViewHack(ALV).LargeImages) then
+        ImgList.Assign(TCustomListViewHack(ALV).LargeImages);
 
-      if (TListView(ALV).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
-        Assigned(TListView(ALV).SmallImages) then
-        ImgList.Assign(TListView(ALV).SmallImages);
+      if (TCustomListViewHack(ALV).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
+        Assigned(TCustomListViewHack(ALV).SmallImages) then
+        ImgList.Assign(TCustomListViewHack(ALV).SmallImages);
 
       if (ImgList.Count > 0) and
         ((AImageIndex >= 0) and (AImageIndex < ImgList.Count)) then
@@ -1273,8 +1273,8 @@ begin
   if not WSCheckHandleAllocated(ALV, 'ItemSetImage') then
     Exit;
 
-  if not Assigned(TListView(ALV).LargeImages) and not
-    Assigned(TListView(ALV).SmallImages) then
+  if not Assigned(TCustomListViewHack(ALV).LargeImages) and not
+    Assigned(TCustomListViewHack(ALV).SmallImages) then
       exit;
   TWI := nil;
   LWI := nil;
@@ -1293,13 +1293,13 @@ begin
   begin
     ImgList := TImageList.Create(nil);
     try
-      if (TListView(ALV).ViewStyle = vsIcon) and
-        Assigned(TListView(ALV).LargeImages) then
-        ImgList.Assign(TListView(ALV).LargeImages);
+      if (TCustomListViewHack(ALV).ViewStyle = vsIcon) and
+        Assigned(TCustomListViewHack(ALV).LargeImages) then
+        ImgList.Assign(TCustomListViewHack(ALV).LargeImages);
 
-      if (TListView(ALV).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
-        Assigned(TListView(ALV).SmallImages) then
-        ImgList.Assign(TListView(ALV).SmallImages);
+      if (TCustomListViewHack(ALV).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
+        Assigned(TCustomListViewHack(ALV).SmallImages) then
+        ImgList.Assign(TCustomListViewHack(ALV).SmallImages);
 
       if (ImgList.Count > 0) and
         ((AImageIndex >= 0) and (AImageIndex < ImgList.Count)) then
@@ -1423,6 +1423,9 @@ var
   Str: WideString;
   i: Integer;
   AAlignment: QtAlignment;
+  AImages: TCustomImageList;
+  AMetric: Integer;
+  ASizeHint: TSize;
 begin
   if not WSCheckHandleAllocated(ALV, 'ItemInsert') then
     Exit;
@@ -1449,20 +1452,37 @@ begin
       	QTreeWidgetItem_setCheckState(TWI, 0, QtUnchecked);
     end;
 
-    AAlignment := QtAlignLeft;
-    if TListView(ALV).Columns.Count > 0 then
-      AAlignment := AlignmentToQtAlignmentMap[ALV.Column[0].Alignment];
+    AAlignment := QtAlignLeft or QtAlignVCenter;
+    if TCustomListViewHack(ALV).Columns.Count > 0 then
+      AAlignment := AlignmentToQtAlignmentMap[ALV.Column[0].Alignment] or QtAlignVCenter;
 
     if Str <> '' then
       QtTreeWidget.setItemText(TWI, 0, Str, AAlignment);
 
     QtTreeWidget.setItemData(TWI, 0, AItem);
 
+    // issue #27043
+    if (ALV.Items[AIndex].ImageIndex = -1) then
+    begin
+      AImages := TCustomListViewHack(ALV).LargeImages;
+      if not Assigned(AImages) then
+        AImages := TCustomListViewHack(ALV).SmallImages;
+      if Assigned(AImages) then
+      begin
+        AMetric := QStyle_pixelMetric(QApplication_style(), QStylePM_FocusFrameVMargin, nil, nil) * 2;
+        QTreeWidgetItem_sizeHint(TWI, @ASizeHint, 0);
+        ASizeHint.cy := AImages.Height + AMetric;
+        QTreeWidgetItem_setSizeHint(TWI, 0, @ASizeHint);
+        for i := 0 to AItem.SubItems.Count - 1 do
+          QTreeWidgetItem_setSizeHint(TWI, i + 1, @ASizeHint);
+      end;
+    end;
+
     for i := 0 to AItem.SubItems.Count - 1 do
     begin
-      AAlignment := QtAlignLeft;
-      if (TListView(ALV).Columns.Count > 0) and (i + 1 < TListView(ALV).Columns.Count) then
-        AAlignment := AlignmentToQtAlignmentMap[ALV.Column[i + 1].Alignment];
+      AAlignment := QtAlignLeft or QtAlignVCenter;
+      if (TCustomListViewHack(ALV).Columns.Count > 0) and (i + 1 < TCustomListViewHack(ALV).Columns.Count) then
+        AAlignment := AlignmentToQtAlignmentMap[ALV.Column[i + 1].Alignment] or QtAlignVCenter;
       if AItem.Subitems.Strings[i] <> '' then
       begin
         Str := GetUtf8String(AItem.Subitems.Strings[i]);
@@ -1470,6 +1490,7 @@ begin
         QtTreeWidget.setItemData(TWI, i + 1, AItem);
       end;
     end;
+
     QtTreeWidget.insertTopLevelItem(AIndex, TWI);
   end;
 end;
@@ -1497,7 +1518,7 @@ begin
     if ASubIndex >0 Then exit;
     QtListWidget := TQtListWidget(ALV.Handle);
     AAlignment := QtAlignLeft;
-    if (TListView(ALV).Columns.Count > 0) and (ASubIndex < TListView(ALV).Columns.Count)  then
+    if (TCustomListViewHack(ALV).Columns.Count > 0) and (ASubIndex < TCustomListViewHack(ALV).Columns.Count)  then
       AAlignment := AlignmentToQtAlignmentMap[ALV.Column[ASubIndex].Alignment];
     QtListWidget.setItemText(AIndex, AText, AAlignment);
   end else
@@ -1507,9 +1528,9 @@ begin
     TWI := QtTreeWidget.topLevelItem(AIndex);
     if TWI <> NiL then
     begin
-      AAlignment := QtAlignLeft;
-      if (TListView(ALV).Columns.Count > 0) and (ASubIndex < TListView(ALV).Columns.Count)  then
-        AAlignment := AlignmentToQtAlignmentMap[ALV.Column[ASubIndex].Alignment];
+      AAlignment := QtAlignLeft or QtAlignVCenter;
+      if (TCustomListViewHack(ALV).Columns.Count > 0) and (ASubIndex < TCustomListViewHack(ALV).Columns.Count)  then
+        AAlignment := AlignmentToQtAlignmentMap[ALV.Column[ASubIndex].Alignment]  or QtAlignVCenter;
       QtTreeWidget.setItemText(TWI, ASubIndex, Str, AAlignment);
     end;
   end;
@@ -1741,7 +1762,7 @@ begin
     Exit;
   // according to embarcadero docs this should return
   // only for vsList and vsReport
-  if not (TListView(ALV).ViewStyle in [vsList, vsReport]) then
+  if not (TCustomListViewHack(ALV).ViewStyle in [vsList, vsReport]) then
     exit;
   QtItemView := TQtAbstractItemView(ALV.Handle);
   Result := QtItemView.getTopItem;
@@ -1770,13 +1791,13 @@ begin
   QtTreeWidget := TQtTreeWidget(AList.Handle);
   ImgList := TImageList.Create(nil);
 
-  if (TListView(AList).ViewStyle = vsIcon) and
-    Assigned(TListView(AList).LargeImages) then
-    ImgList.Assign(TListView(AList).LargeImages);
+  if (TCustomListViewHack(AList).ViewStyle = vsIcon) and
+    Assigned(TCustomListViewHack(AList).LargeImages) then
+    ImgList.Assign(TCustomListViewHack(AList).LargeImages);
 
-  if (TListView(AList).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
-    Assigned(TListView(AList).SmallImages) then
-    ImgList.Assign(TListView(AList).SmallImages);
+  if (TCustomListViewHack(AList).ViewStyle in [vsSmallIcon, vsReport, vsList]) and
+    Assigned(TCustomListViewHack(AList).SmallImages) then
+    ImgList.Assign(TCustomListViewHack(AList).SmallImages);
 
   BeginUpdate(AList);
   try
@@ -1812,8 +1833,8 @@ begin
       for j := 0 to AItem.SubItems.Count - 1 do
       begin
         AAlignment := QtAlignLeft;
-        if (TListView(AList).Columns.Count > 0) and (j + 1 < TListView(AList).Columns.Count) then
-          AAlignment := AlignmentToQtAlignmentMap[TListView(AList).Column[j + 1].Alignment];
+        if (TCustomListViewHack(AList).Columns.Count > 0) and (j + 1 < TCustomListViewHack(AList).Columns.Count) then
+          AAlignment := AlignmentToQtAlignmentMap[TCustomListViewHack(AList).Column[j + 1].Alignment];
         WStr := GetUtf8String(AItem.Subitems.Strings[j]);
         QtTreeWidget.setItemText(Item, j + 1, WStr, AAlignment);
         QtTreeWidget.setItemData(Item, j + 1, AItem);
@@ -1837,8 +1858,6 @@ var
   QtTreeWidget: TQtTreeWidget;
   {$IFDEF TEST_QT_SORTING}
   StdModel: QStandardItemModelH;
-  {$ELSE}
-  CanSort: Boolean;
   {$ENDIF}
 begin
   if not WSCheckHandleAllocated(ALV, 'SetSort') then
@@ -1868,13 +1887,12 @@ begin
     {$ELSE}
     with QtTreeWidget do
     begin
-      CanSort := ItemCount > 0;
       Header.SetSortIndicatorVisible(True);
-      if (AColumn >= 0) and (AColumn < ColCount) and
-        CanSort then
+      if (AColumn >= 0) and (AColumn < ColCount) then
       begin
         Header.SetSortIndicator(AColumn, QtSortOrder(Ord(ASortDirection)));
-        InternalUpdateItems(ALV);
+        if ItemCount > 0 then
+          InternalUpdateItems(ALV);
       end;
     end;
     {$ENDIF}
@@ -1934,7 +1952,7 @@ var
 begin
   if not WSCheckHandleAllocated(ALV, 'SetAllocBy') then
     Exit;
-  if TListView(ALV).ViewStyle <> vsReport then
+  if TCustomListViewHack(ALV).ViewStyle <> vsReport then
   begin
     NewValue := AValue;
     if NewValue < 0 then
@@ -1971,18 +1989,10 @@ end;
 
 class procedure TQtWSCustomListView.SetImageList(const ALV: TCustomListView;
   const AList: TListViewImageList; const AValue: TCustomImageList);
-var
-  QtListWidget: TQtListWidget;
 begin
   if not WSCheckHandleAllocated(ALV, 'SetImageList') then
     Exit;
-
-  if not IsIconView(ALV) then
-    exit;
-
-  QtListWidget := TQtListWidget(ALV.Handle);
-  // issue #26770 , imediatelly apply changes.
-  if TViewStyle(QtListWidget.ViewStyle) in [vsIcon, vsSmallIcon] then
+  if not ALV.OwnerData then
     RecreateWnd(ALV);
 end;
 
@@ -2064,8 +2074,8 @@ begin
       begin
         if not IsIconView(ALV) then
           with TQtTreeWidget(ALV.Handle) do
-            setHeaderVisible(AIsSet and (TListView(ALV).ViewStyle = vsReport)
-              and (TListView(ALV).Columns.Count > 0) );
+            setHeaderVisible(AIsSet and (TCustomListViewHack(ALV).ViewStyle = vsReport)
+              and (TCustomListViewHack(ALV).Columns.Count > 0) );
       end;
     lvpOwnerDraw: ; // utilized automatically.
     lvpReadOnly: QtItemView.setEditTriggers(BoolToEditTriggers[AIsSet]);
@@ -2138,8 +2148,8 @@ begin
     QtTreeWidget := TQtTreeWidget(ALV.Handle);
     ItemViewWidget := QTreeWidgetH(QtTreeWidget.Widget);
     with QtTreeWidget do
-      setHeaderVisible(TListView(ALV).ShowColumnHeaders and (AValue = vsReport)
-        and (TListView(ALV).Columns.Count > 0) );
+      setHeaderVisible(TCustomListViewHack(ALV).ShowColumnHeaders and (AValue = vsReport)
+        and (TCustomListViewHack(ALV).Columns.Count > 0) );
   end;
   case AValue of
     vsIcon:
@@ -2147,10 +2157,10 @@ begin
         x := GetPixelMetric(QStylePM_IconViewIconSize, nil, ItemViewWidget);
         Size.cx := x;
         Size.cy := x;
-        if Assigned(TListView(ALV).LargeImages) then
+        if Assigned(TCustomListViewHack(ALV).LargeImages) then
         begin
-          Size.cy := TListView(ALV).LargeImages.Height;
-          Size.cx := TListView(ALV).LargeImages.Width;
+          Size.cy := TCustomListViewHack(ALV).LargeImages.Height;
+          Size.cx := TCustomListViewHack(ALV).LargeImages.Width;
         end;
       end;
     vsSmallIcon:
@@ -2158,10 +2168,10 @@ begin
         x := GetPixelMetric(QStylePM_ListViewIconSize, nil, ItemViewWidget);
         Size.cx := x;
         Size.cy := x;
-        if Assigned(TListView(ALV).SmallImages) then
+        if Assigned(TCustomListViewHack(ALV).SmallImages) then
         begin
-          Size.cy := TListView(ALV).SmallImages.Height;
-          Size.cx := TListView(ALV).SmallImages.Width;
+          Size.cy := TCustomListViewHack(ALV).SmallImages.Height;
+          Size.cx := TCustomListViewHack(ALV).SmallImages.Width;
         end;
       end;
     vsList, vsReport:

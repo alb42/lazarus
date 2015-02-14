@@ -66,7 +66,7 @@ type
     function  CreateDebugProcess(const AOptions: String): Boolean; virtual;
     procedure Flush;                                   // Flushes output buffer
     function  GetWaiting: Boolean; override;
-    function  LineEndPos(const s: string; out LineEndLen: integer): integer; virtual;
+    function  LineEndPos(const {%H-}s: string; out LineEndLen: integer): integer; virtual;
     function  ReadLine(ATimeOut: Integer = -1): String; overload;
     function  ReadLine(const APeek: Boolean; ATimeOut: Integer = -1): String; virtual; overload;
     procedure SendCmdLn(const ACommand: String); virtual; overload;
@@ -79,6 +79,7 @@ type
     constructor Create(const AExternalDebugger: String); override;
     destructor Destroy; override;
     procedure TestCmd(const ACommand: String); virtual;// For internal debugging purposes
+    class function CanExternalDebugSymbolsFile: boolean; override;
   public
     property DebugProcess: TProcessUTF8 read FDbgProcess;
     property DebugProcessRunning: Boolean read GetDebugProcessRunning;
@@ -328,26 +329,40 @@ end;
 
 function TCmdLineDebugger.CreateDebugProcess(const AOptions: String): Boolean;
 begin
+  Result := False;
   if FDbgProcess = nil
   then begin
     FDbgProcess := TProcessUTF8.Create(nil);
-    FDbgProcess.CommandLine := ExternalDebugger + ' ' + AOptions;
-    // TODO: under win9x and winMe should be created with console,
-    // otherwise no break can be sent.
-    FDbgProcess.Options:= [poUsePipes, poNoConsole, poStdErrToOutPut, poNewProcessGroup];
-    FDbgProcess.ShowWindow := swoNone;
-    FDbgProcess.Environment:=DebuggerEnvironment;
+    try
+      FDbgProcess.CommandLine := ExternalDebugger + ' ' + AOptions;
+      FDbgProcess.Options:= [poUsePipes, poNoConsole, poStdErrToOutPut, poNewProcessGroup];
+      {$if defined(windows) and not defined(wince)}
+      // under win9x and winMe should be created with console,
+      // otherwise no break can be sent.
+      if Win32MajorVersion <= 4 then
+        FDbgProcess.Options:= [poUsePipes, poNewConsole, poStdErrToOutPut, poNewProcessGroup];
+      {$endif windows}
+      FDbgProcess.ShowWindow := swoNone;
+      FDbgProcess.Environment:=DebuggerEnvironment;
+    except
+      FreeAndNil(FDbgProcess);
+    end;
   end;
-  if not FDbgProcess.Running 
+  if FDbgProcess = nil then exit;
+
+  if not FDbgProcess.Running
   then begin
     try
       FDbgProcess.Execute;
       DebugLn('[TCmdLineDebugger] Debug PID: ', IntToStr(FDbgProcess.Handle));
+      Result := FDbgProcess.Running;
     except
-      on E: Exception do DebugLn('Exeption while executing debugger: ', E.Message);
+      on E: Exception do begin
+        FOutputBuf := E.Message;
+        DebugLn('Exeption while executing debugger: ', FOutputBuf);
+      end;
     end;
   end;
-  Result := FDbgProcess.Running;
 end;
 
 destructor TCmdLineDebugger.Destroy;
@@ -429,6 +444,16 @@ begin
 // TODO: get extra handles to wait for
 // TODO: Fix multiple peeks
   Result := '';
+  if not DebugProcessRunning then begin
+    if FOutputBuf <> '' then begin
+      Result := FOutputBuf;
+      FOutputBuf := '';
+      exit;
+    end;
+    DoReadError;
+    exit;
+  end;
+
   FReadLineTimedOut := False;
   FReadLineWasAbortedByNested := False;
   if FReadLineCallStamp = high(FReadLineCallStamp) then
@@ -468,6 +493,10 @@ begin
 
     if FReadLineTimedOut
     then break;
+    if FDbgProcess.Output = nil then begin
+      DoReadError;
+      break;
+    end;
 
     WaitSet := WaitForHandles([FDbgProcess.Output.Handle], ATimeOut);
 
@@ -489,7 +518,7 @@ begin
     end;
 
     if  ((WaitSet and 1) <> 0)
-    and (FDbgProcess <> nil)
+    and DebugProcessRunning
     and (ReadData(FDbgProcess.Output, FOutputBuf) > 0) 
     then Continue; // start lineend search
 
@@ -575,6 +604,11 @@ end;
 procedure TCmdLineDebugger.TestCmd(const ACommand: String);
 begin
   SendCmdLn(ACommand);
+end;
+
+class function TCmdLineDebugger.CanExternalDebugSymbolsFile: boolean;
+begin
+  Result:=true;
 end;
 
 initialization

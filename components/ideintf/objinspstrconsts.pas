@@ -15,6 +15,7 @@ resourcestring
   // Object Inspector
   oisObjectInspector = 'Object Inspector';
   oisError = 'Error';
+  oisMixed = '(Mixed)';
   oisItemsSelected = '%u items selected';
   
   oiscAdd = '&Add';
@@ -440,6 +441,9 @@ resourcestring
   dceWillReplaceContinue = 'This will replace all captions from dataset. Continue?';
   dceColumnEditor = 'DBGrid Columns Editor';
   dceOkToDelete = 'This will delete all columns. Continue?';
+
+  // IDE Text Converter
+  itcsSearchAndReplace = 'Search and replace';
 
 implementation
 

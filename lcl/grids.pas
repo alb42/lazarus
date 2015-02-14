@@ -35,7 +35,7 @@ uses
   Types, Classes, SysUtils, Math, Maps, LCLStrConsts, LCLProc, LCLType, LCLIntf,
   FileUtil, FPCanvas, Controls, GraphType, Graphics, Forms, DynamicArray,
   LMessages, StdCtrls, LResources, MaskEdit, Buttons, Clipbrd, Themes,
-  Laz2_XMLCfg; // <-- replaces XMLConf (part of FPC libs)
+  LazUTF8, LazUtf8Classes, Laz2_XMLCfg; // <-- replaces XMLConf (part of FPC libs)
 
 const
   //GRIDFILEVERSION = 1; // Original
@@ -125,6 +125,9 @@ type
 
   TAutoAdvance = (aaNone,aaDown,aaRight,aaLeft, aaRightDown, aaLeftDown,
     aaRightUp, aaLeftUp);
+
+  { Option goRangeSelect: --> select a single range only, or multiple ranges }
+  TRangeSelectMode = (rsmSingle, rsmMulti);
 
   TItemType = (itNormal,itCell,itColumn,itRow,itFixed,itFixedColumn,itFixedRow,itSelected);
 
@@ -611,6 +614,7 @@ type
   type
     TGridCoord = TPoint;
     TGridRect  = TRect;
+    TGridRectArray = array of TGridRect;
 
     TSizingRec = record
       Index: Integer;
@@ -675,6 +679,8 @@ type
     FFastEditing: boolean;
     FAltColorStartNormal: boolean;
     FFlat: Boolean;
+    FRangeSelectMode: TRangeSelectMode;
+    FSelections: TGridRectArray;
     FOnUserCheckboxBitmap: TUserCheckboxBitmapEvent;
     FSortOrder: TSortOrder;
     FSortColumn: Integer;
@@ -793,6 +799,8 @@ type
     function  GetBorderWidth: Integer;
     function  GetRowCount: Integer;
     function  GetRowHeights(Arow: Integer): Integer;
+    function  GetSelectedRange(AIndex: Integer): TGridRect;
+    function  GetSelectedRangeCount: Integer;
     function  GetSelection: TGridRect;
     function  GetTopRow: Longint;
     function  GetVisibleColCount: Integer;
@@ -833,6 +841,7 @@ type
     procedure SetGridLineWidth(const AValue: Integer);
     procedure SetLeftCol(const AValue: Integer);
     procedure SetOptions(const AValue: TGridOptions);
+    procedure SetRangeSelectMode(const AValue: TRangeSelectMode);
     procedure SetRow(AValue: Integer);
     procedure SetRowCount(AValue: Integer);
     procedure SetRowHeights(Arow: Integer; Avalue: Integer);
@@ -854,6 +863,7 @@ type
   protected
     fGridState: TGridState;
     class procedure WSRegisterClass; override;
+    procedure AddSelectedRange;
     procedure AdjustClientRect(var ARect: TRect); override;
     procedure AdjustEditorBounds(NewCol,NewRow:Integer); virtual;
     procedure AssignTo(Dest: TPersistent); override;
@@ -871,6 +881,7 @@ type
     procedure CellClick(const aCol,aRow: Integer; const Button:TMouseButton); virtual;
     procedure CheckLimits(var aCol,aRow: Integer);
     procedure CheckLimitsWithError(const aCol, aRow: Integer);
+    procedure ClearSelections;
     procedure CMBiDiModeChanged(var Message: TLMessage); message CM_BIDIMODECHANGED;
     procedure CMMouseEnter(var Message: TLMessage); message CM_MOUSEENTER;
     procedure CMMouseLeave(var Message :TLMessage); message CM_MouseLeave;
@@ -1112,6 +1123,7 @@ type
     property LeftCol:Integer read GetLeftCol write SetLeftCol;
     property MouseWheelOption: TMouseWheelOption read FMouseWheelOption write FMouseWheelOption default mwCursor;
     property Options: TGridOptions read FOptions write SetOptions default DefaultGridOptions;
+    property RangeSelectMode: TRangeSelectMode read FRangeSelectMode write SetRangeSelectMode default rsmSingle;
     property Row: Integer read FRow write SetRow;
     property RowCount: Integer read GetRowCount write SetRowCount default 5;
     property RowHeights[aRow: Integer]: Integer read GetRowHeights write SetRowHeights;
@@ -1171,7 +1183,7 @@ type
     procedure EndUpdate(aRefresh: boolean = true);
     procedure EraseBackground(DC: HDC); override;
     function  Focused: Boolean; override;
-
+    function  HasMultiSelection: Boolean;
     procedure InvalidateCell(aCol, aRow: Integer); overload;
     procedure InvalidateCol(ACol: Integer);
     procedure InvalidateRange(const aRange: TRect);
@@ -1189,6 +1201,8 @@ type
     procedure SaveToStream(AStream: TStream);
     procedure SetFocus; override;
 
+    property SelectedRange[AIndex: Integer]: TGridRect read GetSelectedRange;
+    property SelectedRangeCount: Integer read GetSelectedRangeCount;
     property SortOrder: TSortOrder read FSortOrder write FSortOrder;
     property SortColumn: Integer read FSortColumn;
     property TabStop default true;
@@ -1428,6 +1442,7 @@ type
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
+    property RangeSelectMode;
     property RowCount;
     property ScrollBars;
     property ShowHint;
@@ -1644,6 +1659,7 @@ type
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
+    property RangeSelectMode;
     property RowCount;
     property ScrollBars;
     property ShowHint;
@@ -1733,6 +1749,9 @@ uses
   {$WARN IMPLICIT_STRING_CAST OFF}
   {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
 {$ENDIF}
+
+const
+  MULTISEL_MODIFIER = {$IFDEF Darwin}ssMeta{$ELSE}ssCtrl{$ENDIF};
 
 function BidiFlipX(X: Integer; const Width: Integer; const Flip: Boolean): Integer;
 begin
@@ -2908,6 +2927,13 @@ begin
   Click;
 end;
 
+procedure TCustomGrid.SetRangeSelectMode(const AValue: TRangeSelectMode);
+begin
+  if FRangeSelectMode=AValue then exit;
+  FRangeSelectMode := AValue;
+  ClearSelections;
+end;
+
 procedure TCustomGrid.SetRow(AValue: Integer);
 begin
   if AValue=FRow then Exit;
@@ -3632,7 +3658,7 @@ end;
 procedure TCustomGrid.ShowCellHintWindow(APoint: TPoint);
 var
   cell: TPoint;
-  txt1, txt2, txt: String;
+  txt1, txt2, txt, AppHint: String;
   w: Integer;
   gds: TGridDrawState;
 begin
@@ -3641,7 +3667,10 @@ begin
 
   cell := MouseToCell(APoint);
   if (cell.x = -1) or (cell.y = -1) then
+  begin
+    Application.Hint := '';
     exit;
+  end;
 
   txt := '';
   txt1 := '';
@@ -3667,6 +3696,7 @@ begin
       txt := txt2
     else
       txt := txt1;
+    AppHint := txt;
   end else begin
     if (txt1 <> '') and (txt2 <> '') then
       txt := txt1 + #13 + txt2
@@ -3674,14 +3704,19 @@ begin
       txt := txt1
     else if txt2 <> '' then
       txt := txt2;
+    AppHint := txt;
     if (FCellHintPriority = chpAll) and (txt <> '') then
-      txt := FSavedHint + #13 + txt;
+      txt := GetShortHint(FSavedHint) + #13 + txt;
   end;
+
+
   if (txt = '') and (FSavedHint <> '') then
     txt := FSavedHint;
-
+  if (AppHint = '') then AppHint := FSavedhint;
   if (txt <> '') and not EditorMode and not (csDesigning in ComponentState) then begin
     Hint := txt;
+    //set Application.Hint as well (issue #0026957)
+    Application.Hint := AppHint;
     Application.ActivateHint(APoint, true);
   end else
     HideCellHintWindow;
@@ -4280,7 +4315,7 @@ end;
 
 procedure TCustomGrid.WMHScroll(var message: TLMHScroll);
 var
-  C,TL,CTL,aPos: Integer;
+  C,TL,CTL,aPos, maxPos: Integer;
   R: TRect;
   ScrollInfo: TScrollInfo;
   aCode: Smallint;
@@ -4315,11 +4350,13 @@ begin
   if not FGCache.ValidGrid or not HandleAllocated then
     exit;
 
+  ScrollInfo.cbSize := SizeOf(ScrollInfo);
+  ScrollInfo.fMask := SIF_PAGE or SIF_RANGE;
+  GetScrollInfo(Handle, SB_HORZ, ScrollInfo);
+  maxPos := ScrollInfo.nMax - Max(ScrollInfo.nPage-1, 0);
+
   aCode := message.ScrollCode;
   if UseRightToLeftAlignment then begin
-    ScrollInfo.cbSize:=SizeOf(ScrollInfo);
-    ScrollInfo.fMask:= SIF_PAGE or SIF_RANGE;
-    GetScrollInfo(Handle, SB_HORZ, ScrollInfo);
     aPos := (ScrollInfo.nMax-ScrollInfo.nPage)-Message.Pos;
     case aCode of
       SB_LINERIGHT: aCode := SB_LINELEFT;
@@ -4350,7 +4387,7 @@ begin
     SB_LINERIGHT:  C := CTL + NextColWidth( FTopLeft.X, 1);
     SB_LINELEFT:   C := CTL - NextColWidth( FTopLeft.X - 1, -1);
       // Scrolls one page of lines up / down
-    SB_PAGERIGHT:  C := CTL + AccumColWidths(FGCache.FullVisibleGrid.Left, FGCache.FullVisibleGrid.Right);
+    SB_PAGERIGHT:  C := min(maxPos, CTL + AccumColWidths(FGCache.FullVisibleGrid.Left, FGCache.FullVisibleGrid.Right));
     SB_PAGELEFT:   C := CTL - AccumColWidths(FGCache.FullVisibleGrid.Left, FGCache.FullVisibleGrid.Right);
       // Scrolls to the current scroll bar position
     SB_THUMBPOSITION:
@@ -4577,6 +4614,17 @@ class procedure TCustomGrid.WSRegisterClass;
 begin
   inherited WSRegisterClass;
   RegisterCustomGrid;
+end;
+
+procedure TCustomGrid.AddSelectedRange;
+var
+  n: Integer;
+begin
+  if (goRangeSelect in Options) and (FRangeSelectMode = rsmMulti) then begin
+    n := Length(FSelections);
+    SetLength(FSelections, n+1);
+    FSelections[n] := FRange;
+  end;
 end;
 
 procedure TCustomGrid.AdjustClientRect(var ARect: TRect);
@@ -4944,11 +4992,25 @@ begin
 end;
 
 function TCustomGrid.GetIsCellSelected(aCol, aRow: Integer): boolean;
+var
+  i: Integer;
 begin
   Result:=  (FRange.Left<=aCol)   and
             (aCol<=FRange.Right)  and
             (FRange.Top<=aRow)    and
             (aRow<=FRange.Bottom);
+
+  if not Result and (goRangeSelect in FOptions) and (RangeSelectMode = rsmMulti)
+  then
+    for i:=0 to High(FSelections) do
+      if (FSelections[i].Left <= aCol)  and
+         (ACol <= FSelections[i].Right) and
+         (FSelections[i].Top <= ARow)   and
+         (ARow <= FSelections[i].Bottom)
+      then begin
+        Result := true;
+        exit;
+      end;
 end;
 
 function TCustomGrid.GetSelectedColumn: TGridColumn;
@@ -5205,6 +5267,20 @@ begin
         FRange:=Rect(FCol,FRow,FCol,FRow);
     end;
   SelectActive := False;
+end;
+
+function TCustomGrid.GetSelectedRange(AIndex: Integer): TGridRect;
+begin
+  if AIndex >= Length(FSelections) then
+    Result := FRange
+  else
+    Result := FSelections[AIndex];
+end;
+
+function TCustomGrid.GetSelectedRangeCount: Integer;
+begin
+  Result := Length(FSelections) + 1;
+    // add 1 because the current selection (FRange) is not stored in the array
 end;
 
 function TCustomGrid.GetSelection: TGridRect;
@@ -5775,6 +5851,14 @@ procedure TCustomGrid.DoOPInsertColRow(IsColumn: boolean; index: integer);
 var
   NewCol,NewRow: Integer;
 begin
+  if IsColumn and (RowCount = 0) then
+    Raise EGridException.Create(rsGridHasNoRows);
+  if not IsColumn then
+  begin
+    if (Columns.Enabled and (Columns.Count = 0)) or (not Columns.Enabled and (ColCount = 0)) then
+      Raise EGridException.Create(rsGridHasNoCols);
+  end;
+
   if Index<0 then
     Index:=0;
 
@@ -6085,6 +6169,16 @@ begin
             if ssShift in Shift then
               SelectActive:=(goRangeSelect in Options)
             else begin
+              if (goRangeSelect in Options) and (FRangeSelectMode = rsmMulti)
+              then begin
+                if (MULTISEL_MODIFIER in Shift) then
+                  AddSelectedRange
+                else begin
+                  ClearSelections;
+                  Invalidate;
+                end;
+              end;
+
               // shift is not pressed any more cancel SelectActive if necessary
               if SelectActive then
                 CancelSelection;
@@ -6106,12 +6200,17 @@ begin
             Exit;
           end;
 
-          if not MoveExtend(False, FGCache.ClickCell.X, FGCache.ClickCell.Y) then begin
-            if EditorAlwaysShown then begin
-              SelectEditor;
-              EditorShow(true);
+          include(fGridFlags, gfEditingDone);
+          try
+            if not MoveExtend(False, FGCache.ClickCell.X, FGCache.ClickCell.Y) then begin
+              if EditorAlwaysShown then begin
+                SelectEditor;
+                EditorShow(true);
+              end;
+              MoveSelection;
             end;
-            MoveSelection;
+          finally
+            exclude(fGridFlags, gfEditingDone);
           end;
 
         end;
@@ -6165,6 +6264,8 @@ begin
         finally
           AllowOutboundEvents := obe;
         end;
+        //if we are not over a cell, and we use cellhint, we need to empty Application.Hint
+        if (p.X < 0) and ([goCellHints, goTruncCellHints]*Options <> []) then Application.Hint := '';
         with FGCache do
           if (MouseCell.X <> p.X) or (MouseCell.Y <> p.Y) then begin
             Application.CancelHint;
@@ -6471,13 +6572,22 @@ begin
   {$ifdef dbgGrid}DebugLnExit('grid.DoEditorHide [',Editor.ClassName,'] END');{$endif}
 end;
 procedure TCustomGrid.DoEditorShow;
+var
+  ParentChanged: Boolean;
 begin
-  //DebugLn(['TCustomGrid.DoEditorShow ']);
   {$ifdef dbgGrid}DebugLnEnter('grid.DoEditorShow [',Editor.ClassName,'] INIT');{$endif}
   ScrollToCell(FCol,FRow,true);
-  Editor.Parent := nil;
+  // Under carbon, Editor.Parent:=nil destroy Editor handle, but not immediately
+  // as in this case where keyboard event on editor is being handled.
+  // After Editor.Visible:=true, a new handle is allocated but it's got overwritten
+  // once the delayed destroying of previous handle happens, the result is a stalled
+  // unparented editor ....
+  ParentChanged := (Editor.Parent<>Self);
+  if ParentChanged then
+    Editor.Parent := nil;
   EditorSetValue;
-  Editor.Parent:=Self;
+  if ParentChanged then
+    Editor.Parent:=Self;
   Editor.Visible:=True;
   if Focused and Editor.CanFocus then
     Editor.SetFocus;
@@ -7309,6 +7419,11 @@ begin
     raise EGridException.Create(rsGridIndexOutOfRange);
 end;
 
+procedure TCustomGrid.ClearSelections;
+begin
+  SetLength(FSelections, 0);
+end;
+
 procedure TCustomGrid.CMBiDiModeChanged(var Message: TLMessage);
 begin
   VisualChange;
@@ -7428,6 +7543,12 @@ end;
 procedure TCustomGrid.InvalidateCell(aCol, aRow: Integer);
 begin
   InvalidateCell(ACol,ARow, False);
+end;
+
+function TCustomGrid.HasMultiSelection: Boolean;
+begin
+  Result := (goRangeSelect in Options) and
+    (FRangeSelectMode = rsmMulti) and (Length(FSelections) > 0);
 end;
 
 procedure TCustomGrid.InvalidateCell(aCol, aRow: Integer; Redraw: Boolean);
@@ -7846,6 +7967,8 @@ begin
   end;
   if aEditor<>Editor then
     Editor := aEditor;
+  if Assigned(Editor) and not Assigned(Editor.Popupmenu) then
+    Editor.PopupMenu := PopupMenu;
   {$ifdef DbgGrid}
   DebugLnExit('TCustomGrid.SelectEditor END');
   {$endif}
@@ -8864,7 +8987,7 @@ var
   Cfg: TXMLConfig;
 begin
   if not FileExistsUTF8(FileName) then
-    raise Exception.Create(rsGridFileDoesNotExists);
+    raise Exception.Create(rsGridFileDoesNotExist);
   Cfg:=TXMLConfig.Create(nil);
   Try
     Cfg.Filename := FileName;
@@ -10318,6 +10441,11 @@ end;
 
 procedure TCustomStringGrid.DoPasteFromClipboard;
 begin
+  // Unpredictable results when a multiple selection is pasted back in.
+  // Therefore we inhibit this here.
+  if HasMultiSelection then
+    exit;
+
   if EditingAllowed(Col) and Clipboard.HasFormat(CF_TEXT) then begin
     SelectionSetText(Clipboard.AsText);
   end;
@@ -10565,11 +10693,15 @@ end;
 procedure TCustomStringGrid.InsertRowWithValues(Index: Integer;
   Values: array of String);
 var
-  i: Integer;
+  i, OldRC: Integer;
 begin
-  InsertColRow(false, Index);
+  OldRC := RowCount;
   if Length(Values) > ColCount then
     ColCount := Length(Values);
+  InsertColRow(false, Index);
+  //if RowCount was 0, then setting ColCount restores RowCount (from FGridPropBackup)
+  //which is unwanted here, so reset it (Issue #0026943)
+  if (OldRc = 0) then RowCount := 1;
   for i := 0 to Length(Values)-1 do
     Cells[i, Index] := Values[i];
 end;
@@ -10706,9 +10838,9 @@ end;
 procedure TCustomStringGrid.LoadFromCSVFile(AFilename: string;
   ADelimiter: Char=','; WithHeader: boolean=true);
 var
-  TheStream: TFileStream;
+  TheStream: TFileStreamUtf8;
 begin
-  TheStream:=TFileStream.Create(AFileName,fmOpenRead or fmShareDenyWrite);
+  TheStream:=TFileStreamUtf8.Create(AFileName,fmOpenRead or fmShareDenyWrite);
   try
     LoadFromCSVStream(TheStream, ADelimiter, WithHeader);
   finally
@@ -10791,9 +10923,9 @@ end;
 procedure TCustomStringGrid.SaveToCSVFile(AFileName: string; ADelimiter: Char;
   WithHeader: boolean=true; VisibleColumnsOnly: boolean=false);
 var
-  TheStream: TFileStream;
+  TheStream: TFileStreamUtf8;
 begin
-  TheStream:=TFileStream.Create(AFileName,fmCreate);
+  TheStream:=TFileStreamUtf8.Create(AFileName,fmCreate);
   try
     SaveToCSVStream(TheStream, ADelimiter, WithHeader);
   finally

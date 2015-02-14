@@ -561,6 +561,10 @@ msgstr "Aksi file tidak jelas:"
 msgid "Warn on compile"
 msgstr "Peringatan saat kompilasi"
 
+#: lazarusidestrconsts.dlganiconforerrorwarninghintisshown
+msgid "An icon for error/warning/hint is shown in front of a message. The same icon shows in source editor gutter in any case."
+msgstr ""
+
 #: lazarusidestrconsts.dlgansicommenttab
 msgid "Ansi (* *)"
 msgstr ""
@@ -580,6 +584,10 @@ msgstr "Sertakan Kode Assertion"
 #: lazarusidestrconsts.dlgautocreateforms
 msgid "Auto-create forms:"
 msgstr "Otomatis-buat form:"
+
+#: lazarusidestrconsts.dlgautocreateformshint
+msgid "Main .lpr unit creates each form with Application.CreateForm(). They are also freed automatically."
+msgstr ""
 
 #: lazarusidestrconsts.dlgautocreatenewforms
 msgid "When creating new forms, add them to auto-created forms"
@@ -619,15 +627,13 @@ msgstr ""
 msgid "Auto rename file lowercase"
 msgstr "Otomatis mengganti nama file ke huruf kecil"
 
-#: lazarusidestrconsts.dlgautosave
-#, fuzzy
-#| msgid "Auto save"
-msgid "Auto Save"
-msgstr "Otomatis menyimpan"
-
 #: lazarusidestrconsts.dlgavailableforms
 msgid "Available forms:"
 msgstr "Form tersedia:"
+
+#: lazarusidestrconsts.dlgavailableformshint
+msgid "These forms must be created and freed in the program code."
+msgstr ""
 
 #: lazarusidestrconsts.dlgbackcolor
 msgid "Background"
@@ -686,6 +692,10 @@ msgstr ""
 
 #: lazarusidestrconsts.dlgblocktabindent
 msgid "Block indent (tabs)"
+msgstr ""
+
+#: lazarusidestrconsts.dlgborderspacecanbesetinanchoreditor
+msgid "Border space can be set in Anchor editor. A red line is shown if spacing > 0."
 msgstr ""
 
 #: lazarusidestrconsts.dlgbrackethighlight
@@ -800,8 +810,16 @@ msgstr "Tengahkan Baris Kursor"
 msgid "Save As - auto rename Pascal files lower case"
 msgstr "Simpan Sebagai - otomatis mengganti nama file pascal ke huruf kecil"
 
+#: lazarusidestrconsts.dlgcheckandautosavefiles
+msgid "Check and Auto Save Files"
+msgstr ""
+
 #: lazarusidestrconsts.dlgcheckpackagesonformcreate
 msgid "Check packages on form create"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcheckpackagesonformcreatehint
+msgid "The form may require a package to work. Install such a package automatically."
 msgstr ""
 
 #: lazarusidestrconsts.dlgchscodetempl
@@ -1035,6 +1053,10 @@ msgstr "Opsi Kompilator"
 msgid "Complete properties"
 msgstr "Lengkapi properti"
 
+#: lazarusidestrconsts.dlgcomponentundermousecursorisfirstselected
+msgid "Component under mouse cursor is first selected, then the popup menu commands work on it."
+msgstr ""
+
 #: lazarusidestrconsts.dlgconfigandtarget
 msgid "Config and Target"
 msgstr ""
@@ -1173,6 +1195,10 @@ msgstr ""
 msgid "Curly { }"
 msgstr ""
 
+#: lazarusidestrconsts.dlgcurrentlyrespectedbymessageswindow
+msgid "Currently respected by messages window, jump history and search results."
+msgstr ""
+
 #: lazarusidestrconsts.dlgcursorbeyondeol
 msgid "Cursor beyond EOL"
 msgstr "Kursor setelah EOL"
@@ -1235,16 +1261,16 @@ msgstr ""
 msgid "Menus - "
 msgstr ""
 
-#: lazarusidestrconsts.dlgdesktopmisc
-msgid "Misc Options"
-msgstr ""
-
 #: lazarusidestrconsts.dlgdirection
 msgid "Direction"
 msgstr "Arah"
 
 #: lazarusidestrconsts.dlgdisableantialiasing
 msgid "Disable anti-aliasing"
+msgstr ""
+
+#: lazarusidestrconsts.dlgdistancebetweengridpointsissmalleststep
+msgid "Distance between grid points is the smallest step when moving a control."
 msgstr ""
 
 #: lazarusidestrconsts.dlgdividercolordefault
@@ -1298,6 +1324,10 @@ msgstr ""
 #: lazarusidestrconsts.dlgdivpasvarlocalname
 msgctxt "lazarusidestrconsts.dlgdivpasvarlocalname"
 msgid "Var/Type (local)"
+msgstr ""
+
+#: lazarusidestrconsts.dlgdrawcomponentsnamebelowit
+msgid "Draw the component's name below it."
 msgstr ""
 
 #: lazarusidestrconsts.dlgedback
@@ -1490,6 +1520,10 @@ msgstr "Grid"
 msgctxt "lazarusidestrconsts.dlgenvlanguage"
 msgid "Language"
 msgstr "Bahasa"
+
+#: lazarusidestrconsts.dlgenvlanguagehint
+msgid "Language of all IDE strings. Restart IDE after changing it for best result."
+msgstr ""
 
 #: lazarusidestrconsts.dlgenvlguidelines
 msgid "Guide lines"
@@ -1717,9 +1751,9 @@ msgstr "Kebijakan penyisipan Procedure"
 msgid "Keep order of procedures"
 msgstr "Biarkan urutan dari procedure"
 
-#: lazarusidestrconsts.dlgfpcpath
-msgid "Compiler path (e.g. %s)"
-msgstr "Path kompilator (%s)"
+#: lazarusidestrconsts.dlgfpcexecutable
+msgid "Compiler executable (e.g. %s)"
+msgstr ""
 
 #: lazarusidestrconsts.dlgfpcsrcpath
 msgid "FPC source directory"
@@ -1765,6 +1799,10 @@ msgstr "Warna Penggengam"
 #: lazarusidestrconsts.dlggridcolor
 msgid "Grid color"
 msgstr "Warna grid"
+
+#: lazarusidestrconsts.dlggridconsistsofsmalldots
+msgid "Grid consists of small dots which help aligning controls."
+msgstr ""
 
 #: lazarusidestrconsts.dlggridx
 msgid "Grid size X"
@@ -1813,6 +1851,10 @@ msgstr "Undi Grup"
 msgid "Show Guide Lines"
 msgstr "Tampilkan Garis Pemandu"
 
+#: lazarusidestrconsts.dlgguidelineshint
+msgid "When a control is aligned horizontally or vertically with another controls, a blue guide line is shown."
+msgstr ""
+
 #: lazarusidestrconsts.dlggutter
 msgctxt "lazarusidestrconsts.dlggutter"
 msgid "Gutter"
@@ -1848,6 +1890,10 @@ msgstr ""
 msgid "Heap size"
 msgstr "Besar Heap"
 
+#: lazarusidestrconsts.dlgheightofonepropertyingrid
+msgid "Height of one property in the grid."
+msgstr ""
+
 #: lazarusidestrconsts.dlgheightpos
 msgid "Height:"
 msgstr "Tinggi:"
@@ -1856,8 +1902,8 @@ msgstr "Tinggi:"
 msgid "Hide IDE windows on run"
 msgstr "Sembunyikan jendela IDE saat menjalankan"
 
-#: lazarusidestrconsts.dlghidemessagesicons
-msgid "Hide Messages Icons"
+#: lazarusidestrconsts.dlghideideonrunhint
+msgid "Do not show the IDE at all while program is running."
 msgstr ""
 
 #: lazarusidestrconsts.dlghidesingletabinnotebook
@@ -2109,9 +2155,9 @@ msgctxt "lazarusidestrconsts.dlgmainviewunits"
 msgid "View Project Units"
 msgstr "Lihat unit proyek"
 
-#: lazarusidestrconsts.dlgmakepath
-msgid "Make path"
-msgstr "Path Make"
+#: lazarusidestrconsts.dlgmakeexecutable
+msgid "\"Make\" executable"
+msgstr ""
 
 #: lazarusidestrconsts.dlgmargingutter
 msgid "Margin and gutter"
@@ -2263,6 +2309,10 @@ msgstr "Maks file proyek terbaru"
 #: lazarusidestrconsts.dlgmixmethodsandproperties
 msgid "Mix methods and properties"
 msgstr "Campur metode dan properti"
+
+#: lazarusidestrconsts.dlgmouseaction
+msgid "Mouse Action"
+msgstr ""
 
 #: lazarusidestrconsts.dlgmouseoptbtn1
 msgid "Single"
@@ -2629,8 +2679,8 @@ msgstr ""
 
 #: lazarusidestrconsts.dlgotherunitfiles
 #, fuzzy
-#| msgid "Other Unit Files (-Fu) (Delimiter is semicolon):"
-msgid "Other unit files (-Fu) (delimiter is semicolon):"
+#| msgid "Other unit files (-Fu) (delimiter is semicolon):"
+msgid "Other unit files (-Fu):"
 msgstr "File Unit Lain (-Fu) (Pemisah adalah titik koma):"
 
 #: lazarusidestrconsts.dlgoverwriteblock
@@ -2779,15 +2829,19 @@ msgstr ""
 
 #: lazarusidestrconsts.dlgpouseappbundle
 #, fuzzy
-#| msgid "Use Application Bundle for running and debugging (darwin only)"
-msgid "Use Application Bundle for running and debugging (Darwin only)"
+#| msgid "Use Application Bundle for running and debugging (Darwin only)"
+msgid "Use Application Bundle for running and debugging"
 msgstr "Gunakan Bundel Aplikasi untuk menjalankan dan debugging (hanya darwin)"
 
 #: lazarusidestrconsts.dlgpousemanifest
 #, fuzzy
-#| msgid "Use manifest file to enable themes (windows only)"
-msgid "Use manifest file to enable themes (Windows only)"
+#| msgid "Use manifest file to enable themes (Windows only)"
+msgid "Use manifest file to enable themes"
 msgstr "Gunakan file manifest untuk menghidupkan tema (hany windows)"
+
+#: lazarusidestrconsts.dlgpreferdoubleclickoversingleclick
+msgid "Prefer double-click over single-click"
+msgstr ""
 
 #: lazarusidestrconsts.dlgpriorities
 msgid "Priorities"
@@ -2942,9 +2996,17 @@ msgstr ""
 msgid "Save editor info for closed files"
 msgstr "Simpan info editor untuk file yang ditutup"
 
+#: lazarusidestrconsts.dlgsaveeditorinfohint
+msgid "The files are available in the \"Open Recent\" history list."
+msgstr ""
+
 #: lazarusidestrconsts.dlgsaveeditorinfoproject
 msgid "Save editor info only for project files"
 msgstr "Simpan info editor hanya untuk file proyek"
+
+#: lazarusidestrconsts.dlgsaveeditorinfoprojecthint
+msgid "Only files that belong to this project."
+msgstr ""
 
 #: lazarusidestrconsts.dlgscope
 msgid "Scope"
@@ -2991,6 +3053,10 @@ msgstr "Pencarian..."
 msgid "Paths"
 msgstr "Path"
 
+#: lazarusidestrconsts.dlgselectallchildcontrols
+msgid "Select all child controls together with their parent."
+msgstr ""
+
 #: lazarusidestrconsts.dlgselectedtext
 msgid "&Selected text"
 msgstr ""
@@ -3011,9 +3077,9 @@ msgstr "Set property Variable"
 msgid "Show all units"
 msgstr ""
 
-#: lazarusidestrconsts.dlgshowcaps
-msgid "Show component captions"
-msgstr "Tampilkan judul komponen"
+#: lazarusidestrconsts.dlgshowcaptionsofnonvisuals
+msgid "Show captions of non-visual components"
+msgstr ""
 
 #: lazarusidestrconsts.dlgshowcompiledprocedures
 msgid "Show compiled procedures"
@@ -3032,9 +3098,13 @@ msgstr "Tampilkan kondisional"
 msgid "Show debug info"
 msgstr "Tampilkan info debug"
 
-#: lazarusidestrconsts.dlgshowedrhints
-msgid "Show editor hints"
-msgstr "Tampilkan petunjuk editor"
+#: lazarusidestrconsts.dlgshowdesignerhints
+msgid "Show designer hints"
+msgstr ""
+
+#: lazarusidestrconsts.dlgshowdesignerhintshint
+msgid "Hint shows control's position or size while moving or resizing it."
+msgstr ""
 
 #: lazarusidestrconsts.dlgshoweverything
 msgid "Show everything"
@@ -3059,10 +3129,18 @@ msgctxt "lazarusidestrconsts.dlgshowhint"
 msgid "Show hints"
 msgstr "Tampilkan Petunjuk"
 
+#: lazarusidestrconsts.dlgshowingwindows
+msgid "Showing Windows"
+msgstr ""
+
 #: lazarusidestrconsts.dlgshowlinenumbers
 msgctxt "lazarusidestrconsts.dlgshowlinenumbers"
 msgid "Show line numbers"
 msgstr "Tampilkan nomor baris"
+
+#: lazarusidestrconsts.dlgshowmessagesicons
+msgid "Show Messages Icons"
+msgstr ""
 
 #: lazarusidestrconsts.dlgshownotes
 #, fuzzy
@@ -3119,6 +3197,10 @@ msgstr "Simbol didepan (.~pp)"
 #: lazarusidestrconsts.dlgsnapguidelines
 msgid "Snap to Guide Lines"
 msgstr "Menempel ke Garis Pemandu"
+
+#: lazarusidestrconsts.dlgsnapguidelineshint
+msgid "When a control is close to being aligned with another control, it snaps to the aligned position."
+msgstr ""
 
 #: lazarusidestrconsts.dlgspacenotcosmos
 msgctxt "lazarusidestrconsts.dlgspacenotcosmos"
@@ -3655,7 +3737,7 @@ msgid "Invalid Unit Name"
 msgstr "Nama Unit tidak benar"
 
 #: lazarusidestrconsts.lisa2pisnotavalidunitname
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s%s%s is not a valid unit name."
 msgid "\"%s\" is not a valid unit name."
 msgstr "%s%s%s bukan nama unit yang benar."
@@ -3674,7 +3756,7 @@ msgid "New File"
 msgstr "File Baru"
 
 #: lazarusidestrconsts.lisa2pnopackagefoundfordependencypleasechooseanexisting
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "No package found for dependency %s%s%s.%sPlease choose an existing package."
 msgid "No package found for dependency \"%s\".%sPlease choose an existing package."
 msgstr "Tidak ada paket ditemukan untuk dependensi %s%s%s.%sSilahkan pilih paket yang sudah ada."
@@ -3709,49 +3791,49 @@ msgid "Switch Paths"
 msgstr "Tukar Path"
 
 #: lazarusidestrconsts.lisa2ptheancestortypehasthesamenameastheunit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The ancestor type %s%s%s has the same name as%sthe unit %s%s%s."
 msgid "The ancestor type \"%s\" has the same name as%sthe unit \"%s\"."
 msgstr "Tipe karuhun %s%s%s mempunyai nama yang sama dengan%sunit %s%s%s."
 
 #: lazarusidestrconsts.lisa2ptheancestortypeisnotavalidpascalidentifier
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The ancestor type %s%s%s is not a valid Pascal identifier."
 msgid "The ancestor type \"%s\" is not a valid Pascal identifier."
 msgstr "Tipe karuhun %s%s%s bukan pengenal pascal yang benar."
 
 #: lazarusidestrconsts.lisa2ptheclassnameandancestortypearethesame
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The class name %s%s%s and ancestor type %s%s%s are the same."
 msgid "The class name \"%s\" and ancestor type \"%s\" are the same."
 msgstr "Nama class %s%s%s dan tipe karuhun %s%s%s sama."
 
 #: lazarusidestrconsts.lisa2ptheclassnameexistsalreadyinpackagefile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The class name %s%s%s exists already in%sPackage %s%sFile: %s%s%s"
 msgid "The class name \"%s\" exists already in%sPackage %s%sFile: \"%s\""
 msgstr "Nama class %s%s%s sudah ada dalam%sPaket %s%s%sFile: %s%s%s"
 
 #: lazarusidestrconsts.lisa2ptheclassnamehasthesamenameastheunit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The class name %s%s%s has the same name as%sthe unit %s%s%s."
 msgid "The class name \"%s\" has the same name as%sthe unit \"%s\"."
 msgstr "Nama class %s%s%s mempunyai nama yang sama dengan%sunit %s%s%s."
 
 #: lazarusidestrconsts.lisa2ptheclassnameisnotavalidpascalidentifier
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The class name %s%s%s is not a valid Pascal identifier."
 msgid "The class name \"%s\" is not a valid Pascal identifier."
 msgstr "Nama class %s%s%s bukan pengenal pascal yang benar."
 
 #: lazarusidestrconsts.lisa2pthefileispartofthecurrentprojectitisabadidea
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s is part of the current project.%sIt is a bad idea to share files between projects and packages."
 msgid "The file \"%s\" is part of the current project.%sIt is a bad idea to share files between projects and packages."
 msgstr "File %s%s%s adalah bagian dari proyek saat ini.%sAdalah ide buruk untuk membagi file diantara proyek dan paket."
 
 #: lazarusidestrconsts.lisa2pthefilenameisambiguouspleasespecifiyafilename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The filename %s%s%s is ambiguous, because the package has no default directory yet.%sPlease specify a filename with full path."
 msgid "The filename \"%s\" is ambiguous, because the package has no default directory yet.%sPlease specify a filename with full path."
 msgstr "Nama file %s%s%s dwimakna, karena paket belum mempunyai direktori default. %sSilahkan tetapkan nama file dengan path penuh."
@@ -3772,49 +3854,49 @@ msgid "The Minimum Version \"%s\" is invalid.%sPlease use the format major.minor
 msgstr ""
 
 #: lazarusidestrconsts.lisa2pthepackagehasalreadyadependencyforthe
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package already has a dependency on the package %s%s%s."
 msgid "The package already has a dependency on the package \"%s\"."
 msgstr "Paket sudah mempunyai dependensi untuk paket %s%s%s."
 
 #: lazarusidestrconsts.lisa2pthepackagenameisinvalidpleasechooseanexisting
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package name %s%s%s is invalid.%sPlease choose an existing package."
 msgid "The package name \"%s\" is invalid.%sPlease choose an existing package."
 msgstr "Nama paket  %s%s%s tidak benar.%sSilahkan pilih paket yang sudah ada."
 
 #: lazarusidestrconsts.lisa2pthepagenameistoolongmax100chars
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The page name %s%s%s is too long (max 100 chars)."
 msgid "The page name \"%s\" is too long (max 100 chars)."
 msgstr "Nama halaman %s%s%s terlalu panjang (maks 100 karakter)."
 
 #: lazarusidestrconsts.lisa2ptheunitnamealreadyexistsinthepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unitname %s%s%s already exists in the package:%s%s"
 msgid "The unitname \"%s\" already exists in the package:%s%s"
 msgstr "Nama unit %s%s%s sudah ada dalam paket:%s%s"
 
 #: lazarusidestrconsts.lisa2ptheunitnamealreadyexistsinthispackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unitname %s%s%s already exists in this package."
 msgid "The unitname \"%s\" already exists in this package."
 msgstr "Nama unit %s%s%s sudah ada dalam paket ini."
 
 #: lazarusidestrconsts.lisa2ptheunitnameandfilenamediffer
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s%sand filename %s%s%s differ."
 msgid "The unit name \"%s\"%sand filename \"%s\" differ."
 msgstr "Nama unit %s%s%s dan nama file %s%s%s berbeda."
 
 #: lazarusidestrconsts.lisa2ptheunitnamedoesnotcorrespondtothefilename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s does not correspond to the filename."
 msgid "The unit name \"%s\" does not correspond to the filename."
 msgstr "Nama unit %s%s%s tidak terkait ke nama file."
 
 #: lazarusidestrconsts.lisa2ptheunitnameisthesameasanregisteredcomponent
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s is the same as a registered component.%sUsing this can cause strange error messages."
 msgid "The unit name \"%s\" is the same as a registered component.%sUsing this can cause strange error messages."
 msgstr "Nama unit %s%s%s sama dengan komponen terdaftar.%sMenggunakan ini bisa menyebabkan pesan kesalahan aneh."
@@ -4069,7 +4151,7 @@ msgid "Invalid Package"
 msgstr "Paket Tidak benar"
 
 #: lazarusidestrconsts.lisaf2pinvalidpackageid
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Invalid package ID: %s%s%s"
 msgid "Invalid package ID: \"%s\""
 msgstr "ID paket tidak benar: %s%s%s"
@@ -4079,7 +4161,7 @@ msgid "Package is read only"
 msgstr "Paket hanya baca"
 
 #: lazarusidestrconsts.lisaf2ppackagenotfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Package %s%s%s not found."
 msgid "Package \"%s\" not found."
 msgstr "Paket %s%s%s tidak ditemukan."
@@ -4107,7 +4189,7 @@ msgid "Unit name: "
 msgstr "Nama Unit:"
 
 #: lazarusidestrconsts.lisafilealreadyexistsreplaceit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "A file %s%s%s already exists.%sReplace it?"
 msgid "A file \"%s\" already exists.%sReplace it?"
 msgstr "File %s%s%s sudah ada.%sTimpa saja?"
@@ -4199,7 +4281,7 @@ msgid "Ambiguous file found"
 msgstr "File dwimakna ditemukan"
 
 #: lazarusidestrconsts.lisambiguousfilefoundthisfilecanbemistakenwithdelete
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Ambiguous file found: %s%s%s%sThis file can be mistaken with %s%s%s%s%sDelete the ambiguous file?"
 msgid "Ambiguous file found: \"%s\"%sThis file can be mistaken with \"%s\"%sDelete the ambiguous file?"
 msgstr "File yang tidak jelas ditemukan: %s%s%s%sFile ini mungkin salah dengan %s%s%s%s%sHapus file tidak jelas?"
@@ -4259,7 +4341,7 @@ msgid "Anchor top side to top side of sibling. Use BorderSpacing to set a distan
 msgstr ""
 
 #: lazarusidestrconsts.lisanerroroccuredatlaststartupwhileloadingloadthispro
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "An error occured at last startup while loading %s!%s%sLoad this project again?"
 msgid "An error occured at last startup while loading %s!%sLoad this project again?"
 msgstr "Kesalahan terjadi saat terakhir startup ketika mengambil %s!%s%sAmbil proyek ini lagi?"
@@ -4285,6 +4367,10 @@ msgstr ""
 msgid "Apply conventions"
 msgstr ""
 
+#: lazarusidestrconsts.lisapplyconventionshint
+msgid "Adjust name extension and character case for platform and file type."
+msgstr ""
+
 #: lazarusidestrconsts.lisaprojectunitcannotbeusedbyotherpackagesprojects
 msgid "A project unit can not be used by other packages/projects"
 msgstr ""
@@ -4302,7 +4388,7 @@ msgid "Ask before saving project's session"
 msgstr ""
 
 #: lazarusidestrconsts.lisaskforcomponentnameafterputtingitonform
-msgid "Ask for component name after putting it on a designer form"
+msgid "Ask for component name after putting it on a designer form."
 msgstr ""
 
 #: lazarusidestrconsts.lisaskforfilenameonnewfile
@@ -4342,8 +4428,8 @@ msgstr ""
 msgid "Automatically"
 msgstr ""
 
-#: lazarusidestrconsts.lisautomaticallyconvertlfmfilestolrsincludefiles
-msgid "Automatically convert .lfm files to .lrs include files"
+#: lazarusidestrconsts.lisautomaticallyconvertlfmtolrs
+msgid "Automatically convert .lfm files to .lrs resource files"
 msgstr ""
 
 #: lazarusidestrconsts.lisautomaticallyignoreforselection
@@ -4414,6 +4500,14 @@ msgstr "mulai"
 
 #: lazarusidestrconsts.lisbehindrelated
 msgid "Behind related"
+msgstr ""
+
+#: lazarusidestrconsts.lisbelessverbosecanbegivenmultipletimes
+msgid "be less verbose, can be given multiple times"
+msgstr ""
+
+#: lazarusidestrconsts.lisbemoreverbosecanbegivenmultipletimes
+msgid "be more verbose, can be given multiple times"
 msgstr ""
 
 #: lazarusidestrconsts.lisbestviewedbyinstallingahtmlcontrolliketurbopowerip
@@ -4568,6 +4662,10 @@ msgstr ""
 msgid "build IDE with packages"
 msgstr ""
 
+#: lazarusidestrconsts.lisbuilding
+msgid "Building"
+msgstr ""
+
 #: lazarusidestrconsts.lisbuildinglazarusfailed
 msgid "Building Lazarus failed"
 msgstr ""
@@ -4651,7 +4749,7 @@ msgid "Cannot copy top level component."
 msgstr "Tidak bisa meng-copy komponen tingkat teratas."
 
 #: lazarusidestrconsts.liscannotcreatefile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Cannot create file %s%s%s"
 msgid "Cannot create file \"%s\""
 msgstr "Tidak bisa membuat file %s%s%s"
@@ -5219,7 +5317,8 @@ msgstr "Peta Karakter"
 msgid "Check All"
 msgstr ""
 
-#: lazarusidestrconsts.lischeckfordiskfilechangesviacontentratherthantimesta
+#: lazarusidestrconsts.lischeckfordiskfilechangesviacontent
+msgctxt "lazarusidestrconsts.lischeckfordiskfilechangesviacontent"
 msgid "Check for disk file changes via content rather than timestamp"
 msgstr ""
 
@@ -5265,8 +5364,8 @@ msgstr ""
 msgid "Choose a key ..."
 msgstr ""
 
-#: lazarusidestrconsts.lischooseanameforthenewcomponent
-msgid "Choose a name for the new component"
+#: lazarusidestrconsts.lischooseanameforthecomponent
+msgid "Choose a name for the component"
 msgstr ""
 
 #: lazarusidestrconsts.lischooseanexamplefile
@@ -5281,17 +5380,17 @@ msgstr ""
 msgid "Choose a Pascal file for indentation examples"
 msgstr ""
 
+#: lazarusidestrconsts.lischoosecompilerexecutable
+msgid "Choose compiler executable (%s)"
+msgstr ""
+
 #: lazarusidestrconsts.lischoosecompilermessages
 msgid "Choose compiler messages file"
 msgstr ""
 
-#: lazarusidestrconsts.lischoosecompilerpath
-msgid "Choose compiler filename (%s)"
-msgstr "Pilih nama file kompilator (%s)"
-
-#: lazarusidestrconsts.lischoosedebuggerpath
-msgid "Choose debugger filename"
-msgstr "Pilih nama file debugger"
+#: lazarusidestrconsts.lischoosedebuggerexecutable
+msgid "Choose debugger executable"
+msgstr ""
 
 #: lazarusidestrconsts.lischoosedelphipackage
 msgid "Choose Delphi package (*.dpk)"
@@ -5317,9 +5416,9 @@ msgstr "Pilih direktori sumber FPC"
 msgid "Choose Lazarus Directory"
 msgstr "Pilih Direktori Lazarus"
 
-#: lazarusidestrconsts.lischoosemakepath
-msgid "Choose make path"
-msgstr "Pilih path make"
+#: lazarusidestrconsts.lischoosemakeexecutable
+msgid "Choose \"make\" executable"
+msgstr ""
 
 #: lazarusidestrconsts.lischoosename
 msgid "Choose name"
@@ -5370,7 +5469,7 @@ msgid "classes.ppu not found. Check your fpc.cfg."
 msgstr ""
 
 #: lazarusidestrconsts.lisclassisnotaregisteredcomponentclassunabletopaste
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Class %s%s%s is not a registered component class.%sUnable to paste."
 msgid "Class \"%s\" is not a registered component class.%sUnable to paste."
 msgstr "Class %s%s%s tidak terdaftar sebagai kompnen class.%sTidak bisa mem- paste."
@@ -5442,6 +5541,10 @@ msgstr ""
 
 #: lazarusidestrconsts.liscleanupandbuildproject
 msgid "Clean up and build project"
+msgstr ""
+
+#: lazarusidestrconsts.liscleanuppackage
+msgid "Clean up package \"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.liscleanupunitpath
@@ -5709,7 +5812,7 @@ msgid "Add code template"
 msgstr "Tambah template kode"
 
 #: lazarusidestrconsts.liscodetemplatokenalreadyexists
-#, fuzzy
+#, fuzzy,badformat
 #| msgid " A token %s%s%s already exists! "
 msgid " A token \"%s\" already exists! "
 msgstr " Token %s%s%s sudah ada! "
@@ -6089,6 +6192,10 @@ msgstr "Di"
 msgid "Bracket"
 msgstr ""
 
+#: lazarusidestrconsts.liscodetoolsoptscaret
+msgid "Caret (^)"
+msgstr ""
+
 #: lazarusidestrconsts.liscodetoolsoptscolon
 msgid "Colon"
 msgstr "Titik dua"
@@ -6287,13 +6394,13 @@ msgid "Component name \"%s\" is a Pascal keyword."
 msgstr ""
 
 #: lazarusidestrconsts.liscomponentnameiskeyword
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Component name %s%s%s is keyword"
 msgid "Component name \"%s\" is keyword"
 msgstr "Nama kompionen %s%s%s adalah kata kunci"
 
 #: lazarusidestrconsts.liscomponentnameisnotavalididentifier
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Component name %s%s%s is not a valid identifier"
 msgid "Component name \"%s\" is not a valid identifier"
 msgstr "Nama komponen %s%s%s bukan pengenal yang benar"
@@ -6367,7 +6474,7 @@ msgid "Confirm delete"
 msgstr ""
 
 #: lazarusidestrconsts.lisconfirmlazarusrebuild
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Do you want to rebuild Lazarus with profile: %s ?"
 msgid "Do you want to rebuild Lazarus with profile: %s?"
 msgstr "Anda ingin membangun ulang Lazarus?"
@@ -6424,6 +6531,10 @@ msgstr "Lanjutkan"
 
 #: lazarusidestrconsts.liscontinueanddonotaskagain
 msgid "Continue and do not ask again"
+msgstr ""
+
+#: lazarusidestrconsts.liscontinuebuilding
+msgid "Continue building"
 msgstr ""
 
 #: lazarusidestrconsts.liscontinuewithoutloadingform
@@ -6818,6 +6929,10 @@ msgstr "Copy Salah"
 msgid "Copy error"
 msgstr "Copy salah"
 
+#: lazarusidestrconsts.liscopyfilename
+msgid "Copy Filename %s"
+msgstr ""
+
 #: lazarusidestrconsts.liscopyfilenametoclipboard
 msgid "Copy File Name to Clipboard"
 msgstr ""
@@ -7031,6 +7146,10 @@ msgctxt "lazarusidestrconsts.liscurrent"
 msgid "Current"
 msgstr ""
 
+#: lazarusidestrconsts.liscurrentlclwidgetset
+msgid "Current LCL widgetset: \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.liscurrentstate
 msgid "Current state: "
 msgstr ""
@@ -7044,7 +7163,7 @@ msgid "Cursor row in current editor"
 msgstr "Baris kursor dalam editor saat ini"
 
 #: lazarusidestrconsts.liscustomopthint
-msgid "These options are passed to the compiler after comments are deleted and macros are replaced."
+msgid "These options are passed to the compiler after macros are replaced."
 msgstr ""
 
 #: lazarusidestrconsts.liscustomoptions
@@ -7418,7 +7537,7 @@ msgid "Unable to load file"
 msgstr "Tidak bisa mengambil file"
 
 #: lazarusidestrconsts.lisdebugunabletoloadfile2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to load file %s%s%s."
 msgid "Unable to load file \"%s\"."
 msgstr "Tidak bisa mengambil file %s%s%s."
@@ -7432,6 +7551,10 @@ msgstr ""
 msgctxt "lazarusidestrconsts.lisdefault"
 msgid "Default"
 msgstr "Default"
+
+#: lazarusidestrconsts.lisdefaultiscomboboxwithtrueandfalse
+msgid "The default is ComboBox with \"True\" and \"False\" selections"
+msgstr ""
 
 #: lazarusidestrconsts.lisdefaultplaceholder
 msgid "(default)"
@@ -7515,7 +7638,7 @@ msgid "Delete mode \"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.lisdeleteoldfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Delete old file %s%s%s?"
 msgid "Delete old file \"%s\"?"
 msgstr "Hapus file lama %s%s%s?"
@@ -7545,13 +7668,21 @@ msgid "Delete value %s"
 msgstr ""
 
 #: lazarusidestrconsts.lisdeletingoffilefailed
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Deleting of file %s%s%s failed."
 msgid "Deleting of file \"%s\" failed."
 msgstr "Penghapusan file %s%s%s gagal."
 
+#: lazarusidestrconsts.lisdelimiterissemicolon
+msgid "Delimiter is semicolon."
+msgstr ""
+
 #: lazarusidestrconsts.lisdelphi
 msgid "Delphi"
+msgstr ""
+
+#: lazarusidestrconsts.lisdelphicompatibleresources
+msgid "Delphi compatible resources. Recommended."
 msgstr ""
 
 #: lazarusidestrconsts.lisdelphipackage
@@ -7682,6 +7813,14 @@ msgstr ""
 
 #: lazarusidestrconsts.lisdisablei18nforlfm
 msgid "Disable I18N for LFM"
+msgstr ""
+
+#: lazarusidestrconsts.lisdisableoptionxg
+msgid "Disable Option -Xg?"
+msgstr ""
+
+#: lazarusidestrconsts.lisdisableoptionxg2
+msgid "Disable option -Xg"
 msgstr ""
 
 #: lazarusidestrconsts.lisdisassassembler
@@ -7913,7 +8052,7 @@ msgid "Duplicate Name"
 msgstr ""
 
 #: lazarusidestrconsts.lisduplicatenameacomponentnamedalreadyexistsintheinhe
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Duplicate name: A component named %s%s%s already exists in the inherited component %s"
 msgid "Duplicate name: A component named \"%s\" already exists in the inherited component %s"
 msgstr "Duplikasi nama: Komponen bernama %s%s%ssudah ada dalam komponen inherited %s"
@@ -8136,6 +8275,10 @@ msgctxt "lazarusidestrconsts.lisenabled"
 msgid "Enabled"
 msgstr "Hidupkan"
 
+#: lazarusidestrconsts.lisenabledonlyforpackages
+msgid "Enabled only for packages."
+msgstr ""
+
 #: lazarusidestrconsts.lisenableflaguseunitofunitinpackage
 msgid ". Enable flag \"Use Unit\" of unit %s in package %s"
 msgstr ""
@@ -8187,10 +8330,6 @@ msgstr ""
 
 #: lazarusidestrconsts.lisenvironmentvariablenameasparameter
 msgid "Environment variable, name as parameter"
-msgstr ""
-
-#: lazarusidestrconsts.lisenvjumpfrommessagetosrcondblclickotherwisesingleclick
-msgid "Jump from message to source line on double click (otherwise: single click)"
 msgstr ""
 
 #: lazarusidestrconsts.lisenvoptdlgdirectorynotfound
@@ -8246,7 +8385,7 @@ msgid "Error in the custom compiler options (Other):"
 msgstr ""
 
 #: lazarusidestrconsts.liserrorinthecustomlinkeroptionslinkingpassoptionstol
-msgid "Error in the custom linker options (Linking / Pass options to linker):"
+msgid "Error in the custom linker options (Compilation and Linking / Pass options to linker):"
 msgstr ""
 
 #: lazarusidestrconsts.liserrorinthedebuggerpathaddition
@@ -8314,6 +8453,7 @@ msgid "Error parsing lfm component stream."
 msgstr "Pemindaian aliran komponen lfm salah."
 
 #: lazarusidestrconsts.liserrorreadingpackagelistfromfile
+#, fuzzy,badformat
 msgid "Error reading package list from file%s%s%s%s"
 msgstr "Pembacaan daftar paket salah dari file %s%s%s%s%s"
 
@@ -8556,6 +8696,10 @@ msgstr "Piranti Maksimum tercapai"
 msgid "There is a maximum of %s tools."
 msgstr "Terdapat jumlah maksimum %s piranti."
 
+#: lazarusidestrconsts.lisfailedtoaddnnotuniqueresources
+msgid "Failed to add %d not unique resource(s)"
+msgstr ""
+
 #: lazarusidestrconsts.lisfailedtocreateapplicationbundlefor
 msgid "Failed to create Application Bundle for \"%s\""
 msgstr ""
@@ -8580,7 +8724,9 @@ msgstr ""
 msgid "Reduce designer painting"
 msgstr "Kurangi penggambaran pendesain"
 
-#: lazarusidestrconsts.lisfepaintdesigneritemsonidlereduceoverheadforslowcompu
+#: lazarusidestrconsts.lisfepaintdesigneritemsonidlehint
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisfepaintdesigneritemsonidlehint"
 msgid "Paint designer items only on idle (reduce overhead for slow computers)"
 msgstr "Gambar item pendesain hanya saat menganggur (mengurangi kelebihan beban untuk komputer lambat)"
 
@@ -8594,7 +8740,7 @@ msgid "File: "
 msgstr ""
 
 #: lazarusidestrconsts.lisfiledoesnotlooklikeatextfileopenitanyway
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "File %s%s%s%sdoes not look like a text file.%sOpen it anyway?"
 msgctxt "lazarusidestrconsts.lisfiledoesnotlooklikeatextfileopenitanyway"
 msgid "File \"%s\"%sdoes not look like a text file.%sOpen it anyway?"
@@ -8661,7 +8807,7 @@ msgid "File is symlink"
 msgstr ""
 
 #: lazarusidestrconsts.lisfileisvirtual
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "File %s%s%s is virtual."
 msgid "File \"%s\" is virtual."
 msgstr "File %s%s%s adalah virtual."
@@ -8683,7 +8829,7 @@ msgid "File not found"
 msgstr "File tidak ditemukan"
 
 #: lazarusidestrconsts.lisfilenotfound2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "File %s%s%s not found.%s"
 msgctxt "lazarusidestrconsts.lisfilenotfound2"
 msgid "File \"%s\" not found."
@@ -8702,7 +8848,7 @@ msgid "File not found:%s%s"
 msgstr ""
 
 #: lazarusidestrconsts.lisfilenotfounddoyouwanttocreateit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "File %s%s%s not found.%sDo you want to create it?%s"
 msgid "File \"%s\" not found.%sDo you want to create it?"
 msgstr "File %s%s%s tidak ditemukan.%sAnda ingin membuatnya?%s"
@@ -8811,6 +8957,10 @@ msgstr ""
 msgid "Find ..."
 msgstr ""
 
+#: lazarusidestrconsts.lisfinddeclarationof
+msgid "Find Declaration of %s"
+msgstr ""
+
 #: lazarusidestrconsts.lisfindfiledirectories
 msgid "D&irectories"
 msgstr ""
@@ -8881,6 +9031,14 @@ msgstr ""
 msgid "Force renaming"
 msgstr "Paksa penggantian nama"
 
+#: lazarusidestrconsts.lisfordarwin
+msgid "For Darwin"
+msgstr ""
+
+#: lazarusidestrconsts.lisforexampleshowattopthelocalvariablesthenthemembers
+msgid "For example show at top the local variables, then the members of current class, then of the ancestors, then the current unit, then of used units"
+msgstr ""
+
 #: lazarusidestrconsts.lisform
 msgid "Form"
 msgstr ""
@@ -8888,6 +9046,10 @@ msgstr ""
 #: lazarusidestrconsts.lisformaterror
 msgid "Format error"
 msgstr "Format salah"
+
+#: lazarusidestrconsts.lisforwindows
+msgid "For Windows"
+msgstr ""
 
 #: lazarusidestrconsts.lisfoundversionexpected
 msgid "Found version %s, expected %s"
@@ -8918,7 +9080,7 @@ msgid "FPC messages: Appendix"
 msgstr ""
 
 #: lazarusidestrconsts.lisfpcresources
-msgid "FPC resources"
+msgid "FPC resources (.res)"
 msgstr ""
 
 #: lazarusidestrconsts.lisfpcsources
@@ -9076,7 +9238,7 @@ msgid "Goto selected source line"
 msgstr "Pergi ke baris sumber yang dipilih"
 
 #: lazarusidestrconsts.lisgplnotice
-#, fuzzy
+#, fuzzy,badformat
 msgid ""
 "<description>\n"
 "\n"
@@ -9196,6 +9358,10 @@ msgstr ""
 msgid "Hint: A default value can be defined in the conditionals."
 msgstr ""
 
+#: lazarusidestrconsts.lishintatpropertysnameshowsdescription
+msgid "A hint at property's name shows its description."
+msgstr ""
+
 #: lazarusidestrconsts.lishintcheckiftwopackagescontainaunitwiththesamename
 msgid "Hint: Check if two packages contain a unit with the same name."
 msgstr ""
@@ -9264,10 +9430,26 @@ msgstr "Path FPC Doc HTML"
 msgid "Horizontal"
 msgstr "Horisontal"
 
+#: lazarusidestrconsts.lishorizontallinesbetweenproperties
+msgid "Horizontal lines between properties."
+msgstr ""
+
 #: lazarusidestrconsts.lisid
 msgctxt "lazarusidestrconsts.lisid"
 msgid "ID"
 msgstr "ID"
+
+#: lazarusidestrconsts.lisidcadd
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisidcadd"
+msgid "Add"
+msgstr "Tambah"
+
+#: lazarusidestrconsts.lisidcopen
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisidcopen"
+msgid "Open"
+msgstr "Buka"
 
 #: lazarusidestrconsts.liside
 msgid "IDE"
@@ -9303,6 +9485,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisidemacros
 msgid "IDE Macros"
+msgstr ""
+
+#: lazarusidestrconsts.lisidemaintainsthetitleinmainunit
+msgid "The IDE maintains the title in main unit."
 msgstr ""
 
 #: lazarusidestrconsts.lisidentifier
@@ -9362,7 +9548,7 @@ msgid "Export file exists"
 msgstr "File ekspor sudah ada"
 
 #: lazarusidestrconsts.lisiecoexportfileexistsopenfileandreplaceonlycompileropti
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Export file %s%s%s exists.%sOpen file and replace only compiler options?%s(Other settings will be kept.)"
 msgid "Export file \"%s\" exists.%sOpen file and replace only compiler options?%s(Other settings will be kept.)"
 msgstr "File ekspor %s%s%s sudah ada.%sBuka file dan hanya timpa opsi kompilator?%s(Seting lain akan disimpan.)"
@@ -9389,6 +9575,10 @@ msgstr "Simpan ke file"
 
 #: lazarusidestrconsts.lisifnotchecked
 msgid "If not checked:"
+msgstr ""
+
+#: lazarusidestrconsts.lisifonlysessioninfochangedthenask
+msgid "If only the session info changed, ask about saving it."
 msgstr ""
 
 #: lazarusidestrconsts.lisifyouwanttousetwodifferentlazarusversionsyoumustst
@@ -9430,6 +9620,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisimportant
 msgid "Important"
+msgstr ""
+
+#: lazarusidestrconsts.lisimportexport
+msgid "Import / Export"
 msgstr ""
 
 #: lazarusidestrconsts.lisimportfromfile
@@ -9777,7 +9971,7 @@ msgid "%s is already part of the Project."
 msgstr "%s sudah merupakan bagian dari Proyek."
 
 #: lazarusidestrconsts.lisisaninvalidprojectnamepleasechooseanotheregproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s%s%s is an invalid project name.%sPlease choose another (e.g. project1.lpi)"
 msgid "\"%s\" is an invalid project name.%sPlease choose another (e.g. project1.lpi)"
 msgstr "%s%s%sbukan nama proyek yang benar.%sSilahkan pilih yang lain (contoh. project1.lpi)"
@@ -9805,6 +9999,10 @@ msgstr ""
 #: lazarusidestrconsts.lisjhjumphistory
 msgctxt "lazarusidestrconsts.lisjhjumphistory"
 msgid "Jump History"
+msgstr ""
+
+#: lazarusidestrconsts.lisjumptoprocedure
+msgid "Jump to procedure %s"
 msgstr ""
 
 #: lazarusidestrconsts.liskb
@@ -9918,7 +10116,7 @@ msgid "Compile project/program"
 msgstr ""
 
 #: lazarusidestrconsts.liskmconfigbuildfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Config %sBuild File%s"
 msgid "Config \"Build File\""
 msgstr "Konfig %sBuild File%s"
@@ -10760,7 +10958,7 @@ msgid "LFM is ok"
 msgstr ""
 
 #: lazarusidestrconsts.lislgplnotice
-#, fuzzy
+#, fuzzy,badformat
 msgid ""
 "<description>\n"
 "\n"
@@ -10867,7 +11065,7 @@ msgid "lpk is missing"
 msgstr ""
 
 #: lazarusidestrconsts.lislrsincludefiles
-msgid "lrs include files"
+msgid "Lazarus resources (.lrs) include files"
 msgstr ""
 
 #: lazarusidestrconsts.lismacpascal
@@ -10908,6 +11106,10 @@ msgstr "Unit Utama mempunyai Seksi Uses yang berisi semua Unit dari proyek"
 msgid "Main unit is Pascal source"
 msgstr ""
 
+#: lazarusidestrconsts.lismainunitispascalsourcehint
+msgid "Assume Pascal even if it does not end with .pas/.pp suffix."
+msgstr ""
+
 #: lazarusidestrconsts.lismakeexe
 msgid "Make Executable"
 msgstr "Buat Eksekutabel"
@@ -10925,7 +11127,7 @@ msgid "Append to section"
 msgstr "Tambahkan ke bagian"
 
 #: lazarusidestrconsts.lismakeresstrchooseanothername
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The resourcestring %s%s%s already exists.%sPlease choose another name.%sUse Ignore to add it anyway."
 msgid "The resourcestring \"%s\" already exists.%sPlease choose another name.%sUse Ignore to add it anyway."
 msgstr "Resourcestring %s%s%s sudah ada.%sSilahkan pilih nama lain.%sGunakan Abaikan untuk tetap menambahkan juga."
@@ -10986,6 +11188,10 @@ msgstr "Konstan String dalam sumber"
 #: lazarusidestrconsts.lismakeresstrstringswithsamevalue
 msgid "Strings with same value:"
 msgstr "String dengan nilai sama:"
+
+#: lazarusidestrconsts.lismakesureallppufilesofapackageareinitsoutputdirecto
+msgid "Make sure all ppu files of a package are in its output directory."
+msgstr ""
 
 #: lazarusidestrconsts.lismanagesourceeditors
 msgid "Manage Source Editors ..."
@@ -11732,6 +11938,7 @@ msgid "Revert"
 msgstr "Kembalikan"
 
 #: lazarusidestrconsts.lismenurun
+#, fuzzy
 msgctxt "lazarusidestrconsts.lismenurun"
 msgid "&Run"
 msgstr "&Jalankan"
@@ -11988,6 +12195,7 @@ msgid "Call Stack"
 msgstr "Tumpukan Panggilan"
 
 #: lazarusidestrconsts.lismenuviewcodebrowser
+#, fuzzy
 msgctxt "lazarusidestrconsts.lismenuviewcodebrowser"
 msgid "Code Browser"
 msgstr "Browser Kode"
@@ -12378,7 +12586,7 @@ msgid ", Mode: %s"
 msgstr ""
 
 #: lazarusidestrconsts.lismodifiedlgplnotice
-#, fuzzy
+#, fuzzy,badformat
 msgid ""
 "<description>\n"
 "\n"
@@ -12521,10 +12729,12 @@ msgid "Create a new empty text file."
 msgstr "Buat file teks kosong baru."
 
 #: lazarusidestrconsts.lisnewdlgcreateanewprojectchooseatype
+#, fuzzy,badformat
 msgid "Create a new project.%sChoose a type."
 msgstr "Buat proyek baru.%Pilih jenis."
 
 #: lazarusidestrconsts.lisnewdlgcreateanewstandardpackageapackageisacollectionofun
+#, fuzzy,badformat
 msgid "Create a new standard package.%sA package is a collection of units and components."
 msgstr "Buat paket standar baru.%Paket adalah koleksi dari unit dan komponen."
 
@@ -12564,8 +12774,12 @@ msgstr ""
 msgid "New Macroname"
 msgstr ""
 
+#: lazarusidestrconsts.lisnewpage
+msgid "New page"
+msgstr ""
+
 #: lazarusidestrconsts.lisnewproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s - (new project)"
 msgid "(new project)"
 msgstr "%s - (proyek baru)"
@@ -12749,6 +12963,10 @@ msgstr "Buat proyek baru"
 msgid "Number of files to convert: %s"
 msgstr ""
 
+#: lazarusidestrconsts.lisobjectinspectorbecomesvisible
+msgid "Object Inspector becomes visible when components are selected in designer."
+msgstr ""
+
 #: lazarusidestrconsts.lisobjectpascaldefault
 msgid "Object Pascal - default"
 msgstr ""
@@ -12759,10 +12977,6 @@ msgstr "path objek"
 
 #: lazarusidestrconsts.lisofeswitchtoobjectinspectorfavoritestab
 msgid "Switch to Object Inspector Favorites tab"
-msgstr ""
-
-#: lazarusidestrconsts.lisofeswitchtoobjectinspectorfavoritestabafterasking
-msgid "Switch to Object Inspector Favorites tab after asking for component name"
 msgstr ""
 
 #: lazarusidestrconsts.lisoff
@@ -12786,7 +13000,7 @@ msgid "Choose a base class for the favorite property \"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.lisoifclassnotfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Class %s%s%s not found."
 msgid "Class \"%s\" not found."
 msgstr "Class %s%s%s tidak ditemukan."
@@ -12906,6 +13120,10 @@ msgstr "Buka sebagai file XML"
 
 #: lazarusidestrconsts.lisopendesigneronopenunit
 msgid "Open designer on open unit"
+msgstr ""
+
+#: lazarusidestrconsts.lisopendesigneronopenunithint
+msgid "Form is loaded in designer always when source unit is opened."
 msgstr ""
 
 #: lazarusidestrconsts.lisopenexistingfile
@@ -13068,6 +13286,10 @@ msgstr "Nama paket dimulai dengan ..."
 msgid "Package name contains ..."
 msgstr "Nama paket berisi ..."
 
+#: lazarusidestrconsts.lispackageneedsanoutputdirectory
+msgid "Package needs an output directory."
+msgstr ""
+
 #: lazarusidestrconsts.lispackageneedsinstallation
 msgid "Package needs installation"
 msgstr "Paket perlu diinstalasi"
@@ -13090,6 +13312,14 @@ msgstr ""
 
 #: lazarusidestrconsts.lispage
 msgid "Page"
+msgstr ""
+
+#: lazarusidestrconsts.lispagename
+msgid "Page name"
+msgstr ""
+
+#: lazarusidestrconsts.lispagenamealreadyexists
+msgid "Page name \"%s\" already exists. Not added."
 msgstr ""
 
 #: lazarusidestrconsts.lispanic
@@ -13310,7 +13540,7 @@ msgid "Package %s"
 msgstr "Paket %s"
 
 #: lazarusidestrconsts.lispckeditpackagehaschangedsavepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Package %s%s%s has changed.%sSave package?"
 msgid "Package \"%s\" has changed.%sSave package?"
 msgstr "Paket %s%s%s sudah diubah.%sSimpan paket?"
@@ -13368,7 +13598,7 @@ msgid "Remove Dependency?"
 msgstr "Hapus Dependensi?"
 
 #: lazarusidestrconsts.lispckeditremovedependencyfrompackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Remove dependency %s%s%s%sfrom package %s%s%s?"
 msgid "Remove dependency \"%s\"%sfrom package \"%s\"?"
 msgstr "Hapus dependensi %s%s%s%sdari paket %s%s%s?"
@@ -13391,7 +13621,7 @@ msgid "Remove file?"
 msgstr "Hapus file?"
 
 #: lazarusidestrconsts.lispckeditremovefilefrompackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Remove file %s%s%s%sfrom package %s%s%s?"
 msgid "Remove file \"%s\"%sfrom package \"%s\"?"
 msgstr "Hapus file %s%s%s%sdari paket %s%s%s?"
@@ -13419,13 +13649,13 @@ msgid "Store file name as preferred for this dependency"
 msgstr ""
 
 #: lazarusidestrconsts.lispckeditthemaximumversionisnotavalidpackageversion
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The maximum version %s%s%s is not a valid package version.%s(good example 1.2.3.4)"
 msgid "The maximum version \"%s\" is not a valid package version.%s(good example 1.2.3.4)"
 msgstr "Versi maksimum  %s%s%s bukan versi paket yang benar.%s(contoh benar 1.2.3.4)"
 
 #: lazarusidestrconsts.lispckedittheminimumversionisnotavalidpackageversion
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The minimum version %s%s%s is not a valid package version.%s(good example 1.2.3.4)"
 msgid "The minimum version \"%s\" is not a valid package version.%s(good example 1.2.3.4)"
 msgstr "Versi minimum %s%s%s bukan versi paket yang benar.%s(contoh benar 1.2.3.4)"
@@ -13574,7 +13804,7 @@ msgid "Runtime"
 msgstr ""
 
 #: lazarusidestrconsts.lispckoptsthepackagehastheautoinstallflagthismeans
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s has the auto install flag.%sThis means it will be installed in the IDE. Installation packages%smust be designtime Packages."
 msgid "The package \"%s\" has the auto install flag.%sThis means it will be installed in the IDE.%sInstallation packages must be designtime Packages."
 msgstr "Paket %s%s%s mempunyai tanda otomatis instalasi.%sIni berarti akan diinstalasi dalam IDE. Paket instalasi%sharus Paket waktu desain."
@@ -13752,7 +13982,7 @@ msgid "Revert package?"
 msgstr "Kembalikan paket?"
 
 #: lazarusidestrconsts.lispkgeditthefileiscurrentlynotintheunitpathofthepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s%sis currently not in the unit path of the package.%s%sAdd %s%s%s to unit path?"
 msgid "The file \"%s\"%sis currently not in the unit path of the package.%sAdd \"%s\" to unit path?"
 msgstr "File %s%s%s%ssaat ini tidak dalam unitpath dari paket.%s%sTambah %s%s%s ke UnitPath?"
@@ -13791,11 +14021,6 @@ msgctxt "lazarusidestrconsts.lispkgfiletypetext"
 msgid "Text"
 msgstr "Teks"
 
-#: lazarusidestrconsts.lispkgfiletypeunit
-msgctxt "lazarusidestrconsts.lispkgfiletypeunit"
-msgid "Unit"
-msgstr "Unit"
-
 #: lazarusidestrconsts.lispkgfiletypevirtualunit
 msgid "Virtual Unit"
 msgstr "Unit Virtual"
@@ -13817,13 +14042,13 @@ msgid "Package unit search path. Parameter is package ID"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangaddingnewdependencyforpackagepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%sAdding new Dependency for package %s: package %s%s"
 msgid "%sAdding new Dependency for package %s: package %s"
 msgstr "%sPenambahan Dependensi baru untuk paket %s: paket %s%s"
 
 #: lazarusidestrconsts.lispkgmangaddingnewdependencyforprojectpackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%sAdding new Dependency for project %s: package %s%s"
 msgid "%sAdding new Dependency for project %s: package %s"
 msgstr "%sPenambahan Dependensi baru untuk proyek %s: paket %s%s"
@@ -13865,7 +14090,7 @@ msgid "Delete Old Package File?"
 msgstr "Hapus File Paket Lama?"
 
 #: lazarusidestrconsts.lispkgmangdeleteoldpackagefile2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Delete old package file %s%s%s?"
 msgid "Delete old package file \"%s\"?"
 msgstr "Hapus file paket %s%s%s?"
@@ -13916,7 +14141,7 @@ msgid "Filename is used by project"
 msgstr "Nama file sedang digunakan oleh proyek"
 
 #: lazarusidestrconsts.lispkgmangfilenotfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "File %s%s%s not found."
 msgctxt "lazarusidestrconsts.lispkgmangfilenotfound"
 msgid "File \"%s\" not found."
@@ -13959,7 +14184,7 @@ msgid "Invalid Package Name"
 msgstr "Nama Paket Tidak Benar"
 
 #: lazarusidestrconsts.lispkgmangloadingpackagewillreplacepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Loading package %s will replace package %s%sfrom file %s.%sThe old package is modified.%s%sSave old package %s?"
 msgid "Loading package %s will replace package %s%sfrom file %s.%sThe old package is modified.%sSave old package %s?"
 msgstr "Pengambilan paket %s akan menimpa paket %s%sdari file %s.%sPaket lama diubah.%s%sSimpan paket lama %s?"
@@ -14019,7 +14244,7 @@ msgid "Rename File lowercase?"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangreplaceexistingfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Replace existing file %s%s%s?"
 msgid "Replace existing file \"%s\"?"
 msgstr "Timpa file yang sudah ada %s%s%s?"
@@ -14043,7 +14268,7 @@ msgid "Save Package %s (*.lpk)"
 msgstr "Simpan Paket %s (*.lpk)"
 
 #: lazarusidestrconsts.lispkgmangshouldthefilerenamedlowercaseto
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Should the file be renamed lowercase to%s%s%s%s?"
 msgid "Should the file be renamed lowercase to%s\"%s\"?"
 msgstr "Haruskah file diganti nama huruf kecil ke %s%s%s%s?"
@@ -14061,32 +14286,32 @@ msgid "The compiler file for package %s is not a valid executable:%s%s"
 msgstr "File kompilator  untuk paket %s bukan eksekutabel yang benar: %s%s"
 
 #: lazarusidestrconsts.lispkgmangthefileisalreadyinthepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s%sis already in the package %s."
 msgctxt "lazarusidestrconsts.lispkgmangthefileisalreadyinthepackage"
 msgid "The file \"%s\"%sis already in the package %s."
 msgstr "File %s%s%s%ssudah berada dalam paket %s."
 
 #: lazarusidestrconsts.lispkgmangthefileisnotalazaruspackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s is not a Lazarus package."
 msgid "The file \"%s\" is not a Lazarus package."
 msgstr "File %s%s%s ibukan paket Lazarus."
 
 #: lazarusidestrconsts.lispkgmangthefilenamedoesnotcorrespondtothepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The filename %s%s%s does not correspond to the package name %s%s%s in the file.%sChange package name to %s%s%s?"
 msgid "The filename \"%s\" does not correspond to the package name \"%s\" in the file.%sChange package name to \"%s\"?"
 msgstr "Nama file %s%s%s tidak terkait ke nama paket %s%s%s dalam file.%sUbah nama paket ke %s%s%s?"
 
 #: lazarusidestrconsts.lispkgmangthefilenameispartofthecurrentproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file name %s%s%s is part of the current project.%sProjects and Packages should not share files."
 msgid "The file name \"%s\" is part of the current project.%sProjects and Packages should not share files."
 msgstr "Nama file %s%s%s adalah bagian dari proyek saat ini.%sProyek dan Paket seharusnya bukan file berbagi."
 
 #: lazarusidestrconsts.lispkgmangthefilenameisusedbythepackageinfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file name %s%s%s is used by%sthe package %s%s%s%sin file %s%s%s."
 msgid "The file name \"%s\" is used by%sthe package \"%s\"%sin file \"%s\"."
 msgstr "Nama file %s%s%s digunakan oleh%spaket %s%s%s%sdalam file %s%s%s."
@@ -14104,19 +14329,19 @@ msgid "The following packages failed to load:"
 msgstr "Paket berikut gagal diambil:"
 
 #: lazarusidestrconsts.lispkgmangthefollowingunitswillbeaddedtotheusessectionof
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%sThe following units will be added to the uses section of%s%s:%s%s%s"
 msgid "%sThe following units will be added to the uses section of%s%s:%s%s"
 msgstr "%sUnit berikut akan ditambahkan ke bagian uses dari%s%s:%s%s%s"
 
 #: lazarusidestrconsts.lispkgmangthepackagefailedtocompileremoveitfromtheinstallati
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s failed to compile.%sRemove it from the installation list?"
 msgid "The package \"%s\" failed to compile.%sRemove it from the installation list?"
 msgstr "Paket %s%s%s gagal dikompilasi.%sHapus dari daftar instalasi?"
 
 #: lazarusidestrconsts.lispkgmangthepackagefilenameinisnotavalidlazaruspackagename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package file name %s%s%s in%s%s%s%s is not a valid Lazarus package name."
 msgid "The package file name \"%s\" in%s\"%s\" is not a valid Lazarus package name."
 msgstr "Nama file paket %s%s%s in%s%s%s%s bukan nama paket Lazarus yang benar."
@@ -14132,7 +14357,7 @@ msgid "The package \"%s\" is compiled automatically and its output directory is 
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangthepackageismarkedforinstallationbutcannotbefound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s is marked for installation, but cannot be found.%sRemove dependency from the installation list of packages?"
 msgid "The package \"%s\" is marked for installation, but cannot be found.%sRemove dependency from the installation list of packages?"
 msgstr "Paket %s%s%s ditandai untuk instalasi, tetapi tidak ditemukan.%sHapus dependensi dari daftar instalasi paket?"
@@ -14142,37 +14367,37 @@ msgid "The package %s is required by %s, which is marked for installation.%sSee 
 msgstr "Paket %s diperlukan oleh %s, yang ditandai untuk instalasi.%sLihat grafik paket."
 
 #: lazarusidestrconsts.lispkgmangthepackagenameisnotavalidpackagenamepleasechoosean
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package name %s%s%s is not a valid package name%sPlease choose another name (e.g. package1.lpk)"
 msgid "The package name \"%s\" is not a valid package name%sPlease choose another name (e.g. package1.lpk)"
 msgstr "Nama paket %s%s%s bukan nama paket yang benar%sSilahkan pilih nama lain (contoh. paket1.lpk)"
 
 #: lazarusidestrconsts.lispkgmangthepackagenameofthefileisinvalid
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package name %s%s%s of%sthe file %s%s%s is invalid."
 msgid "The package name \"%s\" of%sthe file \"%s\" is invalid."
 msgstr "Nama paket %s%s%s dari%sfile %s%s%s tidak benar."
 
 #: lazarusidestrconsts.lispkgmangthepackagewasmarkedcurrentlylazarus
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s was marked.%sCurrently Lazarus only supports static linked packages. The real un-installation needs rebuilding and restarting of Lazarus.%s%sDo you want to rebuild Lazarus now?"
 msgid "The package \"%s\" was marked.%sCurrently Lazarus only supports static linked packages. The real un-installation needs rebuilding and restarting of Lazarus.%sDo you want to rebuild Lazarus now?"
 msgstr "Paket %s%s%s sudah ditandai.%sSaat ini Lazarus hanya mendukung paket static linked. Pembatalan instalasi sebenarnya perlu membangun ulang dan memulai lagi Lazarus.%s%sAnda ingin membangun ulang Lazarus sekarang?"
 
 #: lazarusidestrconsts.lispkgmangthepackagewasmarkedforinstallationcurrentlylazarus
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s was marked for installation.%sCurrently Lazarus only supports static linked packages. The real installation needs rebuilding and restarting of Lazarus.%s%sDo you want to rebuild Lazarus now?"
 msgid "The package \"%s\" was marked for installation.%sCurrently Lazarus only supports static linked packages. The real installation needs rebuilding and restarting of Lazarus.%sDo you want to rebuild Lazarus now?"
 msgstr "Paket %s%s%s  ditandai untuk instalasi.%sSaat ini Lazarus hanya mendukung paket static linked. Instalasi sebenarnya memerlukan pembangunan ulang dan memulai lagi Lazarus.%s%sAnda ingin membangun ulang Lazarus sekarang?"
 
 #: lazarusidestrconsts.lispkgmangtheprojectrequiresthepackagebutitwasnotfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The project requires the package %s%s%s.%sBut it was not found. See Project -> Project Inspector."
 msgid "The project requires the package \"%s\".%sBut it was not found. See Project -> Project Inspector."
 msgstr "Proyek memerlukan paket %s%s%s.%sTetapi tidak ditemukan. Lihat Proyek -> Inspektor Proyek."
 
 #: lazarusidestrconsts.lispkgmangtherearetwounitswiththesamename1from2from
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There are two units with the same name:%s%s1. %s%s%s from %s%s2. %s%s%s from %s%s%s"
 msgid "There are two units with the same name:%s1. \"%s\" from %s%s2. \"%s\" from %s"
 msgstr "Ada dua unit dengan nama sama:%s%s1. %s%s%s dari %s%s2. %s%s%s dari %s%s%s"
@@ -14182,25 +14407,25 @@ msgid "There is a circular dependency in the packages. See package graph."
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangthereisafpcunitwiththesamenameasapackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is a FPC unit with the same name as a package:%s%s%s%s%s%s"
 msgid "There is a FPC unit with the same name as a package:%s\"%s\""
 msgstr "Ada unit  FPC dengan nama yang sama dengan paket::%s%s%s%s%s%s"
 
 #: lazarusidestrconsts.lispkgmangthereisafpcunitwiththesamenamefrom
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is a FPC unit with the same name as:%s%s%s%s%s from %s%s%s"
 msgid "There is a FPC unit with the same name as:%s\"%s\" from %s"
 msgstr "Ada unit FPC dengan nama yang sama dengan: %s%s%s%s%s dari %s%s%s"
 
 #: lazarusidestrconsts.lispkgmangthereisalreadyanotherpackagewiththename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is already another package with the name %s%s%s.%sConflict package: %s%s%s%sFile: %s%s%s"
 msgid "There is already another package with the name \"%s\".%sConflict package: \"%s\"%sFile: \"%s\""
 msgstr "Sudah ada nama paket lain dengan nama %s%s%s.%sPaket konflik: %s%s%s%sFile: %s%s%s"
 
 #: lazarusidestrconsts.lispkgmangthereisalreadyapackageloadedfromfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is already a package %s%s%s loaded%sfrom file %s%s%s.%sSee Package -> Package Graph.%sReplace is impossible."
 msgid "There is already a package \"%s\" loaded%sfrom file \"%s\".%sSee Package -> Package Graph.%sReplace is impossible."
 msgstr "Sudah ada paket %s%s%s diambil%sdari file %s%s%s.%sLihat Komponen -> Grafik Paket.%sPenimpaan tidak mungkin."
@@ -14210,7 +14435,7 @@ msgid "There is an unsaved package in the required packages. See package graph."
 msgstr "Ada paket tidak disimpan dalam paket yang diperlukan. Lihat grafik paket."
 
 #: lazarusidestrconsts.lispkgmangthereisaunitwiththesamenameasapackage1from2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is a unit with the same name as a package:%s%s1. %s%s%s from %s%s2. %s%s%s%s"
 msgid "There is a unit with the same name as a package:%s1. \"%s\" from %s%s2. \"%s\""
 msgstr "Ada unit dengan nama yang sama dengan paket:%s%s1. %s%s%s dari %s%s2. %s%s%s%s"
@@ -14224,25 +14449,25 @@ msgid "Unable to create directory"
 msgstr "Tidak bisa membuat direktori"
 
 #: lazarusidestrconsts.lispkgmangunabletocreateoutputdirectoryforpackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create output directory %s%s%s%sfor package %s."
 msgid "Unable to create output directory \"%s\"%sfor package %s."
 msgstr "Tidak bisa membuat direktori output %s%s%s%suntuk paket %s."
 
 #: lazarusidestrconsts.lispkgmangunabletocreatepackagesourcedirectoryforpackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create package source directory %s%s%s%sfor package %s."
 msgid "Unable to create package source directory \"%s\"%sfor package %s."
 msgstr "Tidak bisa membuat direktori sumber paket %s%s%s%suntuk paket %s."
 
 #: lazarusidestrconsts.lispkgmangunabletocreatetargetdirectoryforlazarus
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create target directory for Lazarus:%s%s%s%s.%sThis directory is needed for the new changed Lazarus IDE with your custom packages."
 msgid "Unable to create target directory for Lazarus:%s\"%s\".%sThis directory is needed for the new changed Lazarus IDE with your custom packages."
 msgstr "Tidak bisa membuat direktori target untuk lazarus:%s%s%s%s.%sDirektori ini dibutuhkan untuk Lazarus IDE baru yang diubah dengan paket kustom anda."
 
 #: lazarusidestrconsts.lispkgmangunabletodeletefile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to delete file %s%s%s."
 msgid "Unable to delete file \"%s\"."
 msgstr "Tidak bisa menghapus file %s%s%s."
@@ -14252,7 +14477,7 @@ msgid "Unable to delete file"
 msgstr "Tidak bisa menghapus file"
 
 #: lazarusidestrconsts.lispkgmangunabletodeleteoldstatefileforpackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to delete old state file %s%s%s%sfor package %s."
 msgid "Unable to delete old state file \"%s\"%sfor package %s."
 msgstr "Tidak bisa menghapus file kondisi yang lama %s%s%s%suntuk paket %s."
@@ -14262,25 +14487,25 @@ msgid "Unable to load package"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangunabletoopenthepackage
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to open the package %s%s%s.%sThis package was marked for installation."
 msgid "Unable to open the package \"%s\".%sThis package was marked for installation."
 msgstr "Tidak bisa membuka paket %s%s%s.%sPaket ini ditandai untuk instalasi."
 
 #: lazarusidestrconsts.lispkgmangunabletoreadstatefileofpackageerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to read state file %s%s%s%sof package %s.%sError: %s"
 msgid "Unable to read state file \"%s\"%sof package %s.%sError: %s"
 msgstr "Tidak bisa membaca file kondisi %s%s%s%sdari paket %s.%sKesalahan: %s"
 
 #: lazarusidestrconsts.lispkgmangunabletowritepackagetofileerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to write package %s%s%s%sto file %s%s%s.%sError: %s"
 msgid "Unable to write package \"%s\"%sto file \"%s\".%sError: %s"
 msgstr "Tidak bisa menulis paket %s%s%s%ske file %s%s%s.%sKesalahan: %s"
 
 #: lazarusidestrconsts.lispkgmangunabletowritestatefileofpackageerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to write state file %s%s%s%sof package %s.%sError: %s"
 msgid "Unable to write state file \"%s\"%sof package %s.%sError: %s"
 msgstr "Tidak bisa menulis file kondisi %s%s%s%sdari paket %s.%sKesalahan: %s"
@@ -14302,7 +14527,7 @@ msgid "Use unit"
 msgstr "Gunakan unit"
 
 #: lazarusidestrconsts.lispkgmangwarningthefilebelongstothecurrentproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Warning: The file %s%s%s%sbelongs to the current project."
 msgid "Warning: The file \"%s\"%sbelongs to the current project."
 msgstr "Perhatian: File %s%s%s%smilik proyek saat ini."
@@ -14338,13 +14563,13 @@ msgid "Cannot register components without unit"
 msgstr "Tidak bisa mendaftarkan komponen tanpa unit"
 
 #: lazarusidestrconsts.lispkgsyscomponentclassalreadydefined
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Component Class %s%s%s already defined"
 msgid "Component Class \"%s\" already defined"
 msgstr "Kelas Komponen %s%s%s sudah didefinisikan"
 
 #: lazarusidestrconsts.lispkgsysfilename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s%sFile Name: %s%s%s"
 msgid "%s%sFile Name: \"%s\""
 msgstr "%s%sNama File: %s%s%s"
@@ -14382,7 +14607,7 @@ msgid "%s%sThe lpk file was not found."
 msgstr ""
 
 #: lazarusidestrconsts.lispkgsysthepackageisinstalledbutnovalidpackagefilewasfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package %s%s%s is installed, but no valid package file (.lpk) was found.%sA broken dummy package was created."
 msgid "The package \"%s\" is installed, but no valid package file (.lpk) was found.%sA broken dummy package was created."
 msgstr "Paket ini %s%s%s diinstalasi, tetapi tanpa file paket (.lpk) yang ditemukan.%spaket sementara yang rusak dibuat."
@@ -14396,7 +14621,7 @@ msgid "This package is installed, but the lpk file was not found. All its compon
 msgstr "Paket diinstalasi, tetapi file lpk tidak ditemukan. Semua komponennya di-non aktifkan. Silahkan betulkan ini."
 
 #: lazarusidestrconsts.lispkgsysunitname
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s%sUnit Name: %s%s%s"
 msgid "%s%sUnit Name: \"%s\""
 msgstr "%s%sNama Unit: %s%s%s"
@@ -14415,7 +14640,7 @@ msgid "The following dependencies are not needed, because of the automatic trans
 msgstr ""
 
 #: lazarusidestrconsts.lispkgtheprojectoverridestheoutputdirectoryofthefollowin
-msgid "The project overrides the output directory of the following packages.%sSee Project / Project Options / Additions and Overrides%s%s"
+msgid "The project overrides the output directory of the following packages.%sSee Project / Project Options (compiler options section) / Additions and Overrides%s%s"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgthisfileisnotinanyloadedpackage
@@ -14427,7 +14652,7 @@ msgid "Transitivity"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgunabletoreadpackagefileerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to read package file %s%s%s.%sError: %s"
 msgid "Unable to read package file \"%s\".%sError: %s"
 msgstr "Tidak bisa membaca file paket %s%s%s.%sKesalahan: %s"
@@ -14470,6 +14695,7 @@ msgid "Please select some code to extract a new procedure/method."
 msgstr "Silahkan pilih beberapa kode untuk mengekstrak procedure/method baru."
 
 #: lazarusidestrconsts.lisplistall
+msgctxt "lazarusidestrconsts.lisplistall"
 msgid "<All>"
 msgstr "<Semua>"
 
@@ -14523,7 +14749,9 @@ msgid "Pointer"
 msgstr ""
 
 #: lazarusidestrconsts.lisposaveinideconfigdirectory
-msgid "Save in IDE config directory"
+#, fuzzy
+#| msgid "Save in IDE config directory"
+msgid "Save in .lps file in IDE config directory"
 msgstr "Simpan dalam direktori konfigurasi IDE"
 
 #: lazarusidestrconsts.lisposaveinlpifil
@@ -14534,20 +14762,20 @@ msgstr "Simpan dalam file .lpi"
 msgid "Save in .lps file in project directory"
 msgstr "Simpan dalam file .lps dalam direktori proyek"
 
-#: lazarusidestrconsts.lisposavesessionfoldstate
-msgid "Save fold info"
-msgstr ""
-
 #: lazarusidestrconsts.lisposavesessioninformationin
 msgid "Save session information in"
 msgstr "Simpan informasi sesi dalam"
 
-#: lazarusidestrconsts.lisposavesessionjumphistory
-msgid "Save jump history"
+#: lazarusidestrconsts.lisposavesessioninformationinhint
+msgid ".lpi is the project main info file, .lps is a separate file for session data only."
 msgstr ""
 
 #: lazarusidestrconsts.lispositionoutsideofsource
 msgid "%s (position outside of source)"
+msgstr ""
+
+#: lazarusidestrconsts.lisppuinwrongdirectory
+msgid "ppu in wrong directory=%s."
 msgstr ""
 
 #: lazarusidestrconsts.lisprecedingword
@@ -14580,7 +14808,7 @@ msgid "Private Method"
 msgstr "Metode Private"
 
 #: lazarusidestrconsts.lisprobablyyouneedtoinstallsomepackagesforbeforeconti
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Probably you need to install some packages before continuing.%s%sWarning:%sThe project uses the following design time packages, which might be needed to open the form in the designer. If you continue, you might get errors about missing components and the form loading will probably create very unpleasant results.%s%sIt is recommended to cancel and install these packages first.%s%s"
 msgid "Probably you need to install some packages before continuing.%sWarning:%sThe project uses the following design time packages, which might be needed to open the form in the designer. If you continue, you might get errors about missing components and the form loading will probably create very unpleasant results.%sIt is recommended to cancel and install these packages first."
 msgstr "Mungkin anda perlu menginstalasi beberapa paket sebelum melanjutkan. %s%sPerhatian:%sProyek tergantung pada beberapa paket, yang berisi unit dengan prosedur Register. Prosedur Register biasanya digunakan untuk menginstalasi komponen dalam IDE. Tetapi unit berikut milik paket yang belum diinstalasi dalam IDE. Jika anda ingin mencoba membuka form dalam IDE, yang menggunakan komponen tersebut, anda akan mendapatkan kesalahan mengenai komponen yang tidak ada dan pengambilan form akan membuat hasil yang tidak menyenangkan.%s%sIni tidak berpengaruh pada pembukaan proyek atau sumbernya.%s%sIni hanya berarti: Adalah ide yang buruk untuk membuka form untuk desain, sebelum menginstalasi paket yang tidak ada.%s%s"
@@ -14666,13 +14894,13 @@ msgid "Package not found"
 msgstr "Paket tidak ditemukan"
 
 #: lazarusidestrconsts.lisprojaddthedependencywasnotfound
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The dependency %s%s%s was not found.%sPlease choose an existing package."
 msgid "The dependency \"%s\" was not found.%sPlease choose an existing package."
 msgstr "Dependensi %s%s%s tidak ditemukan.%sSilahkan pilih paket yang ada."
 
 #: lazarusidestrconsts.lisprojaddthemaximumversionisinvalid
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The Maximum Version %s%s%s is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
 msgctxt "lazarusidestrconsts.lisprojaddthemaximumversionisinvalid"
 msgid "The Maximum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
@@ -14684,38 +14912,38 @@ msgid "The Maximum Version is lower than the Minimim Version."
 msgstr "Versi Maksimum lebih rendah daripada Versi Minimum."
 
 #: lazarusidestrconsts.lisprojaddtheminimumversionisinvalid
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The Minimum Version %s%s%s is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
 msgctxt "lazarusidestrconsts.lisprojaddtheminimumversionisinvalid"
 msgid "The Minimum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
 msgstr "Versi Minimum %s%s%s tidak benar.%sSilahkan gunakan format mayor mayor.minor.rilis.buatan%sSebagai contoh: 1.0.20.10"
 
 #: lazarusidestrconsts.lisprojaddthepackagenameisinvalidplasechooseanexistingpackag
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The package name %s%s%s is invalid.%sPlase choose an existing package."
 msgid "The package name \"%s\" is invalid.%sPlase choose an existing package."
 msgstr "Nama paket %s%s%s tidak benar.%sSilahkan pilih paket yang ada."
 
 #: lazarusidestrconsts.lisprojaddtheprojecthasalreadyadependency
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The project has already a dependency for the package %s%s%s."
 msgid "The project has already a dependency for the package \"%s\"."
 msgstr "Proyek sudah mempunyai dependensi untuk paket %s%s%s."
 
 #: lazarusidestrconsts.lisprojaddtheunitnamealreadyexistsintheproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s already exists in the project%swith file: %s%s%s."
 msgid "The unit name \"%s\" already exists in the project%swith file: \"%s\"."
 msgstr "Nama unit %s%s%s sudah ada dalam proyek%sdengan file: %s%s%s."
 
 #: lazarusidestrconsts.lisprojaddtheunitnamealreadyexistsintheselection
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s already exists in the selection%swith file: %s%s%s."
 msgid "The unit name \"%s\" already exists in the selection%swith file: \"%s\"."
 msgstr "Nama unit %s%s%s sudah ada dalam pilihan%sdengan file: %s%s%s."
 
 #: lazarusidestrconsts.lisprojaddtheunitnameisnotavalidpascalidentifier
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit name %s%s%s is not a valid Pascal identifier."
 msgid "The unit name \"%s\" is not a valid Pascal identifier."
 msgstr "Nama unit %s%s%s bukan pengenal pascal yang benar."
@@ -14785,6 +15013,10 @@ msgstr "Informasi Proyek"
 #: lazarusidestrconsts.lisprojectisrunnable
 msgid "Project is runnable"
 msgstr "Proyek bisa dijalankan"
+
+#: lazarusidestrconsts.lisprojectisrunnablehint
+msgid "Generates a binary executable which can be run."
+msgstr ""
 
 #: lazarusidestrconsts.lisprojectmacro
 msgctxt "lazarusidestrconsts.lisprojectmacro"
@@ -14908,6 +15140,10 @@ msgstr "Tidak bisa menuliskan file kondisi untuk proyek %s%sKesalahanr: %s"
 msgid "Always build (even if nothing changed)"
 msgstr "Selalu membangun (meskipun jika tidak ada yang berubah)"
 
+#: lazarusidestrconsts.lisprojoptsalwaysbuildhint
+msgid "May be needed if there is a bug in dependency check, normally not needed."
+msgstr ""
+
 #: lazarusidestrconsts.lisprojoptserror
 msgctxt "lazarusidestrconsts.lisprojoptserror"
 msgid "Error"
@@ -14967,6 +15203,10 @@ msgstr "Filter Include tidak benar"
 
 #: lazarusidestrconsts.lisputlrsfilesinoutputdirectory
 msgid "Save .lrs files in the output directory"
+msgstr ""
+
+#: lazarusidestrconsts.lisputlrsfilesinoutputdirectoryhint
+msgid "The resource will be available for FPC."
 msgstr ""
 
 #: lazarusidestrconsts.lispvuapascalunitmusthavetheextensionpporpas
@@ -15279,10 +15519,6 @@ msgstr "Penggantian yang dipilih gagal."
 msgid "http://wiki.lazarus.freepascal.org/How_do_I_create_a_bug_report"
 msgstr "http://wiki.lazarus.freepascal.org/How_do_I_create_a_bug_report"
 
-#: lazarusidestrconsts.lisrequiresfpc24orabovelikedelphiresources
-msgid "Requires FPC 2.4 or above. Like Delphi resources"
-msgstr ""
-
 #: lazarusidestrconsts.lisrescan
 msgid "Rescan"
 msgstr ""
@@ -15297,6 +15533,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisresetlefttopwidthheightofselectedcomponentstotheir
 msgid "Reset Left, Top, Width, Height of selected components to their ancestor values?"
+msgstr ""
+
+#: lazarusidestrconsts.lisresourcenamemustbeunique
+msgid "Resource name must be unique."
 msgstr ""
 
 #: lazarusidestrconsts.lisresourcesaveerror
@@ -15380,7 +15620,7 @@ msgid "File not executable"
 msgstr "File bukan eksekutabel"
 
 #: lazarusidestrconsts.lisrunparamsthehostapplicationisnotexecutable
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The host application %s%s%s is not executable."
 msgid "The host application \"%s\" is not executable."
 msgstr "Aplikasi induk %s%s%s bukan eksekutabel."
@@ -15536,7 +15776,7 @@ msgid "Save file as"
 msgstr "Simpan file sebagai"
 
 #: lazarusidestrconsts.lissavefilebeforeclosingform
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Save file %s%s%s%sbefore closing form %s%s%s?"
 msgid "Save file \"%s\"%sbefore closing form \"%s\"?"
 msgstr "Simpan file %s%s%s%ssebelum menutup form %s%s%s?"
@@ -15559,6 +15799,24 @@ msgstr ""
 
 #: lazarusidestrconsts.lissavesessionchangestoproject
 msgid "Save session changes to project %s?"
+msgstr ""
+
+#: lazarusidestrconsts.lissavesessionfoldstate
+msgctxt "lazarusidestrconsts.lissavesessionfoldstate"
+msgid "Save fold info"
+msgstr ""
+
+#: lazarusidestrconsts.lissavesessionfoldstatehint
+msgid "Code editor supports folding (temporarily hiding) blocks of code."
+msgstr ""
+
+#: lazarusidestrconsts.lissavesessionjumphistory
+msgctxt "lazarusidestrconsts.lissavesessionjumphistory"
+msgid "Save jump history"
+msgstr ""
+
+#: lazarusidestrconsts.lissavesessionjumphistoryhint
+msgid "Ctrl-Click on an identifier in code editor is stored in jump history."
 msgstr ""
 
 #: lazarusidestrconsts.lissavesettings
@@ -15597,6 +15855,10 @@ msgstr ""
 msgid "Search paths"
 msgstr ""
 
+#: lazarusidestrconsts.lissearchunit
+msgid "Search Unit \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lissecondaryconfigdirectorywherelazarussearchesfor
 msgid "secondary config directory, where Lazarus searches for config template files. Default is "
 msgstr "direktori konfig kedua, dimana Lazarus mencari file template konfig. Default adalah"
@@ -15621,8 +15883,8 @@ msgstr "Pilih item panduan:"
 msgid "Select a node"
 msgstr "Pilih node"
 
-#: lazarusidestrconsts.lisselectanotherlclwidgetsetmacrolclwidgettype
-msgid "Select another LCL widget set (macro LCLWidgetType)"
+#: lazarusidestrconsts.lisselectanotherlclwidgetset
+msgid "Select another LCL widgetset (macro LCLWidgetType)"
 msgstr ""
 
 #: lazarusidestrconsts.lisselectdfmfiles
@@ -15755,7 +16017,7 @@ msgid "Show empty units/packages"
 msgstr ""
 
 #: lazarusidestrconsts.lisshowglyphsfor
-msgid "Show Glyphs for:"
+msgid "Show Glyphs for"
 msgstr ""
 
 #: lazarusidestrconsts.lisshowgutterinobjectinspector
@@ -15767,6 +16029,7 @@ msgid "Show help"
 msgstr ""
 
 #: lazarusidestrconsts.lisshowhintsinobjectinspector
+#, fuzzy
 msgctxt "lazarusidestrconsts.lisshowhintsinobjectinspector"
 msgid "Show hints"
 msgstr "Tampilkan petunjuk dalam Inspektor Objek"
@@ -15803,8 +16066,20 @@ msgstr "Tampilkan paket"
 msgid "Show position of source editor"
 msgstr ""
 
+#: lazarusidestrconsts.lisshowrecentlyusedidentifiersattop
+msgid "Show recently used identifiers at top"
+msgstr ""
+
 #: lazarusidestrconsts.lisshowrelativepaths
 msgid "Show relative paths"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowsallcontrolsintreehierarchy
+msgid "Shows all controls in tree hierarchy."
+msgstr ""
+
+#: lazarusidestrconsts.lisshowsdescriptionforselectedproperty
+msgid "A box at the bottom shows description for the selected property."
 msgstr ""
 
 #: lazarusidestrconsts.lisshowsetupdialogformostimportantsettings
@@ -15816,12 +16091,20 @@ msgid "Show special characters"
 msgstr ""
 
 #: lazarusidestrconsts.lisshowstatusbarinobjectinspector
-msgid "Show status bar"
+msgid "Show statusbar"
 msgstr ""
 
 #: lazarusidestrconsts.lisshowunits
 msgid "Show units"
 msgstr "Tampilkan unit"
+
+#: lazarusidestrconsts.lisshowunitswithinitialization
+msgid "Show units with initialization/finalization sections"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowunitswithinitializationhint
+msgid "These units may initialize global data used by the program/application. Remove with care."
+msgstr ""
 
 #: lazarusidestrconsts.lisshowunusedunits
 msgid "Show unused units ..."
@@ -15873,6 +16156,10 @@ msgstr "Lewati file dan lanjutkan pengambilan"
 msgid "Skip loading last project"
 msgstr "Lewati pengambilan proyek terakhir"
 
+#: lazarusidestrconsts.lisslowerbutmoreaccurate
+msgid "Slower but more accurate."
+msgstr ""
+
 #: lazarusidestrconsts.lissmallerratherthanfaster
 msgid "Smaller rather than faster"
 msgstr ""
@@ -15884,6 +16171,14 @@ msgstr "Sama"
 #: lazarusidestrconsts.lissorrythistypeisnotyetimplemented
 msgid "Sorry, this type is not yet implemented"
 msgstr "Maaf, tipe ini belum diimplementasikan"
+
+#: lazarusidestrconsts.lissort
+msgid "Sort"
+msgstr ""
+
+#: lazarusidestrconsts.lissortforscope
+msgid "Sort for scope"
+msgstr ""
 
 #: lazarusidestrconsts.lissortselascending
 msgid "Ascending"
@@ -15950,7 +16245,7 @@ msgid "Source directory \"%s\"%sand destination directory \"%s\"%sare the same. 
 msgstr ""
 
 #: lazarusidestrconsts.lissourcedirectorydoesnotexist
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Source directory %s%s%s does not exist."
 msgid "Source directory \"%s\" does not exist."
 msgstr "Direktori sumber %s%s%s tidak ada."
@@ -15964,7 +16259,7 @@ msgid "Source modified"
 msgstr "Sumber dimodifikasi"
 
 #: lazarusidestrconsts.lissourceofpagehaschangedsave
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Source of page %s%s%s has changed. Save?"
 msgid "Source of page \"%s\" has changed. Save?"
 msgstr "Sumber dari halaman %s%s%s sudah diubah. Simpan?"
@@ -16004,6 +16299,10 @@ msgstr ""
 #: lazarusidestrconsts.lisstartwithanewproject
 msgid "Start with a new project"
 msgstr "Mulai dengan proyek baru"
+
+#: lazarusidestrconsts.lisstatusbarshowspropertysnameandclass
+msgid "Statusbar shows the property's name and the class where it is published."
+msgstr ""
 
 #: lazarusidestrconsts.lisstop
 msgctxt "lazarusidestrconsts.lisstop"
@@ -16063,12 +16362,20 @@ msgstr "Sub Prosedur pada tingkat yang sama"
 msgid "Success"
 msgstr "Sukses"
 
+#: lazarusidestrconsts.lissuccessfullyexported
+msgid "Successfully exported to \"%s\"."
+msgstr ""
+
 #: lazarusidestrconsts.lissuccessfullyexportedbuildmodes
 msgid "Successfully exported %d BuildModes to \"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.lissuccessfullyexportedcompileroptions
 msgid "Successfully exported compiler options to \"%s\"."
+msgstr ""
+
+#: lazarusidestrconsts.lissuccessfullyimported
+msgid "Successfully imported from \"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.lissuccessfullyimportedbuildmodes
@@ -16081,6 +16388,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lissuggestdefaultnameofnewfileinlowercase
 msgid "Suggest default name of new file in lowercase"
+msgstr ""
+
+#: lazarusidestrconsts.lissupportutf8rtl
+msgid "Support UTF-8 RTL"
 msgstr ""
 
 #: lazarusidestrconsts.lissuspiciousincludepath
@@ -16100,7 +16411,7 @@ msgid "Invalid variable name"
 msgstr "Nama variabel tidak benar"
 
 #: lazarusidestrconsts.lissvuoisnotavalididentifier
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "%s%s%s is not a valid identifier."
 msgid "\"%s\" is not a valid identifier."
 msgstr "%s%s%s bukan pengenal yang benar."
@@ -16111,6 +16422,10 @@ msgstr "Timpa variabel sistem"
 
 #: lazarusidestrconsts.lisswitchfiltersettings
 msgid "Switch Filter Settings"
+msgstr ""
+
+#: lazarusidestrconsts.lisswitchtofavoritestabafterasking
+msgid "Switch to Favorites tab after asking for component name."
 msgstr ""
 
 #: lazarusidestrconsts.lissyntaxmode
@@ -16134,7 +16449,7 @@ msgid "Move the selected control down in tab order"
 msgstr ""
 
 #: lazarusidestrconsts.listaborderof
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Tab Order of"
 msgid "Tab Order of %s"
 msgstr "Urutan Tab dari"
@@ -16217,7 +16532,7 @@ msgid "The Application Bundle was created for \"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.listheclassisatcontrolandcannotbepastedontoanoncontro
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The class %s%s%s is a TControl and cannot be pasted onto a non control.%sUnable to paste."
 msgid "The class \"%s\" is a TControl and cannot be pasted onto a non control.%sUnable to paste."
 msgstr "Class %s%s%s adalah TControl dan tidak bisa di-paste ke dalam non kontrol.%sTidak mem-paste."
@@ -16227,13 +16542,13 @@ msgid "The Codetools found an error:%s%s"
 msgstr ""
 
 #: lazarusidestrconsts.listhecommandafterisnotexecutable
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The command after %s%s%s is not executable."
 msgid "The command after \"%s\" is not executable."
 msgstr "Perintah seteleh %s%s%s bukan eksekutabel."
 
 #: lazarusidestrconsts.listhecommandafterpublishingisinvalid
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The command after publishing is invalid:%s%s%s%s"
 msgid "The command after publishing is invalid:%s\"%s\""
 msgstr "Perintah setelah publikasi tidak benar:%s%s%s%s"
@@ -16251,7 +16566,7 @@ msgid "The component editor of class \"%s\" has created the error:%s\"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.listhecomponenteditorofclassinvokedwithverbhascreated
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The component editor of class %s%s%s%sinvoked with verb #%s %s%s%s%shas created the error:%s%s%s%s"
 msgid "The component editor of class \"%s\"%sinvoked with verb #%s \"%s\"%shas created the error:%s\"%s\""
 msgstr "Editor komponen dari class%s%s%s%sditemukan dengan verb #%s %s%s%s%stelah menghasilkan kesalahan:%s%s%s%s"
@@ -16285,7 +16600,7 @@ msgid "The current FPC has no config file. It will probably miss some units. Che
 msgstr ""
 
 #: lazarusidestrconsts.listhedebuggerdoesnotexistsorisnotexecutableseeenviro
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The debugger %s%s%s%sdoes not exist or is not executable.%s%sSee Tools -> Options -> Debugger options"
 msgid "The debugger \"%s\"%sdoes not exist or is not executable.%sSee Tools -> Options -> Debugger options"
 msgstr "Debugger %s%s%s%stidak ada atau bukan yang bisa dijalankan.%s%sLihat Lingkungan -> Opsi Debugger"
@@ -16299,7 +16614,7 @@ msgid "The default mode must be stored in project, not in session."
 msgstr ""
 
 #: lazarusidestrconsts.listhedestinationdirectorydoesnotexist
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The destination directory%s%s%s%s does not exist."
 msgid "The destination directory%s\"%s\" does not exist."
 msgstr "Direktori tujuan %s%s%s%s tidak ada."
@@ -16317,7 +16632,7 @@ msgid "The directory \"%s\" contains no project units any more. Remove this dire
 msgstr ""
 
 #: lazarusidestrconsts.listhedirectoryisnolongerneededintheunitpathremoveit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The directory %s%s%s is no longer needed in the unit path.%sRemove it?"
 msgid "The directory \"%s\" is no longer needed in the unit path.%sRemove it?"
 msgstr "Direktori %s%s%s tidak dibutuhkan lagi dalam path unit.%sHapus?"
@@ -16327,7 +16642,7 @@ msgid "The directory \"%s\" is not writable."
 msgstr ""
 
 #: lazarusidestrconsts.listhedirectoryisnotyetintheunitpathaddit
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The directory %s%s%s is not yet in the unit path.%sAdd it?"
 msgid "The directory \"%s\" is not yet in the unit path.%sAdd it?"
 msgstr "Direktori %s%s%s belum ada dalam path unit.%sTambahkan?"
@@ -16337,7 +16652,7 @@ msgid "The directory %s was not found."
 msgstr ""
 
 #: lazarusidestrconsts.listhefile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s"
 msgid "The file \"%s\""
 msgstr "File %s%s%s"
@@ -16367,7 +16682,7 @@ msgid "The file mask \"%s\" is not a valid regular expression."
 msgstr ""
 
 #: lazarusidestrconsts.listhefileseemstobeaprogramclosecurrentproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s%sseems to be a program. Close current project and create a new Lazarus project for this program?%s\"No\" will load the file as normal source."
 msgid "The file \"%s\" seems to be a program.%sClose current project and create a new Lazarus project for this program?%s\"No\" will load the file as normal source."
 msgstr "File %s%s%s%ssepertinya sebuah program. Tutup proyek sekarang dan buat proyek Lazarus baru untuk program ini?%s\"Tidak\" akan mengambil file sebagai sumber normal."
@@ -16383,19 +16698,19 @@ msgid "The file \"%s\"%swas found in one of the source directories of the packag
 msgstr ""
 
 #: lazarusidestrconsts.listhefilewasnotfounddoyouwanttolocateityourself
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s%swas not found.%sDo you want to locate it yourself ?%s"
 msgid "The file \"%s\" was not found.%sDo you want to locate it yourself?"
 msgstr "File %s%s%s%stidak ditemukan.%sAnda ingin mencarinya sendiri?%s"
 
 #: lazarusidestrconsts.listhefilewasnotfoundignorewillgoonloadingtheproject
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The file %s%s%s%swas not found.%sIgnore will go on loading the project,%sAbort  will stop the loading."
 msgid "The file \"%s\" was not found.%sIgnore will go on loading the project,%sAbort  will stop the loading."
 msgstr "File %s%s%s%stidak ditemukan. %sMengabaikan akan tetap mengambil proyek, %sMembatalkan akan menghentikan pengambilan."
 
 #: lazarusidestrconsts.listhefollowingmethodsusedbyarenotinthesourceremoveth
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The following methods used by %s are not in the source%s%s%s%s%s%sRemove the dangling references?"
 msgid "The following methods used by %s are not in the source%s%s%s%s%sRemove the dangling references?"
 msgstr "Method berikut digunakan oleh %s tidak dalam sumber%s%s%s%s%s%sHapus referensi dangling?"
@@ -16406,6 +16721,10 @@ msgstr ""
 
 #: lazarusidestrconsts.listhefreepascalcompilerexecutabletypicallyhasthename
 msgid "The Free Pascal compiler executable typically has the name \"%s\". You can also use the target specific compiler like \"%s\". Please give the full file path."
+msgstr ""
+
+#: lazarusidestrconsts.listheideisstillbuilding
+msgid "The IDE is still building."
 msgstr ""
 
 #: lazarusidestrconsts.listheidentifierisaunitpleaseusethefilesaveasfunction
@@ -16421,7 +16740,7 @@ msgid "The Application Bundle %s%sneeded for execution does not exist or is not 
 msgstr ""
 
 #: lazarusidestrconsts.listhelaunchingapplicationdoesnotexistsorisnotexecuta
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The launching application %s%s%s%sdoes not exist or is not executable.%s%sSee Run -> Run parameters -> Local"
 msgid "The launching application \"%s\"%sdoes not exist or is not executable.%sSee Run -> Run parameters -> Local"
 msgstr "Menjalankan aplikasi %s%s%s%stidak ada atau bukan yang bisa dijalankan.%s%sLihat Jalankan -> Parameter menjalankan -> Lokal"
@@ -16533,7 +16852,7 @@ msgid "The path of \"make\" is not correct: \"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.listheprogrammakewasnotfoundthistoolisneededtobuildla
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The program %smake%s was not found.%sThis tool is needed to build Lazarus.%s"
 msgid "The program \"make\" was not found.%sThis tool is needed to build Lazarus."
 msgstr "Program %smake%stidak ditemukan.%sPiranti ini diperlukan untuk membangun lazarus.%s"
@@ -16551,7 +16870,7 @@ msgid "The project has no main source file."
 msgstr ""
 
 #: lazarusidestrconsts.listheprojectinfofileisequaltotheprojectmainsource
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The project info file %s%s%s%sis equal to the project main source file!"
 msgid "The project info file \"%s\"%sis equal to the project main source file!"
 msgstr "File info proyek %s%s%s%ssama dengan file sumber utama proyek!"
@@ -16574,8 +16893,16 @@ msgstr ""
 msgid "The project uses the new FPC resources, which requires at least FPC 2.4"
 msgstr ""
 
+#: lazarusidestrconsts.listheprojectwritesthedebugsymbolstoanexternalfilethe
+msgid "The project writes the debug symbols to an external file. The \"%s\" supports only symbols within the executable."
+msgstr ""
+
 #: lazarusidestrconsts.listhereareadditionalnotesforthismessageon
 msgid "%sThere are additional notes for this message on%s"
+msgstr ""
+
+#: lazarusidestrconsts.listherearenoconflictingkeys
+msgid "There are no conflicting keys."
 msgstr ""
 
 #: lazarusidestrconsts.listhereareotherfilesinthedirectorywiththesamename
@@ -16583,7 +16910,7 @@ msgid "There are other files in the directory with the same name,%swhich only di
 msgstr "Ada file lain dalam direktori dengan nama yang sama, %syang beda hanya jenis hurufnya:%s%s%sHapus dulu?"
 
 #: lazarusidestrconsts.listhereisafilewiththesamenameandasimilarextension
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is a file with the same name and a similar extension ond disk%sFile: %s%sAmbiguous File: %s%s%sDelete ambiguous file?"
 msgid "There is a file with the same name and a similar extension on disk%sFile: %s%sAmbiguous File: %s%sDelete ambiguous file?"
 msgstr "Ada file dengan nama sama dan ekstensi mirip pada disk%File: %s%s%sHapus file dwimakna?"
@@ -16609,7 +16936,7 @@ msgid "There is already a file \"%s\" in %s%sOld: %s%sNew: %s%s%sContinue?"
 msgstr ""
 
 #: lazarusidestrconsts.listhereisalreadyaformwiththename
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is already a form with the name %s%s%s"
 msgid "There is already a form with the name \"%s\""
 msgstr "Sudah ada form dengan nama %s%s%s"
@@ -16631,13 +16958,13 @@ msgid "There is already a unit \"%s\" in %s%sOld: %s%sNew: %s%sYou have to make 
 msgstr ""
 
 #: lazarusidestrconsts.listhereisalreadyaunitwiththenamepascalidentifiersmus
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is already a unit with the name %s%s%s. Pascal identifiers must be unique."
 msgid "There is already a unit with the name \"%s\". Pascal identifiers must be unique."
 msgstr "Sudah ada unit dengan nama%s%s%s. Pengenal Pascal harus unik."
 
 #: lazarusidestrconsts.listhereisaunitwiththenameintheprojectpleasechoose
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "There is a unit with the name %s%s%s in the project.%sPlease choose a different name"
 msgid "There is a unit with the name \"%s\" in the project.%sPlease choose a different name"
 msgstr "Ada unit dengan nama %s%s%s dalam proyek.%sSilahkan pilih nama yang berbeda"
@@ -16651,7 +16978,7 @@ msgid "There must be at least one build mode."
 msgstr ""
 
 #: lazarusidestrconsts.listheresourceclassdescendsfromprobablythisisatypofor
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The resource class %s%s%s descends from %s%s%s. Probably this is a typo for TForm."
 msgid "The resource class \"%s\" descends from \"%s\". Probably this is a typo for TForm."
 msgstr "Resource class %s%s%s turunan dari %s%s%s. Mungkin ini salah ketik untuk TForm."
@@ -16727,7 +17054,7 @@ msgid "The unit %s is used by other files.%sUpdate references automatically?"
 msgstr ""
 
 #: lazarusidestrconsts.listheunititselfhasalreadythenamepascalidentifiersmus
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "The unit itself has already the name %s%s%s. Pascal identifiers must be unique."
 msgid "The unit itself has already the name \"%s\". Pascal identifiers must be unique."
 msgstr "Unit sendiri sudah mempunyai nama %s%s%s. Pengenal Pascal harus unik."
@@ -16751,6 +17078,10 @@ msgstr ""
 #: lazarusidestrconsts.listhishelpmessage
 msgid "this help message"
 msgstr "pesan panduan ini"
+
+#: lazarusidestrconsts.listhisistestprojectfordesigntimepackage
+msgid "This is a test project for a design time package, testing it outside the IDE."
+msgstr ""
 
 #: lazarusidestrconsts.listhislookslikeapascalfileitisrecommendedtouselowerc
 #, fuzzy
@@ -17085,7 +17416,7 @@ msgid "Not found"
 msgstr "Tidak ditemukan"
 
 #: lazarusidestrconsts.lisuereplacethisoccurrenceofwith
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Replace this occurrence of %s%s%s%s with %s%s%s?"
 msgid "Replace this occurrence of \"%s\"%s with \"%s\"?"
 msgstr "Ganti %s%s%s%s yang ditemukan ini dengan %s%s%s?"
@@ -17150,11 +17481,6 @@ msgstr "Ukuran:"
 msgid "Type:"
 msgstr "TipeL"
 
-#: lazarusidestrconsts.lisuidunit
-msgctxt "lazarusidestrconsts.lisuidunit"
-msgid "Unit"
-msgstr "Unit"
-
 #: lazarusidestrconsts.lisuidyes
 msgid "yes"
 msgstr "ya"
@@ -17172,13 +17498,13 @@ msgid "Unable copy components to clipboard"
 msgstr "Tidak bisa meng-copy komponen ke clipboard"
 
 #: lazarusidestrconsts.lisunabletoaddresourceheadercommenttoresourcefile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to add resource header comment to resource file %s%s%s%s.%sProbably a syntax error."
 msgid "Unable to add resource header comment to resource file %s\"%s\".%sProbably a syntax error."
 msgstr "Tidak bisa menambah komentar header resource ke file resource %s%s%s%s.%sKemungkinan salah sintaks"
 
 #: lazarusidestrconsts.lisunabletoaddresourcetformdatatoresourcefileprobably
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to add resource T%s:FORMDATA to resource file %s%s%s%s.%sProbably a syntax error."
 msgid "Unable to add resource T%s:FORMDATA to resource file %s\"%s\".%sProbably a syntax error."
 msgstr "Tidak bisa menambah resource T%s:FORMDATA ke file resource %s%s%s%s.%sKemungkinan salah sintaks."
@@ -17196,7 +17522,7 @@ msgid "Unable to add %s to project, because there is already a unit with the sam
 msgstr "Tidak bisa menambah %s ke proyek, karena sudah ada unit dengan nama yang sama dalam Proyek."
 
 #: lazarusidestrconsts.lisunabletobackupfileto
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to backup file %s%s%s to %s%s%s!"
 msgid "Unable to backup file \"%s\" to \"%s\"!"
 msgstr "Tidak bisa mem-backup file %s%s%s to %s%s%s!"
@@ -17214,7 +17540,7 @@ msgid "Unable to clean up destination directory"
 msgstr "Tidak bisa membersihkan direktori tujuan"
 
 #: lazarusidestrconsts.lisunabletocleanuppleasecheckpermissions
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to clean up %s%s%s.%sPlease check permissions."
 msgid "Unable to clean up \"%s\".%sPlease check permissions."
 msgstr "Tidak bisa membersihkan %s%s%s.%sSilahkan periksa perijinan."
@@ -17224,13 +17550,13 @@ msgid "Unable to convert component text into binary format:%s%s"
 msgstr "Tidak bisa mengkonversi teks komponen ke dalam format biner:%s%s"
 
 #: lazarusidestrconsts.lisunabletoconvertfileerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to convert file %s%s%s%sError: %s"
 msgid "Unable to convert file \"%s\"%sError: %s"
 msgstr "Tidak bisa mengubah file %s%s%s%sKesalahan: %s"
 
 #: lazarusidestrconsts.lisunabletoconverttextformdataoffileintobinarystream
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to convert text form data of file %s%s%s%s%sinto binary stream. (%s)"
 msgid "Unable to convert text form data of file %s\"%s\"%sinto binary stream. (%s)"
 msgstr "Tidak bisa mengubah data form teks dari file %s%s%s%s%skedalam aliran biner. (%s)"
@@ -17240,19 +17566,19 @@ msgid "Unable to copy file"
 msgstr "Tidak bisa meng-copy file"
 
 #: lazarusidestrconsts.lisunabletocopyfileto
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to copy file %s%s%s%sto %s%s%s"
 msgid "Unable to copy file \"%s\"%sto \"%s\""
 msgstr "Tidak bisa meng- copy file %s%s%s%sto %s%s%s"
 
 #: lazarusidestrconsts.lisunabletocreatebackupdirectory
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create backup directory %s%s%s."
 msgid "Unable to create backup directory \"%s\"."
 msgstr "Tidak bisa membuat direktori backup %s%s%s."
 
 #: lazarusidestrconsts.lisunabletocreatedirectory
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create directory %s%s%s."
 msgid "Unable to create directory \"%s\"."
 msgstr "Tidak bisa membuat direktori %s%s%s."
@@ -17262,7 +17588,7 @@ msgid "Unable to create file"
 msgstr "Tidak bisa membuat file"
 
 #: lazarusidestrconsts.lisunabletocreatefile2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to create file %s%s%s"
 msgid "Unable to create file \"%s\""
 msgstr "Tidak bisa membuat file %s%s%s"
@@ -17292,7 +17618,7 @@ msgid "Unable to delete"
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletodeleteambiguousfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to delete ambiguous file %s%s%s"
 msgid "Unable to delete ambiguous file \"%s\""
 msgstr "Tidak bisa menghapus file dwimakna %s%s%s"
@@ -17306,13 +17632,13 @@ msgid "Unable to find a ResourceString section in this or any of the used units.
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletofindavalidclassnamein
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to find a valid classname in %s%s%s"
 msgid "Unable to find a valid classname in \"%s\""
 msgstr "Tidak menemukan nama class yang benar dalam %s%s%s"
 
 #: lazarusidestrconsts.lisunabletofindfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to find file %s%s%s."
 msgid "Unable to find file \"%s\"."
 msgstr "Tidak bisa menemukan file %s%s%s."
@@ -17354,7 +17680,7 @@ msgid "Unable to load package \"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletoloadthecomponentclassbecauseitdependsonits
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to load the component class %s%s%s, because it depends on itself."
 msgid "Unable to load the component class \"%s\", because it depends on itself."
 msgstr "Tidak bisa mengambil kelas komponen %s%s%s, karena ia tergantung pada dirinya sendiri."
@@ -17380,13 +17706,13 @@ msgid "Unable to read file"
 msgstr "Tidak bisa membaca file"
 
 #: lazarusidestrconsts.lisunabletoreadfile2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to read file %s%s%s!"
 msgid "Unable to read file \"%s\"."
 msgstr "Tidak bisa membaca file %s%s%s!"
 
 #: lazarusidestrconsts.lisunabletoreadfileerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to read file %s%s%s%sError: %s"
 msgid "Unable to read file \"%s\"%sError: %s"
 msgstr "Tidak bisa membaca file %s%s%s%sKesalahan: %s"
@@ -17405,7 +17731,7 @@ msgid "Unable to read the project info file%s\"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletoremoveoldbackupfile
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to remove old backup file %s%s%s!"
 msgid "Unable to remove old backup file \"%s\"!"
 msgstr "Tidak bisa menghapus file backup lama %s%s%s!"
@@ -17415,7 +17741,7 @@ msgid "Unable to remove project title from source.%s%s"
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletorenameambiguousfileto
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to rename ambiguous file %s%s%s%sto %s%s%s"
 msgid "Unable to rename ambiguous file \"%s\"%sto \"%s\""
 msgstr "Tidak bisa mengganti nama file dwimakna %s%s%s%ske %s%s%s"
@@ -17425,13 +17751,13 @@ msgid "Unable to rename file"
 msgstr "Tidak bisa mengganti nama file"
 
 #: lazarusidestrconsts.lisunabletorenamefileto
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to rename file %s%s%s to %s%s%s!"
 msgid "Unable to rename file \"%s\" to \"%s\"!"
 msgstr "Tidak bisa mengganti nama file %s%s%s to %s%s%s!"
 
 #: lazarusidestrconsts.lisunabletorenamefileto2
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to rename file %s%s%s%sto %s%s%s."
 msgid "Unable to rename file \"%s\"%sto \"%s\"."
 msgstr "Tidak bisa mengganti nama file %s%s%s%sto %s%s%s."
@@ -17493,7 +17819,7 @@ msgid "Unable to write file \"%s\"."
 msgstr ""
 
 #: lazarusidestrconsts.lisunabletowritefileerror
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Unable to write file %s%s%s%sError: %s"
 msgid "Unable to write file \"%s\"%sError: %s"
 msgstr "Tidak bisa menulis file %s%s%s%sKesalahan: %s"
@@ -17534,6 +17860,12 @@ msgstr ""
 #: lazarusidestrconsts.lisuninstallselection
 msgid "Uninstall selection"
 msgstr "Deinstalasi pilihan"
+
+#: lazarusidestrconsts.lisunit
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisunit"
+msgid "Unit"
+msgstr "Unit"
 
 #: lazarusidestrconsts.lisunithaschangedsave
 msgid "Unit \"%s\" has changed. Save?"
@@ -17653,9 +17985,14 @@ msgid "Use and close"
 msgstr ""
 
 #: lazarusidestrconsts.lisuseansistrings
+#, fuzzy
 msgctxt "lazarusidestrconsts.lisuseansistrings"
 msgid "Use Ansistrings"
 msgstr "Gunakan Ansi Strings"
+
+#: lazarusidestrconsts.lisusecheckboxforbooleanvalues
+msgid "Use CheckBox for Boolean values"
+msgstr ""
 
 #: lazarusidestrconsts.lisusecommentsincustomoptions
 msgid "Use comments in custom options"
@@ -17667,6 +18004,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisusedesigntimepackages
 msgid "Use design time packages"
+msgstr ""
+
+#: lazarusidestrconsts.lisusedforautocreatedforms
+msgid "Used for auto-created forms."
 msgstr ""
 
 #: lazarusidestrconsts.lisuseexcludefilter
@@ -17765,6 +18106,10 @@ msgstr ""
 msgid "Values"
 msgstr ""
 
+#: lazarusidestrconsts.lisvaluesthatarechangedfromdefault
+msgid "Values that are changed from the default are stored in .lfm file and are shown differently in Object Inspector."
+msgstr ""
+
 #: lazarusidestrconsts.lisvariable
 msgctxt "lazarusidestrconsts.lisvariable"
 msgid "Variable"
@@ -17821,7 +18166,7 @@ msgid "Warning: "
 msgstr ""
 
 #: lazarusidestrconsts.liswarningambiguousfilefoundsourcefileis
-#, fuzzy
+#, fuzzy,badformat
 #| msgid "Warning: ambiguous file found: %s%s%s. Source file is: %s%s%s"
 msgid "Warning: ambiguous file found: \"%s\". Source file is: \"%s\""
 msgstr "Peringatan: file dwimakna ditemukan: %s%s%s. File Sumber adalah: %s%s%s"
@@ -18035,6 +18380,12 @@ msgstr ""
 msgid "You cannot build Lazarus while debugging or compiling."
 msgstr "Anda tidak bisa membangun lazarus saat debugging atau kompilasi."
 
+#: lazarusidestrconsts.lis_all_
+#, fuzzy
+msgctxt "lazarusidestrconsts.lis_all_"
+msgid "<All>"
+msgstr "<Semua>"
+
 #: lazarusidestrconsts.locwndsrceditor
 msgctxt "lazarusidestrconsts.locwndsrceditor"
 msgid "Source Editor"
@@ -18118,6 +18469,10 @@ msgstr ""
 msgid "Automatically increase build number"
 msgstr ""
 
+#: lazarusidestrconsts.rsautomaticallyincreasebuildnumberhint
+msgid "Increased every time the project is compiled."
+msgstr ""
+
 #: lazarusidestrconsts.rsbuild
 msgid "&Build:"
 msgstr ""
@@ -18160,6 +18515,10 @@ msgstr ""
 
 #: lazarusidestrconsts.rsi18noptions
 msgid "i18n Options"
+msgstr ""
+
+#: lazarusidestrconsts.rsincludeversioninfohint
+msgid "Version info is stored if the executable format supports it."
 msgstr ""
 
 #: lazarusidestrconsts.rsincludeversioninfoinexecutable
@@ -18906,11 +19265,11 @@ msgid "Guess Misplaced $IFDEF"
 msgstr "Tebak $IFDEF salah tempat"
 
 #: lazarusidestrconsts.srkmechalfwordleft
-msgid "Move cursor half-word left"
+msgid "Move cursor part-word left (e.g. CamelCase)"
 msgstr ""
 
 #: lazarusidestrconsts.srkmechalfwordright
-msgid "Move cursor half-word right"
+msgid "Move cursor part-word right (e.g. CamelCase)"
 msgstr ""
 
 #: lazarusidestrconsts.srkmecimestr
@@ -19265,11 +19624,11 @@ msgid "Select Goto XY"
 msgstr "Pilih Pergi ke XY"
 
 #: lazarusidestrconsts.srkmecselhalfwordleft
-msgid "Select half-word left"
+msgid "Select part-word left (e.g. CamelCase)"
 msgstr ""
 
 #: lazarusidestrconsts.srkmecselhalfwordright
-msgid "Select half-word right"
+msgid "Select part-word right (e.g. CamelCase)"
 msgstr ""
 
 #: lazarusidestrconsts.srkmecselleft
@@ -19279,11 +19638,13 @@ msgid "Select Left"
 msgstr "PilihKiri"
 
 #: lazarusidestrconsts.srkmecsellineend
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecsellineend"
 msgid "Select Line End"
 msgstr "Pilih Akhir Baris"
 
 #: lazarusidestrconsts.srkmecsellinestart
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecsellinestart"
 msgid "Select Line Start"
 msgstr "Pilih Awal Baris"
@@ -19293,6 +19654,7 @@ msgid "Select to text start in line"
 msgstr ""
 
 #: lazarusidestrconsts.srkmecselpagebottom
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecselpagebottom"
 msgid "Select Page Bottom"
 msgstr "Pilih Halaman ke Bawah"
@@ -19310,6 +19672,7 @@ msgid "Select Page Right"
 msgstr "Pilih Halaman ke Kanan"
 
 #: lazarusidestrconsts.srkmecselpagetop
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecselpagetop"
 msgid "Select Page Top"
 msgstr "Pilih Halaman ke Atas"
@@ -19353,11 +19716,13 @@ msgid "Select word-end right"
 msgstr ""
 
 #: lazarusidestrconsts.srkmecselwordleft
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecselwordleft"
 msgid "Select Word Left"
 msgstr "Pilih Sekata ke Kiri"
 
 #: lazarusidestrconsts.srkmecselwordright
+#, fuzzy
 msgctxt "lazarusidestrconsts.srkmecselwordright"
 msgid "Select Word Right"
 msgstr "Pilih Sekata ke Kanan"
@@ -19898,11 +20263,13 @@ msgid "Highlighter"
 msgstr ""
 
 #: lazarusidestrconsts.ueminspect
+#, fuzzy
 msgctxt "lazarusidestrconsts.ueminspect"
 msgid "&Inspect ..."
 msgstr "Inspeksi ..."
 
 #: lazarusidestrconsts.ueminvertassignment
+#, fuzzy
 msgctxt "lazarusidestrconsts.ueminvertassignment"
 msgid "Invert Assignment"
 msgstr "Balikkan Penempatan"
@@ -20008,6 +20375,7 @@ msgid "Toggle &Breakpoint"
 msgstr ""
 
 #: lazarusidestrconsts.uemviewcallstack
+#, fuzzy
 msgctxt "lazarusidestrconsts.uemviewcallstack"
 msgid "View Call Stack"
 msgstr "Lihat Panggilan Stack"

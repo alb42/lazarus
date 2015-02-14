@@ -30,7 +30,7 @@ uses
   cthreads,
   {$ENDIF}
   Classes, SysUtils, LazFileUtils, laz2_XMLRead, laz2_DOM, laz2_XMLWrite,
-  LazUTF8, LazLogger, CodeToolsStructs, CustApp, AVL_Tree,
+  LazLogger, LazUTF8, CodeToolsStructs, CustApp, AVL_Tree,
   {$IF FPC_FULLVERSION<20701}
   myfphttpclient,
   {$ELSE}
@@ -194,7 +194,7 @@ begin
     Param:=GetParams(i);
     //writeln('TWikiGet.DoRun Param="',Param,'"');
     if copy(Param,1,length(pPage))=pPage then
-      NeedWikiPage(WikiInternalLinkToPage(copy(Param,length(pPage)+1,length(Param))));
+      NeedWikiPage(WikiTitleToPage(copy(Param,length(pPage)+1,length(Param))));
   end;
   if (NeedSinglePage) and (FNeededPages.Tree.Count=0) then
     E('nothing to do',true);
@@ -296,7 +296,7 @@ begin
           Page:=copy(s,StartPos,p-StartPos);
           while (Page<>'') and (Page[1]='/') do
             System.Delete(Page,1,1);
-          if (Page<>'') and (not IsIgnoredPage(Page)) then begin;
+          if (Page<>'') and (not IsIgnoredPage(Page)) then begin
             //writeln('TWikiGet.GetAll Page="',Page,'"');
             Filename:=PageToFilename(Page,false);
             AddWikiPage(Page);
@@ -539,7 +539,7 @@ begin
       try
         Client:=TFPHTTPClient.Create(nil);
         Response:=TMemoryStream.Create;
-        URL:=BaseURL+EscapeDocumentName('Image:'+WikiInternalLinkToPage(Link));
+        URL:=BaseURL+EscapeDocumentName('Image:'+WikiTitleToPage(Link));
         writeln('getting image page "',URL,'" ...');
         Client.Get(URL,Response);
         //Client.ResponseHeaders.SaveToFile('responseheaders.txt');
@@ -722,13 +722,15 @@ procedure TWikiGet.Test;
     Filename: String;
   begin
     debugln(['TWikiGet.Test [',URL,']']);
-    Page:=WikiInternalLinkToPage(URL);
+    Page:=WikiTitleToPage(URL);
     debugln(['  URL=[',dbgstr(URL),']  Page=[',Page,']']);
     Filename:=WikiImageToFilename(Page,false,true);
     debugln(['  URL=[',dbgstr(URL),']  Filename="',Filename,'"']);
   end;
 
 begin
+  TestWikiPageToFilename;
+
   //w('Image:Acs_demos.jpg');
   //w('Image:Acs demos.jpg');
   w('Image:Acs%20demos.jpg');
@@ -773,10 +775,10 @@ begin
   writeln('                 ToDo: check more than last 500 changes.');
   writeln('--ignore-recent=<minutes> : do not download again files younger than this on disk.');
   writeln('                        combine with --recent. Default: ',IgnoreFilesYoungerThanMin);
-  writeln('--shownotusedpages    : show not used files in the output directory.');
-  writeln('--deletenotusedpages  : delete the files in the output directory that are not used.');
-  writeln('--shownotusedimages   : show not used files in the images directory.');
-  writeln('--deletenotusedimages : delete the files in the images directory that are not used.');
+  writeln('--shownotusedpages    : show files in the output directory which are not used by the wiki.');
+  writeln('--deletenotusedpages  : delete the files in the output directory which are not used by the wiki.');
+  writeln('--shownotusedimages   : show files in the images directory, which are not used by the wiki.');
+  writeln('--deletenotusedimages : delete the files in the images directory, which are not used by the wiki.');
   writeln('--nowrite             : do not write files, just print what would be written.');
   writeln;
   writeln('Example: download one page');
@@ -791,6 +793,7 @@ var
   Application: TWikiGet;
 begin
   Application:=TWikiGet.Create(nil);
+  //Application.Test;
   Application.Title:='Wiki Get';
   Application.Run;
   Application.Free;

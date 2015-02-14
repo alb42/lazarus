@@ -1,15 +1,11 @@
+{$ifndef ALLPACKAGES}
 {$mode objfpc}{$H+}
 {$define allpackages}
+{$define no_parent}
 program fpmake;
 
 uses fpmkunit, sysutils, Classes;
-
-Var
-  TBuild,T : TTarget;
-  PBuild,P : TPackage;
-  D : TDependency;
-  I : Integer;
-
+{$endif ALLPACKAGES}
 (*
 
 The include files are generated with the following commands:
@@ -20,36 +16,16 @@ rm fpmake_proc.inc fpmake_add.inc ; /bin/ls -1 */fpmake.pp| while read file; do 
 
 {$include fpmake_proc.inc}
 
+procedure add_packages(const ADirectory: string);
+
 begin
 {$include fpmake_add.inc}
+end;
 
-  With Installer do
-    begin
-      // Create fpc-all package
-      PBuild:=AddPackage('lazarus');
-      PBuild.Version:='1.1';
-      PBuild.Dependencies.Add('lcl');
-      PBuild.Dependencies.Add('codetools');
-      PBuild.Dependencies.Add('synedit');
-      PBuild.Dependencies.Add('ideintf');
-      PBuild.Dependencies.Add('debuggerintf');
-      PBuild.Dependencies.Add('lazdebuggergdbmi');
-
-
-      pbuild.SourcePath.Add('ide');
-
-
-      T := PBuild.Targets.AddProgram('lazarus.pp');
-      T.IncludePath.Add('ide/include');
-      T.Options.Add('-Fudebugger');
-      T.Options.Add('-Fuide/frames');
-      T.Options.Add('-Fudebugger/frames');
-      T.Options.Add('-Fupackager');
-      t.UnitPath.Add('packager/frames');
-      T.Options.Add('-Fudesigner');
-      T.Options.Add('-Fuconverter');
-      T.Options.Add('-Sci');
-      PBuild.SupportBuildModes:=[bmOneByOne];
-      Run;
-    end;
+{$ifdef no_parent}
+begin
+  add_packages('');
+  Installer.Run;
 end.
+{$endif no_parent}
+

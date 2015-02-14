@@ -874,7 +874,7 @@ begin
     if TQtResource(AObject).Owner <> nil then
     begin
       // this is an owned (default) resource, let owner free it
-      DebugLn('WARNING: Trying to Free a default resource');
+      DebugLn('WARNING: TQtWidgetSet.DeleteObject() trying to free a default resource ',dbgsName(AObject),' owner=',dbgsName(TQtResource(AObject).Owner));
       AObject := nil;
     end;
 
@@ -1021,7 +1021,7 @@ var
     begin
 
       APen := TQtPen.Create(True);
-      ColorRefToTQColor(TColorRef(ColorLeftTop), EdgeQtColor);
+      ColorRefToTQColor(TColorRef(ColorLeftTop), EdgeQtColor{%H-});
       APen.setColor(EdgeQtColor);
       OldPen := QtDC.setPen(APen);
 
@@ -1078,8 +1078,8 @@ begin
   Dec(ClientRect.Bottom, 1);
   QtDC.save;
   try
-    ColorDark := ColorToRGB(cl3DDkShadow);
-    ColorLight := ColorToRGB(cl3DLight);
+    ColorDark := ColorToRGB(clBtnShadow);
+    ColorLight := ColorToRGB(clBtnHighlight);
     if grfFlags and BF_FLAT <> 0 then
       ColorLight := clSilver;
     if grfFlags and BF_MONO <> 0 then
@@ -1093,7 +1093,7 @@ begin
       InflateRect(ClientRect, -1, -1);
       if grfFlags and BF_MONO = 0 then
       begin
-        ColorLight := ColorToRGB(clBtnHiLight);
+        ColorLight := ColorToRGB(clBtnHighlight);
         ColorDark := ColorToRGB(clBtnShadow);
       end;
       if Edge and (BDR_SUNKENINNER or BDR_RAISEDINNER) <> 0 then
@@ -1492,7 +1492,7 @@ begin
   R := NormalizeRect(Rect(X1, Y1, X2, Y2));
   if IsRectEmpty(R) then Exit(True);
 
-  TQtDeviceContext(DC).drawEllipse(R.Left, R.Top, R.Right - R.Left - 1, R.Bottom - R.Top - 1);
+  TQtDeviceContext(DC).drawEllipse(R.Left, R.Top, R.Right - R.Left, R.Bottom - R.Top{ - 1});
   Result := True;
 end;
 
@@ -1930,7 +1930,7 @@ begin
               AStyle);
             EnumLogFont.elfStyle := AStyle;
             if CharSetList.Count > 0 then
-              EnumLogFont.elfLogFont.lfCharSet := PtrUInt(CharsetList.Items[0]);
+              EnumLogFont.elfLogFont.lfCharSet := {%H-}PtrUInt(CharsetList.Items[0]);
             Result := Callback(EnumLogFont, Metric, FontType, LParam);
             for y := 1 to StylesCount - 1 do
             begin
@@ -1940,7 +1940,7 @@ begin
             end;
             for y := 1 to CharsetList.Count - 1 do
             begin
-              EnumLogFont.elfLogFont.lfCharSet := PtrUInt(CharsetList.Items[y]);
+              EnumLogFont.elfLogFont.lfCharSet := {%H-}PtrUInt(CharsetList.Items[y]);
               Result := Callback(EnumLogFont, Metric, FontType, LParam);
             end;
           end;
@@ -4189,7 +4189,7 @@ begin
   if IsValidDC(DC) then
   begin
     QtDC := TQtDeviceContext(DC);
-    ColorRefToTQColor(TColorRef(QtDC.vTextColor), Color);
+    ColorRefToTQColor(TColorRef(QtDC.vTextColor), Color{%H-});
     TQColorToColorRef(Color, Result);
   end;
 end;
@@ -5136,8 +5136,10 @@ begin
 
   if not IsValidGDIObject(RGN) then
     exit;
-
-  Result := TQtRegion(RGN).containsPoint(X, Y);
+  if not (TObject(RGN) is TQtRegion) then
+    Result := False
+  else
+    Result := TQtRegion(RGN).containsPoint(X, Y);
 end;
 
 {------------------------------------------------------------------------------

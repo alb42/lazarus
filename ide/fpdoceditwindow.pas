@@ -219,7 +219,7 @@ type
 var
   FPDocEditor: TFPDocEditor = nil;
 
-procedure DoShowFPDocEditor(Show, BringToFront: boolean);
+procedure DoShowFPDocEditor(State: TIWGetFormState = iwgfShowOnTop);
 
 implementation
 
@@ -228,15 +228,16 @@ implementation
 
 { TFPDocEditor }
 
-procedure DoShowFPDocEditor(Show, BringToFront: boolean);
+procedure DoShowFPDocEditor(State: TIWGetFormState);
 begin
   if FPDocEditor = Nil then
-    Application.CreateForm(TFPDocEditor, FPDocEditor);
+    IDEWindowCreators.CreateForm(FPDocEditor,TFPDocEditor,
+       State=iwgfDisabled,LazarusIDE.OwningComponent)
+  else if State=iwgfDisabled then
+    FPDocEditor.DisableAutoSizing;
 
-  if Show then
-  begin
-    IDEWindowCreators.ShowForm(FPDocEditor,BringToFront);
-  end;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(FPDocEditor,State=iwgfShowOnTop);
 end;
 
 function TFPDocEditor.GetFirstElement: TDOMNode;
@@ -1372,7 +1373,8 @@ begin
         TopicDescr.Text := DFile.GetChildValuesAsString(Child);
       TopicShort.Enabled := True;
       TopicDescr.Enabled := True;
-      TopicShort.SetFocus;
+      if TopicShort.IsVisible then
+        TopicShort.SetFocus;
     finally
       Exclude(FFlags, fpdefTopicSettingUp);
     end;

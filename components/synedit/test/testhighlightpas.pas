@@ -58,6 +58,7 @@ type
     procedure TestContextForClassHelper;
     procedure TestContextForRecordHelper;
     procedure TestContextForStatic;
+    procedure TestCaretAsString;
     procedure TestFoldNodeInfo;
   end;
 
@@ -1074,6 +1075,93 @@ begin
                       tkSpace, tkKey, tkSpace, tkIdentifier,     // #32 write static
                       tkSymbol                   // ;
                      ]);
+end;
+
+procedure TTestHighlighterPas.TestCaretAsString;
+begin
+  ReCreateEdit;
+  SetLines
+    ([ 'Unit A; interface',  // 0
+       'var',
+         'a:char=^o;',
+         'b:^char=nil;',
+       'type',
+         'c=^char;',         // 5
+       'implementation',
+       'function x(f:^char=^k):^v;', // actually the compiler does not allow ^ as pointer for result
+       'var',
+         'a:char=^o;',
+         'b:^char=nil;',     // 10
+       'type',
+         'c=^char;',
+       'begin',
+         'i:=^f;',
+         'x:=GetTypeData(PropInfo^.PropType{$IFNDEF FPC}^{$ENDIF});', // 15
+         'c:=p^;',
+         'c:=p ^;',
+         'c:=p(**)^;',
+         'c:=p{} ^;',
+         'i:=f(1)^;',     // 20
+         'i:=f[1]^;',
+         'i:=f^^;',
+         'c:=p^+^i''e''^a#13^x;',
+         'c:=x=^a and ^a=k and(^a^a=z);',
+       'end;',
+       ''
+    ]);
+
+  CheckTokensForLine('a:char=^o;',   2,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkString, tkSymbol]);
+  CheckTokensForLine('b:^char=nil;',   3,
+                     [tkIdentifier, tkSymbol, tkSymbol, tkIdentifier, tkSymbol, tkKey, tkSymbol]);
+  CheckTokensForLine('c=^char;',   5,
+                     [tkIdentifier, tkSymbol, tkSymbol, tkIdentifier, tkSymbol]);
+
+  CheckTokensForLine('function x(f:^char=^k):^v;',   7,
+                     [tkKey, tkSpace, tkIdentifier, tkSymbol, tkIdentifier,  // function x(f
+                      tkSymbol, tkSymbol, tkIdentifier, tkSymbol, tkString,  // :^char=^k
+                      tkSymbol, tkSymbol, tkSymbol, tkIdentifier, tkSymbol]);          // ):^v;
+  CheckTokensForLine('LOCAL a:char=^o;',   9,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkString, tkSymbol]);
+  CheckTokensForLine('LOCAL b:^char=nil;',   10,
+                     [tkIdentifier, tkSymbol, tkSymbol, tkIdentifier, tkSymbol, tkKey, tkSymbol]);
+  CheckTokensForLine('LOCAL c=^char;',   12,
+                     [tkIdentifier, tkSymbol, tkSymbol, tkIdentifier, tkSymbol]);
+  CheckTokensForLine('i:=^f',   14,
+                     [tkIdentifier, tkSymbol, tkString, tkSymbol]);
+
+  CheckTokensForLine('x:=GetTypeData(PropInfo^.PropType{$IFNDEF FPC}^{$ENDIF});',   15,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol,    // x:=GetTypeData(
+                      tkIdentifier, tkSymbol, tkSymbol, tkIdentifier,    // PropInfo^.PropType
+                      tkDirective, tkSymbol, tkDirective, tkSymbol, tkSymbol]);  // {$IFNDEF FPC}^{$ENDIF});
+
+  CheckTokensForLine('c:=p^;',   16,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkSymbol]);
+  CheckTokensForLine('c:=p ^;',   17,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSpace, tkSymbol, tkSymbol]);
+  CheckTokensForLine('c:=p(**)^;',   18,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkComment, tkSymbol, tkSymbol]);
+  CheckTokensForLine('c:=p{} ^;',   19,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkComment, tkSpace, tkSymbol, tkSymbol]);
+
+  CheckTokensForLine('c:=p(1)^;',   20,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkNumber, tkSymbol, tkSymbol]);
+  CheckTokensForLine('c:=p[1]^;',   21,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkNumber, tkSymbol, tkSymbol]);
+  CheckTokensForLine('c:=p^^;',   22,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkSymbol, tkSymbol]);
+
+  CheckTokensForLine('c:=p^+^i''e''^a#13^x;',   23,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkSymbol, // c:=p^+
+                      tkString, tkString, tkString, tkString, tkString, tkSymbol  // ^i'e'^a#13^x;
+                     ]);
+  CheckTokensForLine('c:=x=^a and ^a=k and(^a^a=z);',   24,
+                     [tkIdentifier, tkSymbol, tkIdentifier, tkSymbol, tkString, tkSpace, // c:=x=^a
+                      tkKey, tkSpace, tkString, tkSymbol, tkIdentifier, tkSpace, // and ^a=k
+                      tkKey, tkSymbol, tkString, tkString, tkSymbol, tkIdentifier,  // and(^a^a=z
+                      tkSymbol, tkSymbol                                            // );'
+                     ]);
+
 end;
 
 procedure TTestHighlighterPas.TestFoldNodeInfo;

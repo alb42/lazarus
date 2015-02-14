@@ -47,6 +47,8 @@ type
     procedure GetLegendItems(AItems: TChartLegendItems); override;
     function GetSeriesColor: TColor; override;
   public
+    function AddXY(AX, AY, ARadius: Double; AXLabel: String = '';
+      AColor: TColor = clTAColor): Integer; overload;
     procedure Assign(ASource: TPersistent); override;
     constructor Create(AOwner: TComponent); override;
     destructor  Destroy; override;
@@ -64,6 +66,7 @@ type
   end;
 
   TBoxAndWhiskerSeriesLegendDir = (bwlHorizontal, bwlVertical, bwlAuto);
+  TBoxAndWhiskerSeriesWidthStyle = (bwsPercent, bwsPercentMin);
 
   TBoxAndWhiskerSeries = class(TBasicPointSeries)
   strict private
@@ -74,6 +77,7 @@ type
     FMedianPen: TPen;
     FWhiskersPen: TPen;
     FWhiskersWidth: Integer;
+    FWidthStyle: TBoxAndWhiskerSeriesWidthStyle;
     procedure SetBoxBrush(AValue: TBrush);
     procedure SetBoxPen(AValue: TPen);
     procedure SetBoxWidth(AValue: Integer);
@@ -91,7 +95,6 @@ type
     procedure Assign(ASource: TPersistent); override;
     constructor Create(AOwner: TComponent); override;
     destructor  Destroy; override;
-
     procedure Draw(ADrawer: IChartDrawer); override;
     function Extent: TDoubleRect; override;
   published
@@ -102,6 +105,8 @@ type
     property LegendDirection: TBoxAndWhiskerSeriesLegendDir
       read FLegendDirection write SetLegendDirection default bwlHorizontal;
     property MedianPen: TPen read FMedianPen write SetMedianPen;
+    property WidthStyle: TBoxAndWhiskerSeriesWidthStyle
+      read FWidthStyle write FWidthStyle default bwsPercent;
     property WhiskersPen: TPen read FWhiskersPen write SetWhiskersPen;
     property WhiskersWidth: Integer
       read FWhiskersWidth write SetWhiskersWidth default DEF_WHISKERS_WIDTH;
@@ -149,7 +154,6 @@ type
     procedure Assign(ASource: TPersistent); override;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-
     function AddXOHLC(
       AX, AOpen, AHigh, ALow, AClose: Double;
       ALabel: String = ''; AColor: TColor = clTAColor): Integer; inline;
@@ -180,21 +184,22 @@ type
     property AxisIndexY;
     property Source;
   end;
-              (*
-  TCandleStickSeries = class(TOpenHighLowCloseSeries)
-  public
-    procedure Draw(ADrawer: IChartDrawer); override;
-  end;
-                *)
+
+
 implementation
 
 uses
-  Math, SysUtils, TACustomSource, TAGeometry, TAGraph, TAMath;
+  FPCanvas, Math, SysUtils, TACustomSource, TAGeometry, TAGraph, TAMath;
 
 type
 
   TLegendItemOHLCLine = class(TLegendItemLine)
+  strict private
+    FMode: TOHLCMode;
+    FCandleStickUpColor: TColor;
+    FCandleStickDownColor: TColor;
   public
+    constructor Create(ASeries: TOpenHighLowCloseSeries; const AText: String);
     procedure Draw(ADrawer: IChartDrawer; const ARect: TRect); override;
   end;
 
@@ -214,17 +219,56 @@ type
 
 { TLegendItemOHLCLine }
 
-procedure TLegendItemOHLCLine.Draw(ADrawer: IChartDrawer; const ARect: TRect);
+constructor TLegendItemOHLCLine.Create(ASeries: TOpenHighLowCloseSeries; const AText: String);
 var
-  dx, x, y: Integer;
+  pen: TFPCustomPen;
+begin
+  case ASeries.Mode of
+    mOHLC        : pen := ASeries.LinePen;
+    mCandleStick : pen := ASeries.CandleStickLinePen;
+  end;
+  inherited Create(pen, AText);
+  FMode := ASeries.Mode;
+  FCandlestickUpColor := ASeries.CandlestickUpBrush.Color;
+  FCandlestickDownColor := ASeries.CandlestickDownBrush.Color;
+end;
+
+procedure TLegendItemOHLCLine.Draw(ADrawer: IChartDrawer; const ARect: TRect);
+const
+  TICK_LENGTH = 3;
+var
+  dx, dy, x, y: Integer;
+  pts: array[0..3] of TPoint;
 begin
   inherited Draw(ADrawer, ARect);
   y := (ARect.Top + ARect.Bottom) div 2;
   dx := (ARect.Right - ARect.Left) div 3;
   x := ARect.Left + dx;
-  ADrawer.Line(x, y, x, y + 2);
-  x += dx;
-  ADrawer.Line(x, y, x, y - 2);
+  case FMode of
+    mOHLC:
+      begin
+        dy := ADrawer.Scale(TICK_LENGTH);
+        ADrawer.Line(x, y, x, y + dy);
+        x += dx;
+        ADrawer.Line(x, y, x, y - dy);
+      end;
+    mCandlestick:
+      begin
+        dy := (ARect.Bottom - ARect.Top) div 4;
+        pts[0] := Point(x, y-dy);
+        pts[1] := Point(x, y+dy);
+        pts[2] := Point(x+dx, y+dy);
+        pts[3] := pts[0];
+        ADrawer.SetBrushParams(bsSolid, FCandlestickUpColor);
+        ADrawer.Polygon(pts, 0, 4);
+        pts[0] := Point(x+dx, y+dy);
+        pts[1] := Point(x+dx, y-dy);
+        pts[2] := Point(x, y-dy);
+        pts[3] := pts[0];
+        ADrawer.SetBrushParams(bsSolid, FCandlestickDownColor);
+        ADrawer.Polygon(pts, 0, 4);
+      end;
+  end;
 end;
 
 { TLegendItemBoxAndWhiskers }
@@ -295,7 +339,15 @@ begin
   ADrawer.Line(symbol[5].TopLeft, symbol[5].BottomRight);
 end;
 
+
 { TBubbleSeries }
+
+function TBubbleSeries.AddXY(AX, AY, ARadius: Double; AXLabel: String;
+  AColor: TColor): Integer;
+begin
+  if ListSource.YCount < 2 then ListSource.YCount := 2;
+  Result := AddXY(AX, AY, [ARadius], AXLabel, AColor);
+end;
 
 procedure TBubbleSeries.Assign(ASource: TPersistent);
 begin
@@ -333,15 +385,22 @@ begin
   if Source.YCount < 2 then exit;
   r := 0;
   for i := 0 to Count - 1 do
-    r := Max(Source[i]^.YList[0], r);
+    if IsNaN(Source[i]^.YList[0]) then
+      continue
+    else
+      r := Max(Source[i]^.YList[0], r);
   with ParentChart.CurrentExtent do
     PrepareGraphPoints(DoubleRect(a.X - r, a.Y - r, b.X + r, b.Y + r), true);
   ADrawer.Pen := BubblePen;
   ADrawer.Brush := BubbleBrush;
   for i := 0 to High(FGraphPoints) do begin
+    if IsNaN(FGraphPoints[i].X) or IsNaN(FGraphPoints[i].Y) then
+      Continue;
     pt := ParentChart.GraphToImage(FGraphPoints[i]);
     pi := Source[i + FLoBound];
     r := pi^.YList[0];
+    if IsNaN(r) then
+      Continue;
     d.X := ParentChart.XGraphToImage(r) - ParentChart.XGraphToImage(0);
     d.Y := ParentChart.YGraphToImage(r) - ParentChart.YGraphToImage(0);
     if bocPen in OverrideColor then
@@ -363,6 +422,7 @@ begin
   for i := 0 to Count - 1 do
     with Source[i]^ do begin
       r := YList[0];
+      if IsNaN(X) or IsNaN(Y) or IsNaN(r) then continue;
       Result.a.X := Min(Result.a.X, X - r);
       Result.b.X := Max(Result.b.X, X + r);
       Result.a.Y := Min(Result.a.Y, Y - r);
@@ -407,6 +467,7 @@ function TBoxAndWhiskerSeries.AddXY(
   AX, AYLoWhisker, AYLoBox, AY, AYHiBox, AYHiWhisker: Double; AXLabel: String;
   AColor: TColor): Integer;
 begin
+  if ListSource.YCount < 5 then ListSource.YCount := 5;
   Result := AddXY(
     AX, AYLoWhisker, [AYLoBox, AY, AYHiBox, AYHiWhisker], AXLabel, AColor);
 end;
@@ -479,7 +540,10 @@ var
   x, ymin, yqmin, ymed, yqmax, ymax, wb, ww, w: Double;
   i: Integer;
 begin
-  if IsEmpty or (Source.YCount < 5) then exit;
+  if IsEmpty or (Source.YCount < 5) then
+    exit;
+  if FWidthStyle = bwsPercentMin then
+    UpdateMinXRange;
 
   ext2 := ParentChart.CurrentExtent;
   ExpandRange(ext2.a.X, ext2.b.X, 1.0);
@@ -490,13 +554,18 @@ begin
   for i := FLoBound to FUpBound do begin
     x := GetGraphPointX(i);
     ymin := GetGraphPointY(i);
+    if IsNaN(x) or IsNaN(ymin) then
+      continue;
     with Source[i]^ do begin
-      yqmin := AxisToGraphY(YList[0]);
-      ymed := AxisToGraphY(YList[1]);
-      yqmax := AxisToGraphY(YList[2]);
-      ymax := AxisToGraphY(YList[3]);
+      if IsNaN(YList[0]) then continue else yqmin := AxisToGraphY(YList[0]);
+      if IsNaN(YList[1]) then continue else ymed := AxisToGraphY(YList[1]);
+      if IsNaN(YList[2]) then continue else yqmax := AxisToGraphY(YList[2]);
+      if IsNaN(YList[3]) then continue else ymax := AxisToGraphY(YList[3]);
     end;
-    w := GetXRange(x, i) * PERCENT / 2;
+    case FWidthStyle of
+      bwsPercent: w := GetXRange(x, i) * PERCENT / 2;
+      bwsPercentMin: w := FMinXRange * PERCENT / 2;
+    end;
     wb := w * BoxWidth;
     ww := w * WhiskersWidth;
 
@@ -507,7 +576,10 @@ begin
     DoLine(x - ww, ymax, x + ww, ymax);
     DoLine(x, ymax, x, yqmax);
     ADrawer.Pen := BoxPen;
-    ADrawer.Brush:= BoxBrush;
+    if Source[i]^.Color <> clTAColor then
+      ADrawer.SetBrushParams(bsSolid, Source[i]^.Color)
+    else
+      ADrawer.Brush := BoxBrush;
     DoRect(x - wb, yqmin, x + wb, yqmax);
     ADrawer.Pen := MedianPen;
     ADrawer.SetBrushParams(bsClear, clTAColor);
@@ -780,7 +852,7 @@ end;
 
 procedure TOpenHighLowCloseSeries.GetLegendItems(AItems: TChartLegendItems);
 begin
-  AItems.Add(TLegendItemOHLCLine.Create(LinePen, LegendTextSingle));
+  AItems.Add(TLegendItemOHLCLine.Create(Self, LegendTextSingle));
 end;
 
 function TOpenHighLowCloseSeries.GetSeriesColor: TColor;
@@ -865,85 +937,10 @@ begin
   UpdateParentChart;
 end;
 
-          (*
-{ TCandleStickSeries }
-
-procedure TCandleStickChart.Draw(ADrawer: IChartDrawer);
-
-  function MaybeRotate(AX, AY: Double): TPoint;
-  begin
-    if IsRotated then
-      Exchange(AX, AY);
-    Result := ParentChart.GraphToImage(DoublePoint(AX, AY));
-  end;
-
-  procedure DoLine(AX1, AY1, AX2, AY2: Double);
-  begin
-    ADrawer.Line(MaybeRotate(AX1, AY1), MaybeRotate(AX2, AY2));
-  end;
-
-  function GetGraphPointYIndex(AIndex, AYIndex: Integer): Double;
-  begin
-    if AYIndex = 0 then
-      Result := GetGraphPointY(AIndex)
-    else
-      Result := AxisToGraphY(Source[AIndex]^.YList[AYIndex - 1]);
-  end;
-
-  procedure DoRect(AX1, AY1, AX2, AY2: Double);
-  var
-    r: TRect;
-  begin
-    with ParentChart do begin
-      r.TopLeft := MaybeRotate(AX1, AY1);
-      r.BottomRight := MaybeRotate(AX2, AY2);
-    end;
-    ADrawer.FillRect(r.Left, r.Top, r.Right, r.Bottom);
-    ADrawer.Rectangle(r);
-  end;
-
-var
-  maxy: Cardinal;
-  ext2: TDoubleRect;
-  i: Integer;
-  x, tw, yopen, yhigh, ylow, yclose: Double;
-  p: TPen;
-begin
-  maxy := MaxIntValue([YIndexOpen, YIndexHigh, YIndexLow, YIndexClose]);
-  if IsEmpty or (maxy >= Source.YCount) then exit;
-
-  ext2 := ParentChart.CurrentExtent;
-  ExpandRange(ext2.a.X, ext2.b.X, 1.0);
-  ExpandRange(ext2.a.Y, ext2.b.Y, 1.0);
-
-  PrepareGraphPoints(ext2, true);
-
-  for i := FLoBound to FUpBound do begin
-    x := GetGraphPointX(i);
-    yopen := GetGraphPointYIndex(i, YIndexOpen);
-    yhigh := GetGraphPointYIndex(i, YIndexHigh);
-    ylow := GetGraphPointYIndex(i, YIndexLow);
-    yclose := GetGraphPointYIndex(i, YIndexClose);
-    tw := GetXRange(x, i) * PERCENT * TickWidth;
-
-    if (DownLinePen.Color = clTAColor) or (yopen <= yclose) then
-      p := LinePen
-    else
-      p := DownLinePen;
-    ADrawer.BrushColor:= P.Color;
-
-    // set border black
-    ADrawer.SetPenParams(p.Style, clBlack);
-    DoLine(x, yhigh, x, ylow);
-    DoRect(x - tw, yopen, x + tw, yclose);
-  end;
-end;
-     *)
 
 initialization
   RegisterSeriesClass(TBubbleSeries, 'Bubble series');
   RegisterSeriesClass(TBoxAndWhiskerSeries, 'Box-and-whiskers series');
   RegisterSeriesClass(TOpenHighLowCloseSeries, 'Open-high-low-close series');
-//  RegisterSeriesClass(TCandleStickSeries, 'Candle stick series');
 
 end.

@@ -26,7 +26,7 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, FileUtil, LCLStrConsts, Dialogs,
-  LazConfigStorage, HelpIntfs, Masks, LazFileUtils;
+  LazConfigStorage, HelpIntfs, Masks, LazFileUtils, LazUTF8;
 
 type
   { THelpQueryItem }
@@ -1070,7 +1070,7 @@ begin
     for i:=0 to FSearchItems.Count-1 do begin
       Node:=THelpDBItem(FSearchItems[i]).Node;
       if (Node=nil) or (not Node.IDValid) then continue;
-      if AnsiCompareText(Node.ID,HelpKeyword)<>0 then continue;
+      if UTF8CompareText(Node.ID,HelpKeyword)<>0 then continue;
       CreateNodeQueryListAndAdd(Node,nil,ListOfNodes,true);
     end;
   end;
@@ -1092,7 +1092,7 @@ begin
     for i:=0 to FSearchItems.Count-1 do begin
       Node:=THelpDBItem(FSearchItems[i]).Node;
       if (Node=nil) or (not Node.IDValid) then continue;
-      if AnsiCompareText(Node.ID,HelpDirective)<>0 then continue;
+      if UTF8CompareText(Node.ID,HelpDirective)<>0 then continue;
       CreateNodeQueryListAndAdd(Node,nil,ListOfNodes,true);
     end;
   end;
@@ -1136,17 +1136,17 @@ begin
   Result:=shrSuccess;
   ErrMsg:='';
   if csDesigning in ComponentState then exit;
-  if (ListOfPascalHelpContextList=nil)
-  or (ListOfPascalHelpContextList.Count=0) then exit;
+  if (ListOfPascalHelpContextList=nil) or
+    (ListOfPascalHelpContextList.Count=0) then exit;
   // add the registered nodes
   //debugln('THelpDatabase.GetNodesForPascalContexts A ID="',ID,'" ListOfPascalHelpContextList.Count=',dbgs(ListOfPascalHelpContextList.Count));
   if FSearchItems<>nil then begin
-    // check every pascal context
+    // check every Pascal context
     for j:=0 to ListOfPascalHelpContextList.Count-1 do begin
       PascalContext:=TPascalHelpContextList(ListOfPascalHelpContextList[j]);
       //debugln('THelpDatabase.GetNodesForPascalContexts A ID="',ID,'" PascalContext.Count=',dbgs(PascalContext.Count));
-      if (PascalContext.Count>0)
-      and (PascalContext.List[0].Descriptor=pihcFilename) then begin
+      if (PascalContext.Count>0) and
+        (PascalContext.List[0].Descriptor=pihcFilename) then begin
         Filename:=PascalContext.List[0].Context;
         // search file item
         for i:=0 to FSearchItems.Count-1 do begin
@@ -1390,7 +1390,7 @@ end;
 function THelpDatabases.IndexOf(ID: THelpDatabaseID): integer;
 begin
   Result:=Count-1;
-  while (Result>=0) and (AnsiCompareText(ID,Items[Result].ID)<>0) do
+  while (Result>=0) and (UTF8CompareText(ID,Items[Result].ID)<>0) do
     dec(Result);
 end;
 

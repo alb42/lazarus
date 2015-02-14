@@ -133,27 +133,27 @@ msgstr "Fel"
 
 #: objinspstrconsts.dceaddfields
 msgid "Add Fields"
-msgstr ""
+msgstr "Mezők hozzáadása"
 
 #: objinspstrconsts.dcecolumneditor
 msgid "DBGrid Columns Editor"
-msgstr ""
+msgstr "DBGrid oszlopszerkesztő"
 
 #: objinspstrconsts.dcedeleteall
 msgid "Delete All"
-msgstr ""
+msgstr "Összes törlése"
 
 #: objinspstrconsts.dcefetchlabels
 msgid "Fetch Labels"
-msgstr ""
+msgstr "Címkék beolvasása"
 
 #: objinspstrconsts.dceoktodelete
 msgid "This will delete all columns. Continue?"
-msgstr ""
+msgstr "Ez a művelet törli az összes oszlopot. Folytatás?"
 
 #: objinspstrconsts.dcewillreplacecontinue
 msgid "This will replace all captions from dataset. Continue?"
-msgstr ""
+msgstr "Ez a művelet lecseréli az összes feliratot az adatkészletben találhatókra. Folytatás?"
 
 #: objinspstrconsts.fescalculated
 msgid "&Calculated"
@@ -255,6 +255,10 @@ msgctxt "objinspstrconsts.ilesadd"
 msgid "Add"
 msgstr "Hozzáadás"
 
+#: objinspstrconsts.itcssearchandreplace
+msgid "Search and replace"
+msgstr "Keresés és csere"
+
 #: objinspstrconsts.liisaddvalue
 msgid "Add value"
 msgstr "Érték hozzáadása"
@@ -349,11 +353,11 @@ msgstr "Művelet"
 
 #: objinspstrconsts.oisactionlistcomponenteditor
 msgid "Action&List Editor ..."
-msgstr "Műveletlista szerkesztő ..."
+msgstr "Műveletlista-szerkesztő ..."
 
 #: objinspstrconsts.oisactionlisteditor
 msgid "ActionList Editor"
-msgstr "Műveletlista szerkesztő"
+msgstr "Műveletlista-szerkesztő"
 
 #: objinspstrconsts.oisaddcollectionitem
 msgid "&Add Item"
@@ -530,7 +534,7 @@ msgstr "&Súgó"
 
 #: objinspstrconsts.oisimagelistcomponenteditor
 msgid "I&mageList Editor ..."
-msgstr "Képlista szerkesztő ..."
+msgstr "Képlista-szerkesztő ..."
 
 #: objinspstrconsts.oisincompatibleidentifier
 msgid "Incompatible Identifier"
@@ -591,6 +595,10 @@ msgstr "Maszkok ..."
 #: objinspstrconsts.oismethod
 msgid "Method"
 msgstr "Metódus"
+
+#: objinspstrconsts.oismixed
+msgid "(Mixed)"
+msgstr "(Vegyes)"
 
 #: objinspstrconsts.oismovedown
 msgid "Move &Down"
@@ -792,7 +800,7 @@ msgstr "String"
 
 #: objinspstrconsts.oisstringseditordialog
 msgid "Strings Editor Dialog"
-msgstr "String szerkesztő ablak"
+msgstr "Karakterlánc-szerkesztő ablak"
 
 #: objinspstrconsts.oistdactcolorselect1headline
 msgid "Select &Color ..."
@@ -1133,7 +1141,7 @@ msgstr "Korlátozott tulajdonságok megjelenítése"
 
 #: objinspstrconsts.oiswidgetsetrestrictions
 msgid "General widget set restrictions: "
-msgstr "Általános widget készlet korlátozások:"
+msgstr "Általános vezérlőkészlet korlátozások:"
 
 #: objinspstrconsts.oisword
 msgid "Word"
@@ -1149,7 +1157,7 @@ msgstr "Szűrő"
 
 #: objinspstrconsts.pefiltereditor
 msgid "Filter editor"
-msgstr "Szűrő szerkesztő"
+msgstr "Szűrőszerkesztő"
 
 #: objinspstrconsts.pefiltername
 msgid "Filter name"
@@ -1173,7 +1181,7 @@ msgstr "Caption"
 
 #: objinspstrconsts.rscdcolumneditor
 msgid "Column Editor"
-msgstr "Oszlop szerkesztő"
+msgstr "Oszlopszerkesztő"
 
 #: objinspstrconsts.rscdinvalidnumericvalue
 msgid "Invalid numeric Value"
@@ -1212,7 +1220,7 @@ msgstr "Width"
 
 #: objinspstrconsts.sccshceditsections
 msgid "Sections Editor ..."
-msgstr "Szakasz szerkesztő ..."
+msgstr "Szakasz-szerkesztő ..."
 
 #: objinspstrconsts.sccsiledtadd
 msgid "&Add ..."
@@ -1364,7 +1372,7 @@ msgstr "Beviteli maszk szerkesztő ..."
 
 #: objinspstrconsts.sccssbeditpanels
 msgid "Panels Editor ..."
-msgstr "Panel szerkesztő ..."
+msgstr "Panel-szerkesztő ..."
 
 #: objinspstrconsts.sccssgedt
 msgid "Edit StringGrid ..."

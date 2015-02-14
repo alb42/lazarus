@@ -186,7 +186,8 @@ resourcestring
   sBand19 = 'Cross header';
   sBand20 = 'Cross data';
   sBand21 = 'Cross footer';
-  sBand22 = 'None';
+  sBand22 = 'Child';
+  sBand23 = 'None';
 
   sVar1 = 'Page#';
   sVar2 = 'Expression';
@@ -223,6 +224,7 @@ resourcestring
   sNotAssigned = '[None]';
   sFormNewPage = 'Force new page';
   sPrintIfSubsetEmpty = 'Print if detail empty';
+  sPrintChildIfNotVisible = 'Print child if not visible';
   sBreaked = 'Breaked';
   sPictureCenter = 'Center picture';
   sKeepAspectRatio = 'Keep aspect ratio';
@@ -574,6 +576,7 @@ resourcestring
   sFRDesignerForm_Modified = 'Modified';
   sFRDesignerExists        = 'You already have one TfrDesigner component';
   sFRDesignerDataInsp      = 'Data inspector';
+  sFrDesignerFormUnableToCreateTemplateDir = 'Unable to create template directory';
 
 //--- InspForm resources ------------------------------------------------------
   sObjectInspector ='Object inspector';
@@ -800,6 +803,17 @@ resourcestring
 
   sInsertExpression = 'Insert Expression';
   sFunctions = 'Functions';
+  sArguments = 'Arguments';
+  sFunctionEditor = 'Function editor';
+  sArgument1 = 'Argument 1';
+  sArgument2 = 'Argument 2';
+  sArgument3 = 'Argument 3';
+  sEditor = 'Editor';
+  sMemoEditor = 'Memo editor';
+  sUseMemoFontSettings = 'Use Memo font settings';
+  sUseFixedFontSettings = 'Use fixed font settings';
+  sScriptEditor = 'Script editor';
+  sUseSyntaxHighlight = 'Use syntax highlight';
 
 const
   frRes = 53000;

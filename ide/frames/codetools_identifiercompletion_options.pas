@@ -26,7 +26,7 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, StdCtrls,
-  CodeToolsOptions, LazarusIDEStrConsts, IDEOptionsIntf;
+  CodeToolsOptions, LazarusIDEStrConsts, IDEOptionsIntf, DividerBevel;
 
 type
 
@@ -35,11 +35,17 @@ type
   TCodetoolsIndentifierCompletionOptionsFrame = class(TAbstractIDEOptionsEditor)
     ICAddDoCheckBox: TCheckBox;
     ICAutoAddParameterBracketsCheckBox: TCheckBox;
+    ICMiscDividerBevel: TDividerBevel;
+    ICOpenDividerBevel: TDividerBevel;
     ICAutoStartAfterPointCheckBox: TCheckBox;
     ICAddAssignOperatorCheckBox: TCheckBox;
     ICAddSemicolonCheckBox: TCheckBox;
+    ICAddDividerBevel: TDividerBevel;
     ICReplaceCheckBox: TCheckBox;
     ICShowHelpCheckBox: TCheckBox;
+    ICSortDividerBevel: TDividerBevel;
+    ICSortForHistoryCheckBox: TCheckBox;
+    ICSortForScopeCheckBox: TCheckBox;
   private
   public
     function GetTitle: String; override;
@@ -63,15 +69,25 @@ end;
 procedure TCodetoolsIndentifierCompletionOptionsFrame.Setup(
   ADialog: TAbstractOptionsEditorDialog);
 begin
+  ICOpenDividerBevel.Caption:=lisIdCOpen;
+  ICAutoStartAfterPointCheckBox.Caption:=lisAutomaticallyInvokeAfterPoint;
+  ICShowHelpCheckBox.Caption:=lisShowHelp;
+  ICShowHelpCheckBox.Hint:=lisBestViewedByInstallingAHTMLControlLikeTurbopowerip;
+
+  ICAddDividerBevel.Caption:=lisIdCAdd;
   ICAddSemicolonCheckBox.Caption:=dlgAddSemicolon;
   ICAddAssignOperatorCheckBox.Caption:=dlgAddAssignmentOperator;
   ICAddDoCheckBox.Caption:=lisAddKeywordDo;
-  ICAutoStartAfterPointCheckBox.Caption:=lisAutomaticallyInvokeAfterPoint;
   ICAutoAddParameterBracketsCheckBox.Caption:=lisAddParameterBrackets;
+
+  ICSortDividerBevel.Caption:=lisSort;
+  ICSortForHistoryCheckBox.Caption:=lisShowRecentlyUsedIdentifiersAtTop;
+  ICSortForScopeCheckBox.Caption:=lisSortForScope;
+  ICSortForScopeCheckBox.Hint:=lisForExampleShowAtTopTheLocalVariablesThenTheMembers;
+
+  ICMiscDividerBevel.Caption:=dlgEnvMisc;
   ICReplaceCheckBox.Caption:=lisReplaceWholeIdentifier;
   ICReplaceCheckBox.Hint:=lisEnableReplaceWholeIdentifierDisableReplacePrefix;
-  ICShowHelpCheckBox.Caption:=lisShowHelp;
-  ICShowHelpCheckBox.Hint:=lisBestViewedByInstallingAHTMLControlLikeTurbopowerip;
 end;
 
 procedure TCodetoolsIndentifierCompletionOptionsFrame.ReadSettings(
@@ -86,6 +102,8 @@ begin
     ICAutoAddParameterBracketsCheckBox.Checked:=IdentComplAddParameterBrackets;
     ICReplaceCheckBox.Checked:=IdentComplReplaceIdentifier;
     ICShowHelpCheckBox.Checked:=IdentComplShowHelp;
+    ICSortForHistoryCheckBox.Checked:=IdentComplSortForHistory;
+    ICSortForScopeCheckBox.Checked:=IdentComplSortForScope;
   end;
 end;
 
@@ -101,6 +119,8 @@ begin
     IdentComplAddParameterBrackets:=ICAutoAddParameterBracketsCheckBox.Checked;
     IdentComplReplaceIdentifier:=ICReplaceCheckBox.Checked;
     IdentComplShowHelp:=ICShowHelpCheckBox.Checked;
+    IdentComplSortForHistory:=ICSortForHistoryCheckBox.Checked;
+    IdentComplSortForScope:=ICSortForScopeCheckBox.Checked;
   end;
 end;
 

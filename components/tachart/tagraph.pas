@@ -153,6 +153,9 @@ type
   TChartPaintEvent = procedure (
     ASender: TChart; const ARect: TRect;
     var ADoDefaultDrawing: Boolean) of object;
+  TChartDrawEvent = procedure (
+    ASender: TChart; ADrawer: IChartDrawer) of object;
+
 
   TChartRenderingParams = record
     FClipRect: TRect;
@@ -164,9 +167,6 @@ type
   { TChart }
 
   TChart = class(TCustomChart, ICoordTransformer)
-  public
-  type
-    TDrawEvent = procedure (ASender: TChart; ADrawer: IChartDrawer) of object;
   strict private // Property fields
     FAllowZoom: Boolean;
     FAntialiasingMode: TChartAntialiasingMode;
@@ -187,7 +187,7 @@ type
     FLogicalExtent: TDoubleRect;
     FMargins: TChartMargins;
     FMarginsExternal: TChartMargins;
-    FOnAfterDraw: TDrawEvent;
+    FOnAfterDraw: TChartDrawEvent;
     FOnAfterDrawBackground: TChartAfterDrawEvent;
     FOnAfterDrawBackWall: TChartAfterDrawEvent;
     FOnBeforeDrawBackground: TChartBeforeDrawEvent;
@@ -248,7 +248,7 @@ type
     procedure SetLogicalExtent(const AValue: TDoubleRect);
     procedure SetMargins(AValue: TChartMargins);
     procedure SetMarginsExternal(AValue: TChartMargins);
-    procedure SetOnAfterDraw(AValue: TDrawEvent);
+    procedure SetOnAfterDraw(AValue: TChartDrawEvent);
     procedure SetOnAfterDrawBackground(AValue: TChartAfterDrawEvent);
     procedure SetOnAfterDrawBackWall(AValue: TChartAfterDrawEvent);
     procedure SetOnBeforeDrawBackground(AValue: TChartBeforeDrawEvent);
@@ -391,7 +391,7 @@ type
     property Toolset: TBasicChartToolset read FToolset write SetToolset;
 
   published
-    property OnAfterDraw: TDrawEvent read FOnAfterDraw write SetOnAfterDraw;
+    property OnAfterDraw: TChartDrawEvent read FOnAfterDraw write SetOnAfterDraw;
     property OnAfterDrawBackground: TChartAfterDrawEvent
       read FOnAfterDrawBackground write SetOnAfterDrawBackground;
     property OnAfterDrawBackWall: TChartAfterDrawEvent
@@ -713,6 +713,8 @@ procedure TChart.DisplaySeries(ADrawer: IChartDrawer);
 
   procedure OffsetWithDepth(AZPos, ADepth: Integer);
   begin
+    AZPos := ADrawer.Scale(AZPos);
+    ADepth := ADrawer.Scale(ADepth);
     OffsetDrawArea(-AZPos, AZPos);
     FClipRect.Right += ADepth;
     FClipRect.Top -= ADepth;
@@ -802,6 +804,7 @@ procedure TChart.Draw(ADrawer: IChartDrawer; const ARect: TRect);
 var
   ldd: TChartLegendDrawingData;
   s: TBasicChartSeries;
+  fnt: TFont;
 begin
   Prepare;
 
@@ -828,7 +831,6 @@ begin
     PrepareAxis(ADrawer);
     if (FPrevLogicalExtent <> FLogicalExtent) and Assigned(OnExtentChanging) then
       OnExtentChanging(Self);
-
     ADrawer.DrawingBegin(ARect);
     ADrawer.SetAntialiasingMode(AntialiasingMode);
     Clear(ADrawer, ARect);
@@ -862,12 +864,27 @@ begin
       OnExtentChanged(Self);
     FPrevLogicalExtent := FLogicalExtent;
   end;
+
+  // Undo changes made by the drawer (mainly for printing). The user may print
+  // something else after the chart and, for example, would not expect the font
+  // to be rotated.
+  // (Workaround for issue #0027163)
+  fnt := TFont.Create;            // to effectively reset font orientation
+  try
+    ADrawer.Font := fnt;
+  finally
+    fnt.Free;
+  end;
+  ADrawer.SetPenParams(psSolid, clDefault);
+  ADrawer.SetBrushParams(bsSolid, clWhite);
+  ADrawer.SetAntialiasingMode(amDontCare);
 end;
 
 procedure TChart.DrawBackWall(ADrawer: IChartDrawer);
 var
   defaultDrawing: Boolean = true;
   ic: IChartTCanvasDrawer;
+  scaled_depth: Integer;
 begin
   if Supports(ADrawer, IChartTCanvasDrawer, ic) and Assigned(OnBeforeDrawBackWall) then
     OnBeforeDrawBackWall(Self, ic.Canvas, FClipRect, defaultDrawing);
@@ -886,9 +903,10 @@ begin
 
   // Z axis
   if (Depth > 0) and FFrame.Visible then begin
+    scaled_depth := ADrawer.Scale(Depth);
     ADrawer.Pen := FFrame;
     with FClipRect do
-      ADrawer.Line(Left, Bottom, Left - Depth, Bottom + Depth);
+      ADrawer.Line(Left, Bottom, Left - scaled_depth, Bottom + scaled_depth);
   end;
 end;
 
@@ -1260,26 +1278,28 @@ var
   tries: Integer;
   prevExt: TDoubleRect;
   axis: TChartAxis;
+  scaled_depth: Integer;
 begin
+  scaled_depth := ADrawer.Scale(Depth);
   if not AxisVisible then begin
-    FClipRect.Left += Depth;
-    FClipRect.Bottom -= Depth;
+    FClipRect.Left += scaled_depth;
+    FClipRect.Bottom -= scaled_depth;
     CalculateTransformationCoeffs(GetMargins(ADrawer));
     exit;
   end;
 
   AxisList.PrepareGroups;
   for axis in AxisList do
-    axis.PrepareHelper(ADrawer, Self, @FClipRect, Depth);
+    axis.PrepareHelper(ADrawer, Self, @FClipRect, scaled_depth);
 
   // There is a cyclic dependency: extent -> visible marks -> margins.
   // We recalculate them iteratively hoping that the process converges.
   CalculateTransformationCoeffs(ZeroRect);
   cr := FClipRect;
   for tries := 1 to 10 do begin
-    axisMargin := AxisList.Measure(CurrentExtent, Depth);
-    axisMargin[calLeft] := Max(axisMargin[calLeft], Depth);
-    axisMargin[calBottom] := Max(axisMargin[calBottom], Depth);
+    axisMargin := AxisList.Measure(CurrentExtent, scaled_depth);
+    axisMargin[calLeft] := Max(axisMargin[calLeft], scaled_depth);
+    axisMargin[calBottom] := Max(axisMargin[calBottom], scaled_depth);
     FClipRect := cr;
     for aa := Low(aa) to High(aa) do
       SideByAlignment(FClipRect, aa, -axisMargin[aa]);
@@ -1514,7 +1534,7 @@ begin
     Series.List.ChangeNamePrefix(oldName, AValue);
 end;
 
-procedure TChart.SetOnAfterDraw(AValue: TDrawEvent);
+procedure TChart.SetOnAfterDraw(AValue: TChartDrawEvent);
 begin
   if TMethod(FOnAfterDraw) = TMethod(AValue) then exit;
   FOnAfterDraw := AValue;

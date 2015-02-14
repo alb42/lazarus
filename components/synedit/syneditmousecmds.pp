@@ -276,6 +276,8 @@ const
 
   emcMax = 29;
 
+  emcPluginFirstSyncro     = 19000;
+  emcPluginFirstMultiCaret = 19010;
   emcPluginFirst = 20000;
 
   // Options

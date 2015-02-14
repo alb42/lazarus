@@ -90,6 +90,7 @@ type
     procedure SetDisplayState(AValue: TDisplayState);
   protected
     FNeedUpdateHighlighters: boolean;
+    FIDEStarted: boolean;
 
     function CreateMenuSeparator : TMenuItem;
     procedure CreateMenuItem(Section: TIDEMenuSection;
@@ -152,7 +153,6 @@ type
                            Flags: TCodeToolsFlags): boolean;
     procedure ActivateCodeToolAbortableMode;
     function OnCodeToolBossCheckAbort: boolean;
-    procedure CreateObjectInspector; virtual; abstract;
     procedure DoShowDesignerFormOfCurrentSrc; virtual; abstract;
     function CreateDesignerForComponent(AnUnitInfo: TUnitInfo;
                         AComponent: TComponent): TCustomForm; virtual; abstract;
@@ -179,7 +179,7 @@ type
           var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure GetUnitWithPersistent(APersistent: TPersistent;
           var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
-    procedure DoShowComponentList(Show: boolean); virtual; abstract;
+    procedure DoShowComponentList(State: TIWGetFormState = iwgfShowOnTop); virtual; abstract;
 
     function DoOpenMacroFile(Sender: TObject; const AFilename: string): TModalResult; override;
 
@@ -190,13 +190,12 @@ type
     procedure FindInFilesPerDialog(AProject: TProject); override;
     procedure FindInFiles(AProject: TProject; const FindText: string); override;
 
-    // Copied from CodeTyphon
     procedure SelComponentPageButtonClick(Sender: TObject); virtual; abstract;
-
   public
     property ToolStatus: TIDEToolStatus read FToolStatus write SetToolStatus;
     property WindowMenuActiveForm: TCustomForm read FWindowMenuActiveForm write FWindowMenuActiveForm;
     property DisplayState: TDisplayState read FDisplayState write SetDisplayState;
+    property IDEStarted: boolean read FIDEStarted;
     property LastFormActivated: TCustomForm read FLastFormActivated write FLastFormActivated;
   end;
 

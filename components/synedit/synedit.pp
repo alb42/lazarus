@@ -173,13 +173,16 @@ type
   );
 
   TSynEditTextFlag = (
-    setSelect // select the new text
+    setSelect,          // select the new text
+    setPersistentBlock, // keep/move existent selection (only if not setSelect)
+    setMoveBlock,       // weak persistent // see TSynBlockPersistMode
+    setExtendBlock      // strong persistent // see TSynBlockPersistMode
   );
   TSynEditTextFlags = set of TSynEditTextFlag;
 
   TSynStateFlag = (sfCaretChanged, sfHideCursor,
     sfEnsureCursorPos, sfEnsureCursorPosAtResize,
-    sfIgnoreNextChar, sfPainting, sfHasScrolled,
+    sfIgnoreNextChar, sfPainting, sfHasPainted, sfHasScrolled,
     sfScrollbarChanged, sfHorizScrollbarVisible, sfVertScrollbarVisible,
     sfAfterLoadFromFileNeeded,
     // Mouse-states
@@ -241,7 +244,8 @@ type
     eoFoldedCopyPaste,         // Remember folding states of blocks, on Copy/Paste operations
     eoPersistentBlock,         // Keeps selection, even if caret moves away or text is edited
     eoOverwriteBlock,          // Allows to overwrite currently selected block, when pasting or typing new text
-    eoAutoHideCursor           // Hide mouse cursor, when new text is typed
+    eoAutoHideCursor,          // Hide mouse cursor, when new text is typed
+    eoColorSelectionTillEol    // Colorize selection background only till EOL of each line, not till edge of control
   );
   TSynEditorOptions2 = set of TSynEditorOption2;
 
@@ -445,7 +449,7 @@ type
     FBlockTabIndent: integer;
     FCaret: TSynEditCaret;
     FInternalCaret: TSynEditCaret;
-    FScreenCaret: TSynEditScreenCaret;
+    //FScreenCaret: TSynEditScreenCaret;
     FInternalBlockSelection: TSynEditSelection;
     FOnChangeUpdating: TChangeUpdatingEvent;
     FMouseSelectionMode: TSynSelectionMode;
@@ -539,6 +543,8 @@ type
     FKeyPressEventList: TLazSynKeyPressEventList;
     FUtf8KeyPressEventList: TLazSynUtf8KeyPressEventList;
     FStatusChangedList: TObject;
+    FPaintEventHandlerList: TObject; // TSynPaintEventHandlerList
+    FScrollEventHandlerList: TObject; // TSynScrollEventHandlerList
     FPlugins: TList;
     fScrollTimer: TTimer;
     FScrollDeltaX, FScrollDeltaY: Integer;
@@ -732,11 +738,13 @@ type
     FTextArea: TLazSynTextArea;
     FLeftGutterArea, FRightGutterArea: TLazSynGutterArea;
     FPaintArea: TLazSynSurfaceManager;
+    property ScreenCaret: TSynEditScreenCaret read FScreenCaret;
 
     procedure Paint; override;
     procedure StartPaintBuffer(const ClipRect: TRect);
     procedure EndPaintBuffer(const ClipRect: TRect);
     procedure DoOnPaint; virtual;
+    function GetPaintArea: TLazSynSurfaceManager; override;
 
     procedure IncPaintLock;
     procedure DecPaintLock;
@@ -881,13 +889,19 @@ type
 
     property BlockBegin: TPoint read GetBlockBegin write SetBlockBegin;         // Set Blockbegin. For none persistent also sets Blockend. Setting Caret may undo this and should be done before setting block
     property BlockEnd: TPoint read GetBlockEnd write SetBlockEnd;
-    property SelStart: Integer read GetSelStart write SetSelStart;
-    property SelEnd: Integer read GetSelEnd write SetSelEnd;
+    property SelStart: Integer read GetSelStart write SetSelStart;              // 1-based byte pos of first selected char
+    property SelEnd: Integer read GetSelEnd write SetSelEnd;                    // 1-based byte pos of first char after selction end
     property SelAvail: Boolean read GetSelAvail;
     property IsBackwardSel: Boolean read GetIsBackwardSel;
     property SelText: string read GetSelText write SetSelTextExternal;
 
-    // Text
+    // Text Raw (not undo-able)
+    procedure Clear;
+    procedure Append(const Value: String);
+    property LineText: string read GetLineText write SetLineText;               // textline at CaretY
+    property Text: string read SynGetText write SynSetText;                     // No uncommited (trailing/trimmable) spaces
+
+    // Text (unho-able)
     procedure ClearAll;
     procedure InsertTextAtCaret(aText: String; aCaretMode : TSynCaretAdjustMode = scamEnd);
 
@@ -903,8 +917,6 @@ type
                                    aSelectionMode: TSynSelectionMode = smNormal
                                   );
 
-    property LineText: string read GetLineText write SetLineText;
-    property Text: string read SynGetText write SynSetText;                     // No uncommited (trailing/trimmable) spaces
 
     function GetLineState(ALine: Integer): TSynLineState;
     procedure MarkTextAsSaved;
@@ -935,7 +947,8 @@ type
     function ExecuteAction(ExeAction: TBasicAction): boolean; override;
     procedure CommandProcessor(Command:TSynEditorCommand;
       AChar: TUTF8Char;
-      Data:pointer); virtual;
+      Data:pointer;
+      ASkipHooks: THookedCommandFlags = []); virtual;
     procedure ExecuteCommand(Command: TSynEditorCommand;
       const AChar: TUTF8Char; Data: pointer); virtual;
 
@@ -1002,6 +1015,11 @@ type
     procedure RegisterBeforeUtf8KeyPressHandler(AHandlerProc: TUTF8KeyPressEvent);
     procedure UnregisterBeforeUtf8KeyPressHandler(AHandlerProc: TUTF8KeyPressEvent);
 
+    procedure RegisterPaintEventHandler(APaintEventProc: TSynPaintEventProc; AnEvents: TSynPaintEvents);
+    procedure UnRegisterPaintEventHandler(APaintEventProc: TSynPaintEventProc);
+    procedure RegisterScrollEventHandler(AScrollEventProc: TSynScrollEventProc; AnEvents: TSynScrollEvents);
+    procedure UnRegisterScrollEventHandler(AScrollEventProc: TSynScrollEventProc);
+
     function SearchReplace(const ASearch, AReplace: string;
       AOptions: TSynSearchOptions): integer;
     function SearchReplaceEx(const ASearch, AReplace: string;
@@ -1061,6 +1079,7 @@ type
     property TrimSpaceType: TSynEditStringTrimmingType read GetTrimSpaceType write SetTrimSpaceType;
   public
     // Caret
+    procedure SetCaretTypeSize(AType: TSynCaretType;AWidth, AHeight, AXOffs, AYOffs: Integer);
     property InsertCaret: TSynEditCaretType read FInsertCaret write SetInsertCaret default ctVerticalLine;
     property OverwriteCaret: TSynEditCaretType read FOverwriteCaret write SetOverwriteCaret default ctBlock;
 
@@ -1278,6 +1297,25 @@ type
     procedure Add(AHandler: TStatusChangeEvent; Changes: TSynStatusChanges);
     procedure Remove(AHandler: TStatusChangeEvent);
     procedure CallStatusChangedHandlers(Sender: TObject; Changes: TSynStatusChanges);
+  end;
+
+  { TSynPaintEventHandlerList }
+
+  TSynPaintEventHandlerList = Class(TSynFilteredMethodList)
+  public
+    procedure Add(AHandler: TSynPaintEventProc; Changes: TSynPaintEvents);
+    procedure Remove(AHandler: TSynPaintEventProc);
+    procedure CallPaintEventHandlers(Sender: TObject; AnEvent: TSynPaintEvent; const rcClip: TRect);
+  end;
+
+  { TSynScrollEventHandlerList}
+
+  TSynScrollEventHandlerList = Class(TSynFilteredMethodList)
+  public
+    procedure Add(AHandler: TSynScrollEventProc; Changes: TSynScrollEvents);
+    procedure Remove(AHandler: TSynScrollEventProc);
+    procedure CallScrollEventHandlers(Sender: TObject; AnEvent: TSynScrollEvent;
+      dx, dy: Integer; const rcScroll, rcClip: TRect);
   end;
 
   { TSynEditUndoCaret }
@@ -1868,6 +1906,8 @@ begin
   FRecalcCharsAndLinesLock := 0;
 
   FStatusChangedList := TSynStatusChangedHandlerList.Create;
+  FPaintEventHandlerList := TSynPaintEventHandlerList.Create;
+  FScrollEventHandlerList := TSynScrollEventHandlerList.Create;
 
   FDefaultBeautifier := TSynBeautifier.Create(self);
   FBeautifier := FDefaultBeautifier;
@@ -2391,6 +2431,8 @@ begin
   FreeAndNil(fInternalCaret);
   FreeAndNil(FScreenCaret);
   FreeAndNil(FStatusChangedList);
+  FreeAndNil(FPaintEventHandlerList);
+  FreeAndNil(FScrollEventHandlerList);
   FBeautifier := nil;
   FreeAndNil(FDefaultBeautifier);
   FreeAndNil(FKeyDownEventList);
@@ -3697,17 +3739,21 @@ begin
 
   Include(fStateFlags,sfPainting);
   Exclude(fStateFlags, sfHasScrolled);
+  TSynPaintEventHandlerList(FPaintEventHandlerList).CallPaintEventHandlers(Self, peBeforePaint, rcClip);
+  FScreenCaret.BeginPaint(rcClip);
   // Now paint everything while the caret is hidden.
-  FScreenCaret.Hide;
   try
     FPaintArea.Paint(Canvas, rcClip);
     DoOnPaint;
   finally
+    UpdateCaret; // Todo: this is to call only ShowCaret() / do not create caret here / Issue 0021924
+    FScreenCaret.FinishPaint(rcClip); // after update caret
+    TSynPaintEventHandlerList(FPaintEventHandlerList).CallPaintEventHandlers(Self, peAfterPaint, rcClip);
     {$IFDEF EnableDoubleBuf}
     EndPaintBuffer(rcClip);
     {$ENDIF}
-    UpdateCaret; // Todo: only ShowCaret() / do not create caret here / Issue 0021924
     Exclude(fStateFlags,sfPainting);
+  Include(fStateFlags, sfHasPainted);
   end;
 end;
 
@@ -4020,6 +4066,12 @@ begin
   Result := FMarkupManager.Count;
 end;
 
+procedure TCustomSynEdit.SetCaretTypeSize(AType: TSynCaretType; AWidth, AHeight, AXOffs,
+  AYOffs: Integer);
+begin
+  FScreenCaret.SetCaretTypeSize(AType, AWidth, AHeight, AXOffs, AYOffs);
+end;
+
 procedure TCustomSynEdit.PasteFromClipboard;
 var
   ClipHelper: TSynClipboardStream;
@@ -4127,6 +4179,16 @@ end;
 procedure TCustomSynEdit.SelectParagraph;
 begin
   SetParagraphBlock(CaretXY);
+end;
+
+procedure TCustomSynEdit.Clear;
+begin
+  FTheLinesView.Clear;
+end;
+
+procedure TCustomSynEdit.Append(const Value: String);
+begin
+  FTheLinesView.Append(Value);
 end;
 
 procedure TCustomSynEdit.DoBlockSelectionChanged(Sender : TObject);
@@ -4400,14 +4462,23 @@ begin
       srect := FPaintArea.Bounds;
       srect.Top := FTextArea.TextBounds.Top;
       srect.Bottom := FTextArea.TextBounds.Bottom;
+      TSynScrollEventHandlerList(FScrollEventHandlerList).CallScrollEventHandlers(Self, peBeforeScroll,
+        0, LineHeight * Delta, srect, srect);
+      FScreenCaret.BeginScroll(0, LineHeight * Delta, srect, srect);
       if ScrollWindowEx(Handle, 0, LineHeight * Delta, @srect, @srect, 0, nil, SW_INVALIDATE)
       then begin
         {$IFDEF SYNSCROLLDEBUG}
         debugln(['ScrollAfterTopLineChanged did scroll Delta=',Delta]);
         {$ENDIF}
         include(fStateFlags, sfHasScrolled);
-        FScreenCaret.InvalidatePos; // Wine (Win emulator) may have changed the pos with the scroll
+        Include(fStateFlags, sfCaretChanged); // need to update
+        FScreenCaret.FinishScroll(0, LineHeight * Delta, srect, srect, True);
+        TSynScrollEventHandlerList(FScrollEventHandlerList).CallScrollEventHandlers(Self, peAfterScroll,
+          0, LineHeight * Delta, srect, srect);
       end else begin
+        FScreenCaret.FinishScroll(0, LineHeight * Delta, srect, srect, False);
+        TSynScrollEventHandlerList(FScrollEventHandlerList).CallScrollEventHandlers(Self, peAfterScrollFailed,
+          0, LineHeight * Delta, srect, srect);
         Invalidate;    // scrollwindow failed, invalidate all
         {$IFDEF SYNSCROLLDEBUG}
         debugln(['ScrollAfterTopLineChanged does invalidet (scroll failed) Delta=',Delta]);
@@ -4665,6 +4736,7 @@ begin
   FImeHandler.FocusKilled;
   {$ENDIF}
   inherited;
+  StatusChanged([scFocus]);
 end;
 
 procedure TCustomSynEdit.WMSetFocus(var Msg: TLMSetFocus);
@@ -4681,6 +4753,7 @@ begin
   //  Invalidate;
   inherited;
   //DebugLn('[TCustomSynEdit.WMSetFocus] END');
+  StatusChanged([scFocus]);
 end;
 
 procedure TCustomSynEdit.DoOnResize;
@@ -5403,6 +5476,7 @@ begin
       FreeAndNil(FMarkList);
     end;
   end;
+  StatusChanged([scOptions]);
 end;
 
 procedure TCustomSynEdit.ChangeTextBuffer(NewBuffer: TSynEditStringList);
@@ -5616,6 +5690,12 @@ begin
   try
     if aCaretMode = scamAdjust then
       FCaret.IncAutoMoveOnEdit;
+    if setPersistentBlock in aFlags then
+      FBlockSelection.IncPersistentLock;
+    if setMoveBlock in aFlags then
+      FBlockSelection.IncPersistentLock(sbpWeak);
+    if setExtendBlock in aFlags then
+      FBlockSelection.IncPersistentLock(sbpStrong);
 
     if aSelectionMode = smCurrent then
       FInternalBlockSelection.SelectionMode    := FBlockSelection.ActiveSelectionMode
@@ -5642,6 +5722,12 @@ begin
         FBlockSelection.EndLineBytePos := Point(FBlockSelection.StartBytePos + 1, FBlockSelection.EndLinePos - 1);
     end;
   finally
+    if setPersistentBlock in aFlags then
+      FBlockSelection.DecPersistentLock;
+    if setMoveBlock in aFlags then
+      FBlockSelection.DecPersistentLock;
+    if setExtendBlock in aFlags then
+      FBlockSelection.DecPersistentLock;
     if aCaretMode = scamAdjust then
       FCaret.DecAutoMoveOnEdit;
     InternalEndUndoBlock;
@@ -5657,6 +5743,7 @@ begin
   then FPaintArea.VisibleSpecialChars := AValue
   else FPaintArea.VisibleSpecialChars := [];
   if eoShowSpecialChars in Options then Invalidate;
+  StatusChanged([scOptions]);
 end;
 
 function TCustomSynEdit.GetLineState(ALine: Integer): TSynLineState;
@@ -5730,6 +5817,12 @@ procedure TCustomSynEdit.WndProc(var Msg: TMessage);
 const
   ALT_KEY_DOWN = $20000000;
 begin
+  // ASAP after a paint // in case an App.AsyncCall takes longer
+  if (Msg.msg <> WM_PAINT) and (Msg.msg <> LM_PAINT) and
+     (sfHasPainted in fStateFlags) and (FScreenCaret <> nil)
+  then
+    FScreenCaret.AfterPaintEvent;
+
   if (Msg.Msg = WM_SYSCHAR) and (Msg.wParam = VK_BACK) and
     (Msg.lParam and ALT_KEY_DOWN <> 0)
   then
@@ -5995,6 +6088,7 @@ begin
     FInsertCaret := Value;
     if InsertMode then
       FScreenCaret.DisplayType := fInsertCaret;
+    StatusChanged([scOptions]);
   end;
 end;
 
@@ -6004,6 +6098,7 @@ begin
     FOverwriteCaret := Value;
     if not InsertMode then
       FScreenCaret.DisplayType := fOverwriteCaret;
+    StatusChanged([scOptions]);
   end;
 end;
 
@@ -6132,9 +6227,8 @@ begin
   FRightGutter.ResetMouseActions;
 end;
 
-procedure TCustomSynEdit.CommandProcessor(Command: TSynEditorCommand;
-  AChar: TUTF8Char;
-  Data: pointer);
+procedure TCustomSynEdit.CommandProcessor(Command: TSynEditorCommand; AChar: TUTF8Char;
+  Data: pointer; ASkipHooks: THookedCommandFlags);
 var
   InitialCmd: TSynEditorCommand;
   BeautifyWorker: TSynCustomBeautifier;
@@ -6147,7 +6241,8 @@ begin
     {$ENDIF}
     // first the program event handler gets a chance to process the command
     InitialCmd := Command;
-    NotifyHookedCommandHandlers(Command, AChar, Data, hcfInit);
+    if not(hcfInit in ASkipHooks) then
+      NotifyHookedCommandHandlers(Command, AChar, Data, hcfInit);
     DoOnProcessCommand(Command, AChar, Data);
     if Command <> ecNone then begin
       try
@@ -6161,14 +6256,14 @@ begin
         end;
         // notify hooked command handlers before the command is executed inside of
         // the class
-        if Command <> ecNone then
+        if (Command <> ecNone) and not(hcfPreExec in ASkipHooks) then
           NotifyHookedCommandHandlers(Command, AChar, Data, hcfPreExec);
         // internal command handler
         if (Command <> ecNone) and (Command < ecUserFirst) then
           ExecuteCommand(Command, AChar, Data);
         // notify hooked command handlers after the command was executed inside of
-        // the class
-        if Command <> ecNone then
+        // the class (only if NOT handled by hcfPreExec)
+        if (Command <> ecNone) and not(hcfPostExec in ASkipHooks) then
           NotifyHookedCommandHandlers(Command, AChar, Data, hcfPostExec);
         if Command <> ecNone then
           DoOnCommandProcessed(Command, AChar, Data);
@@ -6190,7 +6285,9 @@ begin
         {$ENDIF}
       end;
     end;
-    NotifyHookedCommandHandlers(Command, AChar, Data, hcfFinish);
+    Command := InitialCmd;
+    if not(hcfFinish in ASkipHooks) then
+      NotifyHookedCommandHandlers(Command, AChar, Data, hcfFinish);
   finally
     DecLCLRefCount;
   end;
@@ -6960,6 +7057,7 @@ var
   loop: integer;
   count: integer;
 begin
+  assert(Value > 0, 'SelStart must be >= 1');
   loop := 0;
   count := 0;
   while (loop < FTheLinesView.Count) and (count + llen(FTheLinesView[loop]) < value) do begin
@@ -7018,6 +7116,7 @@ var
   loop: integer;
   count: integer;
 begin
+  assert(Value > 0, 'SelEnd must be >= 1');
   loop := 0;
   count := 0;
   while (loop < FTheLinesView.Count) and (count + llen(FTheLinesView[loop]) < value) do begin
@@ -7474,6 +7573,7 @@ begin
 
   FOptions := Value; // undo changes applied by MouseOptions
 
+  StatusChanged([scOptions]);
 end;
 
 procedure TCustomSynEdit.UpdateOptions;
@@ -7490,13 +7590,14 @@ var
   ChangedOptions: TSynEditorOptions2;
 begin
   if (Value <> fOptions2) then begin
-    ChangedOptions:=(fOptions2 - Value) + (Value - fOptions2);
+    ChangedOptions := (fOptions2 - Value) + (Value - fOptions2);
     fOptions2 := Value;
     UpdateOptions2;
     if eoAlwaysVisibleCaret in fOptions2 then
       MoveCaretToVisibleArea;
     if (eoAutoHideCursor in ChangedOptions) and not(eoAutoHideCursor in fOptions2) then
       UpdateCursor;
+    StatusChanged([scOptions]);
   end;
 end;
 
@@ -7504,6 +7605,8 @@ procedure TCustomSynEdit.UpdateOptions2;
 begin
   FBlockSelection.Persistent := eoPersistentBlock in fOptions2;
   FCaret.SkipTabs := (eoCaretSkipTab in fOptions2);
+  if Assigned(fMarkupSelection) then
+    fMarkupSelection.ColorTillEol := eoColorSelectionTillEol in fOptions2;
 end;
 
 procedure TCustomSynEdit.SetMouseOptions(AValue: TSynEditorMouseOptions);
@@ -7529,6 +7632,7 @@ begin
       fMarkupCtrlMouse.UpdateCtrlMouse;
     UpdateCursor;
   end;
+  StatusChanged([scOptions]);
 end;
 
 procedure TCustomSynEdit.UpdateMouseOptions;
@@ -8875,6 +8979,28 @@ begin
     FUtf8KeyPressEventList.Remove(TMethod(AHandlerProc));
 end;
 
+procedure TCustomSynEdit.RegisterPaintEventHandler(APaintEventProc: TSynPaintEventProc;
+  AnEvents: TSynPaintEvents);
+begin
+  TSynPaintEventHandlerList(FPaintEventHandlerList).Add(APaintEventProc, AnEvents);
+end;
+
+procedure TCustomSynEdit.UnRegisterPaintEventHandler(APaintEventProc: TSynPaintEventProc);
+begin
+  TSynPaintEventHandlerList(FPaintEventHandlerList).Remove(APaintEventProc);
+end;
+
+procedure TCustomSynEdit.RegisterScrollEventHandler(AScrollEventProc: TSynScrollEventProc;
+  AnEvents: TSynScrollEvents);
+begin
+  TSynScrollEventHandlerList(FScrollEventHandlerList).Add(AScrollEventProc, AnEvents);
+end;
+
+procedure TCustomSynEdit.UnRegisterScrollEventHandler(AScrollEventProc: TSynScrollEventProc);
+begin
+  TSynScrollEventHandlerList(FScrollEventHandlerList).Remove(AScrollEventProc);
+end;
+
 procedure TCustomSynEdit.NotifyHookedCommandHandlers(var Command: TSynEditorCommand;
   var AChar: TUTF8Char; Data: pointer; ATime: THookedCommandFlag);
 var
@@ -8903,6 +9029,11 @@ begin
     Canvas.Brush.Color := Color;
     fOnPaint(Self, Canvas);
   end;
+end;
+
+function TCustomSynEdit.GetPaintArea: TLazSynSurfaceManager;
+begin
+  Result := FPaintArea;
 end;
 
 function TCustomSynEdit.DoOnReplaceText(const ASearch, AReplace: string;
@@ -9071,8 +9202,12 @@ end;
 procedure TLazSynEditPlugin.DoEditorDestroyed(const AValue: TCustomSynEdit);
 begin
   if Editor <> AValue then exit;
-  if OwnedByEditor then
-    Free
+  if OwnedByEditor then begin
+    // if no DoEditorDestroyed
+    if TMethod(@DoEditorRemoving).Code = Pointer(@TLazSynEditPlugin.DoEditorDestroyed) then
+      DoEditorRemoving(AValue);
+    Free;
+  end
   else
     Editor := nil;
 end;
@@ -9205,6 +9340,52 @@ begin
   i:=Count;
   while NextDownIndexBitFilter(i, LongInt(Changes)) do
     TStatusChangeEvent(FItems[i].FHandler)(Sender, Changes);
+end;
+
+{ TSynPaintEventHandlerList }
+
+procedure TSynPaintEventHandlerList.Add(AHandler: TSynPaintEventProc;
+  Changes: TSynPaintEvents);
+begin
+  AddBitFilter(TMethod(AHandler), LongInt(Changes));
+end;
+
+procedure TSynPaintEventHandlerList.Remove(AHandler: TSynPaintEventProc);
+begin
+  inherited Remove(TMethod(AHandler));
+end;
+
+procedure TSynPaintEventHandlerList.CallPaintEventHandlers(Sender: TObject;
+  AnEvent: TSynPaintEvent; const rcClip: TRect);
+var
+  i: Integer;
+begin
+  i:=Count;
+  while NextDownIndexBitFilter(i, LongInt([AnEvent])) do
+    TSynPaintEventProc(FItems[i].FHandler)(Sender, AnEvent, rcClip);
+end;
+
+{ TSynScrollEventHandlerList}
+
+procedure TSynScrollEventHandlerList.Add(AHandler: TSynScrollEventProc;
+  Changes: TSynScrollEvents);
+begin
+  AddBitFilter(TMethod(AHandler), LongInt(Changes));
+end;
+
+procedure TSynScrollEventHandlerList.Remove(AHandler: TSynScrollEventProc);
+begin
+  inherited Remove(TMethod(AHandler));
+end;
+
+procedure TSynScrollEventHandlerList.CallScrollEventHandlers(Sender: TObject;
+  AnEvent: TSynScrollEvent; dx, dy: Integer; const rcScroll, rcClip: TRect);
+var
+  i: Integer;
+begin
+  i:=Count;
+  while NextDownIndexBitFilter(i, LongInt([AnEvent])) do
+    TSynScrollEventProc(FItems[i].FHandler)(Sender, AnEvent, dx, dy, rcScroll, rcClip);
 end;
 
 { TSynEditMarkListInternal }

@@ -70,6 +70,8 @@
     - option HeaderStyle to change appearance of grabbers
 
   ToDo:
+    - option to save on IDE close (if MainForm is visible on active screen)
+    - restore: put MainForm on active screen
     - restore custom dock site splitter without resizing content, only resize docked site
     - undock on hide
     - popup menu
@@ -84,13 +86,10 @@
     - http://bugs.freepascal.org/view.php?id=18298 default layout sometimes wrong main bar
     Other bugs:
     - http://bugs.freepascal.org/view.php?id=18553 docked form designer
-    - http://bugs.freepascal.org/view.php?id=18538 crash when option Scale on resize is off
-    - http://bugs.freepascal.org/view.php?id=19132 docking already docked
-    - http://bugs.freepascal.org/view.php?id=19200 minimize+restore resize
+    - http://bugs.freepascal.org/view.php?id=18538 second resize after restore
     - http://bugs.freepascal.org/view.php?id=19735 main bar on different screen size
     - http://bugs.freepascal.org/view.php?id=19810 multi monitor
     - http://bugs.freepascal.org/view.php?id=21076 views
-    - http://bugs.freepascal.org/view.php?id=26646 Anchordocking no longer work
 }
 unit AnchorDocking;
 
@@ -404,6 +403,7 @@ type
     FHeaderFilled: boolean;
     FHideHeaderCaptionFloatingControl: boolean;
     FPageAreaInPercent: integer;
+    FSaveOnClose: boolean;
     FScaleOnResize: boolean;
     FShowHeader: boolean;
     FShowHeaderCaption: boolean;
@@ -418,6 +418,7 @@ type
     procedure SetHeaderStyle(AValue: TADHeaderStyle);
     procedure SetHideHeaderCaptionFloatingControl(AValue: boolean);
     procedure SetPageAreaInPercent(AValue: integer);
+    procedure SetSaveOnClose(AValue: boolean);
     procedure SetScaleOnResize(AValue: boolean);
     procedure SetShowHeader(AValue: boolean);
     procedure SetShowHeaderCaption(AValue: boolean);
@@ -434,6 +435,7 @@ type
     property HeaderHint: string read FHeaderHint write SetHeaderHint;
     property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth;
     property ScaleOnResize: boolean read FScaleOnResize write SetScaleOnResize;
+    property SaveOnClose: boolean read FSaveOnClose write SetSaveOnClose;
     property ShowHeader: boolean read FShowHeader write SetShowHeader;
     property ShowHeaderCaption: boolean read FShowHeaderCaption write SetShowHeaderCaption;
     property HideHeaderCaptionFloatingControl: boolean read FHideHeaderCaptionFloatingControl write SetHideHeaderCaptionFloatingControl;
@@ -485,6 +487,7 @@ type
     FQueueSimplify: Boolean;
     FRestoreLayouts: TAnchorDockRestoreLayouts;
     FRestoring: boolean;
+    FSaveOnClose: boolean;
     FScaleOnResize: boolean;
     FShowHeader: boolean;
     FShowHeaderCaption: boolean;
@@ -518,6 +521,7 @@ type
     procedure SetHeaderHint(AValue: string);
     procedure SetHeaderStyle(AValue: TADHeaderStyle);
     procedure SetPageAreaInPercent(AValue: integer);
+    procedure SetSaveOnClose(AValue: boolean);
     procedure SetScaleOnResize(AValue: boolean);
 
     procedure SetHeaderFlatten(AValue: boolean);
@@ -636,6 +640,7 @@ type
 
     property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth default 4;
     property ScaleOnResize: boolean read FScaleOnResize write SetScaleOnResize default true; // scale children when resizing a site
+    property SaveOnClose: boolean read FSaveOnClose write SetSaveOnClose default true; // you must call SaveLayoutToConfig yourself
     property AllowDragging: boolean read FAllowDragging write SetAllowDragging default true;
     property OptionsChangeStamp: int64 read FOptionsChangeStamp;
     procedure IncreaseOptionsChangeStamp; inline;
@@ -1238,6 +1243,13 @@ begin
   IncreaseChangeStamp;
 end;
 
+procedure TAnchorDockSettings.SetSaveOnClose(AValue: boolean);
+begin
+  if FSaveOnClose=AValue then Exit;
+  FSaveOnClose:=AValue;
+  IncreaseChangeStamp;
+end;
+
 procedure TAnchorDockSettings.SetScaleOnResize(AValue: boolean);
 begin
   if FScaleOnResize=AValue then Exit;
@@ -1296,6 +1308,7 @@ begin
   HeaderAlignLeft:=Config.GetValue('HeaderAlignLeft',120);
   SplitterWidth:=Config.GetValue('SplitterWidth',4);
   ScaleOnResize:=Config.GetValue('ScaleOnResize',true);
+  SaveOnClose:=Config.GetValue('SaveOnClose',true);
   ShowHeader:=Config.GetValue('ShowHeader',true);
   ShowHeaderCaption:=Config.GetValue('ShowHeaderCaption',true);
   HideHeaderCaptionFloatingControl:=Config.GetValue('HideHeaderCaptionFloatingControl',true);
@@ -1317,6 +1330,7 @@ begin
   Config.SetDeleteValue('HeaderAlignLeft',HeaderAlignLeft,120);
   Config.SetDeleteValue('SplitterWidth',SplitterWidth,4);
   Config.SetDeleteValue('ScaleOnResize',ScaleOnResize,true);
+  Config.SetDeleteValue('SaveOnClose',SaveOnClose,true);
   Config.SetDeleteValue('ShowHeader',ShowHeader,true);
   Config.SetDeleteValue('ShowHeaderCaption',ShowHeaderCaption,true);
   Config.SetDeleteValue('HideHeaderCaptionFloatingControl',HideHeaderCaptionFloatingControl,true);
@@ -1338,6 +1352,7 @@ begin
       and (HeaderHint=Settings.HeaderHint)
       and (SplitterWidth=Settings.SplitterWidth)
       and (ScaleOnResize=Settings.ScaleOnResize)
+      and (SaveOnClose=Settings.SaveOnClose)
       and (ShowHeader=Settings.ShowHeader)
       and (ShowHeaderCaption=Settings.ShowHeaderCaption)
       and (HideHeaderCaptionFloatingControl=Settings.HideHeaderCaptionFloatingControl)
@@ -2102,6 +2117,13 @@ begin
   OptionsChanged;
 end;
 
+procedure TAnchorDockMaster.SetSaveOnClose(AValue: boolean);
+begin
+  if FSaveOnClose=AValue then Exit;
+  FSaveOnClose:=AValue;
+  OptionsChanged;
+end;
+
 procedure TAnchorDockMaster.SetHeaderFlatten(AValue: boolean);
 begin
   if FHeaderFlatten=AValue then Exit;
@@ -2289,6 +2311,7 @@ begin
   FHideHeaderCaptionFloatingControl:=true;
   FSplitterWidth:=4;
   FScaleOnResize:=true;
+  FSaveOnClose:=true;
   fNeedSimplify:=TFPList.Create;
   fNeedFree:=TFPList.Create;
   fDisabledAutosizing:=TFPList.Create;
@@ -2856,6 +2879,7 @@ begin
   HeaderAlignLeft                  := Settings.HeaderAlignLeft;
   SplitterWidth                    := Settings.SplitterWidth;
   ScaleOnResize                    := Settings.ScaleOnResize;
+  SaveOnClose                      := Settings.SaveOnClose;
   ShowHeader                       := Settings.ShowHeader;
   ShowHeaderCaption                := Settings.ShowHeaderCaption;
   HideHeaderCaptionFloatingControl := Settings.HideHeaderCaptionFloatingControl;
@@ -2875,6 +2899,7 @@ begin
   Settings.HeaderAlignLeft:=HeaderAlignLeft;
   Settings.SplitterWidth:=SplitterWidth;
   Settings.ScaleOnResize:=ScaleOnResize;
+  Settings.SaveOnClose:=SaveOnClose;
   Settings.ShowHeader:=ShowHeader;
   Settings.ShowHeaderCaption:=ShowHeaderCaption;
   Settings.HideHeaderCaptionFloatingControl:=HideHeaderCaptionFloatingControl;
@@ -3051,12 +3076,10 @@ begin
     until not Changed;
 
     // free unneeded controls
-    while fNeedFree.Count>0 do
-      if csDestroying in TControl(fNeedFree[0]).ComponentState then
-        fNeedFree.Delete(0)
-      else
-        TControl(fNeedFree[0]).Free;
-
+    for i := fNeedFree.Count - 1 downto 0 do
+      if not (csDestroying in TControl(fNeedFree[i]).ComponentState) then
+        TControl(fNeedFree[i]).Free;
+    fNeedFree.Clear;
   finally
     fSimplifying:=false;
   end;
@@ -4308,24 +4331,22 @@ begin
   ParentSite.BeginUpdateLayout;
   DisableAutoSizing;
   try
-    i:=0;
-    while i<ControlCount-1 do begin
-      Child:=Controls[i];
-      if Child.Owner=Self then
-        inc(i)
-      else begin
-        Child.Parent:=ParentSite;
-        Child.SetBounds(Child.Left+Left,Child.Top+Top,Child.Width,Child.Height);
-        for Side:=Low(TAnchorKind) to High(TAnchorKind) do begin
-          if Child.AnchorSide[Side].Control=Self then
+    for i := ControlCount - 1 downto 0 do begin
+      Child := Controls[i];
+      if Child.Owner <> Self then
+      begin
+        Child.Parent := ParentSite;
+        Child.SetBounds(Child.Left + Left, Child.Top + Top, Child.Width, Child.Height);
+        for Side := Low(TAnchorKind) to High(TAnchorKind) do
+          if Child.AnchorSide[Side].Control = Self then
             Child.AnchorSide[Side].Assign(AnchorSide[Side]);
-        end;
       end;
     end;
     Parent:=nil;
     DockMaster.NeedFree(Self);
   finally
     ParentSite.EndUpdateLayout;
+    // not needed, because this site is freed: EnableAutoSizing;
   end;
 end;
 
@@ -4993,13 +5014,13 @@ begin
   SideCaptions[akRight]:=adrsRight;
   SideCaptions[akBottom]:=adrsBottom;
 
-  // undock, merge
+  // menu items: undock, merge
   DockMaster.AddRemovePopupMenuItem(ParentSite.CanUndock,'UndockMenuItem',
                                     adrsUndock,@UndockButtonClick);
   DockMaster.AddRemovePopupMenuItem(ParentSite.CanMerge,'MergeMenuItem',
                                     adrsMerge, @MergeButtonClick);
 
-  // header position
+  // menu items: header position
   HeaderPosItem:=DockMaster.AddPopupMenuItem('HeaderPosMenuItem',
                                              adrsHeaderPosition, nil);
   Item:=DockMaster.AddPopupMenuItem('HeaderPosAutoMenuItem', adrsAutomatically,
@@ -5017,7 +5038,7 @@ begin
     Item.Checked:=HeaderPosition=TADLHeaderPosition(Item.Tag);
   end;
 
-  // enlarge
+  // menu items: enlarge
   for Side:=Low(TAnchorKind) to High(TAnchorKind) do begin
     Item:=DockMaster.AddRemovePopupMenuItem(ParentSite.EnlargeSide(Side,true),
       'Enlarge'+DbgS(Side)+'MenuItem', Format(adrsEnlargeSide, [
@@ -5025,7 +5046,7 @@ begin
     if Item<>nil then Item.Tag:=ord(Side);
   end;
 
-  // close
+  // menu item: close or quit
   ContainsMainForm:=ParentSite.IsParentOf(Application.MainForm);
   if ContainsMainForm then
     s:=Format(adrsQuit, [Application.Title])

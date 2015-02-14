@@ -101,6 +101,7 @@ type
     ttDownto,
     ttElse,
     ttEnd,
+    ttEnumerator,
     ttExcept,
     ttExports,
     ttFile,
@@ -119,6 +120,7 @@ type
     ttLibrary,
     ttObject,
     ttOf,
+    ttOperator,
     ttOut,
     ttPackage,
     ttPacked,
@@ -131,6 +133,7 @@ type
     ttRequires,
     ttResourcestring,
     ttSet,
+    ttSpecialize,
     ttThen,
     ttThreadvar,
     ttTo,
@@ -184,7 +187,8 @@ type
     ttLocal,
     ttImplements,
     ttReintroduce,
-
+    ttGeneric,
+    ttCVar,
     // used in asm
     ttOffset,
     ttPtr,
@@ -197,7 +201,6 @@ type
 
     { delphi.net keywords and directives }
     ttHelper,
-    ttOperator,
     ttStatic,
     ttSealed,
     ttFinal,
@@ -208,6 +211,10 @@ type
 
     { delphi 2009 }
     ttReference,
+
+    { Additional Free Pascal directives }
+    ttExperimental,
+    ttUnimplemented,
 
     { built-in constants }
     ttNil,
@@ -332,13 +339,17 @@ const
     ttReadOnly, ttWriteOnly, ttDispId,
     // hints
     ttDeprecated, ttLibrary, ttPlatform,
+    // free pascal hints
+    ttExperimental, ttUnimplemented,
+
     // Delphi.Net
     ttAdd, ttRemove
     ];
 
   ExportDirectives: TTokenTypeSet = [ttIndex, ttName];
 
-  VariableDirectives: TTokenTypeSet = [ttAbsolute, ttDeprecated, ttLibrary, ttPlatform];
+  VariableDirectives: TTokenTypeSet = [ttAbsolute, ttDeprecated, ttLibrary, ttPlatform,
+                                       ttExperimental, ttUnimplemented, ttCVar];
 
   ClassVisibility: TTokenTypeSet =
     [ttPrivate, ttProtected, ttPublic, ttPublished, ttAutomated];
@@ -348,11 +359,13 @@ const
     ttVirtual, ttCdecl, ttMessage, ttName, ttRegister, ttDispId,
     ttNear, ttDynamic, ttExport, ttOverride, ttResident, ttLocal,
     ttOverload, ttReintroduce,
-    ttDeprecated, ttLibrary, ttPlatform, ttStatic, ttFinal, ttVarArgs, ttUnsafe];
+    ttDeprecated, ttLibrary, ttPlatform, ttExperimental, ttUnimplemented,
+    ttStatic, ttFinal, ttVarArgs, ttUnsafe, ttEnumerator];
 
   ClassDirectives: TTokenTypeSet =
     [ttPrivate, ttProtected, ttPublic, ttPublished, ttAutomated, ttStrict];
-  HintDirectives: TTokenTypeSet  = [ttDeprecated, ttLibrary, ttPlatform];
+  HintDirectives: TTokenTypeSet  = [ttDeprecated, ttLibrary, ttPlatform,
+                                    ttExperimental, ttUnimplemented];
 
   AllDirectives: TTokenTypeSet =
   [ttAbsolute, ttExternal, ttPascal, ttSafecall,
@@ -363,7 +376,7 @@ const
     ttNear, ttReadOnly, ttDynamic, ttNoDefault, ttRegister,
     ttExport, ttOverride, ttOverload, ttResident, ttLocal,
     ttImplements, ttReintroduce,
-    ttLibrary, ttPlatform, ttStatic, ttFinal, ttVarArgs];    
+    ttLibrary, ttPlatform, ttStatic, ttFinal, ttVarArgs, ttCVar];    
 
   ProcedureWords: TTokenTypeSet = [ttProcedure, ttFunction, ttConstructor, ttDestructor, ttOperator];
 
@@ -380,7 +393,7 @@ const
 
   VariantTypes: TTokenTypeSet = [ttVariant, ttOleVariant];
 
-  Operators: TTokenTypeSet = [ttAnd .. ttNotEqual];
+  Operators: TTokenTypeSet = [ttAnd .. ttNotEqual, ttEnumerator];
 
   { these words are
   - operators
@@ -576,6 +589,7 @@ begin
   AddKeyword('downto', wtReservedWord, ttDownTo);
   AddKeyword('else', wtReservedWord, ttElse);
   AddKeyword('end', wtReservedWord, ttEnd);
+  AddKeyword('enumerator', wtReservedWord, ttEnumerator);
   AddKeyword('except', wtReservedWord, ttExcept);
   AddKeyword('exports', wtReservedWord, ttExports);
   AddKeyword('file', wtReservedWord, ttFile);
@@ -594,6 +608,7 @@ begin
   AddKeyword('library', wtReservedWord, ttLibrary);
   AddKeyword('object', wtReservedWord, ttObject);
   AddKeyword('of', wtReservedWord, ttOf);
+  AddKeyword('operator', wtReservedWord, ttOperator);
   AddKeyword('out', wtReservedWordDirective, ttOut);
   AddKeyword('packed', wtReservedWord, ttPacked);
   AddKeyword('procedure', wtReservedWord, ttProcedure);
@@ -604,6 +619,7 @@ begin
   AddKeyword('repeat', wtReservedWord, ttRepeat);
   AddKeyword('resourcestring', wtReservedWord, ttResourceString);
   AddKeyword('set', wtReservedWord, ttSet);
+  AddKeyword('specialize', wtReservedWord, ttSpecialize);
   AddKeyword('then', wtReservedWord, ttThen);
   AddKeyword('threadvar', wtReservedWord, ttThreadvar);
   AddKeyword('to', wtReservedWord, ttTo);
@@ -660,9 +676,12 @@ begin
   AddKeyword('overload', wtReservedWordDirective, ttOverload);
   AddKeyword('resident', wtReservedWordDirective, ttResident);
   AddKeyword('local', wtReservedWordDirective, ttLocal);
+  AddKeyword('generic', wtReservedWordDirective, ttGeneric);
 
   AddKeyword('implements', wtReservedWordDirective, ttImplements);
   AddKeyword('reintroduce', wtReservedWordDirective, ttReintroduce);
+
+  AddKeyword('cvar', wtReservedWordDirective, ttCVar);
 
   // asm
   AddKeyword('offset', wtReservedWordDirective, ttOffset);
@@ -676,7 +695,6 @@ begin
 
   { delphi.net directives}
   AddKeyword('helper', wtReservedWordDirective, ttHelper);
-  AddKeyword('operator', wtReservedWordDirective, ttOperator);
   AddKeyword('sealed', wtReservedWordDirective, ttSealed);
   AddKeyword('static', wtReservedWordDirective, ttStatic);
   AddKeyword('final', wtReservedWordDirective, ttFinal);
@@ -689,6 +707,9 @@ begin
   { delphi 2009 }
     AddKeyword('reference', wtReservedWordDirective, ttReference);
 
+  { Additional Free Pascal directives }
+  AddKeyword('experimental', wtReservedWordDirective, ttExperimental);
+  AddKeyword('unimplemented', wtReservedWordDirective, ttUnimplemented);
 
   { operators that are words not symbols }
   AddKeyword('and', wtOperator, ttAnd);

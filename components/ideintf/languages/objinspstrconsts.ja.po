@@ -253,6 +253,10 @@ msgctxt "objinspstrconsts.ilesadd"
 msgid "Add"
 msgstr "追加"
 
+#: objinspstrconsts.itcssearchandreplace
+msgid "Search and replace"
+msgstr ""
+
 #: objinspstrconsts.liisaddvalue
 msgid "Add value"
 msgstr "値を追加"
@@ -597,6 +601,10 @@ msgstr "マスク ..."
 #: objinspstrconsts.oismethod
 msgid "Method"
 msgstr "メソッド"
+
+#: objinspstrconsts.oismixed
+msgid "(Mixed)"
+msgstr ""
 
 #: objinspstrconsts.oismovedown
 msgid "Move &Down"

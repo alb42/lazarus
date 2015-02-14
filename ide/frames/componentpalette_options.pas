@@ -25,17 +25,28 @@ unit componentpalette_options;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Graphics, Forms, StdCtrls, Dialogs,
-  Buttons, ComCtrls, ExtCtrls, EnvironmentOpts, LazarusIDEStrConsts, IDEProcs,
-  IDEOptionsIntf, ComponentReg, Controls, LCLProc, LCLType, PackageDefs;
+  Classes, SysUtils, fgl, Graphics, Forms, Controls, StdCtrls, Dialogs, Buttons,
+  ComCtrls, ExtCtrls, FileUtil, LCLProc, LCLType, Menus, IDEProcs, Laz2_XMLCfg,
+  LazConfigStorage, EnvironmentOpts, LazarusIDEStrConsts, IDEOptionsIntf,
+  IDEImagesIntf, DividerBevel, ComponentReg, ComponentPalette, IDEOptionDefs,
+  PackageDefs;
 
 type
   { TCompPaletteOptionsFrame }
 
   TCompPaletteOptionsFrame = class(TAbstractIDEOptionsEditor)
     AddPageButton: TBitBtn;
+    ImportButton: TBitBtn;
     ComponentsListView: TListView;
     CompMoveDownBtn: TSpeedButton;
+    DeleteMenuItem: TMenuItem;
+    RenameMenuItem: TMenuItem;
+    PagesPopupMenu: TPopupMenu;
+    RecentLabel: TLabel;
+    ExportButton: TBitBtn;
+    ImportDividerBevel: TDividerBevel;
+    RecentButton: TButton;
+    ImportDialog: TOpenDialog;
     PageMoveDownBtn: TSpeedButton;
     CompMoveUpBtn: TSpeedButton;
     PageMoveUpBtn: TSpeedButton;
@@ -43,6 +54,7 @@ type
     ComponentsGroupBox: TGroupBox;
     PagesGroupBox: TGroupBox;
     RestoreButton: TBitBtn;
+    ExportDialog: TSaveDialog;
     Splitter1: TSplitter;
     procedure AddPageButtonClick(Sender: TObject);
     procedure ComponentsListViewChange(Sender: TObject; Item: TListItem;
@@ -58,6 +70,8 @@ type
     procedure ComponentsListViewItemChecked(Sender: TObject; Item: TListItem);
     procedure ComponentsListViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure CompMoveDownBtnClick(Sender: TObject);
+    procedure ImportButtonClick(Sender: TObject);
+    procedure ExportButtonClick(Sender: TObject);
     procedure PageMoveDownBtnClick(Sender: TObject);
     procedure CompMoveUpBtnClick(Sender: TObject);
     procedure PageMoveUpBtnClick(Sender: TObject);
@@ -66,15 +80,27 @@ type
       State: TDragState; var Accept: Boolean);
     procedure PagesListBoxKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure PagesListBoxSelectionChange(Sender: TObject; User: boolean);
+    procedure PagesPopupMenuPopup(Sender: TObject);
     procedure RestoreButtonClick(Sender: TObject);
+    procedure DeleteMenuItemClick(Sender: TObject);
+    procedure RenameMenuItemClick(Sender: TObject);
   private
-    FLoaded: Boolean;
+    fLocalOptions: TCompPaletteOptions;
+    fLocalUserOrder: TCompPaletteUserOrder;
+    fDialog: TAbstractOptionsEditorDialog;
+    fPrevPageIndex: Integer;
+    fConfigChanged: Boolean;
+    procedure ActualReadSettings;
+    procedure ActualWriteSettings(cpo: TCompPaletteOptions);
+    procedure AddOrRenamePage(aItemIndex: Integer);
+    function OrigPageExists(aStr: string): Boolean;
+    function PageExists(aStr: string): Boolean;
     procedure WritePages(cpo: TCompPaletteOptions);
     procedure WriteComponents(cpo: TCompPaletteOptions);
     procedure FillPages;
-    procedure InitialComps(aPageName: string; aCompList: TStringList);
+    procedure InitialComps(aPageInd: Integer; aCompList: TStringList);
     procedure FillComponents(aPageName: string);
-    procedure UpdateButtons;
+    procedure MarkAsChanged;
     procedure UpdatePageMoveButtons(ListIndex: integer);
     procedure UpdateCompMoveButtons(ListIndex: integer);
   public
@@ -85,14 +111,13 @@ type
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
+  public
+    property ConfigChanged: Boolean read fConfigChanged;
   end;
 
 implementation
 
 {$R *.lfm}
-
-const
-  AllComponents = '<All>';
 
 { TCompPaletteOptionsFrame }
 
@@ -104,12 +129,16 @@ end;
 constructor TCompPaletteOptionsFrame.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  fLocalOptions:=TCompPaletteOptions.Create;
+  fLocalUserOrder:=TCompPaletteUserOrder.Create(IDEComponentPalette);
 end;
 
 destructor TCompPaletteOptionsFrame.Destroy;
 var
   i: Integer;
 begin
+  fLocalUserOrder.Free;
+  fLocalOptions.Free;
   for i := 0 to PagesListBox.Count-1 do
     PagesListBox.Items.Objects[i].Free;     // Free the contained StringList.
   inherited Destroy;
@@ -117,46 +146,70 @@ end;
 
 procedure TCompPaletteOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
+  fDialog := ADialog;
+  // Component pages
   PagesGroupBox.Caption := lisCmpPages;
   AddPageButton.Caption := lisBtnDlgAdd;
+  AddPageButton.LoadGlyphFromResourceName(HInstance, 'laz_add');
   RestoreButton.Caption := lisCmpRestoreDefaults;
-
+  ImportDividerBevel.Caption := lisImportExport;
+  ImportButton.LoadGlyphFromResourceName(HInstance, 'laz_open');
+  ImportButton.Caption := lisDlgImport;
+  ExportButton.LoadGlyphFromResourceName(HInstance, 'laz_save');
+  ExportButton.Caption := lisDlgExport;
+  // File dialogs
+  ImportDialog.Title := lisImport;
+  ImportDialog.Filter := 'XML file (*.xml)|*.xml|All files (*)|*';
+  ExportDialog.Title := lisExport;
+  ExportDialog.Filter := ImportDialog.Filter;
+  // Components in one page
   ComponentsGroupBox.Caption := lisCmpLstComponents;
-  ComponentsListView.Column[1].Caption  := lisName;
-  ComponentsListView.Column[2].Caption  := lisPage;
-  ComponentsListView.Column[3].Caption  := lisPackage;
+  ComponentsListView.Column[1].Caption := lisName;
+  ComponentsListView.Column[2].Caption := lisPage;
+  ComponentsListView.Column[3].Caption := lisUnit;
+  ComponentsListView.SmallImages := IDEImages.Images_24;
   // Arrow buttons for pages
   PageMoveUpBtn.LoadGlyphFromResourceName(HInstance, 'arrow_up');
   PageMoveDownBtn.LoadGlyphFromResourceName(HInstance, 'arrow_down');
-  PageMoveUpBtn.Hint:=lisMoveSelectedUp;
-  PageMoveDownBtn.Hint:=lisMoveSelectedDown;
+  PageMoveUpBtn.Hint := lisMoveSelectedUp;
+  PageMoveDownBtn.Hint := lisMoveSelectedDown;
   // Arrow buttons for components
   CompMoveUpBtn.LoadGlyphFromResourceName(HInstance, 'arrow_up');
   CompMoveDownBtn.LoadGlyphFromResourceName(HInstance, 'arrow_down');
-  CompMoveUpBtn.Hint:=lisMoveSelectedUp;
-  CompMoveDownBtn.Hint:=lisMoveSelectedDown;
+  CompMoveUpBtn.Hint := lisMoveSelectedUp;
+  CompMoveDownBtn.Hint := lisMoveSelectedDown;
 
-  FillPages;
-  UpdateButtons;
+  fPrevPageIndex := -1;
   UpdatePageMoveButtons(PagesListBox.ItemIndex);
   UpdateCompMoveButtons(ComponentsListView.ItemIndex);
-  FLoaded := False;
 end;
 
 procedure TCompPaletteOptionsFrame.ReadSettings(AOptions: TAbstractIDEOptions);
-//var
-//  cpo: TCompPaletteOptions;
 begin
-  //cpo:=(AOptions as TEnvironmentOptions).ComponentPaletteOptions;
+  fLocalOptions.Assign((AOptions as TEnvironmentOptions).ComponentPaletteOptions);
+  fLocalUserOrder.Options:=fLocalOptions;
+  ActualReadSettings;
+end;
 
-  FLoaded := True;
+procedure TCompPaletteOptionsFrame.ActualReadSettings;
+begin
+  Assert(fLocalUserOrder.Options = fLocalOptions, 'fLocalUserOrder.Options <> fLocalOptions');
+  fLocalUserOrder.SortPagesAndCompsUserOrder;
+  FillPages;
+  // Initial enabled-state for buttons.
+  RestoreButton.Enabled := not fLocalOptions.IsDefault;
+  ExportButton.Enabled := RestoreButton.Enabled;
 end;
 
 procedure TCompPaletteOptionsFrame.WriteSettings(AOptions: TAbstractIDEOptions);
-var
-  cpo: TCompPaletteOptions;
 begin
-  cpo:=(AOptions as TEnvironmentOptions).ComponentPaletteOptions;
+  if not fConfigChanged then Exit;
+  ActualWriteSettings((AOptions as TEnvironmentOptions).ComponentPaletteOptions);
+  IDEComponentPalette.IncChangeStamp;
+end;
+
+procedure TCompPaletteOptionsFrame.ActualWriteSettings(cpo: TCompPaletteOptions);
+begin
   WritePages(cpo);
   WriteComponents(cpo);
 end;
@@ -164,24 +217,16 @@ end;
 procedure TCompPaletteOptionsFrame.WritePages(cpo: TCompPaletteOptions);
 var
   OrigPages, UserPages: TStringList;
-  Pg: TBaseComponentPage;
   i: Integer;
-  PgName: String;
 begin
   Assert(Assigned(IDEComponentPalette),
-    'TCompPaletteOptionsFrame.MakeDiffOptions: IDEComponentPalette is not assigned.');
+    'TCompPaletteOptionsFrame.WritePages: IDEComponentPalette is not assigned.');
   OrigPages := TStringList.Create;
   UserPages := TStringList.Create;
   try
     // Collect original page names
-    for i := 0 to IDEComponentPalette.PagesUserOrder.Count-1 do
-    begin
-      PgName := IDEComponentPalette.PagesUserOrder[i];
-      Pg := IDEComponentPalette.GetPage(PgName, True);
-      Assert(Assigned(Pg), 'TCompPaletteOptionsFrame.WritePages: PageName "'+PgName+'" not found.');
-      if (Pg<>nil) and Pg.Visible then
-        OrigPages.Add(Pg.PageName);
-    end;
+    for i := 0 to IDEComponentPalette.OrigPagePriorities.Count-1 do
+      OrigPages.Add(IDEComponentPalette.OrigPagePriorities.Keys[i]);
     // Collect user defined page names
     for i := 1 to PagesListBox.Items.Count-1 do     // Skip "all components" page
       UserPages.Add(PagesListBox.Items[i]);
@@ -199,33 +244,22 @@ end;
 procedure TCompPaletteOptionsFrame.WriteComponents(cpo: TCompPaletteOptions);
 var
   UserComps, OrigComps: TStringList;
-  Pg: TBaseComponentPage;
-  Comp: TRegisteredComponent;
-  i, CompCnt: Integer;
   PgName: String;
+  i: Integer;
 begin
   OrigComps := TStringList.Create;
   try
-    cpo.ClearComponentPages;
-    for i := 1 to PagesListBox.Count-1 do      // Skip all components page
+    cpo.ComponentPages.Clear;
+    for i := 1 to PagesListBox.Count-1 do      // Skip "all components" page
     begin
       PgName := PagesListBox.Items[i];
       UserComps := PagesListBox.Items.Objects[i] as TStringList;
-      Assert(Assigned(UserComps), 'TCompPaletteOptionsFrame.WriteComponents: UserComps not assigned');
-      OrigComps.Clear;
-      Pg := IDEComponentPalette.GetPage(PgName);
-      if Assigned(Pg) then       // Can be Nil if this page was added or renamed.
-      begin
-        // Collect original components from this page
-        for CompCnt := 0 to Pg.Count-1 do
-        begin
-          Comp := Pg.Comps[CompCnt];
-          OrigComps.Add(Comp.ComponentClass.ClassName);
-        end;
-      end;
-      // Differs from original order -> add configuration for components
-      if not OrigComps.Equals(UserComps) then
-        cpo.AssignComponentPages(PgName, UserComps);
+      Assert(Assigned(UserComps), 'TCompPaletteOptionsFrame.WriteComponents: No UserComps for '+PgName);
+      // Collect original visible components from this page.
+      IDEComponentPalette.AssignOrigVisibleCompsForPage(PgName, OrigComps);
+      // Differs from original order -> add configuration for components.
+      if (OrigComps.Count=0) or not OrigComps.Equals(UserComps) then
+        cpo.AssignComponentPage(PgName, UserComps);
     end;
   finally
     OrigComps.Free;
@@ -233,53 +267,42 @@ begin
 end;
 
 procedure TCompPaletteOptionsFrame.FillPages;
-//Collect all available components (excluding hidden)
+// Collect all available components (excluding hidden)
 var
-  Pg: TBaseComponentPage;
   CompList: TStringList;
   i: Integer;
   PgName: String;
 begin
-  if Assigned(IDEComponentPalette) then
+  // First clear existing items and add <All> page.
+  PagesListBox.Items.BeginUpdate;
+  for i := 0 to PagesListBox.Items.Count-1 do
+    PagesListBox.Items.Objects[i].Free;
+  PagesListBox.Clear;
+  PagesListBox.Items.Add(lis_All_);
+  for i := 0 to fLocalUserOrder.ComponentPages.Count-1 do
   begin
-    PagesListBox.Clear;
-    PagesListBox.AddItem(AllComponents, Nil);
-    for i := 0 to IDEComponentPalette.PagesUserOrder.Count-1 do
-    begin
-      PgName := IDEComponentPalette.PagesUserOrder[i];
-      Pg := IDEComponentPalette.GetPage(PgName, True);
-      Assert(Assigned(Pg), 'TCompPaletteOptionsFrame.FillPages: PageName "'+PgName+'" not found.');
-      if (Pg<>nil) and Pg.Visible then
-      begin                     // StringList will hold components for this page.
-        CompList := TStringList.Create;
-        InitialComps(Pg.PageName, CompList);
-        PagesListBox.AddItem(Pg.PageName, CompList);
-      end;
-    end;
-    PagesListBox.ItemIndex := 0;     // Activate first item
+    PgName := fLocalUserOrder.ComponentPages[i];
+    Assert(PgName<>'', 'TCompPaletteOptionsFrame.FillPages: PageName is empty.');
+    CompList := TStringList.Create; // StringList will hold components for this page.
+    InitialComps(i, CompList);
+    PagesListBox.AddItem(PgName, CompList);
   end;
+  PagesListBox.ItemIndex := 0;     // Activate first item
+  PagesListBox.Items.EndUpdate;
 end;
 
-procedure TCompPaletteOptionsFrame.InitialComps(aPageName: string; aCompList: TStringList);
+procedure TCompPaletteOptionsFrame.InitialComps(aPageInd: Integer; aCompList: TStringList);
 var
   OrderedComps: TStringList;
   Comp: TRegisteredComponent;
-  i, PgInd: Integer;
-  CompName: String;
+  i: Integer;
 begin
-  PgInd := IDEComponentPalette.PagesUserOrder.IndexOf(aPageName);
-  Assert(PgInd > -1, 'TCompPaletteOptionsFrame.InitialComps: PageName "'+aPageName+'" not found');
-  if PgInd>=0 then
+  OrderedComps := fLocalUserOrder.ComponentPages.Objects[aPageInd] as TStringList;
+  for i := 0 to OrderedComps.Count-1 do
   begin
-    OrderedComps := IDEComponentPalette.PagesUserOrder.Objects[PgInd] as TStringList;
-    for i := 0 to OrderedComps.Count-1 do
-    begin
-      CompName := OrderedComps[i];
-      Comp := IDEComponentPalette.FindComponent(CompName);
-      Assert(Assigned(Comp), 'TCompPaletteOptionsFrame.InitialComps: Component "'+CompName+'" not found');
-      if Comp.Visible and (Comp.PageName<>'') then
-        aCompList.AddObject(Comp.ComponentClass.ClassName, Comp);
-    end;
+    Comp := IDEComponentPalette.FindComponent(OrderedComps[i]);
+    if Assigned(Comp) and Comp.Visible then
+      aCompList.AddObject(Comp.ComponentClass.ClassName, Comp);
   end;
 end;
 
@@ -291,9 +314,15 @@ var
   PageCnt, CompCnt: Integer;
   StartInd, EndInd: Integer;
   RealPageName, CompName: String;
+  bListAll : Boolean;
+  TempWidth, NameWidth, PageWidth, UnitWidth : Integer;
 begin
-  if aPageName = AllComponents then
+  bListAll := aPageName = lis_All_;
+  if bListAll then
   begin
+    NameWidth := 50;
+    PageWidth := 50;
+    UnitWidth := 50;
     StartInd := 1;                // Skip the first entry for all components.
     EndInd := PagesListBox.Count-1;
   end
@@ -301,6 +330,7 @@ begin
     StartInd := PagesListBox.Items.IndexOf(aPageName);
     EndInd := StartInd;
   end;
+  ComponentsListView.Items.BeginUpdate;
   ComponentsListView.Items.Clear;
   for PageCnt := StartInd to EndInd do
   begin
@@ -315,33 +345,97 @@ begin
       Item.SubItems.Add(RealPageName);
       Item.SubItems.Add(Comp.GetUnitName);
       Item.Data := Comp;
+      if bListAll then
+      begin
+        TempWidth := 20 + ComponentsListView.Canvas.GetTextWidth(CompName);
+        if TempWidth > NameWidth then NameWidth := TempWidth;
+        TempWidth := 20 + ComponentsListView.Canvas.GetTextWidth(RealPageName);
+        if TempWidth > PageWidth then PageWidth := TempWidth;
+        TempWidth := 20 + ComponentsListView.Canvas.GetTextWidth(Comp.GetUnitName);
+        if TempWidth > UnitWidth then UnitWidth := TempWidth;
+      end;
     end;
   end;
+  if bListAll then
+  begin
+    // Setting Width:=0 is needed at least on Windows. TListView refuses to set
+    // a column width which was set previously, even if user has adjusted it since.
+    ComponentsListView.Column[1].Width := 0;
+    ComponentsListView.Column[1].Width := NameWidth;
+    ComponentsListView.Column[2].Width := 0;
+    ComponentsListView.Column[2].Width := PageWidth;
+    ComponentsListView.Column[3].Width := 0;
+    ComponentsListView.Column[3].Width := UnitWidth;
+  end;
+  ComponentsListView.Items.EndUpdate;
 end;
 
 procedure TCompPaletteOptionsFrame.PagesListBoxSelectionChange(Sender: TObject; User: boolean);
 var
   lb: TListBox;
 begin
-  //if not (FLoaded and User) then
-  //  Exit;
   lb := Sender as TListBox;
+  if lb.ItemIndex = fPrevPageIndex then Exit;
   FillComponents(lb.Items[lb.ItemIndex]);
-  UpdateButtons;
-  UpdateCompMoveButtons(ComponentsListView.ItemIndex);
+  UpdatePageMoveButtons(lb.ItemIndex);
+  UpdateCompMoveButtons(-1);
+  fPrevPageIndex := lb.ItemIndex;
+end;
+
+function TCompPaletteOptionsFrame.OrigPageExists(aStr: string): Boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to IDEComponentPalette.OrigPagePriorities.Count-1 do
+    if SameText(aStr, IDEComponentPalette.OrigPagePriorities.Keys[i]) then
+      Exit(True);
+  Result := False;
+end;
+
+function TCompPaletteOptionsFrame.PageExists(aStr: string): Boolean;
+var
+  i: Integer;
+begin
+  for i := 0 to PagesListBox.Count-1 do
+    if SameText(aStr, PagesListBox.Items[i]) then
+      Exit(True);
+  Result := False;
+end;
+
+procedure TCompPaletteOptionsFrame.AddOrRenamePage(aItemIndex: Integer);
+var
+  Def, NewName: String;
+begin
+  if aItemIndex = -1 then
+    Def := ''
+  else
+    Def := PagesListBox.Items[aItemIndex];
+  NewName := InputBox(lisNewPage, lisPageName, Def);
+  if NewName = Def then Exit;
+  if PageExists(NewName) then begin
+    ShowMessage(Format(lisPageNameAlreadyExists, [NewName]));
+    Exit;
+  end;
+  if aItemIndex = -1 then
+    PagesListBox.AddItem(NewName, TStringList.Create)  // Add a new page
+  else
+    PagesListBox.Items[aItemIndex] := NewName;         // Rename an existing page
+  MarkAsChanged;
 end;
 
 procedure TCompPaletteOptionsFrame.AddPageButtonClick(Sender: TObject);
-var
-  s: String;
 begin
-  s := InputBox('New page', 'Page name', '');
-  PagesListBox.AddItem(s, TStringList.Create);
+  AddOrRenamePage(-1);
 end;
 
 procedure TCompPaletteOptionsFrame.RestoreButtonClick(Sender: TObject);
 begin
-  ; // ToDo
+  fLocalOptions.Clear;
+  fLocalUserOrder.SortPagesAndCompsUserOrder; // Only updates data structure.
+  FillPages;
+  RestoreButton.Enabled := False;
+  ExportButton.Enabled := False;
+  fConfigChanged := True;
 end;
 
 // Drag-drop PagesListBox
@@ -354,14 +448,14 @@ var
   procedure DoInsideListBox;
   begin
     Assert(Source = Sender, 'TCompPaletteOptionsFrame.PagesListBoxDragDrop: Source and Sender ListBoxes differ.');
-    DebugLn(['TCompPaletteOptionsFrame.PagesListBoxDragDrop: DestInd=', DestInd,
-             ', ItemIndex=', lb.ItemIndex]);
+    //DebugLn(['TCompPaletteOptionsFrame.PagesListBoxDragDrop: DestInd=',DestInd,', ItemIndex=',lb.ItemIndex]);
     if lb.ItemIndex < DestInd then
       Dec(DestInd);
     if (lb.ItemIndex > 0) and (lb.ItemIndex <> DestInd) then
     begin
       lb.Items.Move(lb.ItemIndex, DestInd);
       lb.ItemIndex := DestInd;
+      MarkAsChanged;
     end;
   end;
 
@@ -407,11 +501,12 @@ var
           // Delete the original item from ListView
           aSrcView.Items.Delete(OrigInd);
         end;
-        DebugLn(['TCompPaletteOptionsFrame.PagesListBoxDragDrop: CompName=',
-                 CompName, ', SrcPage=', SrcPage, ', DestPage=', DestPage]);
+        //DebugLn(['TCompPaletteOptionsFrame.PagesListBoxDragDrop: CompName=',
+        //         CompName, ', SrcPage=', SrcPage, ', DestPage=', DestPage]);
       end;
       inc(OrigInd);
     end;
+    MarkAsChanged;
   end;
 
 begin
@@ -422,7 +517,7 @@ begin
     if Source is TListBox then
       DoInsideListBox
     else if Source is TListView then
-      DoFromListView(Source as TListView);
+      DoFromListView(TListView(Source));
   end;
 end;
 
@@ -446,23 +541,32 @@ end;
 procedure TCompPaletteOptionsFrame.ComponentsListViewDragDrop(Sender, Source: TObject; X, Y: Integer);
 var
   lv: TListView;
-  DestInd: Integer;
-  SrcItem: TListItem;
+  SrcInd, DstInd: Integer;
+  SrcItem, DstItem: TListItem;
+  Comps: TStringList;
 begin
   lv := Sender as TListView;
-  DestInd := lv.GetItemAt(X, Y).Index;
+  DstItem := lv.GetItemAt(X, Y);
   SrcItem := lv.Selected;
+  if (DstItem = nil) or (SrcItem = nil) then exit;
+  DstInd := DstItem.Index;
+  SrcInd := SrcItem.Index;
   Assert(Source = Sender, 'TCompPaletteOptionsFrame.ComponentsListViewDragDrop: Source and Sender ListViews differ.');
-  DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewDragDrop: DestInd=', DestInd,
-           ', ItemIndex=', SrcItem.Index]);
-  if SrcItem.Index < DestInd then
-    Dec(DestInd);
-  if (SrcItem.Index > -1) and (DestInd > -1) and (SrcItem.Index <> DestInd) then
+  //DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewDragDrop: DestInd=',DstInd,', ItemIndex=',SrcInd]);
+  if SrcInd < DstInd then
+    Dec(DstInd);
+  if (SrcInd > -1) and (DstInd > -1) and (SrcInd <> DstInd) then
   begin
+    // Move component names in ListView.
     lv.Selected := Nil;
-    lv.Items.Move(SrcItem.Index, DestInd);
-    lv.Selected := lv.Items[DestInd];
-    UpdateCompMoveButtons(DestInd);
+    lv.Items.Move(SrcInd, DstInd);
+    lv.Selected := lv.Items[DstInd];
+    // Move component names inside a StringList, too.
+    Comps := PagesListBox.Items.Objects[PagesListBox.ItemIndex] as TStringList;
+    Comps.Move(SrcInd, DstInd);
+    //
+    UpdateCompMoveButtons(DstInd);
+    MarkAsChanged;
   end;
 end;
 
@@ -476,12 +580,13 @@ end;
 procedure TCompPaletteOptionsFrame.ComponentsListViewChange(Sender: TObject;
   Item: TListItem; Change: TItemChange);
 begin
-  UpdateCompMoveButtons(ComponentsListView.ItemIndex);
+  if Item.Selected then
+    UpdateCompMoveButtons(ComponentsListView.Items.IndexOf(Item));
 end;
 
 procedure TCompPaletteOptionsFrame.ComponentsListViewClick(Sender: TObject);
 begin
-  DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewClick: ']);
+  //DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewClick: ']);
 end;
 
 procedure TCompPaletteOptionsFrame.ComponentsListViewItemChecked(Sender: TObject; Item: TListItem);
@@ -494,7 +599,7 @@ end;
 procedure TCompPaletteOptionsFrame.ComponentsListViewCustomDraw(Sender: TCustomListView;
   const ARect: TRect; var DefaultDraw: Boolean);
 begin
-  DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewCustomDraw: DefaultDraw=', DefaultDraw]);
+  //DebugLn(['TCompPaletteOptionsFrame.ComponentsListViewCustomDraw: DefaultDraw=', DefaultDraw]);
 end;
 
 procedure TCompPaletteOptionsFrame.ComponentsListViewCustomDrawItem(Sender: TCustomListView;
@@ -503,20 +608,14 @@ var
   Comp: TRegisteredComponent;
   ARect: TRect;
   CurIcon: TCustomBitmap;
-  IconWidth, IconHeight: Integer;
 begin
   Comp := TRegisteredComponent(Item.Data);
   ARect := Item.DisplayRect(drIcon);
-  CurIcon := nil;
-  if Comp is TPkgComponent then
+  if Comp is TPkgComponent then begin
     CurIcon := TPkgComponent(Comp).Icon;
-  if CurIcon<>nil then
-  begin
-    IconWidth := CurIcon.Width;
-    IconHeight := CurIcon.Height;
-    Sender.Canvas.Draw(ARect.Left+(25-IconWidth) div 2,
-                       ARect.Top+(ARect.Bottom-ARect.Top-IconHeight) div 2, CurIcon);
-    ARect.Left := ARect.Left + IconWidth + 2;
+    if CurIcon<>nil then
+      Sender.Canvas.Draw(ARect.Left+(25-CurIcon.Width) div 2,
+               ARect.Top+(ARect.Bottom-ARect.Top-CurIcon.Height) div 2, CurIcon);
   end;
 end;
 
@@ -544,6 +643,7 @@ begin
     PagesListBox.Items.Exchange(i, i-1);
     PagesListBox.ItemIndex := i-1;
     UpdatePageMoveButtons(i-1);
+    MarkAsChanged;
   end;
 end;
 
@@ -557,6 +657,7 @@ begin
     PagesListBox.Items.Exchange(i, i+1);
     PagesListBox.ItemIndex := i+1;
     UpdatePageMoveButtons(i+1);
+    MarkAsChanged;
   end;
 end;
 
@@ -585,6 +686,7 @@ begin
     ComponentsListView.Items.Exchange(i, i-1);
     ComponentsListView.Selected := ComponentsListView.Items[i-1];
     UpdateCompMoveButtons(i-1);
+    MarkAsChanged;
   end;
 end;
 
@@ -599,19 +701,21 @@ begin
     ComponentsListView.Items.Exchange(i, i+1);
     ComponentsListView.Selected := ComponentsListView.Items[i+1];
     UpdateCompMoveButtons(i+1);
+    MarkAsChanged;
   end;
 end;
 
-///
-
-procedure TCompPaletteOptionsFrame.UpdateButtons;
+procedure TCompPaletteOptionsFrame.MarkAsChanged;
 begin
-  RestoreButton.Visible := PagesListBox.ItemIndex = 0;
+  // ToDo: compare settings with original palette options after each change.
+  RestoreButton.Enabled := True;
+  ExportButton.Enabled := True;
+  fConfigChanged := True;
 end;
 
 procedure TCompPaletteOptionsFrame.UpdatePageMoveButtons(ListIndex: integer);
 begin
-  DebugLn(['TCompPaletteOptionsFrame.UpdatePageMoveButtons: Page index=', ListIndex]);
+  //DebugLn(['TCompPaletteOptionsFrame.UpdatePageMoveButtons: Page index=', ListIndex]);
   if (ListIndex > 0) and (ListIndex < PagesListBox.Items.Count) then
   begin
     PageMoveUpBtn.Enabled := ListIndex > 1;
@@ -625,7 +729,7 @@ end;
 
 procedure TCompPaletteOptionsFrame.UpdateCompMoveButtons(ListIndex: integer);
 begin
-  DebugLn(['TCompPaletteOptionsFrame.UpdateCompMoveButtons: Component index=', ListIndex]);
+  //DebugLn(['TCompPaletteOptionsFrame.UpdateCompMoveButtons: Component index=', ListIndex]);
   if (ListIndex > -1) and (ListIndex < ComponentsListView.Items.Count)
   and (PagesListBox.ItemIndex > 0) then  // No moving when <All> components is selected.
   begin
@@ -638,15 +742,91 @@ begin
   end;
 end;
 
+procedure TCompPaletteOptionsFrame.PagesPopupMenuPopup(Sender: TObject);
+var
+  IsNew, IsEmpty: Boolean;
+begin
+  if (PagesListBox.ItemIndex > 0) and (PagesListBox.ItemIndex < PagesListBox.Count) then
+    IsNew := not OrigPageExists(PagesListBox.Items[PagesListBox.ItemIndex])
+  else
+    IsNew := False;
+  if IsNew then
+    IsEmpty := (PagesListBox.Items.Objects[PagesListBox.ItemIndex] as TStringList).Count = 0
+  else
+    IsEmpty := False;
+  RenameMenuItem.Enabled := IsNew;
+  DeleteMenuItem.Enabled := IsEmpty;
+end;
+
+procedure TCompPaletteOptionsFrame.DeleteMenuItemClick(Sender: TObject);
+begin
+  PagesListBox.Items.Delete(PagesListBox.ItemIndex);
+end;
+
+procedure TCompPaletteOptionsFrame.RenameMenuItemClick(Sender: TObject);
+begin
+  Assert((PagesListBox.ItemIndex > 0) and (PagesListBox.ItemIndex < PagesListBox.Count));
+  AddOrRenamePage(PagesListBox.ItemIndex);
+end;
+
+function OpenXML(const Filename: string): TXMLConfig;
+begin
+  try
+    Result := TXMLConfig.Create(Filename);
+  except
+    on E: Exception do begin
+      MessageDlg(lisIECOErrorOpeningXml,
+        Format(lisIECOErrorOpeningXmlFile, [Filename, LineEnding, E.Message]),
+        mtError, [mbCancel], 0);
+      Result := Nil;
+    end;
+  end;
+end;
+
+procedure TCompPaletteOptionsFrame.ImportButtonClick(Sender: TObject);
+var
+  XMLConfig: TXMLConfig;
+begin
+  if ImportDialog.Execute then
+  begin
+    XMLConfig := OpenXML(ImportDialog.Filename);
+    if Assigned(XMLConfig) then
+    try
+      fLocalOptions.Load(XMLConfig);
+      ActualReadSettings;                  // Read from options to GUI.
+      ShowMessageFmt(lisSuccessfullyImported, [ImportDialog.Filename]);
+      fConfigChanged := True;
+    finally
+      XMLConfig.Free;
+    end;
+  end;
+end;
+
+procedure TCompPaletteOptionsFrame.ExportButtonClick(Sender: TObject);
+var
+  XMLConfig: TXMLConfig;
+begin
+  if ExportDialog.Execute then
+  begin
+    XMLConfig := OpenXML(ExportDialog.Filename);
+    if Assigned(XMLConfig) then
+    try
+      ActualWriteSettings(fLocalOptions);  // Write from GUI to options.
+      fLocalOptions.Save(XMLConfig);
+      ShowMessageFmt(lisSuccessfullyExported, [ExportDialog.Filename]);
+    finally
+      XMLConfig.Free;
+    end;
+  end;
+end;
+
 class function TCompPaletteOptionsFrame.SupportedOptionsClass: TAbstractIDEOptionsClass;
 begin
   Result := TEnvironmentOptions;
 end;
 
-{$IFDEF EnableComponentPaletteOptions}
 initialization
   RegisterIDEOptionsEditor(GroupEnvironment, TCompPaletteOptionsFrame, EnvOptionsCompPalette);
-{$ENDIF}
 
 end.
 

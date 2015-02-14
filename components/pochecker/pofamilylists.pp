@@ -7,7 +7,7 @@ interface
 Uses
   Classes, SysUtils, LCLProc, FileUtil, StringHashList, ContNrs,
   //{$IFDEF UNIX}{$IFNDEF DisableCWString}, cwstring{$ENDIF}{$ENDIF},
-  PoFamilies;
+  PoFamilies, PoCheckerConsts;
 
 const
   langAll = '*';
@@ -19,25 +19,28 @@ type
 
   TPoFamilyList = class
   private
-    FLang: String;
+    FLangID: TLangID;
     FList: TFPObjectList;
     FOnTestEnd: TTestEndEvent;
     FOnTestStart: TTestStartEvent;
     FPoFamilyStats: TPoFamilyStats;
+    FTestOptions: TPoTestOptions;
+    FTestTypes: TPoTestTypes;
     function GetItem(Index: Integer): TPoFamily;
     //procedure SetItem(Index: Integer; AValue: TPoFamily);
   protected
     procedure DoTestStart(const ATestName, APoFileName: String);
     procedure DoTestEnd(const ATestName: String; const ErrorCount: Integer);
   public
-    constructor Create(AMasterList: TStrings; ALang: String; out Msg: String);
+    constructor Create(AMasterList: TStrings; ALangID: TLangID; out Msg: String);
     destructor Destroy; override;
     procedure Add(PoFamily: TPofamily);
     function Count: Integer;
-    procedure RunTests(const TestTypes: TPoTestTypes; TestOptions: TPoTestOptions;
-                       out ErrorCount, WarningCount: Integer; ErrorLog: TStrings);
+    procedure RunTests(out ErrorCount, WarningCount: Integer; ErrorLog: TStrings);
     property Items[Index: Integer]: TPoFamily read GetItem; // write SetItem;
     property PoFamilyStats: TPoFamilyStats read FPoFamilyStats;
+    property TestTypes: TPoTestTypes read FTestTypes write FTestTypes;
+    property TestOptions: TPoTestOptions read FTestOptions write FTestOptions;
     property OnTestStart: TTestStartEvent read FOnTestStart write FOnTestStart;
     property OnTestEnd: TTestEndEvent read FOnTestEnd write FOnTestEnd;
   end;
@@ -62,7 +65,7 @@ begin
   if Assigned(FOnTestEnd) then FOnTestEnd(ATestName, ErrorCount);
 end;
 
-constructor TPoFamilyList.Create(AMasterList: TStrings; ALang: String; out Msg: String);
+constructor TPoFamilyList.Create(AMasterList: TStrings; ALangID: TLangID; out Msg: String);
 var
   i: Integer;
   MasterName, ChildName: String;
@@ -71,18 +74,18 @@ begin
   FList := TFPObjectList.Create(True);
   Msg := '';
   FPoFamilyStats := TPoFamilyStats.Create;
-  FLang := ALang;
+  FLangID := ALangID;
   for i :=  0 to AMasterList.Count - 1 do
   begin
     MasterName := AMasterList[i];
     ChildName := '';
     if FileExistsUtf8(MasterName) then
     begin
-      if (ALang <> langAll) then
-        ChildName := ChangeFileExt(MasterName, '.' + ALang + '.po');
+      if (ALangID <> lang_all) then
+        ChildName := ChangeFileExt(MasterName, '.' + LanguageAbbr[ALangID] + '.po');
       //debugln('TPoFamilyList.Create: i = ',DbgS(i),' Adding TPoFamily.Create(''',ExtractFileName(MasterName),
       //        ''',',ExtractFileName(ChildName),''')');
-      if (ALang = langAll) or FileExistsUtf8(ChildName) then
+      if (ALangID = lang_all) or FileExistsUtf8(ChildName) then
       begin
         APoFamily := TPoFamily.Create(MasterName, ChildName);
         Add(APoFamily);
@@ -113,18 +116,17 @@ begin
   Result := FList.Count;
 end;
 
-procedure TPoFamilyList.RunTests(const TestTypes: TPoTestTypes;
-  TestOptions: TPoTestOptions; out ErrorCount, WarningCount: Integer;
+procedure TPoFamilyList.RunTests(out ErrorCount, WarningCount: Integer;
   ErrorLog: TStrings);
 var
   Index, ThisErrorCount, ThisWarningCount: Integer;
   PoFamily: TPoFamily;
   //ThisLog: TStringList;
 begin
-  if (FLang = langAll) then
-    Include(TestOptions,ptoFindAllChildren)
+  if (FLangID = lang_all) then
+    Include(FTestOptions,ptoFindAllChildren)
   else
-    Exclude(TestOptions,ptoFindAllChildren);
+    Exclude(FTestOptions,ptoFindAllChildren);
   ErrorLog.Clear;
   //ThisLog := TStringList.Create;
   ErrorCount := NoError;
@@ -136,7 +138,9 @@ begin
       PoFamily := GetItem(Index);
       PoFamily.OnTestStart := FOnTestStart;
       PoFamily.OnTestEnd := FOnTestEnd;
-      PoFamily.RunTests(TestTypes, TestOptions, ThisErrorCount, ThisWarningCount, ErrorLog);
+      PoFamily.TestTypes := FTesttypes;
+      PoFamily.TestOptions := FTestOptions;
+      PoFamily.RunTests(ThisErrorCount, ThisWarningCount, ErrorLog);
       PoFamily.PoFamilyStats.AddItemsTo(FPoFamilyStats);
       ErrorCount := ErrorCount + ThisErrorCount;
       WarningCount := WarningCount + ThisWarningCount;

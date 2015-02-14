@@ -24,9 +24,8 @@ interface
 {$I LR_Vers.inc}
 
 uses
-  Classes, SysUtils, LResources,LMessages, Forms, Controls, Graphics, Dialogs,
-  ExtCtrls, Buttons, StdCtrls,Menus, GraphType,LCLType,LCLIntf,LCLProc,
-  
+  Classes, SysUtils, LResources, LMessages, Forms, Controls, Graphics, Dialogs,
+  ExtCtrls, Buttons, StdCtrls, Menus, GraphType, LCLType, LCLIntf, LazUTF8,
   LR_Const, PrintersDlgs;
 
 type
@@ -1440,6 +1439,7 @@ begin
   if not Assigned(EMFPages) then exit;
 
   Pages := TfrEMFPages(EMFPages);
+  Pages.ResetFindData;
 
   for i:=SearchLastFoundPage to Pages.Count - 1 do
   begin
@@ -1464,6 +1464,7 @@ begin
 
         if UTF8Pos(SearchFindStr, S)>0 then
         begin
+          TfrMemoView(V).FindHighlight:=true;
           CurPage:=i + 1;
 
           SearchLastFoundPage:=i;

@@ -3,7 +3,7 @@
 
    fpmake.pp for LazUtils 1.0
 
-   This file was generated on 08/21/12
+   This file was generated on 02-01-2015
 }
 
 {$ifndef ALLPACKAGES} 
@@ -13,7 +13,7 @@ program fpmake;
 uses fpmkunit;
 {$endif ALLPACKAGES}
 
-procedure add_LazUtils;
+procedure add_LazUtils(const ADirectory: string);
 
 var
   P : TPackage;
@@ -25,29 +25,20 @@ begin
     P:=AddPAckage('lazutils');
     P.Version:='1.0';
 
-{$ifdef ALLPACKAGES}
-    P.Directory:='components/lazutils/';
-{$endif ALLPACKAGES}
-    P.SupportBuildModes := [bmBuildUnit];
+    P.Directory:=ADirectory;
+
+    P.Flags.Add('LazarusDsgnPkg');
 
     P.Dependencies.Add('fcl');
-    P.Dependencies.Add('fcl-base');
-    P.Dependencies.Add('fcl-image');
     P.Options.Add('-MObjFPC');
     P.Options.Add('-Scghi');
     P.Options.Add('-O1');
     P.Options.Add('-g');
     P.Options.Add('-gl');
-    P.Options.Add('-vewnhi');
     P.Options.Add('-l');
-    P.Options.Add('-Fu../../packager/units/$(CPU_TARGET)-$(OS_TARGET)');
-    P.Options.Add('-Fu.');
+    P.Options.Add('-vewnhibq');
+    P.UnitPath.Add('.');
     T:=P.Targets.AddUnit('lazutils.pas');
-    t.Dependencies.AddUnit('lazutilsstrconsts');
-    t.Dependencies.AddUnit('lazlogger');
-    t.Dependencies.AddUnit('lazutf8');
-    t.Dependencies.AddUnit('lazutf8sysutils');
-    t.Dependencies.AddUnit('lazutf8classes');
     t.Dependencies.AddUnit('laz2_dom');
     t.Dependencies.AddUnit('laz2_xmlcfg');
     t.Dependencies.AddUnit('laz2_xmlread');
@@ -60,15 +51,19 @@ begin
     t.Dependencies.AddUnit('laz_xmlwrite');
     t.Dependencies.AddUnit('lazfileutils');
     t.Dependencies.AddUnit('lazfilecache');
+    t.Dependencies.AddUnit('lazutf8');
     t.Dependencies.AddUnit('lazdbglog');
     t.Dependencies.AddUnit('paswstring');
     t.Dependencies.AddUnit('fileutil');
-    t.Dependencies.AddUnit('lazconfigstorage');
+    t.Dependencies.AddUnit('lazutf8classes');
     t.Dependencies.AddUnit('masks');
+    t.Dependencies.AddUnit('lazutilsstrconsts');
     t.Dependencies.AddUnit('lconvencoding');
     t.Dependencies.AddUnit('lazutf16');
+    t.Dependencies.AddUnit('lazutf8sysutils');
     t.Dependencies.AddUnit('lazmethodlist');
     t.Dependencies.AddUnit('avglvltree');
+    t.Dependencies.AddUnit('lazlogger');
     t.Dependencies.AddUnit('lazfreetype');
     t.Dependencies.AddUnit('ttcache');
     t.Dependencies.AddUnit('ttcalc');
@@ -90,6 +85,13 @@ begin
     t.Dependencies.AddUnit('lazloggerdummy');
     t.Dependencies.AddUnit('lazclasses');
     t.Dependencies.AddUnit('lazfreetypefontcollection');
+    t.Dependencies.AddUnit('lazconfigstorage');
+    t.Dependencies.AddUnit('utf8process');
+    t.Dependencies.AddUnit('laz2_xpath');
+    t.Dependencies.AddUnit('dictionarystringlist');
+    t.Dependencies.AddUnit('lazloggerprofiling');
+    t.Dependencies.AddUnit('fpcadds');
+    t.Dependencies.AddUnit('lazutilities');
 
     T:=P.Targets.AddUnit('laz2_dom.pas');
     T:=P.Targets.AddUnit('laz2_xmlcfg.pas');
@@ -108,7 +110,6 @@ begin
     T:=P.Targets.AddUnit('paswstring.pas');
     T:=P.Targets.AddUnit('fileutil.pas');
     T:=P.Targets.AddUnit('lazutf8classes.pas');
-    T:=P.Targets.AddUnit('lazconfigstorage.pas');
     T:=P.Targets.AddUnit('masks.pas');
     T:=P.Targets.AddUnit('lazutilsstrconsts.pas');
     T:=P.Targets.AddUnit('lconvencoding.pas');
@@ -138,13 +139,23 @@ begin
     T:=P.Targets.AddUnit('lazloggerdummy.pas');
     T:=P.Targets.AddUnit('lazclasses.pas');
     T:=P.Targets.AddUnit('lazfreetypefontcollection.pas');
+    T:=P.Targets.AddUnit('lazconfigstorage.pas');
+    T:=P.Targets.AddUnit('utf8process.pp');
+    T:=P.Targets.AddUnit('laz2_xpath.pas');
+    T:=P.Targets.AddUnit('dictionarystringlist.pas');
+    T:=P.Targets.AddUnit('lazloggerprofiling.pas');
+    T:=P.Targets.AddUnit('fpcadds.pas');
+    T:=P.Targets.AddUnit('lazutilities.pas');
+
+    // copy the compiled file, so the IDE knows how the package was compiled
+    P.InstallFiles.Add('LazUtils.compiled',AllOSes,'$(unitinstalldir)');
 
     end;
 end;
 
 {$ifndef ALLPACKAGES}
 begin
-  add_LazUtils;
+  add_LazUtils('');
   Installer.Run;
 end.
 {$endif ALLPACKAGES}

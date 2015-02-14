@@ -1,19 +1,112 @@
-{
-   File generated automatically by Lazarus Package Manager
-
-   fpmake.pp for ide 0.0
-
-   This file was generated on 09/07/12
-}
-
-{$ifndef ALLPACKAGES} 
+{$ifndef ALLPACKAGES}
 {$mode objfpc}{$H+}
 program fpmake;
 
 uses fpmkunit;
 {$endif ALLPACKAGES}
 
-procedure add_ide;
+function IdeGetApplicationName: string;
+begin
+  result := 'lazarus';
+end;
+
+procedure IdeBeforeCompileProc(Sender: TObject);
+var
+  P : TPackage;
+  BE: TBuildEngine;
+  Inst : TCustomInstaller;
+  StoreAppName : TGetAppNameEvent;
+  StaticPackages : TStringList;
+  StaticPackagesFilename: string;
+  i : integer;
+  S: String;
+  AStream: TFileStream;
+
+  procedure AddDesignPackage(APackageName: string; AStaticPackages: TStrings);
+  begin
+    BE.Log(vlCommand,'  Package '+APackageName+' added to designtime-packages.');
+    P.Dependencies.Add(APackageName);
+    AStaticPackages.Add(APackageName);
+  end;
+
+  procedure ScanForInstalledDesignPackages(AStartPath: string; AStaticPackages: TStrings);
+  var
+    sr: TSearchRec;
+    res: LongInt;
+    APackage : TPackage;
+    AFile: string;
+  begin
+    if AStartPath='' then
+      Exit;
+    APackage := TPackage.Create(nil);
+    try
+      // Scan for Designtime-packages within the installed packages
+      AStartPath:=IncludeTrailingPathDelimiter(AStartPath)+'fpmkinst'+PathDelim+Defaults.Target+PathDelim;
+      res := FindFirst(AStartPath+'*'+FpmkExt,faAnyFile-faDirectory,sr);
+      while res=0 do
+        begin
+          AFile:=AStartPath+sr.Name;
+          APackage.LoadUnitConfigFromFile(AFile);
+          if APackage.Flags.IndexOf('LazarusDsgnPkg')>-1 then
+            AddDesignPackage(ChangeFileExt(sr.Name, ''),AStaticPackages);
+          res := FindNext(sr);
+        end;
+    finally
+      APackage.Free;
+    end;
+  end;
+
+begin
+  // Search in all available packages fo packages with the 'LazasurDsgnPkg'-flag.
+  // Add those packages to the staticpackages.inc include file so that they are
+  // linked into the IDE.
+  Inst := sender as TCustomInstaller;
+  P := Inst.Packages.Packages['lazaruside'];
+  BE := Inst.BuildEngine;
+  BE.Log(vlCommand,'Start searching for designtime packages.');
+
+  StoreAppName:=OnGetApplicationName;
+  OnGetApplicationName:=@IdeGetApplicationName;
+  ForceDirectories(GetAppConfigDir(false));
+  StaticPackagesFilename:=GetAppConfigDir(false)+'staticpackages.inc';
+  OnGetApplicationName:=StoreAppName;
+
+  P.IncludePath.Add(ExtractFilePath(StaticPackagesFilename));
+
+  // Search for Designtime-packages and add those to the dependencies and
+  // staticpackages.inc
+  StaticPackages := TStringList.Create;
+  StaticPackages.Sorted:=true;
+  StaticPackages.Duplicates:=dupIgnore;
+  try
+    // Scan for Designtime-packages within the set of packages being compiled
+    for i := 0 to Inst.Packages.Count-1 do
+      begin
+      if Inst.Packages.PackageItems[i].Flags.IndexOf('LazarusDsgnPkg')>-1 then
+        AddDesignPackage(Inst.Packages.PackageItems[i].Name, StaticPackages);
+      end;
+
+    ScanForInstalledDesignPackages(Defaults.LocalUnitDir, StaticPackages);
+    ScanForInstalledDesignPackages(Defaults.GlobalUnitDir, StaticPackages);
+
+    // Write staticpackages.inc
+    S:=StaticPackages.DelimitedText;
+    AStream := TFileStream.Create(StaticPackagesFilename,fmCreate);
+    try
+      if length(s)>0 then
+        begin
+        AStream.WriteBuffer(s[1],length(S));
+        AStream.WriteByte(ord(','));
+        end;
+    finally
+      AStream.Free;
+    end;
+  finally
+    StaticPackages.Free;
+  end;
+end;
+
+procedure add_ide(const ADirectory: string);
 
 var
   P : TPackage;
@@ -22,49 +115,43 @@ var
 begin
   with Installer do
     begin
-    P:=AddPAckage('ide');
-    P.Version:='0.0';
+    P:=AddPAckage('lazaruside');
+    P.Version:='1.3';
+    NotifyEventCollection.AppendProcEvent(neaBeforeCompile, @IdeBeforeCompileProc);
 
-{$ifdef ALLPACKAGES}
-    // when this is part of a meta package, set here the sub directory
-    P.Directory:='ide';
-{$endif ALLPACKAGES}
+    P.Directory:=ADirectory;
 
     P.Dependencies.Add('lcl');
     P.Dependencies.Add('synedit');
     P.Dependencies.Add('codetools');
     P.Dependencies.Add('lazcontrols');
     P.Dependencies.Add('ideintf');
+    P.Dependencies.Add('debuggerintf');
+    P.Dependencies.Add('lazdebuggergdbmi');
     P.Dependencies.Add('fcl');
+
     P.Options.Add('-MObjFPC');
     P.Options.Add('-Scghi');
     P.Options.Add('-O1');
-    P.Options.Add('-g');
     P.Options.Add('-gl');
     P.Options.Add('-vewnhi');
     P.Options.Add('-l');
     P.Options.Add('-dLCL');
-    P.Options.Add('-dLCL$(LCL_PLATFORM)');
+    P.Options.Add('-dLCL$(LCLWidgetType)');
+    P.Options.Add('-dAddStaticPkgs');
+
     P.IncludePath.Add('include');
     P.IncludePath.Add('include/$(OS)');
-    P.Options.Add('-Fuframes');
-    P.Options.Add('-Fu../converter');
-    P.Options.Add('-Fudebugger');
-    P.Options.Add('-Fudebugger/frames');
-    P.Options.Add('-Fu../packager');
-    //P.Options.Add('-Fu../designer');
-    P.Options.Add('-Fudesigner');
-    P.Options.Add('-Fu../packager/frames');
-    //P.Options.Add('-Fu../ideintf/units/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)');
-    //P.Options.Add('-Fu../components/lazcontrols/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)');
-    //P.Options.Add('-Fu../components/codetools/units/$(CPU_TARGET)-$(OS_TARGET)');
-    //P.Options.Add('-Fu../components/synedit/units/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)');
-    //P.Options.Add('-Fu../lcl/units/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)');
-    //P.Options.Add('-Fu../lcl/units/$(CPU_TARGET)-$(OS_TARGET)');
-    //P.Options.Add('-Fu../components/lazutils/lib/$(CPU_TARGET)-$(OS_TARGET)');
-    //P.Options.Add('-Fu../packager/units/$(CPU_TARGET)-$(OS_TARGET)');
-    P.Options.Add('-Fu.');
-    T:=P.Targets.AddUnit('ide.pas');
+    P.UnitPath.Add('.');
+    P.UnitPath.Add('../designer');
+    P.UnitPath.Add('../debugger');
+    P.UnitPath.Add('../debugger/frames');
+    P.UnitPath.Add('../converter');
+    P.UnitPath.Add('../packager');
+    P.UnitPath.Add('../packager/frames');
+    P.UnitPath.Add('frames');
+
+    T := P.Targets.AddProgram('lazarus.pp');
     t.Dependencies.AddUnit('packagesystem');
     t.Dependencies.AddUnit('adddirtopkgdlg');
     t.Dependencies.AddUnit('addfiletoapackagedlg');
@@ -87,25 +174,18 @@ begin
     t.Dependencies.AddUnit('pkglinksdlg');
     t.Dependencies.AddUnit('pkgmanager');
     t.Dependencies.AddUnit('pkgvirtualuniteditor');
-    t.Dependencies.AddUnit('ucomponentmanmain');
-    t.Dependencies.AddUnit('ufrmaddcomponent');
     t.Dependencies.AddUnit('assemblerdlg');
     t.Dependencies.AddUnit('breakpointsdlg');
     t.Dependencies.AddUnit('breakpropertydlg');
     t.Dependencies.AddUnit('breakpropertydlggroups');
     t.Dependencies.AddUnit('callstackdlg');
-    t.Dependencies.AddUnit('cmdlinedebugger');
     t.Dependencies.AddUnit('debugeventsform');
     t.Dependencies.AddUnit('debugger');
     t.Dependencies.AddUnit('debuggerdlg');
     t.Dependencies.AddUnit('debugoutputform');
-    t.Dependencies.AddUnit('debugutils');
     t.Dependencies.AddUnit('evaluatedlg');
     t.Dependencies.AddUnit('exceptiondlg');
     t.Dependencies.AddUnit('feedbackdlg');
-    t.Dependencies.AddUnit('gdbmidebugger');
-    t.Dependencies.AddUnit('gdbmimiscclasses');
-    t.Dependencies.AddUnit('gdbtypeinfo');
     t.Dependencies.AddUnit('historydlg');
     t.Dependencies.AddUnit('inspectdlg');
     t.Dependencies.AddUnit('localsdlg');
@@ -113,7 +193,6 @@ begin
     t.Dependencies.AddUnit('processlist');
     t.Dependencies.AddUnit('pseudoterminaldlg');
     t.Dependencies.AddUnit('registersdlg');
-    t.Dependencies.AddUnit('sshgdbmidebugger');
     t.Dependencies.AddUnit('threaddlg');
     t.Dependencies.AddUnit('watchesdlg');
     t.Dependencies.AddUnit('watchpropertydlg');
@@ -148,7 +227,6 @@ begin
     P.Sources.AddSrc('codetoolsoptions.pas');
     P.Sources.AddSrc('compatibilityrestrictions.pas');
     P.Sources.AddSrc('compiler.pp');
-    P.Sources.AddSrc('compileroptions.pp');
     P.Sources.AddSrc('componentlist.pas');
     P.Sources.AddSrc('componentpalette.pas');
     P.Sources.AddSrc('compoptsmodes.pas');
@@ -164,11 +242,9 @@ begin
     P.Sources.AddSrc('editoroptions.pp');
     P.Sources.AddSrc('emptymethodsdlg.pas');
     P.Sources.AddSrc('encloseselectiondlg.pas');
-    P.Sources.AddSrc('environmentopts.pp');
     P.Sources.AddSrc('extractprocdlg.pas');
     P.Sources.AddSrc('exttooldialog.pas');
     P.Sources.AddSrc('exttooleditdlg.pas');
-    P.Sources.AddSrc('filereferencelist.pas');
     P.Sources.AddSrc('findinfilesdlg.pas');
     P.Sources.AddSrc('findoverloadsdlg.pas');
     P.Sources.AddSrc('findpalettecomp.pas');
@@ -256,7 +332,6 @@ begin
     P.Sources.AddSrc('keymapschemedlg.pas');
     P.Sources.AddSrc('keymapshortcutdlg.pas');
     P.Sources.AddSrc('lazarus.pp');
-    P.Sources.AddSrc('lazarusidestrconsts.pas');
     P.Sources.AddSrc('lazarusmanager.pas');
     P.Sources.AddSrc('lazconf.pp');
     P.Sources.AddSrc('macropromptdlg.pas');
@@ -310,6 +385,10 @@ begin
     P.Sources.AddSrc('w32versioninfo.pas');
     P.Sources.AddSrc('wordcompletion.pp');
     T:=P.Targets.AddUnit('../packager/packagesystem.pas');
+    T.Dependencies.AddUnit('lazarusidestrconsts');
+    T.Dependencies.AddUnit('environmentopts');
+    T.Dependencies.AddUnit('compileroptions');
+    T.Dependencies.AddUnit('packagedefs');
     T:=P.Targets.AddUnit('../packager/adddirtopkgdlg.pas');
     T:=P.Targets.AddUnit('../packager/addfiletoapackagedlg.pas');
     T:=P.Targets.AddUnit('../packager/addtopackagedlg.pas');
@@ -325,31 +404,25 @@ begin
     T:=P.Targets.AddUnit('../packager/missingpkgfilesdlg.pas');
     T:=P.Targets.AddUnit('../packager/openinstalledpkgdlg.pas');
     T:=P.Targets.AddUnit('../packager/packagedefs.pas');
+    T.Dependencies.AddUnit('projpackbase');
     T:=P.Targets.AddUnit('../packager/packageeditor.pas');
     T:=P.Targets.AddUnit('../packager/packagelinks.pas');
     T:=P.Targets.AddUnit('../packager/pkggraphexplorer.pas');
     T:=P.Targets.AddUnit('../packager/pkglinksdlg.pas');
     T:=P.Targets.AddUnit('../packager/pkgmanager.pas');
     T:=P.Targets.AddUnit('../packager/pkgvirtualuniteditor.pas');
-    T:=P.Targets.AddUnit('../packager/ucomponentmanmain.pas');
-    T:=P.Targets.AddUnit('../packager/ufrmaddcomponent.pas');
     T:=P.Targets.AddUnit('../debugger/assemblerdlg.pp');
     T:=P.Targets.AddUnit('../debugger/breakpointsdlg.pp');
     T:=P.Targets.AddUnit('../debugger/breakpropertydlg.pas');
     T:=P.Targets.AddUnit('../debugger/breakpropertydlggroups.pas');
     T:=P.Targets.AddUnit('../debugger/callstackdlg.pp');
-    T:=P.Targets.AddUnit('../debugger/cmdlinedebugger.pp');
     T:=P.Targets.AddUnit('../debugger/debugeventsform.pp');
     T:=P.Targets.AddUnit('../debugger/debugger.pp');
     T:=P.Targets.AddUnit('../debugger/debuggerdlg.pp');
     T:=P.Targets.AddUnit('../debugger/debugoutputform.pp');
-    T:=P.Targets.AddUnit('../debugger/debugutils.pp');
     T:=P.Targets.AddUnit('../debugger/evaluatedlg.pp');
     T:=P.Targets.AddUnit('../debugger/exceptiondlg.pas');
     T:=P.Targets.AddUnit('../debugger/feedbackdlg.pp');
-    T:=P.Targets.AddUnit('../debugger/gdbmidebugger.pp');
-    T:=P.Targets.AddUnit('../debugger/gdbmimiscclasses.pp');
-    T:=P.Targets.AddUnit('../debugger/gdbtypeinfo.pp');
     T:=P.Targets.AddUnit('../debugger/historydlg.pp');
     T:=P.Targets.AddUnit('../debugger/inspectdlg.pas');
     T:=P.Targets.AddUnit('../debugger/localsdlg.pp');
@@ -357,10 +430,15 @@ begin
     T:=P.Targets.AddUnit('../debugger/processlist.pas');
     T:=P.Targets.AddUnit('../debugger/pseudoterminaldlg.pp');
     T:=P.Targets.AddUnit('../debugger/registersdlg.pp');
-    T:=P.Targets.AddUnit('../debugger/sshgdbmidebugger.pas');
     T:=P.Targets.AddUnit('../debugger/threaddlg.pp');
     T:=P.Targets.AddUnit('../debugger/watchesdlg.pp');
     T:=P.Targets.AddUnit('../debugger/watchpropertydlg.pp');
+    T:=P.Targets.AddUnit('lazarusidestrconsts.pas');
+    T:=P.Targets.AddUnit('environmentopts.pp');
+    T:=P.Targets.AddUnit('compileroptions.pp');
+    T:=P.Targets.AddUnit('../packager/projpackbase.pas');
+    T.Dependencies.AddUnit('filereferencelist');
+    T:=P.Targets.AddUnit('filereferencelist.pas');
 
     // copy the compiled file, so the IDE knows how the package was compiled
     P.InstallFiles.Add('ide.compiled',AllOSes,'$(unitinstalldir)');
@@ -370,7 +448,7 @@ end;
 
 {$ifndef ALLPACKAGES}
 begin
-  add_ide;
+  add_ide('');
   Installer.Run;
 end.
 {$endif ALLPACKAGES}

@@ -4899,6 +4899,8 @@ begin
 end;
 
 procedure TWinControl.ChangeScale(Multiplier, Divider: Integer);
+var
+  i: Integer;
 begin
   if Multiplier <> Divider then
   begin
@@ -4906,6 +4908,8 @@ begin
     try
       ScaleControls(Multiplier, Divider);
       inherited;
+      for i := 0 to ControlCount - 1 do
+        Controls[i].UpdateAnchorRules;
     finally
       EnableAlign;
     end;
@@ -6031,11 +6035,13 @@ end;
 procedure TWinControl.Insert(AControl: TControl; Index: integer);
 begin
   if AControl = nil then exit;
+  if AControl.FParent<>nil then
+    raise EInvalidOperation.Create('control has already a parent');
   
   if AControl = Self then
     raise EInvalidOperation.Create(rsAControlCanNotHaveItselfAsParent);
 
-  ListAdd(FControls, AControl);
+  ListInsert(FControls, Index, AControl);
   if AControl is TWinControl then
   begin
     ListAdd(FTabList, AControl);
@@ -8156,9 +8162,9 @@ procedure TWinControl.WMContextMenu(var Message: TLMContextMenu);
 var
   Child: TControl;
 begin
-  // find if at the click place we have a control and if so then pass the message
-  // to it
-  // don't check csDesigning here - let a child control to check it
+  // Check if at the click place we have a control and if so then pass the
+  // message to it.
+  // Don't check csDesigning here - let a child control check it.
   if (Message.Result <> 0) then
     Exit;
 
@@ -8391,7 +8397,8 @@ end;
   Params:  AControl: Control to show
   Returns: nothing
 
-  Askes the parent to show ourself.
+  Called by a child control (in TControl.Show), before setting Visible=true.
+  Asks to show the child control and recursively shows the parents.
  ------------------------------------------------------------------------------}
 procedure TWinControl.ShowControl(AControl: TControl);
 begin

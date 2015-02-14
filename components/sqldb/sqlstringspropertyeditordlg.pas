@@ -41,6 +41,7 @@ type
     SQLQuery: TSQLQuery;
     MetaTabSheet: TTabSheet;
     SQLMeta: TSQLQuery;
+    TBConst: TToolButton;
     ToolBar: TToolBar;
     OpenToolButton: TToolButton;
     SaveToolButton: TToolButton;
@@ -59,6 +60,7 @@ type
     procedure SQLEditorMouseDown(Sender: TObject; Button: TMouseButton;
       {%H-}Shift: TShiftState; X, Y: Integer);
     procedure TBCheckClick(Sender: TObject);
+    procedure TBConstClick(Sender: TObject);
   private
     { private declarations }
     FMetaFromSynedit: Boolean;
@@ -139,7 +141,7 @@ end;
 procedure TSQLStringsPropertyEditorDlg.OpenToolButtonClick(Sender: TObject);
 begin
   if(OpenDialog.Execute)then
-    SQLEditor.Lines.LoadFromFile(UTF8ToSys(OpenDialog.FileName));
+    SQLEditor.Lines.LoadFromFile(OpenDialog.FileName);
 end;
 
 //---------------------------------------------------------------------------//
@@ -296,7 +298,7 @@ begin
     begin
     S:=SQLEditor.Lines[i];
     If (C<>'') then
-      C:=C+'+sLineBreak+'+sLineBreak;
+      C:=C+'+LineEnding+'+LineEnding;
     C:=C+''''+StringReplace(S,'''','''''',[rfReplaceAll])+'''';
     end;
   C:='SQL = '+C+';';
@@ -337,7 +339,7 @@ end;
 procedure TSQLStringsPropertyEditorDlg.SaveToolButtonClick(Sender: TObject);
 begin
   if(SaveDialog.Execute)then
-    SQLEditor.Lines.SaveToFile(UTF8ToSys(SaveDialog.FileName));
+    SQLEditor.Lines.SaveToFile(SaveDialog.FileName);
 end;
 
 procedure TSQLStringsPropertyEditorDlg.SQLEditorMouseDown(Sender: TObject;
@@ -359,6 +361,11 @@ end;
 procedure TSQLStringsPropertyEditorDlg.TBCheckClick(Sender: TObject);
 begin
   CheckSQLSyntax(SQLEditor.Lines);
+end;
+
+procedure TSQLStringsPropertyEditorDlg.TBConstClick(Sender: TObject);
+begin
+  CreateConstant;
 end;
 
 procedure TSQLStringsPropertyEditorDlg.CheckSQLSyntax(SQL: TStrings);

@@ -72,18 +72,20 @@ object OIOptionsFrame: TOIOptionsFrame
     AutoSize = True
     BorderSpacing.Top = 7
     Caption = 'OIOptionsGroupBox'
-    ClientHeight = 102
-    ClientWidth = 626
-    TabOrder = 1
-    object OIShowHintCheckBox: TCheckBox
+    ClientHeight = 136
+    ClientWidth = 630
+    TabOrder = 3
+    object OICheckboxForBooleanCheckBox: TCheckBox
       AnchorSideLeft.Control = OIOptsCenterLabel
       AnchorSideTop.Control = OIOptionsGroupBox
       Left = 313
       Height = 18
       Top = 6
-      Width = 155
+      Width = 225
       BorderSpacing.Top = 6
-      Caption = 'OIShowHintCheckBox'
+      Caption = 'OICheckboxForBooleanCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 0
     end
     object OIAutoShowCheckBox: TCheckBox
@@ -96,11 +98,13 @@ object OIOptionsFrame: TOIOptionsFrame
       BorderSpacing.Left = 6
       BorderSpacing.Top = 6
       Caption = 'OIAutoShowCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 1
     end
     object OIBoldNonDefaultCheckBox: TCheckBox
       AnchorSideLeft.Control = OIOptsCenterLabel
-      AnchorSideTop.Control = OIShowHintCheckBox
+      AnchorSideTop.Control = OICheckboxForBooleanCheckBox
       AnchorSideTop.Side = asrBottom
       Left = 313
       Height = 18
@@ -108,6 +112,8 @@ object OIOptionsFrame: TOIOptionsFrame
       Width = 194
       BorderSpacing.Top = 6
       Caption = 'OIBoldNonDefaultCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 2
     end
     object OIDrawGridLinesCheckBox: TCheckBox
@@ -121,6 +127,8 @@ object OIOptionsFrame: TOIOptionsFrame
       BorderSpacing.Top = 6
       BorderSpacing.Bottom = 6
       Caption = 'OIDrawGridLinesCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 3
     end
     object OIShowGutterCheckBox: TCheckBox
@@ -133,6 +141,8 @@ object OIOptionsFrame: TOIOptionsFrame
       Width = 169
       BorderSpacing.Top = 6
       Caption = 'OIShowGutterCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 4
     end
     object OIShowStatusBarCheckBox: TCheckBox
@@ -145,8 +155,9 @@ object OIOptionsFrame: TOIOptionsFrame
       Width = 187
       BorderSpacing.Left = 6
       BorderSpacing.Top = 6
-      BorderSpacing.Bottom = 6
       Caption = 'OIShowStatusBarCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 5
     end
     object OIShowInfoBoxCheckBox: TCheckBox
@@ -160,6 +171,8 @@ object OIOptionsFrame: TOIOptionsFrame
       BorderSpacing.Left = 6
       BorderSpacing.Top = 6
       Caption = 'OIShowInfoBoxCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 6
     end
     object OIShowComponentTreeCheckBox: TCheckBox
@@ -173,6 +186,8 @@ object OIOptionsFrame: TOIOptionsFrame
       BorderSpacing.Left = 6
       BorderSpacing.Top = 6
       Caption = 'OIShowComponentTreeCheckBox'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 7
     end
     object OIOptsCenterLabel: TLabel
@@ -184,6 +199,22 @@ object OIOptionsFrame: TOIOptionsFrame
       Top = 0
       Width = 1
       ParentColor = False
+    end
+    object OIShowHintCheckBox: TCheckBox
+      AnchorSideLeft.Control = OIOptionsGroupBox
+      AnchorSideTop.Control = OIShowStatusBarCheckBox
+      AnchorSideTop.Side = asrBottom
+      Left = 6
+      Height = 20
+      Top = 110
+      Width = 155
+      BorderSpacing.Left = 6
+      BorderSpacing.Top = 6
+      BorderSpacing.Bottom = 6
+      Caption = 'OIShowHintCheckBox'
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 8
     end
   end
   object ObjectInspectorSpeedSettingsGroupBox: TGroupBox
@@ -201,9 +232,9 @@ object OIOptionsFrame: TOIOptionsFrame
     BorderSpacing.Left = 7
     BorderSpacing.Bottom = 7
     Caption = 'ObjectInspectorSpeedSettingsGroupBox'
-    ClientHeight = 151
-    ClientWidth = 389
-    TabOrder = 2
+    ClientHeight = 145
+    ClientWidth = 397
+    TabOrder = 1
     object BtnUseDefaultLazarusSettings: TButton
       AnchorSideLeft.Control = ObjectInspectorSpeedSettingsGroupBox
       AnchorSideTop.Control = ObjectInspectorSpeedSettingsGroupBox
@@ -247,17 +278,17 @@ object OIOptionsFrame: TOIOptionsFrame
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ObjectInspectorColorsGroupBox
     AnchorSideBottom.Side = asrBottom
-    Left = 237
-    Height = 50
-    Top = 180
-    Width = 397
+    Left = 233
+    Height = 57
+    Top = 171
+    Width = 401
     Anchors = [akLeft, akRight, akBottom]
     AutoSize = True
     BorderSpacing.Left = 7
     Caption = 'OIMiscGroupBox'
-    ClientHeight = 28
-    ClientWidth = 389
-    TabOrder = 3
+    ClientHeight = 38
+    ClientWidth = 397
+    TabOrder = 2
     object OIDefaultItemHeightLabel: TLabel
       AnchorSideLeft.Control = OIMiscGroupBox
       AnchorSideTop.Control = OIDefaultItemHeightSpinEdit
@@ -279,6 +310,8 @@ object OIOptionsFrame: TOIOptionsFrame
       Top = 6
       Width = 53
       BorderSpacing.Around = 6
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 0
       Value = 1
     end

@@ -23,6 +23,22 @@ msgstr "Visuma"
 msgid "All files"
 msgstr "Visi failai"
 
+#: lr_const.sargument1
+msgid "Argument 1"
+msgstr ""
+
+#: lr_const.sargument2
+msgid "Argument 2"
+msgstr ""
+
+#: lr_const.sargument3
+msgid "Argument 3"
+msgstr ""
+
+#: lr_const.sarguments
+msgid "Arguments"
+msgstr ""
+
 #: lr_const.sautosize
 msgid "Auto size"
 msgstr "Automatiškai nustatyti dydį"
@@ -88,6 +104,16 @@ msgid "Cross footer"
 msgstr "Kryžmės poraštės"
 
 #: lr_const.sband22
+#, fuzzy
+#| msgid "None"
+msgctxt "lr_const.sband22"
+msgid "Child"
+msgstr "Joks"
+
+#: lr_const.sband23
+#, fuzzy
+#| msgid "None"
+msgctxt "lr_const.sband23"
 msgid "None"
 msgstr "Joks"
 
@@ -571,6 +597,10 @@ msgstr "Versija"
 #: lr_const.sduplicatedobjectname
 msgid "An object named \"%s\" already exists"
 msgstr "Jau yra objektas tokiu pavadinimu „%s“"
+
+#: lr_const.seditor
+msgid "Editor"
+msgstr ""
 
 #: lr_const.seditorformbig
 msgid "&Big font"
@@ -1116,6 +1146,10 @@ msgstr "Viršutinė lygiuotė"
 msgid "Top frame line"
 msgstr "Viršutinė rėmelio linija"
 
+#: lr_const.sfrdesignerformunabletocreatetemplatedir
+msgid "Unable to create template directory"
+msgstr ""
+
 #: lr_const.sfrdesignerformunderline
 msgid "Underline"
 msgstr "Pabraukimas"
@@ -1322,6 +1356,10 @@ msgstr "nuo"
 msgid "FR variables"
 msgstr "FR kintamieji"
 
+#: lr_const.sfunctioneditor
+msgid "Function editor"
+msgstr ""
+
 #: lr_const.sfunctions
 msgid "Functions"
 msgstr ""
@@ -1519,6 +1557,10 @@ msgstr "LazReport šablonas"
 #: lr_const.smathcategory
 msgid "Math"
 msgstr "Matematika"
+
+#: lr_const.smemoeditor
+msgid "Memo editor"
+msgstr ""
 
 #: lr_const.smm
 msgid "MM"
@@ -2218,6 +2260,10 @@ msgstr "Mastelis"
 msgid "&Whole page"
 msgstr "&Visas lapas"
 
+#: lr_const.sprintchildifnotvisible
+msgid "Print child if not visible"
+msgstr ""
+
 #: lr_const.sprintererror
 #, fuzzy
 #| msgid "Printer selected is not valid"
@@ -2374,6 +2420,10 @@ msgstr "Raiškiojo teksto failas"
 msgid "Save changes"
 msgstr "Įrašyti pakeitimus"
 
+#: lr_const.sscripteditor
+msgid "Script editor"
+msgstr ""
+
 #: lr_const.sshape1
 msgctxt "lr_const.sshape1"
 msgid "Rectangle"
@@ -2480,6 +2530,18 @@ msgstr ""
 #: lr_const.suntitled
 msgid "Untitled"
 msgstr "Be pavadinimo"
+
+#: lr_const.susefixedfontsettings
+msgid "Use fixed font settings"
+msgstr ""
+
+#: lr_const.susememofontsettings
+msgid "Use Memo font settings"
+msgstr ""
+
+#: lr_const.susesyntaxhighlight
+msgid "Use syntax highlight"
+msgstr ""
 
 #: lr_const.svar1
 msgid "Page#"

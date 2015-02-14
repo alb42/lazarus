@@ -111,6 +111,7 @@ type
     procedure SavePage(Page: TW2FPDocPage);
     procedure SetPackageName(AValue: string);
     procedure SetRootName(AValue: string);
+    procedure SaveProject;
   public
     constructor Create; override;
     procedure Convert; override;
@@ -277,12 +278,78 @@ begin
   debugln(['TWiki2FPDocConverter.OnWikiToken ToDo: Token=',dbgs(Token.Token),' Range=',dbgs(Token.Range),' Class=',Token.ClassName,' ',W.PosToStr(W.CurrentPos)]);
 end;
 
+{   IsValidIdent returns true if the first character of Ident is in:
+    'A' to 'Z', 'a' to 'z' or '_' and the following characters are
+    on of: 'A' to 'Z', 'a' to 'z', '0'..'9' or '_'    }
+function IsValidNodeName(const Ident: string): boolean;
+var
+  p: PChar;
+begin
+  p:=PChar(Ident);
+  if not (p^ in ['A'..'Z', 'a'..'z', '_', '-']) then exit(false);
+  inc(p);
+  while true do begin
+    if p^ in ['A'..'Z', 'a'..'z', '0'..'9', '_', '-'] then
+      inc(p)
+    else if (p^=#0) and (p-PChar(Ident)=length(Ident)) then
+      exit(true)
+    else
+      exit(false);
+  end;
+end;
+
 procedure TWiki2FPDocConverter.SetRootName(AValue: string);
 begin
-  if (AValue='') or not IsValidIdent(AValue) then
+  if (AValue='') or not IsValidNodeName(AValue) then
     raise Exception.Create('invalid root name "'+AValue+'"');
   if FRootName=AValue then Exit;
   FRootName:=AValue;
+end;
+
+procedure TWiki2FPDocConverter.SaveProject;
+var
+  sl: TStringList;
+  Filename: String;
+  i: Integer;
+begin
+  Filename:=AppendPathDelim(OutputDir)+PackageName+'.xml';
+  sl:=TStringList.Create;
+  try
+    sl.Add('<?xml version="1.0" encoding="utf-8"?>');
+    sl.Add('<docproject>');
+    sl.Add('  <options>');
+    sl.Add('    <option name="auto-index" value="1"/>');
+    sl.Add('    <option name="auto-toc" value="1"/>');
+    sl.Add('    <option name="make-searchable" value="1"/>');
+    sl.Add('    <option name="css-file" value="fpdoc.css"/>');
+    sl.Add('    <option name="charset" value="UTF8"/>');
+    // chm
+    //sl.Add('    <option name="format" value="chm"/>');
+    //sl.Add('    <option name="chm-title" value="Lazarus IDE Help"/>');
+    // html
+    //sl.Add('    <option name="format" value="html"/>');
+
+    sl.Add('  </options>');
+    sl.Add('  <packages>');
+    // chm
+    //sl.Add('    <package name="'+PackageName+'" output="'+PackageName+'.chm"/>');
+    // html
+    sl.Add('    <package name="'+PackageName+'" output="."/>');
+    sl.Add('    <units>');
+    sl.Add('    </units>');
+    sl.Add('    <descriptions>');
+    for i:=0 to Count-1 do
+      sl.Add('      <description file="'+TW2FPDocPage(Pages[i]).WikiFilename+'"/>');
+    sl.Add('    </descriptions>');
+    sl.Add('  </packages>');
+    sl.Add('</docproject>');
+
+    sl.SaveToFile(Filename);
+    if not Quiet then
+      debugln(['fpdoc project file: ',Filename]);
+  finally
+    sl.Free;
+  end;
 end;
 
 procedure TWiki2FPDocConverter.ConvertPage(Page: TW2FPDocPage);
@@ -357,7 +424,7 @@ begin
   FPageClass:=TW2FPDocPage;
   FOutputDir:='fpdocxml';
   FPackageName:='wiki';
-  FRootName:='fpdoc';
+  FRootName:='fpdoc-descriptions';
 end;
 
 procedure TWiki2FPDocConverter.Convert;
@@ -371,6 +438,7 @@ begin
   // save
   for i:=0 to Count-1 do
     SavePage(TW2FPDocPage(Pages[i]));
+  SaveProject;
 end;
 
 end.

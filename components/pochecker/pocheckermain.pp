@@ -25,14 +25,12 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, LCLProc, CheckLst, Buttons, ExtCtrls, ComCtrls, Types,
-  LCLType,
-  {$IFDEF POCHECKERSTANDALONE}
-  Translations,
-  {$ELSE}
+  StdCtrls, CheckLst, Buttons, ExtCtrls, ComCtrls, Types,
+  LCLType, LazUTF8, Translations,
+  {$IFnDEF POCHECKERSTANDALONE}
   IDEIntf, MenuIntf,
   {$ENDIF}
-  SimplePoFiles, PoFamilies, ResultDlg, pocheckerconsts, PoCheckerSettings,
+  PoFamilies, ResultDlg, pocheckerconsts, PoCheckerSettings,
   PoFamilyLists, PoCheckerMemoDlg;
 
 type
@@ -40,23 +38,24 @@ type
   { TPoCheckerForm }
 
   TPoCheckerForm = class(TForm)
+    SelectAllMasterFilesBtn: TButton;
     SelectDirectoryDialog: TSelectDirectoryDialog;
-    UnselectMasterBtn: TButton;
-    ClearMasterBtn: TButton;
+    UnselectAllMasterFilesBtn: TButton;
+    ClearMasterFilesBtn: TButton;
     LangFilter: TComboBox;
     MasterPoListBox: TListBox;
     ScanDirBtn: TBitBtn;
     StatusBar: TStatusBar;
     procedure MasterPoListBoxResize(Sender: TObject);
-    procedure ClearMasterBtnClick(Sender: TObject);
+    procedure ClearMasterFilesBtnClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure LangFilterChange(Sender: TObject);
     procedure MasterPoListBoxDrawItem(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
     procedure MasterPoListBoxSelectionChange(Sender: TObject; User: boolean);
     procedure ScanDirBtnClick(Sender: TObject);
-    procedure UnselectChildBtnClick(Sender: TObject);
-    procedure UnselectMasterBtnClick(Sender: TObject);
+    procedure SelectAllMasterFilesBtnClick(Sender: TObject);
+    procedure UnselectAllMasterFilesBtnClick(Sender: TObject);
   private
     //PoFamily: TPoFamily;
     PoFamilyList: TPoFamilyList;
@@ -71,7 +70,7 @@ type
     procedure ShowError(const Msg: string);
     function TrySelectFile(out Filename: String): Boolean;
     procedure ScanDirectory(ADir: String);
-    function TryCreatepoFamilyList(MasterList: TStrings; const Lang: String): Boolean;
+    function TryCreatepoFamilyList(MasterList: TStrings; const LangID: TLangID): Boolean;
     procedure RunSelectedTests;
     procedure ClearStatusBar;
     procedure UpdateGUI(HasSelection: Boolean);
@@ -79,13 +78,22 @@ type
     procedure AddToMasterPoList(Fn: String);
     procedure AddToMasterPoList(S: TStrings);
     procedure SetSelectedMasterFiles(S: TStrings);
-    procedure LoadConfig;
+    procedure ApplyConfig;
     procedure SaveConfig;
+    function LangFilterIndexToLangID(Index: Integer): TLangID;
+    function LangIdToLangFilterIndex(LangID: TLangID): Integer;
+    procedure PopulateLangFilter;
+    {$IFDEF POCHECKERSTANDALONE}
+    procedure GetTranslations;
+    function GetTranslationsSearchPath: String;
+    procedure FindTranslationFiles(const SearchPath, Lang: String; out PoCheckPo, LclPo: String);
+    {$ENDIF}
+    procedure ApplyTranslations;
   published
     IgnoreFuzzyCheckBox: TCheckBox;
-    UnselectAllBtn: TButton;
-    SelectAllBtn: TButton;
-    SelectBasicBtn: TButton;
+    UnselectAllTestsBtn: TButton;
+    SelectAllTestsBtn: TButton;
+    SelectBasicTestsBtn: TButton;
     NoErrLabel: TLabel;
     RunBtn: TBitBtn;
     OpenBtn: TBitBtn;
@@ -97,9 +105,9 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure OpenBtnClick(Sender: TObject);
     procedure RunBtnClick(Sender: TObject);
-    procedure SelectAllBtnClick(Sender: TObject);
-    procedure SelectBasicBtnClick(Sender: TObject);
-    procedure UnselectAllBtnClick(Sender: TObject);
+    procedure SelectAllTestsBtnClick(Sender: TObject);
+    procedure SelectBasicTestsBtnClick(Sender: TObject);
+    procedure UnselectAllTestsBtnClick(Sender: TObject);
   end;
 
 var
@@ -123,53 +131,20 @@ end;
 { TPoCheckerForm }
 
 procedure TPoCheckerForm.FormCreate(Sender: TObject);
-{$IFDEF POCHECKERSTANDALONE}
-var
-  Lang, T, AppPath: string;
-{$ENDIF}
 begin
+  FPoCheckerSettings := TPoCheckerSettings.Create;
+  FPoCheckerSettings.LoadConfig;
   //debugln('TPoCheckerForm.FormCreate A:');
   {$IFDEF POCHECKERSTANDALONE}
   //Initializing translation
-  Lang := GetEnvironmentVariableUTF8('LANG');
-  T := '';
-  if Lang = '' then
-    LCLGetLanguageIDs(Lang, T);
-  if Lang <> '' then
-  begin
-    {$ifdef windows}
-    AppPath := ExtractFilePath(ParamStr(0));
-    {$else}
-    AppPath := '';
-    {$endif}
-    Lang := copy(Lang, 1, 2);
-    Translations.TranslateUnitResourceStrings('PoCheckerConsts',
-      AppPath + '..' + DirectorySeparator + 'languages' + DirectorySeparator +
-      'pocheckerconsts.' + Lang + '.po');
-    //requires the user copies the LCLStrConsts translations there!
-    Translations.TranslateUnitResourceStrings('LCLStrConsts',
-      AppPath + '..' + DirectorySeparator + 'languages' + DirectorySeparator +
-      'lclstrconsts.' + Lang + '.po');
-  end;
+  GetTranslations;
   {$ENDIF}
-  Caption := sGUIPoFileCheckingTool;
-  SelectTestLabel.Caption := sSelectTestTypes;
-  //FindAllPOsCheckBox.Caption := sFindAllTranslatedPoFiles;
-  IgnoreFuzzyCheckBox.Caption := sIgnoreFuzzyTranslations;
-  OpenBtn.Caption := sOpenAPoFile;
-  ScanDirBtn.Caption := sScanDir;
-  RunBtn.Caption := sRunSelectedTests;
-  ClearMasterBtn.Caption := sClearListBox;
-  UnselectMasterBtn.Caption := sUnselectListBox;
-  LangFilter.Items[0] := sAllLanguages;
-  NoErrLabel.Caption := sNoErrorsFound;
+  ApplyTranslations;
   FillTestListBox;
   ClearStatusBar;
   NoErrLabel.Visible := False;
-  SelectAllBtn.Caption := sSelectAllTests;
-  SelectBasicBtn.Caption := sSelectBasicTests;
-  UnselectAllBtn.Caption := sUnselectAllTests;
-  LoadConfig;
+  PopulateLangFilter;
+  ApplyConfig;
   LangFilter.Invalidate; //Items[0] may have been changed
 end;
 
@@ -186,20 +161,35 @@ end;
 
 procedure TPoCheckerForm.OpenBtnClick(Sender: TObject);
 var
-  Fn: String;
+  Fn,Mn: String;
+  Idx: Integer;
+  ALang: TLangID;
 begin
   if TrySelectFile(Fn) then
   begin
     if IsMasterPoName(Fn) then
-      AddToMasterPoList(Fn)
+    begin
+      AddToMasterPoList(Fn);
+      Idx := MasterPoListBox.Items.IndexOf(Fn);
+      if (Idx <> -1) then
+        MasterPoListBox.Selected[Idx] := True;
+    end
     else
-      //AddToChildPoList(Fn);
-      AddToMasterPoList(ExtractMasterNameFromChildName(Fn));
-    UpdateGUI(True);
-  end
-  else
-  begin
-    UpdateGUI(False);
+    begin
+      Mn := ExtractMasterNameFromChildName(Fn);
+      if Mn <> '' then
+      begin
+        AddToMasterPoList(Mn);
+        Idx := MasterPoListBox.Items.IndexOf(Mn);
+        if (Idx <> -1) then
+          MasterPoListBox.Selected[Idx] := True;
+        ALang := ExtractLanguageFromChildName(Fn);
+        Idx := LangIdToLangFilterIndex(ALang);
+        if (Idx <> -1) then
+          LangFilter.ItemIndex := Idx;
+      end;
+    end;
+    UpdateGUI(MasterPoListBox.SelCount > 0);
   end;
 end;
 
@@ -208,16 +198,13 @@ procedure TPoCheckerForm.RunBtnClick(Sender: TObject);
 var
   AMasterList: TStringList;
   LangIdx: Integer;
-  ALang: String;
+  ALangID: TLangID;
 begin
   LangIdx := LangFilter.ItemIndex;
-  if (LangIdx > 0) then
-    ALang := LangFilter.Items[LangIdx]
-  else
-    ALang := langAll;
+  ALangID := LangFilterIndexToLangID(LangIdx);
   AMasterList := GetSelectedMasterFiles;
   try
-    if TryCreatePoFamilyList(AMasterList, ALang) then
+    if TryCreatePoFamilyList(AMasterList, ALangID) then
       RunSelectedTests
     else
     begin
@@ -228,13 +215,13 @@ begin
   end;
 end;
 
-procedure TPoCheckerForm.SelectAllBtnClick(Sender: TObject);
+procedure TPoCheckerForm.SelectAllTestsBtnClick(Sender: TObject);
 begin
   TestListBox.CheckAll(cbChecked, False, False);
 end;
 
 
-procedure TPoCheckerForm.SelectBasicBtnClick(Sender: TObject);
+procedure TPoCheckerForm.SelectBasicTestsBtnClick(Sender: TObject);
 var
   i: integer;
 begin
@@ -243,13 +230,18 @@ begin
     TestListBox.Checked[i] := True;
 end;
 
-procedure TPoCheckerForm.UnselectAllBtnClick(Sender: TObject);
+procedure TPoCheckerForm.UnselectAllTestsBtnClick(Sender: TObject);
 begin
   TestListBox.CheckAll(cbUnchecked, False, False);
 end;
 
 procedure TPoCheckerForm.LangFilterChange(Sender: TObject);
 begin
+  //This looks silly, but it makes that ItemIndex has the right value
+  //in OnDestroy when you dropdown and change the filter, and then close
+  //the form and no call to ItemIndex was made after changing the filter....
+  //If someone figures out why, or has a better solution: please implement that
+  LangFilter.ItemIndex;
 end;
 
 
@@ -263,7 +255,7 @@ begin
 end;
 
 
-procedure TPoCheckerForm.ClearMasterBtnClick(Sender: TObject);
+procedure TPoCheckerForm.ClearMasterFilesBtnClick(Sender: TObject);
 begin
   MasterPoListBox.Clear;
   UpdateGUI(False);
@@ -303,7 +295,8 @@ begin
   begin
     UpdateGUI(MasterPoListBox.SelCount > 0);
   end;
-  UnselectMasterBtn.Enabled := (MasterPoListBox.SelCount <> 0);
+  UnselectAllMasterFilesBtn.Enabled := (MasterPoListBox.SelCount <> 0);
+  SelectAllMasterFilesBtn.Enabled := (MasterPoListBox.Items.Count > 0);
 end;
 
 procedure TPoCheckerForm.ScanDirBtnClick(Sender: TObject);
@@ -314,11 +307,13 @@ begin
   end;
 end;
 
-procedure TPoCheckerForm.UnselectChildBtnClick(Sender: TObject);
+procedure TPoCheckerForm.SelectAllMasterFilesBtnClick(Sender: TObject);
 begin
+  MasterPoListBox.SelectAll;
+  UpdateGUI(MasterPoListBox.SelCount > 0);
 end;
 
-procedure TPoCheckerForm.UnselectMasterBtnClick(Sender: TObject);
+procedure TPoCheckerForm.UnselectAllMasterFilesBtnClick(Sender: TObject);
 begin
   MasterPoListBox.ClearSelection;
   UpdateGUI(False);
@@ -348,22 +343,7 @@ var
 begin
   TestListBox.Items.Clear;
   for Typ := Low(PoTestTypeNames) to High(PoTestTypeNames) do
-    case Typ of
-      pttCheckNrOfItems:
-        TestListBox.Items.Add(sCheckNumberOfItems);
-      pttCheckFormatArgs:
-        TestListBox.Items.Add(sCheckForIncompatibleFormatArguments);
-      pttCheckMissingIdentifiers:
-        TestListBox.Items.Add(sCheckMissingIdentifiers);
-      pttCheckMismatchedOriginals:
-        TestListBox.Items.Add(sCheckForMismatchesInUntranslatedStrings);
-      pttCheckDuplicateOriginals:
-        TestListBox.Items.Add(sCheckForDuplicateUntranslatedValues);
-      pttCheckStatistics:
-        TestListBox.Items.Add(sCheckStatistics);
-      else
-        TestListBox.Items.Add(PoTestTypeNames[Typ]);
-    end;
+    TestListBox.Items.Add(PoTestTypeNames[Typ]);
 end;
 
 
@@ -438,26 +418,36 @@ var
   SL, ML: TStringList;
   i: Integer;
   S: String;
+  Cur: TCursor;
 begin
-  SL := FindAllFiles(ADir, '*.po',True);
+  Cur := Screen.Cursor;
+  Screen.Cursor := crHourGlass;
+  StatusBar.SimpleText := sScanningInProgress;
   try
-    ML := TStringList.Create;
-    for i := 0 to SL.Count - 1 do
-    begin
-      S := SL[i];
-      //debugln('TPoCheckerForm.ScanDirectory: S = "',ExtractFilename(S),'"');
-      if IsMasterPoName(S) then
-        ML.Add(S);
+    SL := FindAllFiles(ADir, '*.po',True);
+    try
+      ML := TStringList.Create;
+      for i := 0 to SL.Count - 1 do
+      begin
+        S := SL[i];
+        //debugln('TPoCheckerForm.ScanDirectory: S = "',ExtractFilename(S),'"');
+        if IsMasterPoName(S) then
+          ML.Add(S);
+      end;
+      if (ML.Count > 0) then AddToMasterPoList(ML);
+      UpdateGUI(MasterPoListBox.SelCount > 0);
+    finally
+      SL.Free;
+      ML.Free;
     end;
-    if (ML.Count > 0) then AddToMasterPoList(ML);
   finally
-    SL.Free;
-    ML.Free;
+    StatusBar.SimpleText := '';
+    Screen.Cursor := Cur;
   end;
 end;
 
 
-function TPoCheckerForm.TryCreatepoFamilyList(MasterList: TStrings; const Lang: String): Boolean;
+function TPoCheckerForm.TryCreatepoFamilyList(MasterList: TStrings; const LangID: TLangID): Boolean;
 var
   Fn, Msg: String;
   i, Cnt: Integer;
@@ -489,7 +479,7 @@ begin
   end;
   try
     if Assigned(PoFamilyList) then PoFamilyList.Free;
-    PoFamilyList := TPoFamilyList.Create(MasterList, Lang, Msg);
+    PoFamilyList := TPoFamilyList.Create(MasterList, LangID, Msg);
     if (Msg <> '') then
     begin
       //MessageDlg('PoChecker',Format(sFilesNotFoundAndRemoved,[Msg]), mtInformation, [mbOk], 0);
@@ -550,8 +540,9 @@ begin
   SL := TStringList.Create;
   mr := mrNone;
   try
-
-    PoFamilyList.RunTests(TestTypes, TestOptions, ErrorCount, WarningCount, SL);
+    PoFamilyList.TestTypes := TestTypes;
+    PoFamilyList.TestOptions := TestOptions;
+    PoFamilyList.RunTests(ErrorCount, WarningCount, SL);
     //debugln('RunSelectedTests: ', Format(sTotalErrors, [ErrorCount]));
     //debugln('                  ', Format(sTotalWarnings, [WarningCount]));
     if (ErrorCount > 0) or (WarningCount > 0) or
@@ -595,20 +586,24 @@ begin
   begin
     RunBtn.Enabled := True;
     TestListBox.Enabled := True;
-    SelectAllBtn.Enabled := True;
-    SelectBasicBtn.Enabled := True;
-    UnselectAllBtn.Enabled := True;
-    UnselectMasterBtn.Enabled := True;
+    SelectAllTestsBtn.Enabled := True;
+    SelectBasicTestsBtn.Enabled := True;
+    UnselectAllTestsBtn.Enabled := True;
+    UnselectAllMasterFilesBtn.Enabled := True;
+    IgnoreFuzzyCheckBox.Enabled := True;
   end
   else
   begin
     RunBtn.Enabled := False;
     TestListBox.Enabled := False;
-    SelectAllBtn.Enabled := False;
-    SelectBasicBtn.Enabled := False;
-    UnselectAllBtn.Enabled := False;
-    UnselectMasterBtn.Enabled := False;
+    SelectAllTestsBtn.Enabled := False;
+    SelectBasicTestsBtn.Enabled := False;
+    UnselectAllTestsBtn.Enabled := False;
+    UnselectAllMasterFilesBtn.Enabled := False;
+    IgnoreFuzzyCheckBox.Enabled := False;
   end;
+  ClearMasterFilesBtn.Enabled := (MasterPoListBox.Items.Count > 0);
+  SelectAllMasterFilesBtn.Enabled := (MasterPoListBox.Items.Count > 0);
 end;
 
 function TPoCheckerForm.GetSelectedMasterFiles: TStringList;
@@ -655,7 +650,7 @@ begin
     begin
       Str := S[i];
       //skip files that do not exist (anymore)
-      if FileExistsUtf8(Str) then
+      if FileExistsUtf8(Str) and IsMasterPoName(Str) then
       begin
         Idx := MasterPoListBox.Items.IndexOf(Str);
         if (Idx = -1) then
@@ -697,12 +692,12 @@ begin
 end;
 
 
-procedure TPoCheckerForm.LoadConfig;
+procedure TPoCheckerForm.ApplyConfig;
 var
   ARect: TRect;
+  Abbr: String;
+  ID: TLangID;
 begin
-  FPoCheckerSettings := TPoCheckerSettings.Create;
-  FPoCheckerSettings.LoadConfig;
   ARect := FPoCheckerSettings.MainFormGeometry;
   if not IsDefaultRect(ARect) and IsValidRect(ARect) then
   begin
@@ -713,29 +708,23 @@ begin
   SetTestOptionCheckBoxes(FPoCheckerSettings.TestOptions);
   SelectDirectoryDialog.Filename := FPoCheckerSettings.SelectDirectoryFilename;
   OpenDialog.FileName := FPoCheckerSettings.OpenDialogFilename;
+  Abbr := FPoCheckerSettings.LangFilterLanguageAbbr;
+  ID := LangAbbrToLangId(Abbr);
+  LangFilter.ItemIndex := LangIdToLangFilterIndex(ID);
   AddToMasterPoList(FPoCheckerSettings.MasterPoList);
   SetSelectedMasterFiles(FPoCheckerSettings.MasterPoSelList);
-  //AddToChildPoList(FPoCheckerSettings.ChildPoList);
-  {
-  if (CompareText(ExtractFileExt(FPoCheckerSettings.LastSelectedFile), '.po') = 0) then
-  begin
-    if IsMasterPoName(FPoCheckerSettings.LastSelectedFile) then
-      AddToMasterPoList(FPoCheckerSettings.LastSelectedFile)
-    else
-      AddToChildPoList(FPoCheckerSettings.LastSelectedFile);
-    UpdateGUI(True)
-  end
-  else
-    UpdateGUI(False);
-  }
 end;
 
 procedure TPoCheckerForm.SaveConfig;
 var
   SL: TStringList;
+  ID: TLangID;
 begin
   FPoCheckerSettings.SelectDirectoryFilename := SelectDirectoryDialog.Filename;
   FPoCheckerSettings.OpenDialogFilename := OpenDialog.FileName;
+  //FPoCheckerSettings.LangFilterIndex := LangFilter.ItemIndex;
+  ID := LangFilterIndexToLangID(LangFilter.ItemIndex);
+  FPoCheckerSettings.LangFilterLanguageAbbr := LanguageAbbr[ID];
   FPoCheckerSettings.TestTypes := GetTestTypesFromListBox;
   FPoCheckerSettings.TestOptions := GetTestOptions;
   FPoCheckerSettings.MainFormWindowState := WindowState;
@@ -753,10 +742,195 @@ begin
   FPoCheckerSettings.SaveConfig;
 end;
 
+function ListSortFunc(List: TStringList; Index1, Index2: Integer): Integer;
+begin
+  Result := Utf8CompareText(List.Strings[Index1], List.Strings[Index2]);
+end;
+
+function TPoCheckerForm.LangFilterIndexToLangID(Index: Integer): TLangID;
+//Requires that items for a language end in [%lang_abbr%]
+var
+  S, Abbr: String;
+  p: Integer;
+begin
+  Result := lang_all;
+  S := LangFilter.Items[Index];
+  p := Length(S); //no need to use Utf8 functions, we look for lower ASCII
+  if (p = 0) or (not (S[p] = ']')) then Exit;
+  repeat
+    Dec(p);
+  until (p = 0) or (S[p] = '[');
+  if (p = 0) then Exit;
+  Abbr := Copy(S, p+1, Length(S)-p-1);
+  //DbgOut('Abbr = ',Abbr);
+  Result := LangAbbrToLangID(Abbr);
+  //debugln(' ID = ',Result);
+end;
+
+function TPoCheckerForm.LangIdToLangFilterIndex(LangID: TLangID): Integer;
+//Requires that items for a language end in [%lang_abbr%]
+var
+  Abbr, S: String;
+  p: SizeInt;
+  i: Integer;
+begin
+  Result := 0; // All Languages
+  if (LangID = lang_all) then Exit;
+  Abbr := LanguageAbbr[LangID];
+  for i := 1 to LangFilter.Items.Count - 1 do
+  begin
+    S := LangFilter.Items[i];
+    //no need to use Utf8 functions, we look for lower ASCII
+    p := Pos('['+Abbr+']',S);
+    if (p > 0) then
+      Exit(i);
+  end;
+end;
+
+procedure TPoCheckerForm.PopulateLangFilter;
+var
+  ID: TLangID;
+  Abbr, LangName, S: String;
+  SL: TStringList;
+begin
+  LangFilter.Items.BeginUpdate;
+  SL := TStringList.Create;
+  try
+    LangFilter.Items.Clear;
+    for ID := Succ(Low(TLangID)) to High(TLangID) do
+    begin
+      Abbr := LanguageAbbr[ID];
+      LangName := LanguageNames[ID];
+      S := Format('%s [%s]',[LangName, Abbr]);
+      SL.Add(S);
+      SL.CustomSort(@ListSortFunc);
+    end;
+    SL.Sorted := False;
+    SL.Insert(0, LanguageNames[lang_all]);
+    LangFilter.Items.Assign(SL);
+    LangFilter.Items.EndUpdate;
+    LangFilter.ItemIndex := 0;
+  finally
+    SL.Free;
+    LangFilter.Items.EndUpdate;
+  end;
+end;
+
+{$IFDEF POCHECKERSTANDALONE}
+function TPoCheckerForm.GetTranslationsSearchPath: String;
+var
+  EnvVar, CfgLocal, CfgGlobal, AppPath: String;
+begin
+  Result := FPoCheckerSettings.LangPath;
+  EnvVar := GetEnvironmentVariableUtf8('pochecker-langpath');
+  if (EnvVar <> '') then
+    Result := Result + PathSeparator + EnvVar;
+  Result := Result + PathSeparator + '.';
+  //Make some educated guesses
+  //default Lazarus setup, launching the app from project output dir
+  Result := Result + PathSeparator + '..' + PathDelim + 'languages';
+  Result := Result + PathSeparator + SetDirSeparators('../../../lcl/languages');
+  //or from where .lpi resides
+  Result := Result + PathSeparator + '.' + PathDelim + 'languages';
+  Result := Result + PathSeparator + SetDirSeparators('../../lcl/languages');
+  //Look in standard config dirs
+  CfgLocal := AppendPathDelim(GetLocalConfigPath);
+  CfgGlobal := AppendPathDelim(GetGlobalConfigPath);
+  Result := Result + PathSeparator + CfgLocal + PathSeparator + CfgLocal + 'languages';
+  Result := Result + PathSeparator + CfgGlobal + PathSeparator + CfgGlobal + 'languages';
+  {$if defined(windows) and not defined(wince)}
+  AppPath := ExtractFilePath(ParamStr(0));
+  Result := Result + PathSeparator + AppPath + PathSeparator + AppPath + 'languages';
+  {$endif}
+end;
+
+procedure TPoCheckerForm.FindTranslationFiles(const SearchPath, Lang: String; out PoCheckPo, LclPo: String);
+var
+  SL: TStringList;
+  i: Integer;
+  LclPoFnOnly, PoCheckPoFnOnly, Path: String;
+begin
+  PoCheckPo := '';
+  LclPo := '';
+  PoCheckPoFnOnly := Format('pocheckerconsts.%s.po',[Lang]);
+  LclPoFnOnly := Format('lclstrconsts.%s.po',[Lang]);
+  //debugln('PoCheckPoFnOnly = "',PoCheckPoFnOnly,'"');
+  //debugln('LclPoFnOnly"    = ',LclPoFnOnly,'"');
+  SL := TStringList.Create;
+  try
+    SL.StrictDelimiter := True;
+    SL.Delimiter := PathSeparator;
+    SL.DelimitedText := SearchPath;
+    for i := 0 to SL.Count - 1 do
+    begin
+      Path := SL.Strings[i];
+      if (Path <> '') then
+      begin
+        //debugln('Path = ',ExpandFileNameUtf8(Path));
+        if (Path <> '') then
+          Path := AppendPathDelim(Path);
+        if (LclPo = '') and FileExistsUtf8(Path + PoCheckPoFnOnly) then
+          PoCheckPo := Path + PoCheckPoFnOnly;
+        if (LclPo = '') and FileExistsUtf8(Path + LclPoFnOnly) then
+          LclPo := Path + LclPoFnOnly;
+      end;
+      if (LclPo <> '') and (LclPo <> '') then
+        Break;
+    end;
+  finally
+    SL.Free;
+  end;
+end;
+
+
+procedure TPoCheckerForm.GetTranslations;
+var
+  Lang, T, SearchPath, PoCheckerPo, LclPo: string;
+begin
+  Lang := GetEnvironmentVariableUTF8('LANG');
+  T := '';
+  if Lang = '' then
+    LCLGetLanguageIDs(Lang, T);
+  if Lang <> '' then
+  begin
+    //debugln('TPoCheckerForm.GetTranslations: Lang = ',Lang);
+    if not ((Lang = 'af_ZA') or (Lang = 'pt_BR') or (Lang = 'zh_CN')) then
+      Lang := copy(Lang, 1, 2);
+    SearchPath := GetTranslationsSearchPath;
+    FindTranslationFiles(SearchPath, Lang, PoCheckerPo, LclPo);
+    //debugln('PoCheckerPo = "',PoCheckerPo,'"');
+    //debugln('LclPo = "',LclPo,'"');
+    Translations.TranslateUnitResourceStrings('PoCheckerConsts', PoCheckerPo);
+    Translations.TranslateUnitResourceStrings('LCLStrConsts', LclPo);
+  end;
+end;
+{$ENDIF}
+
+procedure TPoCheckerForm.ApplyTranslations;
+begin
+  LocalizePoTestTypeNames;
+  LocalizeLanguageNames;
+  Caption := sGUIPoFileCheckingTool;
+  SelectTestLabel.Caption := sSelectTestTypes;
+  //FindAllPOsCheckBox.Caption := sFindAllTranslatedPoFiles;
+  IgnoreFuzzyCheckBox.Caption := sIgnoreFuzzyTranslations;
+  OpenBtn.Caption := sOpenAPoFile;
+  ScanDirBtn.Caption := sScanDir;
+  RunBtn.Caption := sRunSelectedTests;
+  ClearMasterFilesBtn.Caption := sClearListBox;
+  UnselectAllMasterFilesBtn.Caption := sUnselectListBox;
+  SelectAllMasterFilesBtn.Caption := sSelectAllListBox;
+  LangFilter.Items[0] := sAllLanguages;
+  NoErrLabel.Caption := sNoErrorsFound;
+  SelectAllTestsBtn.Caption := sSelectAllTests;
+  SelectBasicTestsBtn.Caption := sSelectBasicTests;
+  UnselectAllTestsBtn.Caption := sUnselectAllTests;
+end;
+
 
 function SameItem(Item1, Item2: TPoFileItem): boolean;
 begin
-  Result := (Item1.Identifier = Item2.Identifier) and
+  Result := (Item1.IdentifierLow = Item2.IdentifierLow) and
     (Item1.Original = Item2.Original) and (Item1.Context = Item2.Context) and
     (Item1.Flags = Item2.Flags) and (Item1.PreviousID = Item2.PreviousID) and
     (Item1.Translation = Item2.Translation);

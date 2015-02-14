@@ -1194,7 +1194,7 @@ end;
 function GatherFilesInFPCSources(Directory: string;
   const OnProgress: TDefinePoolProgress): TStringList;
 begin
-  Result:=GatherFiles(Directory,'{.svn,CVS}',
+  Result:=GatherFiles(Directory,'{.*,CVS}',
                       '{*.pas,*.pp,*.p,*.inc,Makefile.fpc}',8,OnProgress);
 end;
 
@@ -2502,14 +2502,14 @@ end;
 
 procedure ReadMakefileFPC(const Filename: string; List: TStrings);
 var
-  MakefileFPC: TStringList;
+  MakefileFPC: TStringListUTF8;
   i: Integer;
   Line: string;
   p: LongInt;
   NameValue: String;
 begin
-  MakefileFPC:=TStringList.Create;
-  MakefileFPC.LoadFromFile(UTF8ToSys(Filename));
+  MakefileFPC:=TStringListUTF8.Create;
+  MakefileFPC.LoadFromFile(Filename);
   i:=0;
   while i<MakefileFPC.Count do begin
     Line:=MakefileFPC[i];
@@ -2832,6 +2832,7 @@ procedure GetTargetProcessors(const TargetCPU: string; aList: TStrings);
     aList.Add('ARMV5');
     aList.Add('ARMV6');
     aList.Add('ARMV7');
+    aList.Add('ARMV7A');
     aList.Add('ARMV7M');
     aList.Add('CORTEXM3');
   end;
@@ -6618,7 +6619,7 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       controllerunitstr: string[20];
     end;
   const
-    ControllerTypes: array[0..211] of TControllerType =
+    ControllerTypes: array[0..302] of TControllerType =
      ((controllertypestr:'';                  controllerunitstr:''),
       (controllertypestr:'LPC810M021FN8';     controllerunitstr:'LPC8xx'),
       (controllertypestr:'LPC811M001FDH16';   controllerunitstr:'LPC8xx'),
@@ -6830,7 +6831,99 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       (controllertypestr:'XMC4500X768';       controllerunitstr:'XMC4500'),
       (controllertypestr:'XMC4502X768';       controllerunitstr:'XMC4502'),
       (controllertypestr:'XMC4504X512';       controllerunitstr:'XMC4504'),
-      (controllertypestr:'THUMB2_BARE';       controllerunitstr:'THUMB2_BARE'));
+      (controllertypestr:'THUMB2_BARE';       controllerunitstr:'THUMB2_BARE'),
+      (controllertypestr:'PIC32MX110F016B';	controllerunitstr:'PIC32MX110F016B'),
+      (controllertypestr:'PIC32MX110F016C';	controllerunitstr:'PIC32MX110F016C'),
+      (controllertypestr:'PIC32MX110F016D';	controllerunitstr:'PIC32MX110F016D'),
+      (controllertypestr:'PIC32MX120F032B';	controllerunitstr:'PIC32MX120F032B'),
+      (controllertypestr:'PIC32MX120F032C';	controllerunitstr:'PIC32MX120F032C'),
+      (controllertypestr:'PIC32MX120F032D';	controllerunitstr:'PIC32MX120F032D'),
+      (controllertypestr:'PIC32MX130F064B';	controllerunitstr:'PIC32MX130F064B'),
+      (controllertypestr:'PIC32MX130F064C';	controllerunitstr:'PIC32MX130F064C'),
+      (controllertypestr:'PIC32MX130F064D';	controllerunitstr:'PIC32MX130F064D'),
+      (controllertypestr:'PIC32MX150F128B';	controllerunitstr:'PIC32MX150F128B'),
+      (controllertypestr:'PIC32MX150F128C';	controllerunitstr:'PIC32MX150F128C'),
+      (controllertypestr:'PIC32MX150F128D';	controllerunitstr:'PIC32MX150F128D'),
+      (controllertypestr:'PIC32MX170F256B';	controllerunitstr:'PIC32MX170F256B'),
+      (controllertypestr:'PIC32MX170F256C';	controllerunitstr:'PIC32MX170F256C'),
+      (controllertypestr:'PIC32MX170F256D';	controllerunitstr:'PIC32MX170F256D'),
+      (controllertypestr:'PIC32MX210F016B';	controllerunitstr:'PIC32MX210F016B'),
+      (controllertypestr:'PIC32MX210F016C';	controllerunitstr:'PIC32MX210F016C'),
+      (controllertypestr:'PIC32MX210F016D';	controllerunitstr:'PIC32MX210F016D'),
+      (controllertypestr:'PIC32MX220F032B';	controllerunitstr:'PIC32MX220F032B'),
+      (controllertypestr:'PIC32MX220F032C';	controllerunitstr:'PIC32MX220F032C'),
+      (controllertypestr:'PIC32MX220F032D';	controllerunitstr:'PIC32MX220F032D'),
+      (controllertypestr:'PIC32MX230F064B';	controllerunitstr:'PIC32MX230F064B'),
+      (controllertypestr:'PIC32MX230F064C';	controllerunitstr:'PIC32MX230F064C'),
+      (controllertypestr:'PIC32MX230F064D';	controllerunitstr:'PIC32MX230F064D'),
+      (controllertypestr:'PIC32MX250F128B';	controllerunitstr:'PIC32MX250F128B'),
+      (controllertypestr:'PIC32MX250F128C';	controllerunitstr:'PIC32MX250F128C'),
+      (controllertypestr:'PIC32MX250F128D';	controllerunitstr:'PIC32MX250F128D'),
+      (controllertypestr:'PIC32MX270F256B';	controllerunitstr:'PIC32MX270F256B'),
+      (controllertypestr:'PIC32MX270F256C';	controllerunitstr:'PIC32MX270F256C'),
+      (controllertypestr:'PIC32MX270F256D';	controllerunitstr:'PIC32MX270F256D'),
+      (controllertypestr:'PIC32MX320F032H';	controllerunitstr:'PIC32MX320F032H'),
+      (controllertypestr:'PIC32MX320F064H';	controllerunitstr:'PIC32MX320F064H'),
+      (controllertypestr:'PIC32MX320F128H';	controllerunitstr:'PIC32MX320F128H'),
+      (controllertypestr:'PIC32MX320F128L';	controllerunitstr:'PIC32MX320F128L'),
+      (controllertypestr:'PIC32MX330F064H';	controllerunitstr:'PIC32MX330F064H'),
+      (controllertypestr:'PIC32MX330F064L';	controllerunitstr:'PIC32MX330F064L'),
+      (controllertypestr:'PIC32MX340F128H';	controllerunitstr:'PIC32MX340F128H'),
+      (controllertypestr:'PIC32MX340F128L';	controllerunitstr:'PIC32MX340F128L'),
+      (controllertypestr:'PIC32MX340F256H';	controllerunitstr:'PIC32MX340F256H'),
+      (controllertypestr:'PIC32MX340F512H';	controllerunitstr:'PIC32MX340F512H'),
+      (controllertypestr:'PIC32MX350F128H';	controllerunitstr:'PIC32MX350F128H'),
+      (controllertypestr:'PIC32MX350F128L';	controllerunitstr:'PIC32MX350F128L'),
+      (controllertypestr:'PIC32MX350F256H';	controllerunitstr:'PIC32MX350F256H'),
+      (controllertypestr:'PIC32MX350F256L';	controllerunitstr:'PIC32MX350F256L'),
+      (controllertypestr:'PIC32MX360F256L';	controllerunitstr:'PIC32MX360F256L'),
+      (controllertypestr:'PIC32MX360F512L';	controllerunitstr:'PIC32MX360F512L'),
+      (controllertypestr:'PIC32MX370F512H';	controllerunitstr:'PIC32MX370F512H'),
+      (controllertypestr:'PIC32MX370F512L';	controllerunitstr:'PIC32MX370F512L'),
+      (controllertypestr:'PIC32MX420F032H';	controllerunitstr:'PIC32MX420F032H'),
+      (controllertypestr:'PIC32MX430F064H';	controllerunitstr:'PIC32MX430F064H'),
+      (controllertypestr:'PIC32MX430F064L';	controllerunitstr:'PIC32MX430F064L'),
+      (controllertypestr:'PIC32MX440F128H';	controllerunitstr:'PIC32MX440F128H'),
+      (controllertypestr:'PIC32MX440F128L';	controllerunitstr:'PIC32MX440F128L'),
+      (controllertypestr:'PIC32MX440F256H';	controllerunitstr:'PIC32MX440F256H'),
+      (controllertypestr:'PIC32MX440F512H';	controllerunitstr:'PIC32MX440F512H'),
+      (controllertypestr:'PIC32MX450F128H';	controllerunitstr:'PIC32MX450F128H'),
+      (controllertypestr:'PIC32MX450F128L';	controllerunitstr:'PIC32MX450F128L'),
+      (controllertypestr:'PIC32MX450F256H';	controllerunitstr:'PIC32MX450F256H'),
+      (controllertypestr:'PIC32MX450F256L';	controllerunitstr:'PIC32MX450F256L'),
+      (controllertypestr:'PIC32MX460F256L';	controllerunitstr:'PIC32MX460F256L'),
+      (controllertypestr:'PIC32MX460F512L';	controllerunitstr:'PIC32MX460F512L'),
+      (controllertypestr:'PIC32MX460F512H';	controllerunitstr:'PIC32MX460F512H'),
+      (controllertypestr:'PIC32MX460F512L';	controllerunitstr:'PIC32MX460F512L'),
+      (controllertypestr:'PIC32MX534F064H';	controllerunitstr:'PIC32MX534F064H'),
+      (controllertypestr:'PIC32MX534F064L';	controllerunitstr:'PIC32MX534F064L'),
+      (controllertypestr:'PIC32MX564F064H';	controllerunitstr:'PIC32MX564F064H'),
+      (controllertypestr:'PIC32MX564F064L';	controllerunitstr:'PIC32MX564F064L'),
+      (controllertypestr:'PIC32MX564F128H';	controllerunitstr:'PIC32MX564F128H'),
+      (controllertypestr:'PIC32MX564F128L';	controllerunitstr:'PIC32MX564F128L'),
+      (controllertypestr:'PIC32MX575F256H';	controllerunitstr:'PIC32MX575F256H'),
+      (controllertypestr:'PIC32MX575F256L';	controllerunitstr:'PIC32MX575F256L'),
+      (controllertypestr:'PIC32MX575F512H';	controllerunitstr:'PIC32MX575F512H'),
+      (controllertypestr:'PIC32MX575F512L';	controllerunitstr:'PIC32MX575F512L'),
+      (controllertypestr:'PIC32MX664F064H';	controllerunitstr:'PIC32MX664F064H'),
+      (controllertypestr:'PIC32MX664F064L';	controllerunitstr:'PIC32MX664F064L'),
+      (controllertypestr:'PIC32MX664F128H';	controllerunitstr:'PIC32MX664F128H'),
+      (controllertypestr:'PIC32MX664F128L';	controllerunitstr:'PIC32MX664F128L'),
+      (controllertypestr:'PIC32MX675F256H';	controllerunitstr:'PIC32MX675F256H'),
+      (controllertypestr:'PIC32MX675F256L';	controllerunitstr:'PIC32MX675F256L'),
+      (controllertypestr:'PIC32MX675F512H';	controllerunitstr:'PIC32MX675F512H'),
+      (controllertypestr:'PIC32MX675F512L';	controllerunitstr:'PIC32MX675F512L'),
+      (controllertypestr:'PIC32MX695F512H';	controllerunitstr:'PIC32MX695F512H'),
+      (controllertypestr:'PIC32MX695F512L';	controllerunitstr:'PIC32MX695F512L'),
+      (controllertypestr:'PIC32MX764F128H';	controllerunitstr:'PIC32MX764F128H'),
+      (controllertypestr:'PIC32MX764F128L';	controllerunitstr:'PIC32MX764F128L'),
+      (controllertypestr:'PIC32MX775F256H';	controllerunitstr:'PIC32MX775F256H'),
+      (controllertypestr:'PIC32MX775F256L';	controllerunitstr:'PIC32MX775F256L'),
+      (controllertypestr:'PIC32MX775F512H';	controllerunitstr:'PIC32MX775F512H'),
+      (controllertypestr:'PIC32MX775F512L';	controllerunitstr:'PIC32MX775F512L'),
+      (controllertypestr:'PIC32MX795F512H';	controllerunitstr:'PIC32MX795F512H'),
+      (controllertypestr:'PIC32MX795F512L';	controllerunitstr:'PIC32MX795F512L'));
+
   var
     i: integer;
     str: String;
@@ -7739,7 +7832,7 @@ begin
       if (RealCompiler<>'') and FileExistsCached(RealCompiler) then begin
         RealCompilerDate:=FileAgeCached(RealCompiler);
       end else
-        debugln(['TFPCTargetConfigCache.Update WARNING: compiler is broken: '+Compiler+' '+ExtraOptions]);
+        debugln(['TFPCTargetConfigCache.Update WARNING: compiler is broken: Compiler="'+Compiler+'" Options="'+ExtraOptions+'" RealCompiler="',RealCompiler,'"']);
       // store the list of tried and read cfg files
       if CfgFiles<>nil then
         for i:=0 to CfgFiles.Count-1 do begin

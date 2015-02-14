@@ -6,7 +6,7 @@ interface
 
 uses
   Classes,
-  SysUtils, fgl,
+  SysUtils,
   Forms,
   Maps,
   process,
@@ -35,13 +35,14 @@ type
     FDebugLoopStoppedEvent: PRTLEvent;
     FFpDebugDebugger: TFpDebugDebugger;
     FStartDebugLoopEvent: PRTLEvent;
-    FStartSuccesfull: boolean;
+    FStartSuccessfull: boolean;
+    FQueuedFinish: boolean;  // true = DoDebugLoopFinishedASync queud in main thread
     procedure DoDebugLoopFinishedASync({%H-}Data: PtrInt);
   public
     constructor Create(AFpDebugDebugger: TFpDebugDebugger);
     destructor Destroy; override;
     procedure Execute; override;
-    property StartSuccesfull: boolean read FStartSuccesfull;
+    property StartSuccesfull: boolean read FStartSuccessfull;
     property StartDebugLoopEvent: PRTLEvent read FStartDebugLoopEvent;
     property DebugLoopStoppedEvent: PRTLEvent read FDebugLoopStoppedEvent;
     property AsyncMethod: TFpDbgAsyncMethod read FAsyncMethod write FAsyncMethod;
@@ -70,8 +71,9 @@ type
 
   TFpDebugDebugger = class(TDebuggerIntf)
   private
-    FWatchEvalList: TList; // Schedule
+    FWatchEvalList: TFPList; // Schedule
     FWatchAsyncQueued: Boolean;
+    FLogAsyncQueued: boolean;
     FPrettyPrinter: TFpPascalPrettyPrinter;
     FDbgController: TDbgController;
     FFpDebugThread: TFpDebugThread;
@@ -79,6 +81,7 @@ type
     FRaiseExceptionBreakpoint: FpDbgClasses.TDBGBreakPoint;
     FDbgLogMessageList: array of TFpDbgLogMessage;
     FLogCritSection: TRTLCriticalSection;
+    FMemConverter: TFpDbgMemConvertorLittleEndian;
     FMemReader: TDbgMemReader;
     FMemManager: TFpDbgMemManager;
     FConsoleOutputThread: TThread;
@@ -93,17 +96,17 @@ type
     function GetClassInstanceName(AnAddr: TDBGPtr): string;
     function ReadAnsiString(AnAddr: TDbgPtr): string;
     function SetSoftwareExceptionBreakpoint: boolean;
-    procedure HandleSoftwareException(var AnExceptionLocation: TDBGLocationRec; var continue: boolean);
+    procedure HandleSoftwareException(out AnExceptionLocation: TDBGLocationRec; var continue: boolean);
     procedure FreeDebugThread;
     procedure FDbgControllerHitBreakpointEvent(var continue: boolean; const Breakpoint: FpDbgClasses.TDbgBreakpoint);
-    procedure FDbgControllerCreateProcessEvent(var continue: boolean);
+    procedure FDbgControllerCreateProcessEvent(var {%H-}continue: boolean);
     procedure FDbgControllerProcessExitEvent(AExitCode: DWord);
     procedure FDbgControllerExceptionEvent(var continue: boolean; const ExceptionClass, ExceptionMessage: string);
     procedure FDbgControllerDebugInfoLoaded(Sender: TObject);
     function GetDebugInfo: TDbgInfo;
     procedure DoWatchFreed(Sender: TObject);
-    procedure ProcessASyncWatches(Data: PtrInt);
-    procedure DoLog(Data: PtrInt);
+    procedure ProcessASyncWatches({%H-}Data: PtrInt);
+    procedure DoLog({%H-}Data: PtrInt);
   protected
     procedure ScheduleWatchValueEval(AWatchValue: TWatchValue);
     function EvaluateExpression(AWatchValue: TWatchValue;
@@ -153,7 +156,8 @@ type
     function GetLocationRec(AnAddress: TDBGPtr=0): TDBGLocationRec;
     function GetLocation: TDBGLocationRec; override;
     class function Caption: String; override;
-    class function HasExePath: boolean; override;
+    class function NeedsExePath: boolean; override;
+    class function CanExternalDebugSymbolsFile: boolean; override;
     class function CreateProperties: TDebuggerProperties; override;
     function  GetSupportedCommands: TDBGCommands; override;
   end;
@@ -173,10 +177,10 @@ type
     destructor Destroy; override;
     function Count: Integer; override;
     function GetAddress(const AIndex: Integer; const ALine: Integer): TDbgPtr; override;
-    function GetInfo(AAdress: TDbgPtr; out ASource, ALine, AOffset: Integer): Boolean; override;
+    function GetInfo({%H-}AAddress: TDbgPtr; out {%H-}ASource, {%H-}ALine, {%H-}AOffset: Integer): Boolean; override;
     function IndexOf(const ASource: String): integer; override;
     procedure Request(const ASource: String); override;
-    procedure Cancel(const ASource: String); override;
+    procedure Cancel(const {%H-}ASource: String); override;
   end;
 
   { TFPWatches }
@@ -239,11 +243,11 @@ type
     procedure SetBreak;
     procedure ResetBreak;
   protected
-    destructor Destroy; override;
     procedure DoStateChange(const AOldState: TDBGState); override;
     procedure DoEnableChange; override;
     procedure DoChanged; override;
   public
+    destructor Destroy; override;
   end;
 
   { TFPBreakpoints }
@@ -341,6 +345,7 @@ end;
 
 destructor TFpWaitForConsoleOutputThread.Destroy;
 begin
+  Application.RemoveAsyncCalls(Self);
   RTLeventdestroy(FHasConsoleOutputQueued);
   inherited Destroy;
 end;
@@ -382,6 +387,7 @@ end;
 
 function TFpDbgMemReader.ReadMemoryEx(AnAddress, AnAddressSpace: TDbgPtr; ASize: Cardinal; ADest: Pointer): Boolean;
 begin
+  Assert(AnAddressSpace>0,'TFpDbgMemReader.ReadMemoryEx ignores AddressSpace');
   result := FFpDebugDebugger.ReadData(AnAddress, ASize, ADest^);
 end;
 
@@ -399,8 +405,6 @@ end;
 
 procedure TFPCallStackSupplier.RequestCount(ACallstack: TCallStackBase);
 var
-  Address, Frame, LastFrame: QWord;
-  Size, Count: integer;
   ThreadCallStack: TDbgCallstackEntryList;
 begin
   if (Debugger = nil) or not(Debugger.State = dsPause)
@@ -731,26 +735,24 @@ end;
 function TFPDBGDisassembler.PrepareEntries(AnAddr: TDbgPtr; ALinesBefore, ALinesAfter: Integer): boolean;
 var
   ARange: TDBGDisassemblerEntryRange;
-  AnEntry: PDisassemblerEntry;
+  AnEntry: TDisassemblerEntry;
   CodeBin: array[0..20] of byte;
   p: pointer;
   ADump,
   AStatement,
-  ASrcFileName,
-  APriorFileName: string;
-  ASrcFileLine,
-  APriorFileLine: integer;
+  ASrcFileName: string;
+  ASrcFileLine: integer;
   i,j: Integer;
-  NextSym,Sym: TFpDbgSymbol;
+  Sym: TFpDbgSymbol;
   StatIndex: integer;
   FirstIndex: integer;
+  ALastAddr: TDBGPtr;
 
 begin
   Result := False;
   if (Debugger = nil) or not(Debugger.State = dsPause) then
     exit;
 
-  AnEntry:=nil;
   Sym:=nil;
   ASrcFileLine:=0;
   ASrcFileName:='';
@@ -758,6 +760,9 @@ begin
   FirstIndex:=0;
   ARange := TDBGDisassemblerEntryRange.Create;
   ARange.RangeStartAddr:=AnAddr;
+  ALastAddr:=0;
+
+  Assert(ALinesBefore<>0,'TFPDBGDisassembler.PrepareEntries LinesBefore not supported');
 
   for i := 0 to ALinesAfter-1 do
     begin
@@ -794,23 +799,23 @@ begin
         ASrcFileName:='';
         ASrcFileLine:=0;
         end;
-      new(AnEntry);
-      AnEntry^.Addr := AnAddr;
-      AnEntry^.Dump := ADump;
-      AnEntry^.Statement := AStatement;
-      AnEntry^.SrcFileLine:=ASrcFileLine;
-      AnEntry^.SrcFileName:=ASrcFileName;
-      AnEntry^.SrcStatementIndex:=StatIndex;
-      ARange.Append(AnEntry);
+      AnEntry.Addr := AnAddr;
+      AnEntry.Dump := ADump;
+      AnEntry.Statement := AStatement;
+      AnEntry.SrcFileLine:=ASrcFileLine;
+      AnEntry.SrcFileName:=ASrcFileName;
+      AnEntry.SrcStatementIndex:=StatIndex;
+      ARange.Append(@AnEntry);
+      ALastAddr:=AnAddr;
       inc(StatIndex);
-      Inc(AnAddr, PtrUInt(p) - PtrUInt(@CodeBin));
+      Inc(AnAddr, {%H-}PtrUInt(p) - {%H-}PtrUInt(@CodeBin));
       end;
     end;
 
-  if assigned(AnEntry) then
+  if ARange.Count>0 then
     begin
-    ARange.RangeEndAddr:=AnEntry^.Addr;
-    ARange.LastEntryEndAddr:=TDBGPtr(p);
+    ARange.RangeEndAddr:=ALastAddr;
+    ARange.LastEntryEndAddr:={%H-}TDBGPtr(p);
     EntryRanges.AddRange(ARange);
     result := true;
     end
@@ -909,7 +914,7 @@ begin
     Result := Map^.GetAddressForLine(ALine);
 end;
 
-function TFpLineInfo.GetInfo(AAdress: TDbgPtr; out ASource, ALine,
+function TFpLineInfo.GetInfo(AAddress: TDbgPtr; out ASource, ALine,
   AOffset: Integer): Boolean;
 begin
   Result := False;
@@ -958,6 +963,7 @@ end;
 
 procedure TFpDebugThread.DoDebugLoopFinishedASync(Data: PtrInt);
 begin
+  FQueuedFinish:=false;
   FFpDebugDebugger.DebugLoopFinished;
 end;
 
@@ -971,6 +977,8 @@ end;
 
 destructor TFpDebugThread.Destroy;
 begin
+  if FQueuedFinish then
+    Application.RemoveAsyncCalls(Self);
   RTLeventdestroy(FStartDebugLoopEvent);
   RTLeventdestroy(FDebugLoopStoppedEvent);
   inherited Destroy;
@@ -979,11 +987,11 @@ end;
 procedure TFpDebugThread.Execute;
 begin
   if FFpDebugDebugger.FDbgController.Run then
-    FStartSuccesfull:=true;
+    FStartSuccessfull:=true;
 
   RTLeventSetEvent(FDebugLoopStoppedEvent);
 
-  if FStartSuccesfull then
+  if FStartSuccessfull then
     begin
     repeat
     RTLeventWaitFor(FStartDebugLoopEvent);
@@ -1001,7 +1009,11 @@ begin
       else
         begin
         FFpDebugDebugger.FDbgController.ProcessLoop;
-        Application.QueueAsyncCall(@DoDebugLoopFinishedASync, 0);
+        if not FQueuedFinish then
+          begin
+          FQueuedFinish:=true;
+          Application.QueueAsyncCall(@DoDebugLoopFinishedASync, 0);
+          end;
         end;
       end;
     until Terminated;
@@ -1055,8 +1067,10 @@ begin
   AWatchValue.AddFreeNotification(@DoWatchFreed);
   FWatchEvalList.Add(pointer(AWatchValue));
   if not FWatchAsyncQueued then
+    begin
     Application.QueueAsyncCall(@ProcessASyncWatches, 0);
-  FWatchAsyncQueued := True;
+    FWatchAsyncQueued := True;
+    end;
 end;
 
 function TFpDebugDebugger.EvaluateExpression(AWatchValue: TWatchValue; AExpression: String;
@@ -1247,6 +1261,7 @@ procedure TFpDebugDebugger.DoLog(Data: PtrInt);
 var
   AMessage: TFpDbgLogMessage;
 begin
+  FLogAsyncQueued:=false;
   EnterCriticalsection(FLogCritSection);
   try
     if length(FDbgLogMessageList) = 0 then
@@ -1298,6 +1313,7 @@ function TFpDebugDebugger.SetSoftwareExceptionBreakpoint: boolean;
 var
   AContext: TFpDbgInfoContext;
   AValue: TFpDbgValue;
+  AnAddr: TDBGPtr;
 begin
   result := false;
   if assigned(FDbgController.CurrentProcess.SymbolTableInfo) then
@@ -1308,7 +1324,9 @@ begin
       AValue := AContext.FindSymbol('FPC_RAISEEXCEPTION');
       if assigned(AValue) then
       begin
-        FRaiseExceptionBreakpoint := AddBreak(AValue.Address.Address);
+        AnAddr:=AValue.Address.Address;
+        AValue.ReleaseReference;
+        FRaiseExceptionBreakpoint := AddBreak(AnAddr);
         if assigned(FRaiseExceptionBreakpoint) then
           result := True;
       end;
@@ -1316,7 +1334,8 @@ begin
   end;
 end;
 
-procedure TFpDebugDebugger.HandleSoftwareException(var AnExceptionLocation: TDBGLocationRec;var continue: boolean);
+procedure TFpDebugDebugger.HandleSoftwareException(out
+  AnExceptionLocation: TDBGLocationRec; var continue: boolean);
 var
   AnExceptionObjectLocation: TDBGPtr;
   ExceptionClass: string;
@@ -1541,7 +1560,11 @@ begin
   finally
     LeaveCriticalsection(FLogCritSection);
   end;
-  Application.QueueAsyncCall(@DoLog, 0);
+  if not FLogAsyncQueued then
+    begin
+    FLogAsyncQueued:=true;
+    Application.QueueAsyncCall(@DoLog, 0);
+    end;
 end;
 
 procedure TFpDebugDebugger.ExecuteInDebugThread(AMethod: TFpDbgAsyncMethod);
@@ -1701,11 +1724,12 @@ end;
 constructor TFpDebugDebugger.Create(const AExternalDebugger: String);
 begin
   inherited Create(AExternalDebugger);
-  FWatchEvalList := TList.Create;
+  FWatchEvalList := TFPList.Create;
   FPrettyPrinter := TFpPascalPrettyPrinter.Create(sizeof(pointer));
   InitCriticalSection(FLogCritSection);
   FMemReader := TFpDbgMemReader.Create(self);
-  FMemManager := TFpDbgMemManager.Create(FMemReader, TFpDbgMemConvertorLittleEndian.Create);
+  FMemConverter := TFpDbgMemConvertorLittleEndian.Create;
+  FMemManager := TFpDbgMemManager.Create(FMemReader, FMemConverter);
   FDbgController := TDbgController.Create;
   FDbgController.OnLog:=@OnLog;
   FDbgController.OnCreateProcessEvent:=@FDbgControllerCreateProcessEvent;
@@ -1718,13 +1742,17 @@ end;
 
 destructor TFpDebugDebugger.Destroy;
 begin
+  if FLogAsyncQueued or FWatchAsyncQueued then
+    debugln(['WARNING: TFpDebugDebugger.Destroy FLogAsyncQueued=',FLogAsyncQueued,' FWatchAsyncQueued=',FWatchAsyncQueued]);
+  Application.RemoveAsyncCalls(Self);
   if assigned(FFpDebugThread) then
     FreeDebugThread;
-  FDbgController.Free;
-  FPrettyPrinter.Free;
-  FWatchEvalList.Free;
-  FMemManager.Free;
-  FMemReader.Free;
+  FreeAndNil(FDbgController);
+  FreeAndNil(FPrettyPrinter);
+  FreeAndNil(FWatchEvalList);
+  FreeAndNil(FMemManager);
+  FreeAndNil(FMemConverter);
+  FreeAndNil(FMemReader);
   DoneCriticalsection(FLogCritSection);
   inherited Destroy;
 end;
@@ -1769,10 +1797,15 @@ end;
 
 class function TFpDebugDebugger.Caption: String;
 begin
-  Result:='FpDebug internal Dwarf-debugger (alfa)';
+  Result:='FpDebug internal Dwarf-debugger (alpha)';
 end;
 
-class function TFpDebugDebugger.HasExePath: boolean;
+class function TFpDebugDebugger.NeedsExePath: boolean;
+begin
+  Result:=False;
+end;
+
+class function TFpDebugDebugger.CanExternalDebugSymbolsFile: boolean;
 begin
   Result:=False;
 end;

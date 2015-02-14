@@ -1,4 +1,3 @@
-#
 msgid ""
 msgstr ""
 "MIME-Version: 1.0\n"
@@ -19,7 +18,7 @@ msgstr "Aktív jelentés: %s"
 #: maincalleditor.cerappcaption
 msgctxt "maincalleditor.cerappcaption"
 msgid "LazReport Test Suite"
-msgstr ""
+msgstr "LazReport tesztkészlet"
 
 #: maincalleditor.cercomposite
 msgctxt "maincalleditor.cercomposite"
@@ -37,8 +36,7 @@ msgstr "Alkalmazás bezárása"
 
 #: maincalleditor.cerhintcomposite
 msgid "This Action will Load and Preview a composite Report"
-msgstr ""
-"Ez a művelet betölt és előnézetet jelenít meg egy összetett jelentésről"
+msgstr "Ez a művelet betölt és előnézetet jelenít meg egy összetett jelentésről"
 
 #: maincalleditor.cerhinteditreport
 msgid "Edit active report"
@@ -66,7 +64,7 @@ msgstr "Az aktív jelentés nyomtatása közvetlenül (vagyis előnézet nélkü
 
 #: maincalleditor.cerhintthumbnails
 msgid "This Action will Load and Preview a thumbnails Report"
-msgstr ""
+msgstr "Ez a művelet betölti és megjeleníti a jelentés bélyegképét"
 
 #: maincalleditor.cerindex
 msgctxt "maincalleditor.cerindex"
@@ -151,7 +149,7 @@ msgstr "Exportálás CSV fájlba"
 
 #: tfrmmain.accexporttodbg.caption
 msgid "Export Debug"
-msgstr ""
+msgstr "Hibakeresési információk exportálása"
 
 #: tfrmmain.accexporttohtml.caption
 msgid "Export to html"
@@ -192,12 +190,12 @@ msgstr "Exportálás ismétlése"
 
 #: tfrmmain.btnmasterdetail.caption
 msgid "Master-Detail Test"
-msgstr ""
+msgstr "Fő-elemek tesztje"
 
 #: tfrmmain.caption
 msgctxt "TFRMMAIN.CAPTION"
 msgid "LazReport Test Suite"
-msgstr ""
+msgstr "LazReport tesztkészlet"
 
 #: tfrmmain.lblexpr.caption
 msgid "Expression"

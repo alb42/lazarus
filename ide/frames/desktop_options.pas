@@ -27,7 +27,7 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, StdCtrls, Dialogs, LCLProc,
   ExtCtrls, EnvironmentOpts, LazarusIDEStrConsts, IDETranslations, InputHistory,
-  IDEProcs, IDEOptionsIntf, IDEWindowIntf, IDEUtils;
+  IDEProcs, IDEOptionsIntf, IDEWindowIntf, IDEUtils, DividerBevel;
 
 type
 
@@ -39,29 +39,18 @@ type
     AutoSaveIntervalInSecsComboBox: TComboBox;
     AutoSaveIntervalInSecsLabel: TLabel;
     AutoSaveProjectCheckBox: TCheckBox;
-    BevelLanguageLeft: TBevel;
-    BevelHintsRight: TBevel;
-    Bevel1MiscLeft: TBevel;
-    Bevel1MiscRight: TBevel;
-    BevelLanguageRight: TBevel;
-    BevelAutoSaveLeft: TBevel;
-    BevelAutoSizeRight: TBevel;
-    BevelDesktopFilesLeft: TBevel;
-    BevelDesktopFilesRight: TBevel;
-    BevelGlyphsLeft: TBevel;
-    BevelGlyphsRight: TBevel;
-    BevelHintsLeft: TBevel;
+    lblCheckAndAutoSave: TDividerBevel;
+    lblDesktopFiles: TDividerBevel;
+    lblGlyphs: TDividerBevel;
+    lblHints: TDividerBevel;
+    lblLanguage: TDividerBevel;
+    lblMouseAction: TDividerBevel;
+    PreferDoubleClickCheckBox: TCheckBox;
     CheckDiskChangesWithLoadingCheckBox: TCheckBox;
     lblButtons: TLabel;
     lblCenter: TLabel;
     lblMenus: TLabel;
-    lblHints: TLabel;
     LanguageComboBox: TComboBox;
-    lblDesktopFiles: TLabel;
-    lblGlyphs: TLabel;
-    lblMisc: TLabel;
-    lblLanguage: TLabel;
-    lblAutoSave: TLabel;
     LoadDesktopSettingsFromFileButton: TButton;
     PanelGlyphsButtonsOptions: TPanel;
     PanelGlyphsMenusOptions: TPanel;
@@ -109,6 +98,7 @@ var
 begin
   // language
   lblLanguage.Caption := dlgEnvLanguage;
+  LanguageComboBox.Hint := dlgEnvLanguageHint;
 
   // languages: first the automatic, then sorted the rest
   sl:=TStringList.Create;
@@ -123,17 +113,15 @@ begin
   LanguageComboBox.Items.Assign(sl);
   sl.Free;
 
-  // auto save
-  lblAutoSave.Caption := dlgAutoSave;
-  AskSavingOnlySessionCheckBox.Caption:=lisAskBeforeSavingProjectSSession;
-  AutoSaveEditorFilesCheckBox.Caption := dlgEdFiles;
-  AutoSaveProjectCheckBox.Caption := dlgProject;
-  AutoSaveIntervalInSecsLabel.Caption := dlgIntvInSec;
+  // mouse action
+  lblMouseAction.Caption := dlgMouseAction;
+  PreferDoubleClickCheckBox.Caption := dlgPreferDoubleClickOverSingleClick;
+  PreferDoubleClickCheckBox.Hint := dlgCurrentlyRespectedByMessagesWindow;
 
-  // desktop files
-  lblDesktopFiles.Caption := dlgDesktopFiles;
-  SaveDesktopSettingsToFileButton.Caption := dlgSaveDFile;
-  LoadDesktopSettingsFromFileButton.Caption := dlgLoadDFile;
+  // hints
+  lblHints.Caption := dlgDesktopHints;
+  ShowHintsForMainSpeedButtonsCheckBox.Caption := dlgSpBHints;
+  ShowHintsForComponentPaletteCheckBox.Caption := dlgPalHints;
 
   // button glyphs
   lblGlyphs.Caption := lisShowGlyphsFor;
@@ -146,15 +134,21 @@ begin
   rbMenuGlyphShowNever.Caption := lisNever;
   rbMenuGlyphShowSystem.Caption := lisDefault;
 
-  // hints
-  lblHints.Caption := dlgDesktopHints;
-  ShowHintsForComponentPaletteCheckBox.Caption := dlgPalHints;
-  ShowHintsForMainSpeedButtonsCheckBox.Caption := dlgSpBHints;
+  // check and auto save files
+  lblCheckAndAutoSave.Caption := dlgCheckAndAutoSaveFiles;
+  CheckDiskChangesWithLoadingCheckBox.Caption := lisCheckForDiskFileChangesViaContent;
+  CheckDiskChangesWithLoadingCheckBox.Hint := lisSlowerButMoreAccurate;
+  AskSavingOnlySessionCheckBox.Caption := lisAskBeforeSavingProjectSSession;
+  AskSavingOnlySessionCheckBox.Hint := lisIfOnlySessionInfoChangedThenAsk;
+  // The following 3 are now hidden.
+  AutoSaveEditorFilesCheckBox.Caption := dlgEdFiles;
+  AutoSaveProjectCheckBox.Caption := dlgProject;
+  AutoSaveIntervalInSecsLabel.Caption := dlgIntvInSec;
 
-  // misc
-  lblMisc.Caption := dlgDesktopMisc;
-  CheckDiskChangesWithLoadingCheckBox.Caption :=
-    lisCheckForDiskFileChangesViaContentRatherThanTimesta;
+  // desktop files
+  lblDesktopFiles.Caption := dlgDesktopFiles;
+  SaveDesktopSettingsToFileButton.Caption := dlgSaveDFile;
+  LoadDesktopSettingsFromFileButton.Caption := dlgLoadDFile;
 end;
 
 procedure TDesktopOptionsFrame.ReadSettings(AOptions: TAbstractIDEOptions);
@@ -165,20 +159,12 @@ begin
     LanguageComboBox.Text:=LangIDToCaption(LanguageID);
     //debugln('TEnvironmentOptionsDialog.ReadSettings LanguageComboBox.ItemIndex=',dbgs(LanguageComboBox.ItemIndex),' LanguageID="',LanguageID,'" LanguageComboBox.Text="',LanguageComboBox.Text,'"');
 
-    // auto save
-    AskSavingOnlySessionCheckBox.Checked:=AskSaveSessionOnly;
-    AutoSaveEditorFilesCheckBox.Checked:=AutoSaveEditorFiles;
-    AutoSaveProjectCheckBox.Checked:=AutoSaveProject;
-    SetComboBoxText(AutoSaveIntervalInSecsComboBox
-       ,IntToStr(AutoSaveIntervalInSecs),cstCaseInsensitive);
+    // mouse action
+    PreferDoubleClickCheckBox.Checked := MsgViewDblClickJumps;
 
     // hints
-    CheckDiskChangesWithLoadingCheckBox.Checked:=
-      CheckDiskChangesWithLoading;
-    ShowHintsForComponentPaletteCheckBox.Checked:=
-      ShowHintsForComponentPalette;
-    ShowHintsForMainSpeedButtonsCheckBox.Checked:=
-      ShowHintsForMainSpeedButtons;
+    ShowHintsForMainSpeedButtonsCheckBox.Checked:=ShowHintsForMainSpeedButtons;
+    ShowHintsForComponentPaletteCheckBox.Checked:=ShowHintsForComponentPalette;
 
     // glyphs
     case ShowButtonGlyphs of
@@ -191,6 +177,14 @@ begin
       sbgNever: rbMenuGlyphShowNever.Checked := True;
       sbgSystem: rbMenuGlyphShowSystem.Checked := True;
     end;
+
+    // check and auto save files
+    CheckDiskChangesWithLoadingCheckBox.Checked:=CheckDiskChangesWithLoading;
+    AskSavingOnlySessionCheckBox.Checked:=AskSaveSessionOnly;
+    AutoSaveEditorFilesCheckBox.Checked:=AutoSaveEditorFiles;
+    AutoSaveProjectCheckBox.Checked:=AutoSaveProject;
+    SetComboBoxText(AutoSaveIntervalInSecsComboBox
+       ,IntToStr(AutoSaveIntervalInSecs),cstCaseInsensitive);
   end;
 end;
 
@@ -202,18 +196,13 @@ begin
     LanguageID:=CaptionToLangID(LanguageComboBox.Text);
     //debugln('TEnvironmentOptionsDialog.WriteSettings A LanguageID="',LanguageID,'" LanguageComboBox.ItemIndex=',dbgs(LanguageComboBox.ItemIndex),' LanguageComboBox.Text=',LanguageComboBox.Text);
 
-    // auto save
-    AskSaveSessionOnly:=AskSavingOnlySessionCheckBox.Checked;
-    AutoSaveEditorFiles:=AutoSaveEditorFilesCheckBox.Checked;
-    AutoSaveProject:=AutoSaveProjectCheckBox.Checked;
-    AutoSaveIntervalInSecs:=StrToIntDef(
-      AutoSaveIntervalInSecsComboBox.Text,AutoSaveIntervalInSecs);
+    // mouse action
+    MsgViewDblClickJumps := PreferDoubleClickCheckBox.Checked;
 
     // hints
-    CheckDiskChangesWithLoading:=CheckDiskChangesWithLoadingCheckBox.Checked;
-    ShowHintsForComponentPalette:=ShowHintsForComponentPaletteCheckBox.Checked;
     ShowHintsForMainSpeedButtons:=ShowHintsForMainSpeedButtonsCheckBox.Checked;
-    
+    ShowHintsForComponentPalette:=ShowHintsForComponentPaletteCheckBox.Checked;
+
     // glyphs
     if rbBtnGlyphShowAlways.Checked then
       ShowButtonGlyphs := sbgAlways
@@ -229,6 +218,14 @@ begin
       ShowMenuGlyphs := sbgNever
     else
       ShowMenuGlyphs := sbgSystem;
+
+    // check and auto save files
+    CheckDiskChangesWithLoading:=CheckDiskChangesWithLoadingCheckBox.Checked;
+    AskSaveSessionOnly:=AskSavingOnlySessionCheckBox.Checked;
+    AutoSaveEditorFiles:=AutoSaveEditorFilesCheckBox.Checked;
+    AutoSaveProject:=AutoSaveProjectCheckBox.Checked;
+    AutoSaveIntervalInSecs:=StrToIntDef(
+      AutoSaveIntervalInSecsComboBox.Text,AutoSaveIntervalInSecs);
   end;
 end;
 

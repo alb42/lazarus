@@ -1171,8 +1171,11 @@ begin
     // draw registered component
     CurComponent:=TPkgComponent(CurObject);
     with RegisteredListBox.Canvas do begin
-      CurStr:=Format(lisPckEditPage, [CurComponent.ComponentClass.ClassName,
-        CurComponent.Page.PageName]);
+      if Assigned(CurComponent.RealPage) then
+        CurStr:=Format(lisPckEditPage,[CurComponent.ComponentClass.ClassName,
+                                       CurComponent.RealPage.PageName])
+      else
+        CurStr:=CurComponent.ComponentClass.ClassName;
       TxtH:=TextHeight(CurStr);
       FillRect(ARect);
       CurIcon:=CurComponent.Icon;
@@ -2210,9 +2213,11 @@ end;
 procedure TPackageEditorForm.UpdateTitle(Immediately: boolean);
 var
   NewCaption: String;
+  s: string;
 begin
   if not CanUpdate(pefNeedUpdateTitle,Immediately) then exit;
-  NewCaption:=Format(lisPckEditPackage, [FLazPackage.Name]);
+  s:=FLazPackage.Name+' V'+FLazPackage.Version.AsString;
+  NewCaption:=Format(lisPckEditPackage, [s]);
   if LazPackage.Modified then
     NewCaption:=NewCaption+'*';
   Caption:=NewCaption;

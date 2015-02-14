@@ -42,9 +42,9 @@ unit PostScriptCanvas;
 interface
 
 uses
-  Classes, SysUtils, strutils, FileUtil, Math, Types, Graphics, Forms, GraphMath,
-  GraphType, FPImage, IntfGraphics, Printers, LCLType, LCLIntf, LCLProc,
-  PostScriptUnicode;
+  Classes, SysUtils, strutils, FileUtil, Math, Types, Graphics,
+  Forms, GraphMath, GraphType, FPImage, IntfGraphics, Printers, LCLType,
+  LCLIntf, LCLProc, PostScriptUnicode, LazUTF8, LazUTF8Classes;
   
 Type
 
@@ -79,7 +79,7 @@ Type
 
     procedure psDrawRect(ARect:TRect);
     procedure WriteHeader(St : String);
-    procedure Write(const St : String; Lst : TstringList = nil); overload;
+    procedure Write(const St : String; Lst : TStringList = nil); overload;
     procedure WriteB(const St : string);
     procedure ClearBuffer;
     procedure Write(Lst : TStringList); overload;
@@ -112,6 +112,7 @@ Type
     function  GetFontIndex: Integer;
     function  FontUnitsToPixelsX(const Value:Integer): Integer;
     function  FontUnitsToPixelsY(const Value:Integer): Integer;
+    function  FontUnitsToPixelsY(const Value:Double): Integer;
   protected
     procedure CreateHandle; override;
     procedure CreateBrush; override;
@@ -665,7 +666,7 @@ begin
 end;
 
 //Write an instruction in the document
-procedure TPostScriptPrinterCanvas.Write(const St: String; Lst : TStringList = Nil);
+procedure TPostScriptPrinterCanvas.Write(const St: String; Lst: TStringList = nil);
 begin
   If not Assigned(Lst) then
     Lst:=fDocument;
@@ -709,15 +710,16 @@ begin
         Write(format('%d %d translate 180 rotate',[w,h]));
       end;
     poLandscape:
-      begin
-        h:=round(PaperWidth*72/XDPI);
-        Write(format('0 %d translate 90 neg rotate',[h]));
-      end;
-    poReverseLandscape:
-      begin
-        h:=round(PaperHeight*72/YDPI);
-        Write(format('%d 0 translate 90 rotate',[h]));
-      end;
+       begin
+         h:=round(PaperHeight*72/YDPI);
+         Write(format('%d 0 translate 90 rotate',[h]));
+       end;
+     poReverseLandscape:
+       begin
+         w:=round((PaperWidth-PaperHeight)*72/XDPI);
+         h:=round(PaperHeight*72/XDPI);
+         Write(format('%d %d translate 90 neg rotate',[w,h]));
+       end;
   end;
 end;
 
@@ -1152,6 +1154,17 @@ begin
   result := Round(Value*Abs(GetFontSize/72)*0.001*YDPI);
 end;
 
+function TPostScriptPrinterCanvas.FontUnitsToPixelsY(const Value: Double
+  ): Integer;
+var
+  FontSize: Integer;
+begin
+  FontSize := GetFontSize;
+  if FontSize<0 then
+    FontSize := -FontSize;
+  result := Round(Value*FontSize/72*0.001*YDPI);
+end;
+
 procedure TPostScriptPrinterCanvas.CreateHandle;
 begin
   SetHandle(1); // set dummy handle
@@ -1255,14 +1268,14 @@ begin
 end;
 
 procedure TPostScriptPrinterCanvas.SaveToFile(aFileName: string);
-Var Lst : TStringList;
+Var Lst : TStringListUTF8;
 begin
-  Lst:=TStringList.Create;
+  Lst:=TStringListUTF8.Create;
   try
      Lst.AddStrings(fHeader);
      Lst.AddStrings(fDocument);
      
-     Lst.SaveTofile(UTF8ToSys(ExpandFileNameUTF8(aFileName)));
+     Lst.SaveTofile(ExpandFileNameUTF8(aFileName));
   finally
     Lst.Free;
   end;
@@ -2040,10 +2053,11 @@ end;
 //Out the text at the X,Y coord. Set the font
 procedure TPostScriptPrinterCanvas.TextOut(X, Y: Integer; const Text: String);
 var
-  PenUnder : Real;
+  PenUnder : Double;
   PosUnder : Integer;
   pp:TpsPoint;
   saved:boolean;
+  FontIndex: Integer;
 
   procedure rotate;
   begin
@@ -2073,10 +2087,19 @@ begin
   
   if fsUnderline in Font.Style then
   begin
+    FontIndex := GetFontIndex;
+
+    PosUnder := FontUnitsToPixelsY(cFontPSMetrics[FontIndex].ULPos);
+
+    // The current heuristics produces better underline thickness
+    {$IFDEF UseFontUnderlineThickness}
+    PenUnder := FontUnitsToPixelsY(cFontPSMetrics[FontIndex].ULThickness);
+    {$else}
     PenUnder:=0.5;
     if fsBold in Font.Style then
       PenUnder:=1.0;
-    PosUnder:=(Abs(Round(GetFontSize/3))*-1)+2;
+    {$endif}
+
     Write(format('%f %f uli',[pp.fx,pp.fy],FFs));
     if Font.Orientation<>0 then
       rotate();

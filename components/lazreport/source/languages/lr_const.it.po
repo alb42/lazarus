@@ -1,16 +1,17 @@
+# Giuliano Colla <giuliano.colla@fastwebnet.it>, 2014.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2014-10-03 18:38+0100\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: 2014-12-12 13:37+0200\n"
 "Last-Translator: Giuliano Colla <giuliano.colla@fastwebnet.it>\n"
-"Language-Team: PincoPallo Team\n"
+"Language-Team: Lazarus\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Virtaal 0.5.1\n"
-"Project-Id-Version: \n"
-"POT-Creation-Date: \n"
+"X-Generator: Virtaal 0.6.1\n"
 
 #: lr_const.saboutformcapt
 msgid "About FastReport"
@@ -23,6 +24,22 @@ msgstr "Aggrega"
 #: lr_const.sallfiles
 msgid "All files"
 msgstr "Tutti i file"
+
+#: lr_const.sargument1
+msgid "Argument 1"
+msgstr ""
+
+#: lr_const.sargument2
+msgid "Argument 2"
+msgstr ""
+
+#: lr_const.sargument3
+msgid "Argument 3"
+msgstr ""
+
+#: lr_const.sarguments
+msgid "Arguments"
+msgstr ""
 
 #: lr_const.sautosize
 msgid "Auto size"
@@ -89,6 +106,14 @@ msgid "Cross footer"
 msgstr "Pedice incrodiato"
 
 #: lr_const.sband22
+#| msgid "None"
+msgctxt "lr_const.sband22"
+msgid "Child"
+msgstr "Figlio"
+
+#: lr_const.sband23
+#| msgid "None"
+msgctxt "lr_const.sband23"
 msgid "None"
 msgstr "Nessuno"
 
@@ -280,7 +305,6 @@ msgid "COPY(<String>, <Position>, <Length>)/Returns <Length> characters from <St
 msgstr "COPY(<Stringa>, <Posizione>, <Lunghezza>)/Ritorna <Lunghezza> dalla <Stringa> partendo da <Posizione>."
 
 #: lr_const.sdescriptioncount
-#| msgid "COUNT(<BandName>)/Returns count of data-rows given in the <BandName>. "
 msgid "COUNT(<BandName>)/Returns count of data rows given in the <BandName>. "
 msgstr "COUNT(<BandName>)/Ritorna ilnumero di righe dati in <BandName>. "
 
@@ -313,7 +337,6 @@ msgid "INC(<Value>)/Increment <Value>."
 msgstr "INC(<Value>)/Incrementa <Value>."
 
 #: lr_const.sdescriptioninput
-#| msgid "INPUT(<Caption> [,Default])/Shows dialog window with headstring <Caption> and edit box. If [Default] parameter is set, puts this string in edit box. After user clicks OK, returns input string."
 msgid "INPUT(<Caption> [,Default])/Shows dialog window with title <Caption> and edit box. If [Default] parameter is set, puts this string in edit box. After user clicks OK, returns input string."
 msgstr "INPUT(<Titolo> [,Default])/Mostra una dialog con scritta di testa <Titolo> ed editbox. Se il parametro [Default] ha un valore, mette quel valore come stringa nell'editbox. Quando l'utente clicca OK, ritorna la stringa nell'editbox."
 
@@ -502,7 +525,6 @@ msgid "Report:"
 msgstr "Rapporto:"
 
 #: lr_const.sdocautor
-#| msgid "Autor"
 msgid "Author"
 msgstr "Autore"
 
@@ -527,7 +549,6 @@ msgid "Comments"
 msgstr "Commenti"
 
 #: lr_const.sdocoptformkeywords
-#| msgid "Keys words"
 msgid "Keywords"
 msgstr "Parole chiave"
 
@@ -568,6 +589,10 @@ msgstr "Versione"
 #: lr_const.sduplicatedobjectname
 msgid "An object named \"%s\" already exists"
 msgstr "C'è già un oggetto di nome \"%s\""
+
+#: lr_const.seditor
+msgid "Editor"
+msgstr ""
 
 #: lr_const.seditorformbig
 msgid "&Big font"
@@ -617,7 +642,6 @@ msgid "Error"
 msgstr "Errore"
 
 #: lr_const.serroroccured
-#| msgid "An error occured during calculating"
 msgid "An error occurred during calculation"
 msgstr "Errore durante il calcolo"
 
@@ -647,7 +671,6 @@ msgid "&Variable"
 msgstr "&Variabile"
 
 #: lr_const.sevformvars
-#| msgid "Va&riables..."
 msgid "Va&riables ..."
 msgstr "Va&riabili ..."
 
@@ -737,7 +760,6 @@ msgid "Variable format"
 msgstr "Formato di variabile"
 
 #: lr_const.sfont
-#| msgid "Font..."
 msgid "Font ..."
 msgstr "Carattere"
 
@@ -1112,6 +1134,10 @@ msgstr "Allinea in cima"
 msgid "Top frame line"
 msgstr "Linea superiore del frame"
 
+#: lr_const.sfrdesignerformunabletocreatetemplatedir
+msgid "Unable to create template directory"
+msgstr "Impossibile creare la cartella dei modelli"
+
 #: lr_const.sfrdesignerformunderline
 msgid "Underline"
 msgstr "Sottolinea"
@@ -1129,7 +1155,6 @@ msgid "Width align"
 msgstr "Allinea larghezze"
 
 #: lr_const.sfrdesignerform_about
-#| msgid "&About..."
 msgid "&About ..."
 msgstr "&Informazioni"
 
@@ -1170,7 +1195,6 @@ msgid "&Delete"
 msgstr "&Cancella"
 
 #: lr_const.sfrdesignerform_edit
-#| msgid "&Edit..."
 msgctxt "lr_const.sfrdesignerform_edit"
 msgid "&Edit ..."
 msgstr "&Modifica"
@@ -1180,7 +1204,6 @@ msgid "&Edit"
 msgstr "&Modifica"
 
 #: lr_const.sfrdesignerform_editp
-#| msgid "&Edit..."
 msgctxt "lr_const.sfrdesignerform_editp"
 msgid "&Edit ..."
 msgstr "&Modifica ..."
@@ -1214,7 +1237,6 @@ msgid "Modified"
 msgstr "Modificato"
 
 #: lr_const.sfrdesignerform_new
-#| msgid "&New..."
 msgid "&New ..."
 msgstr "&Nuovo"
 
@@ -1223,12 +1245,10 @@ msgid "&Objects"
 msgstr "&Oggetti"
 
 #: lr_const.sfrdesignerform_open
-#| msgid "&Open..."
 msgid "&Open ..."
 msgstr "&Apri ..."
 
 #: lr_const.sfrdesignerform_opts
-#| msgid "&Options..."
 msgid "&Options ..."
 msgstr "&Opzioni ..."
 
@@ -1237,7 +1257,6 @@ msgid "&Paste"
 msgstr "&Incolla"
 
 #: lr_const.sfrdesignerform_pgopt
-#| msgid "&Page options..."
 msgid "&Page options ..."
 msgstr "Opzioni &Pagina ..."
 
@@ -1258,7 +1277,6 @@ msgid "&Remove page"
 msgstr "&Rimuovi pagina"
 
 #: lr_const.sfrdesignerform_rptopt
-#| msgid "&Report options..."
 msgid "&Report options ..."
 msgstr "Opzioni &Report ..."
 
@@ -1267,7 +1285,6 @@ msgid "&Save"
 msgstr "&Salva"
 
 #: lr_const.sfrdesignerform_saveas
-#| msgid "Save &as..."
 msgid "Save &as ..."
 msgstr "Salva co&me..."
 
@@ -1306,7 +1323,6 @@ msgid "&Undo"
 msgstr "&Annulla"
 
 #: lr_const.sfrdesignerform_var
-#| msgid "Variables &list..."
 msgid "Variables &list ..."
 msgstr "&Lista delle variabili ..."
 
@@ -1317,6 +1333,10 @@ msgstr "da"
 #: lr_const.sfrvariables
 msgid "FR variables"
 msgstr "Variabili FR"
+
+#: lr_const.sfunctioneditor
+msgid "Function editor"
+msgstr ""
 
 #: lr_const.sfunctions
 msgid "Functions"
@@ -1331,7 +1351,6 @@ msgid "&Clear"
 msgstr "&Cancella"
 
 #: lr_const.sgeditorformload
-#| msgid "&Load..."
 msgid "&Load ..."
 msgstr "&Carica ..."
 
@@ -1371,12 +1390,10 @@ msgid "&Bold"
 msgstr "&Grassetto"
 
 #: lr_const.shilightformcolor
-#| msgid "C&olor..."
 msgid "C&olor ..."
 msgstr "C&olore"
 
 #: lr_const.shilightformcolor2
-#| msgid "Co&lor..."
 msgid "Co&lor ..."
 msgstr "Co&lore ..."
 
@@ -1471,7 +1488,6 @@ msgid "&Vertical"
 msgstr "&Verticale"
 
 #: lr_const.sinsroundrect
-#| msgid "Insert an RoundRect with shadow area"
 msgid "Insert a RoundRect with shadow area"
 msgstr "Inserisci un RoundRect con area ombreggiata"
 
@@ -1515,6 +1531,10 @@ msgstr "Modelli di LazReport"
 msgid "Math"
 msgstr "Matematica"
 
+#: lr_const.smemoeditor
+msgid "Memo editor"
+msgstr ""
+
 #: lr_const.smm
 msgid "MM"
 msgstr "MM"
@@ -1553,7 +1573,6 @@ msgid "On last page"
 msgstr "Sull'ultima pagina"
 
 #: lr_const.sother
-#| msgid "Other..."
 msgid "Other ..."
 msgstr "Altro ..."
 
@@ -2213,8 +2232,11 @@ msgstr "Scala"
 msgid "&Whole page"
 msgstr "&Intera pagina"
 
+#: lr_const.sprintchildifnotvisible
+msgid "Print child if not visible"
+msgstr "Stampa figlio se non visibile"
+
 #: lr_const.sprintererror
-#| msgid "Printer selected is not valid"
 msgid "Selected printer is not valid"
 msgstr "La stampante selezionata non è valida."
 
@@ -2289,7 +2311,6 @@ msgid "Error while loading report"
 msgstr "Errore nel caricamento del report."
 
 #: lr_const.sreportpreparing
-#| msgid "Report preparing"
 msgid "Preparing report"
 msgstr "Preparazione del report"
 
@@ -2326,7 +2347,6 @@ msgid "Gradient"
 msgstr "Gradiente"
 
 #: lr_const.sroundrectformhint
-#| msgid "Click here to define the shadow color or gradian colors"
 msgid "Click here to define the shadow color or gradient colors"
 msgstr "Cliccare qui per definire il colore ombra o i colori del gradiente"
 
@@ -2361,6 +2381,10 @@ msgstr "File RTF"
 #: lr_const.ssavechanges
 msgid "Save changes"
 msgstr "Salvare i cambiamenti"
+
+#: lr_const.sscripteditor
+msgid "Script editor"
+msgstr ""
 
 #: lr_const.sshape1
 msgctxt "lr_const.sshape1"
@@ -2469,6 +2493,18 @@ msgstr "Impossibile leggere la versione del report"
 msgid "Untitled"
 msgstr "Senza titolo"
 
+#: lr_const.susefixedfontsettings
+msgid "Use fixed font settings"
+msgstr ""
+
+#: lr_const.susememofontsettings
+msgid "Use Memo font settings"
+msgstr ""
+
+#: lr_const.susesyntaxhighlight
+msgid "Use syntax highlight"
+msgstr ""
+
 #: lr_const.svar1
 msgid "Page#"
 msgstr "Pagina n."
@@ -2516,7 +2552,6 @@ msgid "&Categories and variables"
 msgstr "&Categorie e variabili"
 
 #: lr_const.svarformat
-#| msgid "Variable format..."
 msgid "Variable format ..."
 msgstr "Formato variabile ..."
 

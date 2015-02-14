@@ -32,7 +32,7 @@ unit IDETranslations;
 interface
 
 uses
-  Classes, SysUtils, GetText, LCLProc, Translations,
+  Classes, SysUtils, GetText, LazUTF8, Translations,
   IDEProcs, FileProcs, avl_tree,
   CodeToolManager, DirectoryCacher, CodeCache,
   LazarusIDEStrConsts;
@@ -328,7 +328,7 @@ begin
       BasePOFile.ReadPOText(POBuf.Source);
     BasePOFile.Tag:=1;
 
-    // Update po file with lrt or/and rst files
+    // Update po file with lrt or/and rst/rsj files
     for i:=0 to SrcFiles.Count-1 do begin
       Filename:=SrcFiles[i];
       if CompareFileExt(Filename,'.lrt',false)=0 then
@@ -445,7 +445,8 @@ var
   Lang, FallbackLang: String;
   Dir: String;
 begin
-  if LazarusTranslations=nil then CollectTranslations(LazarusDir);
+  if LazarusTranslations=nil then
+    CollectTranslations(LazarusDir);
   if CustomLang='' then begin
     Lang:=SystemLanguageID1;
     FallbackLang:=SystemLanguageID2;
@@ -511,11 +512,10 @@ end;
 
 initialization
   LazarusTranslations:=nil;
-  LCLGetLanguageIDs(SystemLanguageID1,SystemLanguageID2);
+  LazGetLanguageIDs(SystemLanguageID1,SystemLanguageID2);
 
 finalization
-  LazarusTranslations.Free;
-  LazarusTranslations:=nil;
+  FreeAndNil(LazarusTranslations);
 
 end.
 

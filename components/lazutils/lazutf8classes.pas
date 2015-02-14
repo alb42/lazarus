@@ -11,7 +11,7 @@ type
 
   { TFileStreamUTF8 }
 
-  TFileStreamUTF8 = class(THandleStream)
+  TFileStreamUTF8 = class(TFileStream)
   private
     FFileName: utf8string;
   public
@@ -29,6 +29,14 @@ type
   public
     procedure LoadFromFile(const FileName: string); override;
     procedure SaveToFile(const FileName: string); override;
+  end;
+
+  { TMemoryStreamUTF8 }
+
+  TMemoryStreamUTF8 = class(TMemoryStream)
+  public
+    procedure LoadFromFile(const FileName: string);
+    procedure SaveToFile(const FileName: string);
   end;
 
 procedure LoadStringsFromFileUTF8(List: TStrings; const FileName: string);
@@ -83,6 +91,32 @@ begin
   Result:=CompareStr(UTF8LowerCase(List[Index1]),UTF8LowerCase(List[Index2]));
 end;
 
+{ TMemoryStreamUTF8 }
+
+procedure TMemoryStreamUTF8.LoadFromFile(const FileName: string);
+var
+  S: TFileStreamUTF8;
+begin
+  S:=TFileStreamUTF8.Create (FileName,fmOpenRead or fmShareDenyWrite);
+  Try
+    LoadFromStream(S);
+  finally
+    S.free;
+  end;
+end;
+
+procedure TMemoryStreamUTF8.SaveToFile(const FileName: string);
+var
+  S: TFileStreamUTF8;
+begin
+  S:=TFileStreamUTF8.Create (FileName,fmCreate);
+  Try
+    SaveToStream(S);
+  finally
+    S.free;
+  end;
+end;
+
 constructor TFileStreamUTF8.Create(const AFileName: utf8string; Mode: Word);
 begin
   Create(AFileName,Mode,438);
@@ -106,7 +140,7 @@ begin
       raise EFOpenError.Createfmt({SFOpenError}'Unable to open file "%s"',[AFilename]);
   end
   else
-    inherited Create(lHandle);
+    THandleStream(Self).Create(lHandle);
 end;
 
 destructor TFileStreamUTF8.Destroy;

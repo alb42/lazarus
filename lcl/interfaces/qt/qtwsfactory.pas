@@ -233,7 +233,8 @@ end;
 
 function RegisterOpenDialog: Boolean; alias : 'WSRegisterOpenDialog';
 begin
-  Result := False;
+  RegisterWSComponent(TOpenDialog, TQtWSOpenDialog);
+  Result := True;
 end;
 
 function RegisterSaveDialog: Boolean; alias : 'WSRegisterSaveDialog';
@@ -555,6 +556,15 @@ begin
   //RegisterWSLazDeviceAPIs(TCDWSLazDeviceAPIs);
   Result := False;
 end;
+
+procedure Init;
+begin
+  // Keep a dummy Init to hide compiler messages "unit not used".
+  // The unit is used by the "alias" functions.
+end;
+
+initialization
+  Init;
 
 end.
 

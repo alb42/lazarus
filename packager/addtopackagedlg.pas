@@ -1176,7 +1176,7 @@ begin
                                                  fLastNewComponentAncestorType);
   // choose the same page name
   if (PalettePageCombobox.Text='') and (PkgComponent<>nil) then
-    PalettePageCombobox.Text:=PkgComponent.Page.PageName;
+    PalettePageCombobox.Text:=PkgComponent.RealPage.PageName;
   // filename
   AutoCompleteNewComponentUnitName;
   OkButton.Enabled := True;
@@ -1343,8 +1343,8 @@ var
 begin
   // get all current pagenames (excluding the hidden page)
   sl:=TStringList.Create;
-  for i:=0 to IDEComponentPalette.Count-1 do begin
-    APageName:=IDEComponentPalette[i].PageName;
+  for i:=0 to IDEComponentPalette.Pages.Count-1 do begin
+    APageName:=IDEComponentPalette.Pages[i].PageName;
     if APageName<>'' then
       sl.Add(APageName);
   end;

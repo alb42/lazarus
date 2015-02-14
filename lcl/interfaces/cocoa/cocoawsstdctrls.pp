@@ -24,9 +24,10 @@ interface
 
 uses
   // Libs
-  MacOSAll, CocoaAll,
+  MacOSAll, CocoaAll, Classes, sysutils,
   // LCL
-  Controls, StdCtrls, Graphics, LCLType, LMessages, LCLProc, LCLMessageGlue, Classes,
+  Controls, StdCtrls, Graphics, LCLType, LMessages, LCLProc, LCLMessageGlue,
+  LazUtf8Classes,
   // Widgetset
   WSStdCtrls, WSLCLClasses, WSControls, WSProc,
   // LCL Cocoa
@@ -81,6 +82,10 @@ type
 
     class function GetItemHeight(const ACustomComboBox: TCustomComboBox): Integer; override;
     class procedure SetItemHeight(const ACustomComboBox: TCustomComboBox; const AItemHeight: Integer); override;
+    class procedure GetPreferredSize(
+       const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
+       WithThemeSpace: Boolean); override;
+
   end;
 
   { TCocoaWSCustomListBox }
@@ -131,6 +136,9 @@ type
     class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class function GetStrings(const ACustomMemo: TCustomMemo): TStrings; override;
 
+    class function GetSelStart(const ACustomEdit: TCustomEdit): integer; override;
+    class function GetSelLength(const ACustomEdit: TCustomEdit): integer; override;
+
     class procedure AppendText(const ACustomMemo: TCustomMemo; const AText: string); override;
     class procedure SetScrollbars(const ACustomMemo: TCustomMemo; const NewScrollbars: TScrollStyle); override;
     class procedure SetWordWrap(const ACustomMemo: TCustomMemo; const NewWordWrap: boolean); override;
@@ -179,6 +187,9 @@ type
     class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class function RetrieveState(const ACustomCheckBox: TCustomCheckBox): TCheckBoxState; override;
     class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
+    //
+    class procedure GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; {%H-}WithThemeSpace: Boolean); override;
+    class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
   end;
 
   { TCocoaWSToggleBox }
@@ -471,6 +482,29 @@ begin
     NSButton(ACustomCheckBox.Handle).setState(buttonState[NewState]);
 end;
 
+class procedure TCocoaWSCustomCheckBox.GetPreferredSize(
+  const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
+  WithThemeSpace: Boolean);
+var
+  lButton: NSButton;
+  lOldSize: NSSize;
+begin
+  if not AWinControl.HandleAllocated then Exit;
+  lButton := NSButton(AWinControl.Handle);
+
+  lOldSize := lButton.bounds.size;
+  lButton.sizeToFit();
+  PreferredWidth := round(lButton.bounds.size.width);
+  PreferredHeight := round(lButton.bounds.size.height);
+  //lButton.setBoundsSize(lOldSize); This causes problems in SetText
+end;
+
+class procedure TCocoaWSCustomCheckBox.SetText(const AWinControl: TWinControl;
+  const AText: String);
+begin
+  TCocoaWSButton.SetText(AWinControl, AText);
+end;
+
 { TCocoaWSRadioButton }
 
 class function TCocoaWSRadioButton.CreateHandle(const AWinControl: TWinControl;
@@ -554,6 +588,8 @@ type
     procedure Clear; override;
     procedure Delete(Index: Integer); override;
     procedure Insert(Index: Integer; const S: string); override;
+    procedure LoadFromFile(const FileName: string); override;
+    procedure SaveToFile(const FileName: string); override;
   end;
 
 { TCocoaMemoStrings }
@@ -600,6 +636,8 @@ function GetLinesCount(const s: AnsiString): Integer;
 var
   ofs : Integer;
 begin
+  Result:=0;
+  ofs:=0;
   GetLineStart(s, -1, ofs, Result);
 end;
 
@@ -617,6 +655,8 @@ var
   t     : Integer;
 begin
   s:=GetTextStr;
+  t:=0;
+  ofs:=0;
   GetLineStart(s, Index, ofs, t);
   eofs:=ofs;
   while (eofs<=length(s)) and not (s[eofs] in [#10,#13]) do
@@ -660,6 +700,30 @@ begin
   GetLineStart(txt, Index, ofs, t);
   System.Insert(s+LineEnding, txt, ofs);
   SetTextStr(txt)
+end;
+
+procedure TCocoaMemoStrings.LoadFromFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(TheStream);
+  finally
+    TheStream.Free;
+  end;
+end;
+
+procedure TCocoaMemoStrings.SaveToFile(const FileName: string);
+var
+  TheStream: TFileStreamUTF8;
+begin
+  TheStream:=TFileStreamUtf8.Create(FileName,fmCreate);
+  try
+    SaveToStream(TheStream);
+  finally
+    TheStream.Free;
+  end;
 end;
 
 { TCocoaWSCustomMemo }
@@ -720,6 +784,27 @@ begin
     Result := TCocoaMemoStrings.Create(txt)
   else
     Result := nil
+end;
+
+class function TCocoaWSCustomMemo.GetSelStart(const ACustomEdit: TCustomEdit
+  ): integer;
+var
+  txt: TCocoaTextView;
+begin
+  txt := MemoTextView(ACustomEdit);
+  if not Assigned(txt) then Exit;
+  Result := txt.selectedRange.location;
+end;
+
+class function TCocoaWSCustomMemo.GetSelLength(const ACustomEdit: TCustomEdit
+  ): integer;
+var
+  txt: TCocoaTextView;
+  ns: NSArray;
+begin
+  txt := MemoTextView(ACustomEdit);
+  if not Assigned(txt) then Exit;
+  Result := txt.selectedRange.length;
 end;
 
 class procedure TCocoaWSCustomMemo.AppendText(const ACustomMemo: TCustomMemo;
@@ -794,8 +879,8 @@ begin
   else
   begin
     cmb := NSView(TCocoaComboBox.alloc).lclInitWithCreateParams(AParams);
-    if not Assigned(rocmb) then Exit;
-    cmb.callback:=TLCLComboboxCallback.Create(cmb, nil);
+    if not Assigned(cmb) then Exit;
+    cmb.callback:=TLCLComboboxCallback.Create(cmb, AWinControl);
     cmb.list:=TCocoaComboBoxList.Create(cmb, nil);
     cmb.setUsesDataSource(true);
     cmb.setDataSource(cmb);
@@ -881,6 +966,15 @@ begin
     Exit // ToDo
   else
     TCocoaComboBox(ACustomComboBox.Handle).setItemHeight(AItemHeight);
+end;
+
+class procedure TCocoaWSCustomComboBox.GetPreferredSize(
+  const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
+  WithThemeSpace: Boolean);
+begin
+  // do not override PreferredWidth and Height
+  // see todo at TCocoaWSWinControl.GetPreferredSize
+  // once it's resolved, TCocoaWSCustomComboBox.GetPreferredSize could be removed
 end;
 
 { TCocoaWSToggleBox }

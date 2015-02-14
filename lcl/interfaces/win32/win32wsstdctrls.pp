@@ -31,8 +31,8 @@ uses
   Classes, SysUtils, CommCtrl,
   StdCtrls, Controls, Graphics, Forms, Themes,
 ////////////////////////////////////////////////////
-  WSControls, WSStdCtrls, WSLCLClasses, WSProc, Windows, LCLType, LCLProc,
-  InterfaceBase, LMessages, LCLMessageGlue,
+  WSControls, WSStdCtrls, WSLCLClasses, WSProc, Windows, LCLType,
+  LazUTF8, LazUtf8Classes, InterfaceBase, LMessages, LCLMessageGlue,
   Win32Int, Win32Proc, Win32WSControls, Win32Extra, Win32Themes;
 
 type
@@ -265,6 +265,7 @@ type
     class procedure SetBiDiMode(const AWinControl: TWinControl; UseRightToLeftAlign,
       UseRightToLeftReading, UseRightToLeftScrollBar : Boolean); override;
     class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
+    class procedure SetAlignment(const ACustomCheckBox: TCustomCheckBox; const NewAlignment: TLeftRight); override;
   end;
 
   { TWin32WSCheckBox }
@@ -1757,6 +1758,12 @@ begin
   end;
   //Pass SKIP_LMCHANGE through lParam to avoid the OnChange event be fired
   Windows.SendMessage(ACustomCheckBox.Handle, BM_SETCHECK, Flags, SKIP_LMCHANGE);
+end;
+
+class procedure TWin32WSCustomCheckBox.SetAlignment(
+  const ACustomCheckBox: TCustomCheckBox; const NewAlignment: TLeftRight);
+begin
+  RecreateWnd(ACustomCheckBox);
 end;
 
 { TWin32WSToggleBox }

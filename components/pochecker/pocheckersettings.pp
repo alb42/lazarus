@@ -23,6 +23,8 @@ type
     FExternalEditorName: String;
     FFilename: String;
     FGraphFormWindowState: TWindowState;
+    FLangFilterLanguageAbbr: String;
+    FLangPath: String;
     FMainFormWindowState: TWindowState;
     FOpenDialogFilename: String;
     FResultsFormWindowState: TWindowState;
@@ -31,19 +33,19 @@ type
     FTestOptions: TPoTestOptions;
     FMasterPoList: TStringList;
     FMasterPoSelList: TStringList;
-    FLastSelectedFile: String;
     FMainFormGeometry: TRect;
     FGraphFormGeometry: TRect;
     FResultsFormGeometry: TRect;
     function GetMasterPoList: TStrings;
     function GetMasterPoSelList: TStrings;
-    function LoadLastSelectedFile: String;
     function LoadTestTypes: TPoTestTypes;
     function LoadTestOptions: TPoTestOptions;
     procedure LoadWindowsGeometry;
     function LoadExternalEditorName: String;
     function LoadSelectDirectoryFilename: String;
     function LoadOpenDialogFilename: String;
+    function LoadLangFilterLanguageAbbr: String;
+    function LoadLangPath: String;
     procedure LoadMasterPoList(List: TStrings);
     procedure LoadMasterPoSelList(List: TStrings);
     procedure SaveTestTypes;
@@ -52,8 +54,11 @@ type
     procedure SaveExternalEditorName;
     procedure SaveSelectDirectoryFilename;
     procedure SaveOpenDialogFilename;
+    procedure SaveLangFilterLanguageAbbr;
+    procedure SaveLangPath;
     procedure SaveMasterPoList;
     procedure SaveMasterPoSelList;
+    procedure RemoveUnwantedPaths;
     procedure SetMasterPoList(AValue: TStrings);
     procedure SetMasterPoSelList(AValue: TStrings);
     procedure ResetAllProperties;
@@ -78,6 +83,8 @@ type
     property MainFormWindowState: TWindowState read FMainFormWindowState write FMainFormWindowState;
     property ResultsFormWindowState: TWindowState read FResultsFormWindowState write FResultsFormWindowState;
     property GraphFormWindowState: TWindowState read FGraphFormWindowState write FGraphFormWindowState;
+    property LangFilterLanguageAbbr: String read FLangFilterLanguageAbbr write FLangFilterLanguageAbbr;
+    property LangPath: String read FLangPath write FLangPath;
   end;
 
 function DbgS(PoTestTypes: TPoTestTypes): String; overload;
@@ -85,7 +92,10 @@ function DbgS(PoTestOpts: TPoTestOptions): String; overload;
 function FitToRect(const ARect, FitIn: TRect): TRect;
 function IsDefaultRect(ARect: TRect): Boolean;
 function IsValidRect(ARect: TRect): Boolean;
-
+{$ifdef pocheckerstandalone}
+function GetGlobalConfigPath: String;
+function GetLocalConfigPath: String;
+{$endif}
 
 implementation
 
@@ -147,17 +157,16 @@ const
     'IgnoreFuzzyStrings'
     );
 
-  pLoadSettings = 'General/LoadSettings/';
-  pLastSelected = 'LastSelected/';
   pSelectDirectoryFilename = 'SelectDirectoryFilename/';
   pOpenDialogFilename = 'OpenDialogFilename/';
+  pLangFilter = 'LanguageFilter/';
+  pLangPath = 'LanguageFiles/';
   pTestTypes = 'TestTypes/';
   pTestOptions = 'TestOptions/';
   pWindowsGeometry = 'General/WindowsGeometry/';
   pExternalEditor = 'ExternalEditor/';
   pMasterPoFiles = 'MasterPoFiles/';
   pMasterPoSelection = 'MasterPoSelection/';
-  pChildPoFiles = 'ChildPoFiles/';
 
 var
   DefaultRect: TRect;
@@ -202,7 +211,22 @@ begin
   Result := '';
 end;
 
-function GetAndCreateConfigPath: String;
+function GetGlobalConfigPath: String;
+var
+  OldOnGetApplicationName: TGetAppNameEvent;
+  OldOnGetVendorName: TGetVendorNameEvent;
+begin
+  Result := '';
+  OldOnGetApplicationName := OnGetApplicationName;
+  OldOnGetVendorName := OnGetVendorName;
+  OnGetApplicationName := @AppName;
+  OnGetVendorName := @Vendor;
+  Result := GetAppConfigDirUtf8(True);
+  OnGetApplicationName := OldOnGetApplicationName;
+  OnGetVendorName := OldOnGetVendorName;
+end;
+
+function GetLocalConfigPath: String;
 var
   OldOnGetApplicationName: TGetAppNameEvent;
   OldOnGetVendorName: TGetVendorNameEvent;
@@ -218,21 +242,21 @@ begin
     OldOnGetVendorName := OnGetVendorName;
     OnGetApplicationName := @AppName;
     OnGetVendorName := @Vendor;
+    Result := GetAppConfigDirUtf8(False);
     OnGetApplicationName := OldOnGetApplicationName;
     OnGetVendorName := OldOnGetVendorName;
-    Result := GetAppConfigDirUtf8(False);
   end;
+end;
+
+function GetAndCreateConfigPath: String;
+begin
+  Result := GetLocalConfigPath;
   if not ForceDirectoriesUTF8(Result) then
     Debugln('GetAndCreateConfigPath: unable to create "',Result,'"');
 end;
 
 {$endif}
 
-
-function TPoCheckerSettings.LoadLastSelectedFile: String;
-begin
-  Result := FConfig.GetValue(pLastSelected+'Value','');
-end;
 
 function TPoCheckerSettings.GetMasterPoList: TStrings;
 begin
@@ -315,6 +339,48 @@ begin
   Result := FConfig.GetValue(pOpenDialogFilename+'Value','');
 end;
 
+function TPoCheckerSettings.LoadLangFilterLanguageAbbr: String;
+begin
+  Result := FConfig.GetValue(pLangFilter + 'Value', '');
+end;
+
+function TPoCheckerSettings.LoadLangPath: String;
+var
+  SL: TStringList;
+  i: Integer;
+  S: String;
+begin
+  {$IFDEF POCHECKERSTANDALONE}
+  //allow override on commandline
+  if Application.HasOption('langpath') then
+  begin
+    Result := '';
+    SL := TStringList.Create;
+    try
+      SL.Delimiter := PathSeparator;
+      SL.StrictDelimiter := True;
+      SL.DelimitedText := Application.GetOptionValue('langpath');
+      for i := 0 to SL.Count - 1 do
+      begin
+        S := SL.Strings[i];
+        if (S <> '') then
+        begin
+          Result := Result + ExpandFileNameUtf8(S) + PathSeparator;
+        end;
+      end;
+      if (Result <> '') and (Result[Length(Result)] = PathSeparator) then
+        System.Delete(Result, Length(Result), 1);
+    finally
+      SL.Free;
+    end;
+  end
+  else
+    Result := FConfig.GetValue(pLangPath+'Value','');
+  {$ELSE}
+  Result := '';
+  {$eNDIF}
+end;
+
 
 procedure TPoCheckerSettings.LoadMasterPoList(List: TStrings);
 var
@@ -345,6 +411,7 @@ begin
     if (Fn <> '') then List.Add(Fn);
   end;
 end;
+
 
 
 procedure TPoCheckerSettings.SaveTestTypes;
@@ -421,6 +488,28 @@ begin
 end;
 
 
+procedure TPoCheckerSettings.SaveLangFilterLanguageAbbr;
+begin
+  FConfig.SetDeleteValue(pLangFilter + 'Value', FLangFilterLanguageAbbr, '');
+end;
+
+procedure TPoCheckerSettings.SaveLangPath;
+begin
+  FConfig.SetDeleteValue(pLangPath + 'Value', FLangPath, '');
+end;
+
+procedure TPoCheckerSettings.RemoveUnwantedPaths;
+const
+  pLoadSettings = 'General/LoadSettings/';
+  pChildPoFiles = 'ChildPoFiles/';
+  pLastSelected = 'LastSelected/';
+begin
+  FConfig.DeletePath(pLoadSettings);
+  FConfig.DeletePath(pChildPoFiles);
+  FConfig.DeletePath(pLastSelected);
+end;
+
+
 procedure TPoCheckerSettings.SetMasterPoList(AValue: TStrings);
 begin
   FMasterPoList.Assign(AValue);
@@ -430,6 +519,7 @@ procedure TPoCheckerSettings.SetMasterPoSelList(AValue: TStrings);
 begin
   FMasterPoSelList.Assign(AValue);
 end;
+
 
 
 procedure TPoCheckerSettings.ResetAllProperties;
@@ -445,7 +535,7 @@ begin
   FExternalEditorName := '';
   FOpenDialogFilename := '';
   FSelectDirectoryFilename := '';
-  FLastSelectedFile := '';
+  FLangFilterLanguageAbbr := '';
   if Assigned(FMasterPoList) then FMasterPoList.Free;
   if Assigned(FMasterPoSelList) then FMasterPoSelList.Free;
   FMasterPoList := TStringList.Create;
@@ -494,10 +584,11 @@ begin
   try
     FTestTypes := LoadTestTypes;
     FTestOptions := LoadTestOptions;
-    FLastSelectedFile := LoadLastSelectedFile;
     FSelectDirectoryFilename := LoadSelectDirectoryFilename;
     FOpenDialogFilename := LoadOpenDialogFilename;
     FExternalEditorName := LoadExternalEditorName;
+    FLangFilterLanguageAbbr := LoadLangFilterLanguageAbbr;
+    FLangPath := LoadLangPath;
     LoadWindowsGeometry;
     LoadMasterPoList(FMasterPoList);
     LoadMasterPoSelList(FMasterPoSelList);
@@ -511,19 +602,22 @@ procedure TPoCheckerSettings.SaveConfig;
 begin
   try
     FConfig.SetDeleteValue('Version','1.0','');
+    RemoveUnwantedPaths;
     //the next line can be reomoved after some time
-    FConfig.DeletePath(pLoadSettings);
+
 
     SaveTestTypes;
     SaveTestOptions;
     SaveExternalEditorName;
     SaveSelectDirectoryFilename;
     SaveOpenDialogFilename;
+    SaveLangFilterLanguageAbbr;
+    SaveLangPath;
     SaveWindowsGeometry;
     SaveMasterPoList;
     SaveMasterPoSelList;
     //not used anymore, clear it. Remove this line after a while
-    FConfig.DeletePath(pChildPoFiles);
+
 
     FConfig.WriteToDisk;
   except

@@ -40,11 +40,13 @@ interface
 
 uses
   Classes, SysUtils, Laz2_XMLCfg, FileProcs, CodeToolManager, CodeToolsStructs,
-  LCLProc, FileUtil, AvgLvlTree, lazutf8classes, LazFileUtils, MacroIntf,
-  PackageIntf, IDEProcs, EnvironmentOpts, PackageDefs, LazConf;
+  LCLProc, Forms, FileUtil, AvgLvlTree, lazutf8classes, LazFileUtils, MacroIntf,
+  PackageIntf, IDEProcs, EnvironmentOpts, PackageDefs, LazConf, IDECmdLine;
   
 const
-  PkgLinksFileVersion = 2;
+  PkgLinksFileVersion = 3;
+  { 3: changed "LastUsed" from day to seconds, so that last used lpk is loaded
+       after IDE restart }
 
 type
 
@@ -132,6 +134,7 @@ type
     FDependencyOwnerGetPkgFilename: TDependencyOwnerGetPkgFilename;
     FGlobalLinks: TAvgLvlTree; // tree of global TPackageLink sorted for ID
     FChangeStamp: integer;
+    FQueueSaveUserLinks: boolean;
     FSavedChangeStamp: integer;
     FUserLinksSortID: TAvgLvlTree; // tree of user TPackageLink sorted for ID
     FUserLinksSortFile: TAvgLvlTree; // tree of user TPackageLink sorted for
@@ -150,6 +153,8 @@ type
     procedure IteratePackagesInTree(MustExist: boolean; LinkTree: TAvgLvlTree;
       Event: TIteratePackagesEvent);
     procedure SetModified(const AValue: boolean);
+    procedure SetQueueSaveUserLinks(AValue: boolean);
+    procedure OnAsyncSaveUserLinks(Data: PtrInt);
   public
     UserLinkLoadTime: longint;
     UserLinkLoadTimeValid: boolean;
@@ -166,7 +171,7 @@ type
     procedure BeginUpdate;
     procedure EndUpdate;
     function IsUpdating: boolean;
-    procedure SaveUserLinks;
+    procedure SaveUserLinks(Immediately: boolean = false);
     function NeedSaveUserLinks(const ConfigFilename: string): boolean;
     procedure WriteLinkTree(LinkTree: TAvgLvlTree);
     function FindLinkWithPkgName(const PkgName: string;
@@ -189,6 +194,7 @@ type
     property DependencyOwnerGetPkgFilename: TDependencyOwnerGetPkgFilename
                                            read FDependencyOwnerGetPkgFilename
                                            write FDependencyOwnerGetPkgFilename;
+    property QueueSaveUserLinks: boolean read FQueueSaveUserLinks write SetQueueSaveUserLinks;
   end;
   
 var
@@ -238,13 +244,19 @@ begin
   end;
 end;
 
+function CompareLinksForFilename(Data1, Data2: Pointer): integer;
+var
+  Link1: TPackageLink absolute Data1;
+  Link2: TPackageLink absolute Data2;
+begin
+  Result:=CompareFilenames(Link1.LPKFilename,Link2.LPKFilename);
+end;
+
 function CompareLinksForFilenameAndFileAge(Data1, Data2: Pointer): integer;
 var
-  Link1: TPackageLink;
-  Link2: TPackageLink;
+  Link1: TPackageLink absolute Data1;
+  Link2: TPackageLink absolute Data2;
 begin
-  Link1:=TPackageLink(Data1);
-  Link2:=TPackageLink(Data2);
   // first compare filenames
   Result:=CompareFilenames(Link1.LPKFilename,Link2.LPKFilename);
   if Result<>0 then exit;
@@ -323,6 +335,11 @@ end;
 
 { TPackageLinks }
 
+procedure TPackageLinks.OnAsyncSaveUserLinks(Data: PtrInt);
+begin
+  SaveUserLinks(true);
+end;
+
 function TPackageLinks.FindLeftMostNode(LinkTree: TAvgLvlTree;
   const PkgName: string): TAvgLvlTreeNode;
 // find left most link with PkgName
@@ -345,14 +362,15 @@ end;
 destructor TPackageLinks.Destroy;
 begin
   Clear;
-  FGlobalLinks.Free;
-  FUserLinksSortID.Free;
-  FUserLinksSortFile.Free;
+  FreeAndNil(FGlobalLinks);
+  FreeAndNil(FUserLinksSortID);
+  FreeAndNil(FUserLinksSortFile);
   inherited Destroy;
 end;
 
 procedure TPackageLinks.Clear;
 begin
+  QueueSaveUserLinks:=false;
   ClearGlobalLinks;
   FUserLinksSortID.FreeAndClear;
   FUserLinksSortFile.Clear;
@@ -549,6 +567,9 @@ var
   NewPkgLink: TPackageLink;
   ItemPath: String;
   FileVersion: LongInt;
+  LastUsedFormat: String;
+  OtherNode: TAvgLvlTreeNode;
+  OtherLink: TPackageLink;
 begin
   if fUpdateLock>0 then begin
     Include(FStates,plsUserLinksNeedUpdate);
@@ -576,6 +597,10 @@ begin
     Path:='UserPkgLinks/';
     FileVersion:=XMLConfig.GetValue(Path+'Version',0);
     LinkCount:=XMLConfig.GetValue(Path+'Count',0);
+    if FileVersion<3 then
+      LastUsedFormat:=DateAsCfgStrFormat
+    else
+      LastUsedFormat:=DateTimeAsCfgStrFormat;
     for i:=1 to LinkCount do begin
       ItemPath:=Path+'Item'+IntToStr(i)+'/';
       NewPkgLink:=TPackageLink.Create;
@@ -607,15 +632,37 @@ begin
       NewPkgLink.NotFoundCount:=
                            XMLConfig.GetValue(ItemPath+'NotFoundCount/Value',0);
       if not CfgStrToDate(XMLConfig.GetValue(ItemPath+'LastUsed/Value',''),
-                            NewPkgLink.FLastUsed)
+                            NewPkgLink.FLastUsed,LastUsedFormat)
       then
         NewPkgLink.FLastUsed := 0;
 
-      if NewPkgLink.MakeSense then begin
-        FUserLinksSortID.Add(NewPkgLink);
-        FUserLinksSortFile.Add(NewPkgLink);
-      end else
+      if not NewPkgLink.MakeSense then begin
+        debugln(['Warning: TPackageLinks.UpdateUserLinks invalid link: ',NewPkgLink.IDAsString]);
         NewPkgLink.Release;
+        continue;
+      end;
+      OtherNode:=FUserLinksSortFile.FindKey(NewPkgLink,@CompareLinksForFilename);
+      if OtherNode<>nil then begin
+        // a link to the same file
+        OtherLink:=TPackageLink(OtherNode.Data);
+        if ConsoleVerbosity>0 then
+          debugln(['Warning: TPackageLinks.UpdateUserLinks two links for file: ',NewPkgLink.LPKFilename,' A=',OtherLink.IDAsString,' B=',NewPkgLink.IDAsString]);
+        if OtherLink.LastUsed<NewPkgLink.LastUsed then begin
+          if ConsoleVerbosity>0 then
+            debugln(['Warning: TPackageLinks.UpdateUserLinks ignoring older link ',OtherLink.IDAsString]);
+          FUserLinksSortID.RemovePointer(OtherLink);
+          FUserLinksSortFile.Delete(OtherNode);
+          OtherLink.Release;
+        end else begin
+          if ConsoleVerbosity>0 then
+            debugln(['Warning: TPackageLinks.UpdateUserLinks ignoring older link ',NewPkgLink.IDAsString]);
+          NewPkgLink.Release;
+          continue;
+        end;
+      end;
+
+      FUserLinksSortID.Add(NewPkgLink);
+      FUserLinksSortFile.Add(NewPkgLink);
     end;
     XMLConfig.Modified:=false;
     XMLConfig.Free;
@@ -686,7 +733,7 @@ begin
   Result:=fUpdateLock>0;
 end;
 
-procedure TPackageLinks.SaveUserLinks;
+procedure TPackageLinks.SaveUserLinks(Immediately: boolean);
 var
   ConfigFilename: String;
   Path: String;
@@ -698,11 +745,21 @@ var
   LazSrcDir: String;
   AFilename: String;
 begin
+  //debugln(['TPackageLinks.SaveUserLinks ']);
+  if (FUserLinksSortFile=nil) or (FUserLinksSortFile.Count=0) then exit;
   ConfigFilename:=GetUserLinkFile;
   
   // check if file needs saving
   if not NeedSaveUserLinks(ConfigFilename) then exit;
-  //DebugLn(['TPackageLinks.SaveUserLinks saving ... ',ConfigFilename,' Modified=',Modified,' UserLinkLoadTimeValid=',UserLinkLoadTimeValid,' ',FileAgeUTF8(ConfigFilename)=UserLinkLoadTime]);
+  if ConsoleVerbosity>1 then
+    DebugLn(['TPackageLinks.SaveUserLinks saving ... ',ConfigFilename,' Modified=',Modified,' UserLinkLoadTimeValid=',UserLinkLoadTimeValid,' ',FileAgeUTF8(ConfigFilename)=UserLinkLoadTime,' Immediately=',Immediately]);
+
+  if Immediately then begin
+    QueueSaveUserLinks:=false;
+  end else begin
+    QueueSaveUserLinks:=true;
+    exit;
+  end;
 
   LazSrcDir:=EnvironmentOptions.GetParsedLazarusDirectory;
 
@@ -738,7 +795,7 @@ begin
       XMLConfig.SetDeleteValue(ItemPath+'NotFoundCount/Value',
                                CurPkgLink.NotFoundCount,0);
       XMLConfig.SetDeleteValue(ItemPath+'LastUsed/Value',
-                               DateToCfgStr(CurPkgLink.LastUsed),'');
+                               DateToCfgStr(CurPkgLink.LastUsed,DateTimeAsCfgStrFormat),'');
 
       ANode:=FUserLinksSortID.FindSuccessor(ANode);
     end;
@@ -801,7 +858,8 @@ begin
       else begin
         // there are two packages fitting
         if ((Link.LastUsed>Result.LastUsed)
-            or (Link.Version.Compare(Result.Version)>0))
+            or ((Abs(Link.LastUsed-Result.LastUsed)<1/86400)
+                and (Link.Version.Compare(Result.Version)>0)))
         and FileExistsCached(Link.GetEffectiveFilename) then
           Result:=Link; // this one is better
       end;
@@ -819,26 +877,51 @@ function TPackageLinks.FindLinkWithDependencyInTree(LinkTree: TAvgLvlTree;
 var
   Link: TPackageLink;
   CurNode: TAvgLvlTreeNode;
+  {$IFDEF VerbosePkgLinkSameName}
+  Node1: TAvgLvlTreeNode;
+  {$ENDIF}
 begin
   Result:=nil;
   if (Dependency=nil) or (not Dependency.MakeSense) then begin
     DebugLn(['TPackageLinks.FindLinkWithDependencyInTree Dependency makes no sense']);
     exit;
   end;
+  if CompareText(Dependency.PackageName,'tstver')=0 then
+    debugln(['TPackageLinks.FindLinkWithDependencyInTree AAA1 ',Dependency.AsString(true)]);
   // if there are several fitting the description, use the last used
   // and highest version
   CurNode:=FindLeftMostNode(LinkTree,Dependency.PackageName);
+  {$IFDEF VerbosePkgLinkSameName}
+  if CompareText(Dependency.PackageName,'tstver')=0 then begin
+    Node1:=CurNode.Precessor;
+    if Node1<>nil then
+      debugln(['TPackageLinks.FindLinkWithDependencyInTree Precessor=',TPackageLink(Node1.Data).IDAsString]);
+    Node1:=CurNode.Successor;
+    if Node1<>nil then
+      debugln(['TPackageLinks.FindLinkWithDependencyInTree Successor=',TPackageLink(Node1.Data).IDAsString]);
+  end;
+  {$ENDIF}
+
   while CurNode<>nil do begin
     Link:=TPackageLink(CurNode.Data);
+    {$IFDEF VerbosePkgLinkSameName}
+    if CompareText(Dependency.PackageName,'tstver')=0 then
+      debugln(['TPackageLinks.FindLinkWithDependencyInTree Link=',Link.IDAsString]);
+    {$ENDIF}
     if Dependency.IsCompatible(Link.Version)
     and ((IgnoreFiles=nil) or (not IgnoreFiles.Contains(Link.GetEffectiveFilename)))
     then begin
       if Result=nil then
         Result:=Link
       else begin
+        {$IFDEF VerbosePkgLinkSameName}
+        if CompareText(Dependency.PackageName,'tstver')=0 then
+          debugln(['TPackageLinks.FindLinkWithDependencyInTree Link=',Link.IDAsString,' LastUsed=',DateTimeToStr(Link.LastUsed),' Result=',Result.IDAsString,' LastUsed=',DateTimeToStr(Result.LastUsed)]);
+        {$ENDIF}
         // there are two packages fitting
         if ((Link.LastUsed>Result.LastUsed)
-            or (Link.Version.Compare(Result.Version)>0))
+            or ((Abs(Link.LastUsed-Result.LastUsed)<1/86400)
+                and (Link.Version.Compare(Result.Version)>0)))
         and FileExistsCached(Link.GetEffectiveFilename) then
           Result:=Link; // this one is better
       end;
@@ -893,6 +976,17 @@ begin
     FSavedChangeStamp:=FChangeStamp
   else
     IncreaseChangeStamp;
+end;
+
+procedure TPackageLinks.SetQueueSaveUserLinks(AValue: boolean);
+begin
+  if FQueueSaveUserLinks=AValue then Exit;
+  FQueueSaveUserLinks:=AValue;
+  if Application=nil then exit;
+  if FQueueSaveUserLinks then
+    Application.QueueAsyncCall(@OnAsyncSaveUserLinks,0)
+  else
+    Application.RemoveAsyncCalls(Self);
 end;
 
 function TPackageLinks.FindLinkWithPkgName(const PkgName: string;
@@ -960,6 +1054,7 @@ begin
       and (OldLink.GetEffectiveFilename=APackage.Filename) then begin
         Result:=OldLink;
         Result.LastUsed:=Now;
+        IncreaseChangeStamp;
         exit;
       end;
       RemoveUserLinks(APackage);

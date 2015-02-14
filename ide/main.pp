@@ -482,7 +482,7 @@ type
     procedure OnSrcNoteBookCloseQuery(Sender: TObject; var CloseAction: TCloseAction);
 
     // ObjectInspector + PropertyEditorHook events
-    procedure CreateObjectInspector; override;
+    procedure CreateObjectInspector(aDisableAutoSize: boolean);
     procedure OIOnSelectPersistents(Sender: TObject);
     procedure OIOnShowOptions(Sender: TObject);
     procedure OIOnViewRestricted(Sender: TObject);
@@ -638,6 +638,7 @@ type
     FOIHelpProvider: TAbstractIDEHTMLProvider;
     FWaitForClose: Boolean;
     FFixingGlobalComponentLock: integer;
+    fLastCompPaletteForm: TCustomForm;
     OldCompilerFilename, OldLanguage: String;
     OIChangedTimer: TIdleTimer;
 
@@ -747,14 +748,13 @@ type
     procedure DoExecuteRemoteControl;
     function DoViewUnitsAndForms(OnlyForms: boolean): TModalResult;
     function DoSelectFrame: TComponentClass;
-    procedure DoViewUnitDependencies(Show: boolean);
-    procedure DoViewJumpHistory(Show: boolean);
     procedure DoViewUnitInfo;
-    procedure DoShowCodeExplorer(Show: boolean);
-    procedure DoShowCodeBrowser(Show: boolean);
-    procedure DoShowRestrictionBrowser(Show: boolean; const RestrictedName: String = '');
-    procedure DoShowComponentList(Show: boolean); override;
-    procedure DoShowInspector(Show: boolean);
+    procedure DoShowCodeExplorer(State: TIWGetFormState = iwgfShowOnTop);
+    procedure DoShowCodeBrowser(State: TIWGetFormState = iwgfShowOnTop);
+    procedure DoShowRestrictionBrowser(const RestrictedName: String = ''; State: TIWGetFormState = iwgfShowOnTop);
+    procedure DoShowComponentList(State: TIWGetFormState = iwgfShowOnTop); override;
+    procedure DoShowJumpHistory(State: TIWGetFormState = iwgfShowOnTop);
+    procedure DoShowInspector(State: TIWGetFormState = iwgfShowOnTop);
     procedure CreateIDEWindow(Sender: TObject; aFormName: string;
                           var AForm: TCustomForm; DoDisableAutoSizing: boolean);
     function CreateNewUniqueFilename(const Prefix, Ext: string;
@@ -773,7 +773,7 @@ type
                                Flags: TOpenFlags): TModalResult; override;
     function DoPublishProject(Flags: TSaveFlags;
                               ShowDialog: boolean): TModalResult; override;
-    procedure DoShowProjectInspector(Show: boolean); override;
+    procedure DoShowProjectInspector(State: TIWGetFormState = iwgfShowOnTop); override;
     function DoAddActiveUnitToProject: TModalResult;
     function DoRemoveFromProjectDialog: TModalResult;
     function DoWarnAmbiguousFiles: TModalResult;
@@ -781,7 +781,7 @@ type
     function DoBuildProject(const AReason: TCompileReason;
                             Flags: TProjectBuildFlags): TModalResult; override;
     function UpdateProjectPOFile(AProject: TProject): TModalResult;
-    function DoAbortBuild: TModalResult;
+    function DoAbortBuild(Interactive: boolean): TModalResult;
     procedure DoCompile;
     procedure DoQuickCompile;
     function DoInitProjectRun: TModalResult; override;
@@ -912,7 +912,7 @@ type
 
     // search results
     function DoJumpToSearchResult(FocusEditor: boolean): boolean;
-    procedure DoShowSearchResultsView(Show: boolean; BringToFront: boolean = False); override;
+    procedure DoShowSearchResultsView(State: TIWGetFormState = iwgfShowOnTop); override;
 
     // form editor and designer
     procedure DoBringToFrontFormOrUnit;
@@ -924,10 +924,10 @@ type
     function CreateDesignerForComponent(AnUnitInfo: TUnitInfo;
                                 AComponent: TComponent): TCustomForm; override;
     procedure InvalidateAllDesignerForms;
-    procedure UpdateIDEComponentPalette;
+    procedure UpdateIDEComponentPalette(IfFormChanged: boolean);
     procedure ShowDesignerForm(AForm: TCustomForm);
-    procedure DoViewAnchorEditor(Show: boolean);
-    procedure DoViewTabOrderEditor(Show: boolean);
+    procedure DoViewAnchorEditor(State: TIWGetFormState = iwgfShowOnTop);
+    procedure DoViewTabOrderEditor(State: TIWGetFormState = iwgfShowOnTop);
     procedure DoToggleViewComponentPalette;
     procedure DoToggleViewIDESpeedButtons;
 
@@ -1068,6 +1068,8 @@ begin
     AddHelp(['--help or -?             ', listhisHelpMessage]);
     AddHelp(['']);
     AddHelp(['-v or --version          ', lisShowVersionAndExit]);
+    AddHelp(['--quiet                  ', lisBeLessVerboseCanBeGivenMultipleTimes]);
+    AddHelp(['--verbose                ', lisBeMoreVerboseCanBeGivenMultipleTimes]);
     AddHelp(['']);
     AddHelp([ShowSetupDialogOptLong]);
     AddHelp([BreakString(space+lisShowSetupDialogForMostImportantSettings, 75, 22)]);
@@ -1132,7 +1134,7 @@ procedure TMainIDE.LoadGlobalOptions;
   var
     StartFile: String;
   begin
-    Result:=Format(lisIfYouWantToUseTwoDifferentLazarusVersionsYouMustSt,
+    Result:=SimpleFormat(lisIfYouWantToUseTwoDifferentLazarusVersionsYouMustSt,
                    [LineEnding+LineEnding]) + LineEnding;
     StartFile:=Application.ExeName;
     if StartedByStartLazarus then
@@ -1236,7 +1238,7 @@ begin
     debugln(['  CurPrgName="',CurPrgName,'"']);
     debugln(['  AltPrgName="',AltPrgName,'"']);
     MsgResult := IDEQuestionDialog(lisIncorrectConfigurationDirectoryFound,
-        Format(lisIDEConficurationFoundMayBelongToOtherLazarus,
+        SimpleFormat(lisIDEConficurationFoundMayBelongToOtherLazarus,
         [LineEnding, GetSecondConfDirWarning, GetPrimaryConfigPath,
          EnvironmentOptions.LastCalledByLazarusFullPath, CurPrgName]),
       mtWarning, [mrOK, lisUpdateInfo, mrIgnore, mrAbort]);
@@ -1265,9 +1267,9 @@ begin
   begin
     IsUpgrade:=CompareLazarusVersion(NowVer,OldVer)>0;
     if OldVer='' then
-      OldVer:=Format(lisPrior, [GetLazarusVersionString]);
-    s:=Format(lisWelcomeToLazarusThereIsAlreadyAConfigurationFromVe,
-      [GetLazarusVersionString, LineEnding+LineEnding, OldVer, LineEnding, GetPrimaryConfigPath] );
+      OldVer:=SimpleFormat(lisPrior, [GetLazarusVersionString]);
+    s:=SimpleFormat(lisWelcomeToLazarusThereIsAlreadyAConfigurationFromVe,
+      [GetLazarusVersionString, LineEnding+LineEnding, OldVer, LineEnding, GetPrimaryConfigPath+LineEnding] );
     if IsUpgrade then
       s+=lisTheOldConfigurationWillBeUpgraded
     else
@@ -1370,6 +1372,8 @@ begin
 
   // check debugger
   if (not ShowSetupDialog)
+  and ((EnvironmentOptions.DebuggerConfig.DebuggerClass='')
+      or (EnvironmentOptions.DebuggerConfig.DebuggerClass='TGDBMIDebugger'))
   and (CheckDebuggerQuality(EnvironmentOptions.GetParsedDebuggerFilename, Note)<>sddqCompatible)
   then begin
     debugln(['Warning: missing GDB exe',EnvironmentOptions.GetParsedLazarusDirectory]);
@@ -1547,6 +1551,7 @@ begin
   Application.AddOnEndSessionHandler(@OnApplicationEndSession);
   Screen.AddHandlerRemoveForm(@OnScreenRemoveForm);
   Screen.AddHandlerActiveFormChanged(@OnScreenChangedForm);
+  TComponentPalette(IDEComponentPalette).OnClassSelected := @ComponentPaletteClassSelected;
   SetupHints;
   SetupIDEWindowsLayout;
   RestoreIDEWindows;
@@ -1561,6 +1566,7 @@ begin
   DoShowMessagesView(false);           // reopen extra windows
   fUserInputSinceLastIdle:=true; // Idle work gets done initially before user action.
   FApplicationIsActivate:=true;
+  FIDEStarted:=true;
   {$IFDEF IDE_MEM_CHECK}CheckHeapWrtMemCnt('TMainIDE.StartIDE END');{$ENDIF}
 end;
 
@@ -1692,16 +1698,16 @@ begin
   if ObjectInspector1.GetActivePropertyRow = nil then
   begin
     if C <> nil then
-      DoShowRestrictionBrowser(true,C.ClassName)
+      DoShowRestrictionBrowser(C.ClassName)
     else
-      DoShowRestrictionBrowser(true);
+      DoShowRestrictionBrowser;
   end
   else
   begin
     if C <> nil then
-      DoShowRestrictionBrowser(true,C.ClassName + '.' + ObjectInspector1.GetActivePropertyRow.Name)
+      DoShowRestrictionBrowser(C.ClassName + '.' + ObjectInspector1.GetActivePropertyRow.Name)
     else
-      DoShowRestrictionBrowser(true);
+      DoShowRestrictionBrowser;
   end;
 end;
 
@@ -1969,9 +1975,11 @@ begin
   CanClose := False;
   SourceFileMgr.CheckingFilesOnDisk := True;
   try
+    if (ToolStatus = itExiting) then exit;
+
     // stop debugging/compiling/...
-    if (ToolStatus = itExiting)
-    or not DoResetToolStatus([rfInteractive, rfCloseOnDone]) then exit;
+    if DoAbortBuild(true)<>mrOk then exit;
+    if not DoResetToolStatus([rfInteractive, rfCloseOnDone]) then exit;
 
     // check foreign windows
     if not CloseQueryIDEWindows then exit;
@@ -2836,12 +2844,12 @@ end;
 
 procedure TMainIDE.mnuViewAnchorEditorClicked(Sender: TObject);
 begin
-  DoViewAnchorEditor(true);
+  DoViewAnchorEditor;
 end;
 
 procedure TMainIDE.mnuViewTabOrderClicked(Sender: TObject);
 begin
-  DoViewTabOrderEditor(true);
+  DoViewTabOrderEditor;
 end;
 
 procedure TMainIDE.mnuViewComponentPaletteClicked(Sender: TObject);
@@ -3283,7 +3291,7 @@ begin
   ecBuild:                    DoBuildProject(crBuild, [pbfCleanCompile]);
   ecCleanUpAndBuild:          mnuCleanUpAndBuildProjectClicked(nil);
   ecQuickCompile:             DoQuickCompile;
-  ecAbortBuild:               DoAbortBuild;
+  ecAbortBuild:               DoAbortBuild(false);
   ecBuildFile:                DoBuildFile(false);
   ecRunFile:                  DoRunFile;
   ecJumpToPrevError:          DoJumpToNextError(false);
@@ -3307,14 +3315,14 @@ begin
   ecExtractProc:              DoExtractProcFromSelection;
   // user used shortcut/menu item to show the window, so focusing is ok.
   ecToggleMessages:           DoShowMessagesView;
-  ecToggleCodeExpl:           DoShowCodeExplorer(true);
-  ecToggleCodeBrowser:        DoShowCodeBrowser(true);
-  ecToggleRestrictionBrowser: DoShowRestrictionBrowser(true);
-  ecViewComponents:           DoShowComponentList(true);
-  ecToggleFPDocEditor:        DoShowFPDocEditor(true,true);
+  ecToggleCodeExpl:           DoShowCodeExplorer;
+  ecToggleCodeBrowser:        DoShowCodeBrowser;
+  ecToggleRestrictionBrowser: DoShowRestrictionBrowser;
+  ecViewComponents:           DoShowComponentList;
+  ecToggleFPDocEditor:        DoShowFPDocEditor;
   ecViewProjectUnits:         DoViewUnitsAndForms(false);
   ecViewProjectForms:         DoViewUnitsAndForms(true);
-  ecProjectInspector:         DoShowProjectInspector(true);
+  ecProjectInspector:         DoShowProjectInspector;
   ecConfigCustomComps:        PkgBoss.ShowConfigureCustomComponents;
   ecExtToolFirst..ecExtToolLast: DoRunExternalTool(Command-ecExtToolFirst,false);
   ecSyntaxCheck:              DoCheckSyntax;
@@ -3409,7 +3417,8 @@ end;
 function TMainIDE.OnIDEQuestionDialog(const aCaption, aMsg: string;
   DlgType: TMsgDlgType; Buttons: array of const; const HelpKeyword: string): Integer;
 begin
-  Result:=QuestionDlg(aCaption,aMsg,DlgType,Buttons,HelpKeyword);
+  Result:=QuestionDlg{ !!! DO NOT REPLACE WITH IDEQuestionDialog }
+            (aCaption,aMsg,DlgType,Buttons,HelpKeyword);
 end;
 
 procedure TMainIDE.OnExecuteIDEShortCut(Sender: TObject; var Key: word;
@@ -3667,14 +3676,29 @@ begin
   end;
 end;
 
-procedure TMainIDE.UpdateIDEComponentPalette;
+procedure TMainIDE.UpdateIDEComponentPalette(IfFormChanged: boolean);
+var
+  OldLastCompPaletteForm: TCustomForm;
+  AResult: Boolean;
 begin
-  IDEComponentPalette.HideControls:=(LastFormActivated<>nil)
-    and (LastFormActivated.Designer<>nil)
+  // Package manager updates the palette initially.
+  if not FIDEStarted
+  or (IfFormChanged and (fLastCompPaletteForm=LastFormActivated)) then
+    exit;
+  OldLastCompPaletteForm:=fLastCompPaletteForm;
+  fLastCompPaletteForm:=LastFormActivated;
+  AResult:=(LastFormActivated<>nil) and (LastFormActivated.Designer<>nil)
     and (LastFormActivated.Designer.LookupRoot<>nil)
     and not (LastFormActivated.Designer.LookupRoot is TControl);
-  IDEComponentPalette.UpdateVisible;
-  TComponentPalette(IDEComponentPalette).OnClassSelected := @ComponentPaletteClassSelected;
+  IDEComponentPalette.HideControls:=AResult;
+  // Don't update palette at the first time if not hiding controls.
+  if (OldLastCompPaletteForm = Nil) and not IDEComponentPalette.HideControls then
+    exit;
+  {$IFDEF VerboseComponentPalette}
+  DebugLn(['* TMainIDE.UpdateIDEComponentPalette: Updating palette *',
+           ', HideControls=', IDEComponentPalette.HideControls]);
+  {$ENDIF}
+  IDEComponentPalette.Update(False);
   SetupHints;
 end;
 
@@ -3700,20 +3724,26 @@ begin
   LCLIntf.ShowWindow(AForm.Handle,SW_SHOWNORMAL);
 end;
 
-procedure TMainIDE.DoViewAnchorEditor(Show: boolean);
+procedure TMainIDE.DoViewAnchorEditor(State: TIWGetFormState);
 begin
   if AnchorDesigner=nil then
-    AnchorDesigner:=TAnchorDesigner.Create(OwningComponent);
-  if Show then
-    IDEWindowCreators.ShowForm(AnchorDesigner,true);
+    IDEWindowCreators.CreateForm(AnchorDesigner,TAnchorDesigner,
+       State=iwgfDisabled,LazarusIDE.OwningComponent)
+  else if State=iwgfDisabled then
+    AnchorDesigner.DisableAlign;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(AnchorDesigner,State=iwgfShowOnTop);
 end;
 
-procedure TMainIDE.DoViewTabOrderEditor(Show: boolean);
+procedure TMainIDE.DoViewTabOrderEditor(State: TIWGetFormState);
 begin
   if TabOrderDialog=nil then
-    TabOrderDialog:=TTabOrderDialog.Create(OwningComponent);
-  if Show then
-    IDEWindowCreators.ShowForm(TabOrderDialog,true);
+    IDEWindowCreators.CreateForm(TabOrderDialog,TTabOrderDialog,
+       State=iwgfDisabled,LazarusIDE.OwningComponent)
+  else if State=iwgfDisabled then
+    TabOrderDialog.DisableAlign;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(TabOrderDialog,State=iwgfShowOnTop);
 end;
 
 procedure TMainIDE.DoToggleViewComponentPalette;
@@ -4015,29 +4045,29 @@ Begin
   DoViewUnitsAndForms(true);
 end;
 
-procedure TMainIDE.mnuSourceUnitDependenciesClicked(Sender: TObject);
-begin
-  DoViewUnitDependencies(true);
-end;
-
 procedure TMainIDE.mnuSourceUnitInfoClicked(Sender: TObject);
 begin
   DoViewUnitInfo;
 end;
 
+procedure TMainIDE.mnuSourceUnitDependenciesClicked(Sender: TObject);
+begin
+  ShowUnitDependenciesClicked(Sender);
+end;
+
 procedure TMainIDE.mnuViewCodeExplorerClick(Sender: TObject);
 begin
-  DoShowCodeExplorer(true);
+  DoShowCodeExplorer;
 end;
 
 procedure TMainIDE.mnuViewCodeBrowserClick(Sender: TObject);
 begin
-  DoShowCodeBrowser(true);
+  DoShowCodeBrowser;
 end;
 
 procedure TMainIDE.mnuViewComponentsClick(Sender: TObject);
 begin
-  DoShowComponentList(true);
+  DoShowComponentList;
 end;
 
 procedure TMainIDE.mnuViewMacroListClick(Sender: TObject);
@@ -4047,7 +4077,7 @@ end;
 
 procedure TMainIDE.mnuViewRestrictionBrowserClick(Sender: TObject);
 begin
-  DoShowRestrictionBrowser(true);
+  DoShowRestrictionBrowser;
 end;
 
 procedure TMainIDE.mnuViewMessagesClick(Sender: TObject);
@@ -4058,8 +4088,7 @@ end;
 
 procedure TMainIDE.mnuViewSearchResultsClick(Sender: TObject);
 Begin
-  // show and bring to front
-  DoShowSearchResultsView(true, true);
+  DoShowSearchResultsView;
 End;
 
 procedure TMainIDE.mnuNewProjectClicked(Sender: TObject);
@@ -4137,7 +4166,7 @@ end;
 
 procedure TMainIDE.mnuProjectInspectorClicked(Sender: TObject);
 begin
-  DoShowProjectInspector(true);
+  DoShowProjectInspector;
 end;
 
 procedure TMainIDE.mnuAddToProjectClicked(Sender: TObject);
@@ -4293,7 +4322,7 @@ end;
 
 procedure TMainIDE.mnuAbortBuildProjectClicked(Sender: TObject);
 Begin
-  DoAbortBuild;
+  DoAbortBuild(false);
 end;
 
 procedure TMainIDE.mnuRunProjectClicked(Sender: TObject);
@@ -4431,7 +4460,7 @@ end;
 
 procedure TMainIDE.mnuViewFPDocEditorClicked(Sender: TObject);
 begin
-  DoShowFPDocEditor(true,true);
+  DoShowFPDocEditor;
 end;
 
 procedure TMainIDE.mnuToolConvertDFMtoLFMClicked(Sender: TObject);
@@ -4647,7 +4676,8 @@ begin
   if (Index<0)
   or (Index>=ExternalUserTools.Count)
   then exit;
-  IDEMessagesWindow.Clear;
+  if ExternalTools.RunningCount=0 then
+    IDEMessagesWindow.Clear;
   DoRunExternalTool(Index,false);
 end;
 
@@ -4703,6 +4733,7 @@ procedure TMainIDE.DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass;
 var
   IDEOptionsDialog: TIDEOptionsDialog;
   OptionsFilter: TIDEOptionsEditorFilter;
+  PaletteOpt: TCompPaletteOptionsFrame;
   i: Integer;
 begin
   IDEOptionsDialog := TIDEOptionsDialog.Create(nil);
@@ -4731,6 +4762,11 @@ begin
     IDEOptionsDialog.ReadAll;
     if IDEOptionsDialog.ShowModal = mrOk then begin
       IDEOptionsDialog.WriteAll(false);
+      // Update component palette only when needed.
+      PaletteOpt := TCompPaletteOptionsFrame(IDEOptionsDialog.FindEditor(TCompPaletteOptionsFrame));
+      if Assigned(PaletteOpt) and PaletteOpt.ConfigChanged then
+        IDEComponentPalette.Update(True);
+      // Update TaskBarBehavior immediately.
       if EnvironmentOptions.SingleTaskBarButton then
         Application.TaskBarBehavior := tbSingleButton
       else
@@ -5009,8 +5045,8 @@ begin
     if AProject.ProjResources.Modified and (AProject.MainUnitID >= 0) then
     begin
       if not AProject.ProjResources.Regenerate(AProject.MainFilename, True, False, '') then
-        IDEMessageDialog(lisCCOWarningCaption, AProject.ProjResources.Messages.
-          Text, mtWarning, [mbOk]);
+        IDEMessageDialog(lisCCOWarningCaption, AProject.ProjResources.Messages.Text,
+                         mtWarning, [mbOk]);
     end;
     UpdateCaption;
     AProject.DefineTemplates.AllChanged;
@@ -5032,12 +5068,11 @@ end;
 procedure TMainIDE.ComponentPaletteClassSelected(Sender: TObject);
 begin
   if (Screen.CustomFormZOrderCount > 1)
-  and Assigned(Screen.CustomFormsZOrdered[1].Designer) then begin
+  and Assigned(Screen.CustomFormsZOrdered[1].Designer) then
     // previous active form was designer form
-    ShowDesignerForm(Screen.CustomFormsZOrdered[1]);
-    Exit;
-  end;
-  DoShowDesignerFormOfCurrentSrc;
+    ShowDesignerForm(Screen.CustomFormsZOrdered[1])
+  else
+    DoShowDesignerFormOfCurrentSrc;
 end;
 
 procedure TMainIDE.SelComponentPageButtonClick(Sender: TObject);
@@ -5087,14 +5122,15 @@ end;
 
 procedure TMainIDE.mnuWindowManagerClicked(Sender: TObject);
 begin
-  ShowEditorFileManagerForm(true);
+  ShowEditorFileManagerForm;
 end;
 
 procedure TMainIDE.SaveEnvironment(Immediately: boolean);
 begin
   if not Immediately then
   begin
-    fNeedSaveEnvironment:=true;
+    if FIDEStarted then
+      fNeedSaveEnvironment:=true;
     exit;
   end;
   fNeedSaveEnvironment:=false;
@@ -5563,9 +5599,17 @@ var
 begin
   Result:=mrOk;
   CurResult:=DoCallModalFunctionHandler(lihtSavingAll);
-  if CurResult=mrAbort then exit(mrAbort);
+  if CurResult=mrAbort then begin
+    if ConsoleVerbosity>0 then
+      debugln(['TMainIDE.DoSaveAll DoCallModalFunctionHandler(lihtSavingAll) failed']);
+    exit(mrAbort);
+  end;
   if CurResult<>mrOk then Result:=mrCancel;
   CurResult:=DoSaveProject(Flags);
+  if CurResult<>mrOK then begin
+    if ConsoleVerbosity>0 then
+      debugln(['TMainIDE.DoSaveAll DoSaveProject failed']);
+  end;
   SaveEnvironment(true);
   SaveIncludeLinks;
   PkgBoss.SaveSettings;
@@ -5573,8 +5617,14 @@ begin
   if CurResult=mrAbort then exit(mrAbort);
   if CurResult<>mrOk then Result:=mrCancel;
   CurResult:=DoCallModalFunctionHandler(lihtSavedAll);
-  if CurResult=mrAbort then exit(mrAbort);
-  if CurResult<>mrOk then Result:=mrCancel;
+  if CurResult<>mrOK then begin
+    if ConsoleVerbosity>0 then
+      debugln(['TMainIDE.DoSaveAll DoCallModalFunctionHandler(lihtSavedAll) failed']);
+  end;
+  if CurResult=mrAbort then
+    Result:=mrAbort
+  else if CurResult<>mrOk then
+    Result:=mrCancel;
   UpdateSaveMenuItemsAndButtons(true);
 end;
 
@@ -5698,16 +5748,6 @@ begin
   Result := mrOk;
 end;
 
-procedure TMainIDE.DoViewUnitDependencies(Show: boolean);
-begin
-  ShowUnitDependencies(true,Show);
-end;
-
-procedure TMainIDE.DoViewJumpHistory(Show: boolean);
-begin
-  IDEWindowCreators.ShowForm(NonModalIDEWindowNames[nmiwJumpHistory],Show);
-end;
-
 procedure TMainIDE.DoViewUnitInfo;
 var ActiveSrcEdit:TSourceEditor;
   ActiveUnitInfo:TUnitInfo;
@@ -5787,57 +5827,75 @@ begin
     DoGotoIncludeDirective;
 end;
 
-procedure TMainIDE.DoShowCodeExplorer(Show: boolean);
+procedure TMainIDE.DoShowCodeExplorer(State: TIWGetFormState);
 begin
-  if CodeExplorerView=nil then 
+  if CodeExplorerView=nil then
   begin
-    CodeExplorerView:=TCodeExplorerView.Create(OwningComponent);
+    IDEWindowCreators.CreateForm(CodeExplorerView,TCodeExplorerView,
+       State=iwgfDisabled,OwningComponent);
     CodeExplorerView.OnGetDirectivesTree:=@OnCodeExplorerGetDirectivesTree;
     CodeExplorerView.OnJumpToCode:=@OnCodeExplorerJumpToCode;
     CodeExplorerView.OnShowOptions:=@OnCodeExplorerShowOptions;
-  end;
+  end else if State=iwgfDisabled then
+    CodeExplorerView.DisableAutoSizing;
 
-  if Show then
-  begin
-    IDEWindowCreators.ShowForm(CodeExplorerView,true);
+  if State>=iwgfShow then begin
+    IDEWindowCreators.ShowForm(CodeExplorerView,State=iwgfShowOnTop);
     CodeExplorerView.Refresh(true);
   end;
 end;
 
-procedure TMainIDE.DoShowCodeBrowser(Show: boolean);
+procedure TMainIDE.DoShowCodeBrowser(State: TIWGetFormState);
 begin
-  CreateCodeBrowser;
-  if Show then
-    IDEWindowCreators.ShowForm(CodeBrowserView,true);
+  CreateCodeBrowser(State=iwgfDisabled);
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(CodeBrowserView,State=iwgfShowOnTop);
 end;
 
-procedure TMainIDE.DoShowRestrictionBrowser(Show: boolean; const RestrictedName: String);
+procedure TMainIDE.DoShowRestrictionBrowser(const RestrictedName: String;
+  State: TIWGetFormState);
 begin
   if RestrictionBrowserView = nil then
-    RestrictionBrowserView := TRestrictionBrowserView.Create(OwningComponent);
+    IDEWindowCreators.CreateForm(RestrictionBrowserView,TRestrictionBrowserView,
+      State=iwgfDisabled,OwningComponent)
+  else if State=iwgfDisabled then
+    RestrictionBrowserView.DisableAutoSizing;
 
   RestrictionBrowserView.SetIssueName(RestrictedName);
-  if Show then
-    IDEWindowCreators.ShowForm(RestrictionBrowserView,true);
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(RestrictionBrowserView,State=iwgfShowOnTop);
 end;
 
-procedure TMainIDE.DoShowComponentList(Show: boolean);
+procedure TMainIDE.DoShowComponentList(State: TIWGetFormState);
 begin
   if ComponentListForm = nil then
   begin
-    ComponentListForm := TComponentListForm.Create(OwningComponent);
+    IDEWindowCreators.CreateForm(ComponentListForm,TComponentListForm,
+       State=iwgfDisabled,OwningComponent);
     ComponentListForm.Name:=NonModalIDEWindowNames[nmiwComponentList];
-  end;
-  if Show then
-    IDEWindowCreators.ShowForm(ComponentListForm,true);
-//    ComponentListForm.Show;
+  end else if State=iwgfDisabled then
+    ComponentListForm.DisableAutoSizing;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(ComponentListForm,State=iwgfShowOnTop);
 end;
 
-procedure TMainIDE.DoShowInspector(Show: boolean);
+procedure TMainIDE.DoShowJumpHistory(State: TIWGetFormState);
 begin
-  CreateObjectInspector;
-  if Show then begin
-    IDEWindowCreators.ShowForm(ObjectInspector1,true);
+  if JumpHistoryViewWin=nil then begin
+    IDEWindowCreators.CreateForm(JumpHistoryViewWin,TJumpHistoryViewWin,
+      State=iwgfDisabled,OwningComponent);
+    JumpHistoryViewWin.OnSelectionChanged := @JumpHistoryViewSelectionChanged;
+  end else if State=iwgfDisabled then
+    JumpHistoryViewWin.DisableAutoSizing;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(JumpHistoryViewWin,State=iwgfShowOnTop);
+end;
+
+procedure TMainIDE.DoShowInspector(State: TIWGetFormState);
+begin
+  CreateObjectInspector(State=iwgfDisabled);
+  if State>=iwgfShow then begin
+    IDEWindowCreators.ShowForm(ObjectInspector1,State=iwgfShowOnTop);
     if ObjectInspector1.IsVisible then
     begin
       ObjectInspector1.FocusGrid;
@@ -5860,82 +5918,81 @@ procedure TMainIDE.CreateIDEWindow(Sender: TObject; aFormName: string; var
     Result:=SysUtils.CompareText(copy(aFormName,1,length(Prefix)),Prefix)=0;
   end;
 
+var
+  State: TIWGetFormState;
 begin
+  if DoDisableAutoSizing then
+    State:=iwgfDisabled
+  else
+    State:=iwgfEnabled;
   if ItIs(NonModalIDEWindowNames[nmiwMessagesViewName]) then
     AForm:=MessagesView
   else if ItIs(NonModalIDEWindowNames[nmiwUnitDependenciesName]) then
   begin
-    DoViewUnitDependencies(false);
+    ShowUnitDependencies(State);
     AForm:=UnitDependenciesWindow;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwCodeExplorerName]) then
   begin
-    DoShowCodeExplorer(false);
+    DoShowCodeExplorer(State);
     AForm:=CodeExplorerView;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwFPDocEditorName]) then
   begin
-    DoShowFPDocEditor(false,false);
+    DoShowFPDocEditor(State);
     AForm:=FPDocEditor;
   end
   // ToDo: nmiwClipbrdHistoryName:
   else if ItIs(NonModalIDEWindowNames[nmiwProjectInspector]) then
   begin
-    DoShowProjectInspector(false);
+    DoShowProjectInspector(State);
     AForm:=ProjInspector;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwSearchResultsViewName]) then
   begin
-    DoShowSearchResultsView(false);
+    DoShowSearchResultsView(State);
     AForm:=SearchResultsView;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwAnchorEditor]) then
   begin
-    DoViewAnchorEditor(false);
+    DoViewAnchorEditor(State);
     AForm:=AnchorDesigner;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwTabOrderEditor]) then
   begin
-    DoViewTabOrderEditor(false);
+    DoViewTabOrderEditor(State);
     AForm:=TabOrderDialog;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwCodeBrowser]) then
   begin
-    DoShowCodeBrowser(false);
+    DoShowCodeBrowser(State);
     AForm:=CodeBrowserView;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwIssueBrowser]) then
   begin
-    DoShowRestrictionBrowser(false);
+    DoShowRestrictionBrowser('',State);
     AForm:=RestrictionBrowserView;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwJumpHistory]) then
   begin
-    IDEWindowCreators.CreateForm(JumpHistoryViewWin,TJumpHistoryViewWin,
-      DoDisableAutoSizing,OwningComponent);
-    with JumpHistoryViewWin do begin
-      OnSelectionChanged := @JumpHistoryViewSelectionChanged;
-    end;
+    DoShowJumpHistory(State);
     AForm:=JumpHistoryViewWin;
-    exit;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwComponentList]) then
   begin
-    DoShowComponentList(false);
+    DoShowComponentList(State);
     AForm:=ComponentListForm;
   end
   else if ItIs(NonModalIDEWindowNames[nmiwEditorFileManager]) then
   begin
-    ShowEditorFileManagerForm(false);
+    ShowEditorFileManagerForm(State);
     AForm:=EditorFileManagerForm;
   end
   else if ItIs(DefaultObjectInspectorName) then
   begin
-    DoShowInspector(false);
+    DoShowInspector(State);
     AForm:=ObjectInspector1;
   end;
-  if (AForm<>nil) and DoDisableAutoSizing then
-    AForm.DisableAutoSizing;
 end;
 
 function TMainIDE.CreateNewUniqueFilename(const Prefix, Ext: string;
@@ -6269,10 +6326,11 @@ begin
     Project1.ProjectDirectory, MainBuildBoss.GetProjectPublishDir);
 end;
 
-procedure TMainIDE.DoShowProjectInspector(Show: boolean);
+procedure TMainIDE.DoShowProjectInspector(State: TIWGetFormState);
 begin
   if ProjInspector=nil then begin
-    ProjInspector:=TProjectInspectorForm.Create(OwningComponent);
+    IDEWindowCreators.CreateForm(ProjInspector,TProjectInspectorForm,
+       State=iwgfDisabled,LazarusIDE.OwningComponent);
     ProjInspector.OnShowOptions:=@mnuProjectOptionsClicked;
     ProjInspector.OnAddUnitToProject:=@ProjInspectorAddUnitToProject;
     ProjInspector.OnAddDependency:=@PkgBoss.OnProjectInspectorAddDependency;
@@ -6284,9 +6342,11 @@ begin
     ProjInspector.OnCopyMoveFiles:=@PkgBoss.OnProjectInspectorCopyMoveFiles;
 
     ProjInspector.LazProject:=Project1;
-  end;
-  if Show then
-    IDEWindowCreators.ShowForm(ProjInspector,true);
+  end else if STate=iwgfDisabled then
+    ProjInspector.DisableAlign;
+
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(ProjInspector,State=iwgfShowOnTop);
 end;
 
 function TMainIDE.DoAddActiveUnitToProject: TModalResult;
@@ -6321,10 +6381,9 @@ begin
   if Project1=nil then exit(mrOk);
 
   Result:=mrCancel;
-  if not (ToolStatus in [itNone,itDebugger]) then begin
-    {$IFDEF VerboseSaveForBuild}
-    DebugLn('TMainIDE.DoSaveForBuild ToolStatus disallows it');
-    {$ENDIF}
+  if not (ToolStatus in [itNone,itDebugger,itBuilder]) then begin
+    if ConsoleVerbosity>0 then
+      DebugLn('TMainIDE.DoSaveForBuild ToolStatus forbids it: ',dbgs(ToolStatus));
     Result:=mrAbort;
     exit;
   end;
@@ -6334,10 +6393,6 @@ begin
   end;
 
   // save all files
-  {$IFDEF VerboseSaveForBuild}
-  DebugLn('TMainIDE.DoSaveForBuild Project1.IsVirtual=',dbgs(Project1.IsVirtual));
-  {$ENDIF}
-
   if not Project1.IsVirtual then
     Result:=DoSaveAll([sfCheckAmbiguousFiles])
   else
@@ -6345,13 +6400,18 @@ begin
   Project1.ProjResources.DoBeforeBuild(AReason, Project1.IsVirtual);
   Project1.UpdateExecutableType;
   if Result<>mrOk then begin
-    {$IFDEF VerboseSaveForBuild}
-    DebugLn('TMainIDE.DoSaveForBuild project saving failed');
-    {$ENDIF}
+    if ConsoleVerbosity>0 then
+      DebugLn('TMainIDE.DoSaveForBuild project saving failed');
     exit;
   end;
 
   Result:=PkgBoss.DoSaveAllPackages([]);
+  if Result<>mrOK then
+    if ConsoleVerbosity>0 then
+      debugln(['TMainIDE.DoSaveForBuild PkgBoss.DoSaveAllPackages failed']);
+
+  // get non IDE disk changes
+  InvalidateFileStateCache;
 end;
 
 function TMainIDE.DoSaveProjectToTestDirectory(Flags: TSaveFlags): TModalResult;
@@ -6409,6 +6469,7 @@ end;
 function TMainIDE.QuitIDE: boolean;
 begin
   Result:=true;
+
   if Project1=nil then
     EnvironmentOptions.LastSavedProjectFile:=RestoreProjectClosed;
   MainIDEBar.OnCloseQuery(Self, Result);
@@ -6469,6 +6530,11 @@ var
   IsComplete: Boolean;
   StartTime: TDateTime;
 begin
+  if DoAbortBuild(true)<>mrOK then begin
+    debugln(['TMainIDE.DoBuildProject DoAbortBuild failed']);
+    exit(mrCancel);
+  end;
+
   Result:=SourceFileMgr.PrepareForCompileWithMsg;
   if Result<>mrOk then begin
     debugln(['TMainIDE.DoBuildProject PrepareForCompile failed']);
@@ -6753,9 +6819,23 @@ begin
   Result:=mrOk;
 end;
 
-function TMainIDE.DoAbortBuild: TModalResult;
+function TMainIDE.DoAbortBuild(Interactive: boolean): TModalResult;
 begin
   Result:=mrOk;
+  if ExternalTools.RunningCount=0 then exit;
+  // IDE code is currently running a build process
+  // we cannot continue, while some IDE code is waiting for the processes
+  // => exit this event (no matter if the processes are stopped or not)
+  Result:=mrCancel;
+
+  if Interactive then
+  begin
+    if IDEQuestionDialog(lisBuilding, lisTheIDEIsStillBuilding,
+      mtConfirmation, [mrAbort, lisKMAbortBuilding, mrNo, lisContinueBuilding])
+      <> mrAbort
+    then
+      exit;
+  end;
   AbortBuild;
 end;
 
@@ -6779,6 +6859,7 @@ end;
 function TMainIDE.DoInitProjectRun: TModalResult;
 var
   ProgramFilename: string;
+  DebugClass: TDebuggerClass;
 begin
   if ToolStatus <> itNone
   then begin
@@ -6805,6 +6886,22 @@ begin
     Exit;
   end;
 
+  DebugClass:=DebugBoss.DebuggerClass;
+
+  // check if debugger supports compiler flags
+  if ((DebugClass <> nil)
+  and (not DebugClass.CanExternalDebugSymbolsFile))
+  and (Project1.CompilerOptions.UseExternalDbgSyms) then
+  begin
+    // this debugger does not support external debug symbols
+    if IDEQuestionDialog(lisDisableOptionXg, Format(
+      lisTheProjectWritesTheDebugSymbolsToAnExternalFileThe, [DebugClass.Caption
+      ]),
+      mtConfirmation, [mrYes, lisDisableOptionXg2, mrCancel])<>mrYes then
+        exit;
+    Project1.CompilerOptions.UseExternalDbgSyms:=false;
+  end;
+
   // Build project first
   debugln('TMainIDE.DoInitProjectRun Check build ...');
   if DoBuildProject(crRun,[pbfOnlyIfNeeded]) <> mrOk then
@@ -6813,7 +6910,7 @@ begin
   // Check project build
   ProgramFilename := MainBuildBoss.GetProjectTargetFilename(Project1);
   DebugLn(['TMainIDE.DoInitProjectRun ProgramFilename=',ProgramFilename]);
-  if ((DebugBoss.DebuggerClass = nil) or DebugBoss.DebuggerClass.RequiresLocalExecutable)
+  if ((DebugClass = nil) or DebugClass.RequiresLocalExecutable)
      and not FileExistsUTF8(ProgramFilename)
   then begin
     IDEMessageDialog(lisFileNotFound,
@@ -7084,6 +7181,7 @@ var
   CompiledUnitExt: String;
   FPCVersion, FPCRelease, FPCPatch: integer;
   PkgCompileFlags: TPkgCompileFlags;
+  OldToolStatus: TIDEToolStatus;
 begin
   if ToolStatus<>itNone then begin
     IDEMessageDialog(lisNotNow,lisYouCanNotBuildLazarusWhileDebuggingOrCompiling,
@@ -7091,6 +7189,8 @@ begin
     Result:=mrCancel;
     exit;
   end;
+
+  if DoAbortBuild(true)<>mrOK then exit;
 
   Result:=DoSaveAll([sfDoNotSaveVirtualFiles]);
   if Result<>mrOk then begin
@@ -7100,8 +7200,11 @@ begin
 
   if fBuilder=Nil then
     fBuilder:=TLazarusBuilder.Create;
-  IDEMessagesWindow.Clear;
+  if ExternalTools.RunningCount=0 then
+    IDEMessagesWindow.Clear;
   fBuilder.ProfileChanged:=false;
+  OldToolStatus:=ToolStatus;
+  ToolStatus:=itBuilder;
   with MiscellaneousOptions do
   try
     MainBuildBoss.SetBuildTargetIDE;
@@ -7123,9 +7226,9 @@ begin
     end;
 
     // compile auto install static packages
-    Result:=PkgBoss.DoCompileAutoInstallPackages(PkgCompileFlags,false);
+    Result:=PkgBoss.DoCompileAutoInstallPackages(PkgCompileFlags+[pcfDoNotSaveEditorFiles],false);
     if Result<>mrOk then begin
-      DebugLn('TMainIDE.DoBuildLazarus: Compile AutoInstall Packages failed.');
+      DebugLn('TMainIDE.DoBuildLazarusSub: Compile AutoInstall Packages failed.');
       exit;
     end;
 
@@ -7175,23 +7278,22 @@ begin
   finally
     MainBuildBoss.SetBuildTargetProject1(true);
     DoCheckFilesOnDisk;
+    ToolStatus:=OldToolStatus;
   end;
 end;
 
 function TMainIDE.DoBuildLazarus(Flags: TBuildLazarusFlags): TModalResult;
 begin
   Result:=DoBuildLazarusSub(Flags);
-  with MiscellaneousOptions do
-    if (Result=mrOK) then begin
+  if (Result=mrOK) then begin
+    with MiscellaneousOptions do begin
       if BuildLazProfiles.RestartAfterBuild
       and (BuildLazProfiles.Current.TargetDirectory='')
-      and MainBuildBoss.BuildTargetIDEIsDefault
-      then begin
+      and MainBuildBoss.BuildTargetIDEIsDefault then
         mnuRestartClicked(nil);
-      end
-    end
-    else if Result=mrIgnore then
-      Result:=mrOK;
+    end;
+  end else if Result=mrIgnore then
+    Result:=mrOK;
 end;
 
 function TMainIDE.DoBuildAdvancedLazarus(ProfileNames: TStringList): TModalResult;
@@ -7240,9 +7342,8 @@ begin
     finally
       BuildLazProfiles.CurrentIndex:=RealCurInd;
     end;
-    if MayNeedRestart and BuildLazProfiles.RestartAfterBuild then begin
+    if MayNeedRestart and BuildLazProfiles.RestartAfterBuild then
       mnuRestartClicked(nil);
-    end;
   end;
 end;
 
@@ -7258,6 +7359,7 @@ var
   Params: string;
   ExtTool: TIDEExternalToolOptions;
   Filename: String;
+  OldToolStatus: TIDEToolStatus;
 begin
   Result:=mrCancel;
   if ToolStatus<>itNone then exit;
@@ -7265,12 +7367,16 @@ begin
   if not BeginCodeTool(ActiveSrcEdit,ActiveUnitInfo,[]) then exit;
   Result:=DoSaveProject([]);
   if Result<>mrOk then exit;
+  if ExternalTools.RunningCount=0 then
+    IDEMessagesWindow.Clear;
   DirectiveList:=TStringList.Create;
+  OldToolStatus:=ToolStatus;
+  ToolStatus:=itBuilder;
   try
     Result:=GetIDEDirectives(ActiveUnitInfo,DirectiveList);
     if Result<>mrOk then exit;
 
-    // get values form directive list
+    // get values from directive list
     // build
     BuildWorkingDir:=GetIDEStringDirective(DirectiveList,
                                          IDEDirectiveNames[idedBuildWorkingDir],
@@ -7324,6 +7430,7 @@ begin
       ExtTool.Free;
     end;
   finally
+    ToolStatus:=OldToolStatus;
     DirectiveList.Free;
   end;
 end;
@@ -7630,7 +7737,7 @@ begin
   if MainBuildBoss.CompilerOnDiskChanged then
     MainBuildBoss.RescanCompilerDefines(false,false,false,false);
 
-  if IDEMessagesWindow<>nil then
+  if (IDEMessagesWindow<>nil) and (ExternalTools.RunningCount=0) then
     IDEMessagesWindow.Clear;
 end;
 
@@ -7992,7 +8099,7 @@ end;
 procedure TMainIDE.DoBringToFrontFormOrInspector(ForceInspector: boolean);
 begin
   if ForceInspector then begin
-    DoShowInspector(true);
+    DoShowInspector(iwgfShowOnTop);
     exit;
   end;
   {$IFDEF VerboseIDEDisplayState}
@@ -8002,7 +8109,7 @@ begin
   dsInspector: DoShowDesignerFormOfCurrentSrc;
   dsInspector2: DoShowSourceOfActiveDesignerForm;
   else
-    DoShowInspector(true);
+    DoShowInspector(iwgfShowOnTop);
   end;
 end;
 
@@ -8277,15 +8384,16 @@ begin
   IDEWindowCreators.ShowForm(MessagesView,BringToFront);
 end;
 
-procedure TMainIDE.DoShowSearchResultsView(Show: boolean; BringToFront: boolean = False);
+procedure TMainIDE.DoShowSearchResultsView(State: TIWGetFormState);
 begin
   if SearchresultsView=Nil then begin
-    SearchresultsView:=TSearchResultsView.Create(OwningComponent);
+    IDEWindowCreators.CreateForm(SearchresultsView,TSearchResultsView,
+       State=iwgfDisabled,LazarusIDE.OwningComponent);
     SearchresultsView.OnSelectionChanged := OnSearchResultsViewSelectionChanged;
-  end;
-  if Show then begin
-    IDEWindowCreators.ShowForm(SearchresultsView,BringToFront);
-  end;
+  end else if State=iwgfDisabled then
+    SearchResultsView.DisableAutoSizing;
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(SearchresultsView,State=iwgfShowOnTop);
 end;
 
 function TMainIDE.GetTestBuildDirectory: string;
@@ -8550,14 +8658,18 @@ end;
 procedure TMainIDE.OnControlSelectionFormChanged(Sender: TObject; OldForm,
   NewForm: TCustomForm);
 begin
-  if (TheControlSelection=nil) or (FormEditor1=nil) then exit;
+  if (TheControlSelection=nil) or (FormEditor1=nil) or not FIDEStarted then exit;
   if OldForm<>nil then
     OldForm.Invalidate;
   if TheControlSelection.LookupRoot<>nil then
     GlobalDesignHook.LookupRoot:=TheControlSelection.LookupRoot;
   if NewForm<>nil then
     NewForm.Invalidate;
-  UpdateIDEComponentPalette;
+  {$IFDEF VerboseComponentPalette}
+  DebugLn('***');
+  DebugLn('** TMainIDE.OnControlSelectionFormChanged: Calling UpdateIDEComponentPalette(true)');
+  {$ENDIF}
+  UpdateIDEComponentPalette(true);
 end;
 
 procedure TMainIDE.OnGetDesignerSelection(const ASelection: TPersistentSelectionList);
@@ -9376,7 +9488,7 @@ begin
     exit;
   end;
   DoJumpToCodePosition(TargetSrcEdit, TargetUnitInfo,
-    NewSource, NewX, NewY, NewTopLine, [jfAddJumpPoint, jfFocusEditor]);
+    NewSource, NewX, NewY, NewTopLine, [jfFocusEditor]);
   CodeToolBoss.GetIdentifierAt(NewSource,NewX,NewY,Identifier);
   CurUnitname:=ExtractFileNameOnly(NewSource.Filename);
 
@@ -9384,19 +9496,19 @@ begin
   DeclarationCaretXY:=DeclarationSrcEdit.EditorComponent.LogicalCaretXY;
   //debugln('TMainIDE.DoFindRenameIdentifier A DeclarationCaretXY=x=',dbgs(DeclarationCaretXY.X),' y=',dbgs(DeclarationCaretXY.Y));
 
-  // let user choose the search scope
-  Result:=ShowFindRenameIdentifierDialog(DeclarationUnitInfo.Source.Filename,
-    DeclarationCaretXY,true,Rename,nil);
-  if Result<>mrOk then begin
-    debugln('TMainIDE.DoFindRenameIdentifier failed: user cancelled dialog');
-    exit;
-  end;
-
   Files:=nil;
   OwnerList:=nil;
   PascalReferences:=nil;
   ListOfLazFPDocNode:=nil;
   try
+    // let user choose the search scope
+    Result:=ShowFindRenameIdentifierDialog(DeclarationUnitInfo.Source.Filename,
+      DeclarationCaretXY,true,Rename,nil);
+    if Result<>mrOk then begin
+      debugln('TMainIDE.DoFindRenameIdentifier failed: user cancelled dialog');
+      exit;
+    end;
+
     // create the file list
     Files:=TStringList.Create;
     Files.Add(TargetUnitInfo.Filename);
@@ -9505,6 +9617,10 @@ begin
     OwnerList.Free;
     CodeToolBoss.FreeTreeOfPCodeXYPosition(PascalReferences);
     FreeListObjects(ListOfLazFPDocNode,true);
+
+    // jump back in source editor
+    DoJumpToCodePosition(TargetSrcEdit, TargetUnitInfo,
+      TargetUnitInfo.Source, LogCaretXY.X, LogCaretXY.Y, -1, [jfFocusEditor]);
   end;
 end;
 
@@ -9538,7 +9654,7 @@ begin
       exit;
     end;
 
-    LazarusIDE.DoShowSearchResultsView(false);
+    LazarusIDE.DoShowSearchResultsView(iwgfShow);
     // create a search result page
     //debugln(['ShowIdentifierReferences ',DbgSName(SearchResultsView)]);
     SearchPageIndex:=SearchResultsView.AddSearch(
@@ -9937,7 +10053,7 @@ begin
   if Result = mrYes then begin
     NewDiffFilename:=CreateSrcEditPageName('','FileDifference.diff', nil);
     Result:=DoNewEditorFile(FileDescriptorText,NewDiffFilename,DiffText,
-                            [nfOpenInEditor]);
+                            [nfOpenInEditor,nfIsNotPartOfProject]);
     GetCurrentUnit(ActiveSrcEdit,ActiveUnitInfo);
     if ActiveSrcEdit=nil then exit;
   end;
@@ -10488,7 +10604,12 @@ begin
   {$ENDIF}
   DisplayState:= dsForm;
   LastFormActivated := (Sender as TDesigner).Form;
-  UpdateIDEComponentPalette;
+  {$IFDEF VerboseComponentPalette}
+  DebugLn('***');
+  DebugLn(['** TMainIDE.OnDesignerActivated: Calling UpdateIDEComponentPalette(true)',
+           ', IDEStarted=', FIDEStarted, ' **']);
+  {$ENDIF}
+  UpdateIDEComponentPalette(true);
 end;
 
 procedure TMainIDE.OnDesignerCloseQuery(Sender: TObject);
@@ -10906,12 +11027,12 @@ end;
 
 procedure TMainIDE.OnDesignerShowAnchorEditor(Sender: TObject);
 begin
-  DoViewAnchorEditor(True);
+  DoViewAnchorEditor;
 end;
 
 procedure TMainIDE.OnDesignerShowTabOrderEditor(Sender: TObject);
 begin
-  DoViewTabOrderEditor(True);
+  DoViewTabOrderEditor;
 end;
 
 procedure TMainIDE.OnSrcNoteBookAddJumpPoint(ACaretXY: TPoint;
@@ -11107,7 +11228,7 @@ end;
 
 procedure TMainIDE.OnSrcNotebookViewJumpHistory(Sender: TObject);
 begin
-  DoViewJumpHistory(true);
+  DoShowJumpHistory;
 end;
 
 procedure TMainIDE.OnSrcNoteBookPopupMenu(const AddMenuItemProc: TAddMenuItemProc);
@@ -11150,15 +11271,19 @@ begin
   end;
 end;
 
-procedure TMainIDE.CreateObjectInspector;
+procedure TMainIDE.CreateObjectInspector(aDisableAutoSize: boolean);
 begin
-  if ObjectInspector1<>nil then exit;
-  ObjectInspector1 := TObjectInspectorDlg.Create(OwningComponent);
+  if ObjectInspector1<>nil then begin
+    if aDisableAutoSize then
+      ObjectInspector1.DisableAutoSizing;
+    exit;
+  end;
+  IDEWindowCreators.CreateForm(ObjectInspector1,TObjectInspectorDlg,
+     aDisableAutoSize,OwningComponent);
   ObjectInspector1.Name:=DefaultObjectInspectorName;
   ObjectInspector1.ShowFavorites:=True;
   ObjectInspector1.ShowRestricted:=True;
   ObjectInspector1.Favorites:=LoadOIFavoriteProperties;
-//  ObjectInspector1.FindDeclarationPopupmenuItem.Visible:=true;
   ObjectInspector1.OnAddToFavorites:=@OIOnAddToFavorites;
   ObjectInspector1.OnFindDeclarationOfProperty:=@OIOnFindDeclarationOfProperty;
   ObjectInspector1.OnUpdateRestricted := @OIOnUpdateRestricted;
@@ -11394,15 +11519,24 @@ begin
 end;
 
 procedure TMainIDE.OnScreenChangedForm(Sender: TObject; Form: TCustomForm);
+var
+  aForm: TForm;
 begin
-  if (Screen.ActiveForm<>MainIDEBar) and (WindowMenuActiveForm<>Screen.ActiveForm) then
-    WindowMenuActiveForm := Screen.ActiveForm;
+  aForm:=Screen.ActiveForm;
+  if (aForm<>MainIDEBar)
+  and (Screen.GetCurrentModalForm=nil)
+  and (aForm<>WindowMenuActiveForm) then
+    WindowMenuActiveForm := aForm;
 end;
 
 procedure TMainIDE.OnScreenRemoveForm(Sender: TObject; AForm: TCustomForm);
 begin
   HiddenWindowsOnRun.Remove(AForm);
   LastActivatedWindows.Remove(AForm);
+  if WindowMenuActiveForm=AForm then
+    WindowMenuActiveForm:=nil;
+  if fLastCompPaletteForm=AForm then
+    fLastCompPaletteForm:=nil;
 end;
 
 procedure TMainIDE.OnRemoteControlTimer(Sender: TObject);
@@ -11986,7 +12120,12 @@ begin
       Format(lisACanNotHoldTControlsYouCanOnlyPutNonVisualComponen,
              [AParent.ClassName, LineEnding]),
       mtError,[mbCancel]);
-    UpdateIDEComponentPalette;
+    {$IFDEF VerboseComponentPalette}
+    DebugLn('***');
+    DebugLn('** TMainIDE.OnPropHookBeforeAddPersistent: Calling UpdateIDEComponentPalette(false) **');
+    {$ENDIF}
+    // make sure the component palette shows only the available components
+    UpdateIDEComponentPalette(false);
     exit;
   end;
 

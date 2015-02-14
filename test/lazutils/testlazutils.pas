@@ -15,7 +15,7 @@ unit TestLazUtils;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testglobals, LazLogger, LazFileUtils;
+  Classes, SysUtils, fpcunit, testglobals, LazLogger, LazUTF8, LazFileUtils;
 
 type
 
@@ -66,6 +66,7 @@ begin
   AssertEquals('last multi','adef',r('abc',2,2,'def'));
   AssertEquals('middle chars same','abcde',r('abcde',2,3,'bcd'));
   AssertEquals('middle chars shorten','axe',r('abcde',2,3,'x'));
+  AssertEquals('after chars','abcx',r('abc',4,3,'x'));
 end;
 
 procedure TTestLazUtils.TestSplitCmdLineParams;

@@ -586,8 +586,16 @@ msgstr ""
 msgid "Green"
 msgstr ""
 
-#: lclstrconsts.rsgridfiledoesnotexists
-msgid "Grid file doesn't exists"
+#: lclstrconsts.rsgridfiledoesnotexist
+msgid "Grid file doesn't exist"
+msgstr ""
+
+#: lclstrconsts.rsgridhasnocols
+msgid "Cannot insert rows into a grid when it has no columns"
+msgstr ""
+
+#: lclstrconsts.rsgridhasnorows
+msgid "Cannot insert columns into a grid when it has no rows"
 msgstr ""
 
 #: lclstrconsts.rsgridindexoutofrange
@@ -667,7 +675,7 @@ msgid "Help context %s not found in Database \"%s\"."
 msgstr ""
 
 #: lclstrconsts.rshelphelpdatabasedidnotfoundaviewerforahelppageoftype
-msgid "Help Database \"%s\" did not found a viewer for a help page of type %s"
+msgid "Help Database \"%s\" did not find a viewer for a help page of type %s"
 msgstr ""
 
 #: lclstrconsts.rshelphelpdatabasenotfound

@@ -53,8 +53,8 @@ uses
   {$IFDEF IP_LAZARUS}
   //MemCheck,
   Types, contnrs,
-  LCLType, LCLPRoc, GraphType, LCLIntf, LResources, LMessages, LCLMemManager,
-  Translations, FileUtil, LConvEncoding,
+  LCLType, GraphType, LCLProc, LCLIntf, LResources, LMessages, LCLMemManager,
+  Translations, FileUtil, LConvEncoding, LazUTF8,
   IpHtmlTabList,
   {$ELSE}
   Windows,
@@ -13000,7 +13000,7 @@ begin
     // printer should have 2 colors, somebody else needs to clarify.
     BWPrinter := false;
     {$ELSE}
-    BWPrinter := GetDeviceCaps(Printer.Canvas.Handle, PLANES) = 1;
+    BWPrinter := GetDeviceCaps(Printer.Canvas.Handle, NUMCOLORS) = 2;
     {$ENDIF}
     {$IFDEF IP_LAZARUS}
     LogPixX := Printer.XDPI;
@@ -13054,6 +13054,7 @@ var
   i : Integer;
 begin
   if (Hyper <> nil) then begin
+    Printer.Refresh;
     BeginPrint;
     Printer.BeginDoc;
     try

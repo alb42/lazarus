@@ -404,7 +404,7 @@ type
     property Win32GraphicApp: boolean read FWin32GraphicApp write SetWin32GraphicApp;
     property ExecutableType: TCompilationExecutableType
                                      read FExecutableType write SetExecutableType;
-    property UseExternalDbgSyms: Boolean read FUseExternalDbgSyms write SetUseExternalDbgSyms;
+    property UseExternalDbgSyms: Boolean read FUseExternalDbgSyms write SetUseExternalDbgSyms; // -Xg
 
     // messages:
     property ShowErrors: Boolean read fShowErrors write SetShowErrors; // -ve
@@ -439,9 +439,6 @@ type
     // execute other
     procedure SetAlternativeCompile(const Command: string; ScanFPCMsgs: boolean); virtual; abstract; // disable normal compile and call this instead
   end;
-
-var
-  ConsoleVerbosity: integer = 0; // 0=normal, -1=quiet, 1=verbose, 2=very verbose
 
 implementation
 

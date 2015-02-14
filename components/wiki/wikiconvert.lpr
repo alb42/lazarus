@@ -23,7 +23,7 @@ program wikiconvert;
 
 uses
   Classes, SysUtils, CustApp, WikiParser, WikiFormat,
-  Wiki2FPDocConvert, Wiki2XHTMLConvert, Wiki2HTMLConvert, Wiki2CHMConvert,
+  Wiki2XHTMLConvert, Wiki2HTMLConvert, Wiki2CHMConvert, Wiki2FPDocConvert,
   LazFileUtils, FileUtil, LazLogger, KeywordFuncLists;
 
 type
@@ -37,7 +37,11 @@ type
     FFPDocConverter: TWiki2FPDocConverter;
     FHTMLConverter: TWiki2HTMLConverter;
     FLanguageTags: TKeyWordFunctionList;
+    FQuiet: boolean;
+    FVerbose: boolean;
     FXHTMLConverter: TWiki2XHTMLConverter;
+    procedure SetQuiet(AValue: boolean);
+    procedure SetVerbose(AValue: boolean);
     procedure Test;
   protected
     procedure DoRun; override;
@@ -53,6 +57,8 @@ type
     property CHMConverter: TWiki2CHMConverter read FCHMConverter;
     property Converter: TWiki2FormatConverter read FConverter;
     property LanguageTags: TKeyWordFunctionList read FLanguageTags;
+    property Verbose: boolean read FVerbose write SetVerbose;
+    property Quiet: boolean read FQuiet write SetQuiet;
   end;
 
 { TMyApplication }
@@ -253,6 +259,22 @@ begin
   Halt;
 end;
 
+procedure TWiki2FPDocApplication.SetQuiet(AValue: boolean);
+begin
+  if FQuiet=AValue then Exit;
+  FQuiet:=AValue;
+  if Converter<>nil then
+    Converter.Quiet:=Quiet;
+end;
+
+procedure TWiki2FPDocApplication.SetVerbose(AValue: boolean);
+begin
+  if FVerbose=AValue then Exit;
+  FVerbose:=AValue;
+  if Converter<>nil then
+    Converter.Verbose:=Verbose;
+end;
+
 constructor TWiki2FPDocApplication.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
@@ -289,13 +311,11 @@ begin
   writeln('  --imagesdir=<images directory> : directory of image files. default: ',Converter.ImagesDir);
   writeln('  --title=<string> : the title of the wiki. default: "',Converter.Title,'"');
   writeln('  --nowarnurl=<string> : do not warn for URLs starting with this. Can be given multiple times.');
+  writeln('  --verbose');
+  writeln('  --quiet');
   writeln('  <inputfile> : wiki page in xml format, can be given multiple times');
   writeln('     Duplicates are ignored.');
   writeln('     You can use globbing, like "wikixml/*.xml". You must quote such parameters on console/shell.');
-  writeln;
-  writeln('Options for --format=fpdoc :');
-  writeln('  --root=<fpdoc xml root node> : default: ',FPDocConverter.RootName);
-  writeln('  --package=<fpdoc package name> : default: ',FPDocConverter.PackageName);
   writeln;
   writeln('Options for --format=xhtml,html,chm :');
   writeln('  --css=<path of stylesheet> : default: ',XHTMLConverter.CSSFilename);
@@ -304,9 +324,13 @@ begin
   writeln('   Note: the default page is the first page');
   writeln('  --chm=<output chm file> : default: ',CHMConverter.CHMFile);
   writeln;
+  writeln('Options for --format=fpdoc :');
+  writeln('  --root=<fpdoc xml root node> : default: ',FPDocConverter.RootName);
+  writeln('  --package=<fpdoc package name> : default: ',FPDocConverter.PackageName);
+  writeln;
   writeln('Examples:');
-  writeln('  ',ParamStrUTF8(0),' --format=fpdoc --outputdir=fpdoc wikipage1.xml wikipage2.xml');
   writeln('  ',ParamStrUTF8(0),' --format=html --outputdir=html --css=html/wiki.css "wikixml/*.xml"');
+  writeln('  ',ParamStrUTF8(0),' --format=fpdoc --outputdir=fpdocxml wikipage1.xml wikipage2.xml');
 end;
 
 var

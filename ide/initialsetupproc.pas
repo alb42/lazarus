@@ -33,8 +33,9 @@ interface
 
 uses
   Classes, SysUtils, strutils, LazFileCache, LazUTF8Classes, LazFileUtils,
-  LazLoggerBase, LazUTF8, Laz2_XMLCfg, DefineTemplates, CodeToolManager,
-  LazarusIDEStrConsts, LazConf, EnvironmentOpts, IDEProcs, contnrs;
+  LazLoggerBase, LazUTF8, Laz2_XMLCfg, LazLogger, DefineTemplates,
+  CodeToolManager, FileProcs, LazarusIDEStrConsts, LazConf, EnvironmentOpts,
+  IDEProcs, contnrs;
 
 type
   TSDFilenameQuality = (
@@ -104,6 +105,7 @@ function GetValueFromPrimaryConfig(OptionFilename, Path: string): string;
 function GetValueFromSecondaryConfig(OptionFilename, Path: string): string;
 function GetValueFromIDEConfig(OptionFilename, Path: string): string;
 
+function SafeFormat(const Fmt: String; const Args: Array of const): String;
 
 implementation
 
@@ -447,7 +449,10 @@ begin
                                     'EnvironmentOptions/CompilerFilename/Value');
     if CheckFile(AFilename,Result) then exit;
 
-    // check PATH
+    // search fpc(.exe) in PATH
+    if CheckFile(GetDefaultCompilerFilename,Result) then exit;
+
+    // search ppccpu(.exe) in PATH
     if CheckFile(FindDefaultCompilerPath,Result) then exit;
 
     // check history
@@ -886,6 +891,24 @@ begin
       end;
     end;
   end;
+end;
+
+function SafeFormat(const Fmt: String; const Args: array of const): String;
+begin
+  // try with translated resourcestring
+  try
+    Result:=Format(Fmt,Args);
+    exit;
+  except
+    on E: Exception do
+      debugln(['ERROR: SafeFormat: ',E.Message]);
+  end;
+  // translation didn't work
+  // ToDo: find out how to get the resourcestring default value
+  //ResetResourceTables;
+
+  // use a safe fallback
+  Result:=SimpleFormat(Fmt,Args);
 end;
 
 { TSDFileInfoList }

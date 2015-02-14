@@ -32,7 +32,7 @@ uses
 ////////////////////////////////////////////////////
   WSMenus, WSLCLClasses, WSProc,
   Windows, Controls, Classes, SysUtils, Win32Int, Win32Proc, Win32WSImgList,
-  InterfaceBase, LCLProc, Themes, UxTheme, Win32Themes, Win32Extra,
+  InterfaceBase, LCLProc, LazUTF8, Themes, UxTheme, Win32Themes, Win32Extra,
   FileUtil;
 
 type
@@ -736,6 +736,11 @@ begin
       end;
       ImageRect.Right := IconSize.x;
       ImageRect.Bottom := IconSize.y;
+      if AMenuItem.Checked then // draw checked rectangle around
+      begin
+        Tmp := ThemeServices.GetElementDetails(PopupCheckBgStates[AMenuItem.Enabled]);
+        ThemeDrawElement(AHDC, Tmp, CheckRect, nil);
+      end;
       DrawMenuItemIcon(AMenuItem, AHDC, ImageRect, ASelected);
       if IsRightToLeft then
         SetLayout(AHDC, LAYOUT_RTL);
@@ -1098,7 +1103,7 @@ var
   AImageIndex: Integer;
 begin
   AImageList := AMenuItem.GetImageList;
-  if AImageList = nil then
+  if (AImageList = nil) or (AMenuItem.ImageIndex < 0) then // using icon from Bitmap
   begin
     AImageList := TImageList.Create(nil);
     AImageList.Width := AMenuItem.Bitmap.Width; // maybe height to prevent too wide bitmaps?
@@ -1106,7 +1111,7 @@ begin
     AImageIndex := AImageList.Add(AMenuItem.Bitmap, nil);
     FreeImageList := True;
   end
-  else
+  else  // using icon from ImageList
   begin
     FreeImageList := False;
     AImageIndex := AMenuItem.ImageIndex;

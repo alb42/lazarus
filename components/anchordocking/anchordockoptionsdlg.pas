@@ -39,7 +39,8 @@ uses
 
 type
   TAnchorDockOptionsFlag = (
-    adofShow_ShowHeader
+    adofShow_ShowHeader,
+    adofShow_ShowSaveOnClose
     );
   TAnchorDockOptionsFlags = set of TAnchorDockOptionsFlag;
 
@@ -57,17 +58,20 @@ type
     HeaderStyleComboBox: TComboBox;
     HeaderStyleLabel: TLabel;
     HideHeaderCaptionForFloatingCheckBox: TCheckBox;
+    SaveLayoutOnCloseCheckBox: TCheckBox;
     ScaleOnResizeCheckBox: TCheckBox;
     ShowHeaderCaptionCheckBox: TCheckBox;
     ShowHeaderCheckBox: TCheckBox;
     SplitterWidthLabel: TLabel;
     SplitterWidthTrackBar: TTrackBar;
+    procedure FrameClick(Sender: TObject);
     procedure HeaderStyleComboBoxDrawItem(Control: TWinControl; Index: Integer;
       ARect: TRect; {%H-}State: TOwnerDrawState);
     procedure OkClick(Sender: TObject);
     procedure DragThresholdTrackBarChange(Sender: TObject);
     procedure HeaderAlignLeftTrackBarChange(Sender: TObject);
     procedure HeaderAlignTopTrackBarChange(Sender: TObject);
+    procedure ShowHeaderCheckBoxChange(Sender: TObject);
     procedure SplitterWidthTrackBarChange(Sender: TObject);
   private
     FFlags: TAnchorDockOptionsFlags;
@@ -80,8 +84,10 @@ type
     procedure UpdateHeaderAlignTopLabel;
     procedure UpdateHeaderAlignLeftLabel;
     procedure UpdateSplitterWidthLabel;
+    procedure UpdateHeaderOptions;
     procedure ApplyFlags;
   public
+    constructor Create(TheOwner: TComponent); override;
     procedure SaveToMaster;
     procedure LoadFromMaster;
     procedure SaveToSettings(TheSettings: TAnchorDockSettings);
@@ -90,6 +96,9 @@ type
     property Settings: TAnchorDockSettings read FSettings write SetSettings;
     property Flags: TAnchorDockOptionsFlags read FFlags write SetFlags;
   end;
+
+var
+  DefaultAnchorDockOptionFlags: TAnchorDockOptionsFlags = [];
 
 function ShowAnchorDockOptions(ADockMaster: TAnchorDockMaster): TModalResult;
 
@@ -138,6 +147,11 @@ begin
   UpdateHeaderAlignTopLabel;
 end;
 
+procedure TAnchorDockOptionsFrame.ShowHeaderCheckBoxChange(Sender: TObject);
+begin
+  UpdateHeaderOptions;
+end;
+
 procedure TAnchorDockOptionsFrame.SplitterWidthTrackBarChange(Sender: TObject);
 begin
   UpdateSplitterWidthLabel;
@@ -155,6 +169,11 @@ procedure TAnchorDockOptionsFrame.HeaderStyleComboBoxDrawItem(
   Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
 begin
   DrawADHeader(TComboBox(Control).Canvas,TADHeaderStyle(Index),ARect,true);
+end;
+
+procedure TAnchorDockOptionsFrame.FrameClick(Sender: TObject);
+begin
+
 end;
 
 procedure TAnchorDockOptionsFrame.DragThresholdTrackBarChange(Sender: TObject);
@@ -175,6 +194,7 @@ begin
   if FFlags=AValue then Exit;
   FFlags:=AValue;
   ApplyFlags;
+  UpdateHeaderOptions;
 end;
 
 procedure TAnchorDockOptionsFrame.SetSettings(AValue: TAnchorDockSettings);
@@ -209,9 +229,31 @@ begin
                              +' ('+IntToStr(SplitterWidthTrackBar.Position)+')';
 end;
 
+procedure TAnchorDockOptionsFrame.UpdateHeaderOptions;
+var
+  HasHeaders: Boolean;
+begin
+  HasHeaders:=ShowHeaderCheckBox.Checked;
+  ShowHeaderCaptionCheckBox.Enabled:=HasHeaders;
+  HideHeaderCaptionForFloatingCheckBox.Enabled:=HasHeaders;
+  FlattenHeaders.Enabled:=HasHeaders;
+  FilledHeaders.Enabled:=HasHeaders;
+end;
+
 procedure TAnchorDockOptionsFrame.ApplyFlags;
 begin
   ShowHeaderCheckBox.Visible:=adofShow_ShowHeader in Flags;
+  if ShowHeaderCheckBox.Visible then
+    ShowHeaderCaptionCheckBox.BorderSpacing.Left:=15
+  else
+    ShowHeaderCaptionCheckBox.BorderSpacing.Left:=0;
+  SaveLayoutOnCloseCheckBox.Visible:=adofShow_ShowSaveOnClose in Flags;
+end;
+
+constructor TAnchorDockOptionsFrame.Create(TheOwner: TComponent);
+begin
+  inherited Create(TheOwner);
+  FFlags:=DefaultAnchorDockOptionFlags;
 end;
 
 procedure TAnchorDockOptionsFrame.SaveToMaster;
@@ -250,6 +292,7 @@ begin
   TheSettings.HeaderAlignLeft:=HeaderAlignLeftTrackBar.Position;
   TheSettings.SplitterWidth:=SplitterWidthTrackBar.Position;
   TheSettings.ScaleOnResize:=ScaleOnResizeCheckBox.Checked;
+  TheSettings.SaveOnClose:=SaveLayoutOnCloseCheckBox.Checked;
   TheSettings.ShowHeader:=ShowHeaderCheckBox.Checked;
   TheSettings.ShowHeaderCaption:=ShowHeaderCaptionCheckBox.Checked;
   TheSettings.HideHeaderCaptionFloatingControl:=HideHeaderCaptionForFloatingCheckBox.Checked;
@@ -293,6 +336,9 @@ begin
   SplitterWidthTrackBar.Position:=TheSettings.SplitterWidth;
   UpdateSplitterWidthLabel;
 
+  SaveLayoutOnCloseCheckBox.Caption:=adrsSaveLayoutOnClose;
+  SaveLayoutOnCloseCheckBox.Checked:=TheSettings.SaveOnClose;
+
   ScaleOnResizeCheckBox.Caption:=adrsScaleOnResize;
   ScaleOnResizeCheckBox.Hint:=adrsScaleSubSitesWhenASiteIsResized;
   ScaleOnResizeCheckBox.Checked:=TheSettings.ScaleOnResize;
@@ -301,6 +347,7 @@ begin
   ShowHeaderCheckBox.Hint:=
     adrsEachDockedWindowHasAHeaderThatAllowsDraggingHasACo;
   ShowHeaderCheckBox.Checked:=TheSettings.ShowHeader;
+  UpdateHeaderOptions;
 
   ShowHeaderCaptionCheckBox.Caption:=adrsShowHeaderCaptions;
   ShowHeaderCaptionCheckBox.Hint:=adrsShowCaptionsOfDockedControlsInTheHeader;

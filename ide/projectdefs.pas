@@ -38,7 +38,7 @@ interface
 
 uses
   Classes, SysUtils,
-  Controls, Forms, SynRegExpr, FileProcs, Laz2_XMLCfg, LCLProc,
+  Controls, Forms, SynRegExpr, FileProcs, Laz2_XMLCfg, LazUTF8,
   CompOptsIntf, ProjectIntf, LazIDEIntf,
   ProjectResourcesIntf,
   frmCustomApplicationOptions, PublishModule, IDEProcs, LazarusIDEStrConsts;
@@ -1291,7 +1291,7 @@ begin
     +'  { you can add units after this };'+LineEnding
     +LineEnding
     +'begin'+LineEnding
-    +'  RequireDerivedFormResource := True;'+LineEnding
+    +'  RequireDerivedFormResource:=True;'+LineEnding
     +'  Application.Initialize;'+LineEnding
     +'  Application.Run;'+LineEnding
     +'end.'+LineEnding

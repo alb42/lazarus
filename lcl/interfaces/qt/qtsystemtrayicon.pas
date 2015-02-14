@@ -19,8 +19,9 @@ unit qtsystemtrayicon;
 interface
 {$i qtdefines.inc}
 
-uses Classes, Controls, ExtCtrls, Graphics, Forms, types, LCLType, qtobjects, qt4,
-  qtproc;
+uses
+  Classes, Controls, ExtCtrls, Graphics, Forms, types, LCLType, LazUTF8, LCLProc,
+  qtobjects, qt4, qtproc, qtint;
 
 type
   TSysTrayIconPaintData = record
@@ -67,7 +68,6 @@ type
   end;
 
 implementation
-uses qtint, LCLProc;
 
 { TQtSystemTrayIcon }
 
@@ -193,7 +193,7 @@ begin
         // without searching in QtWidgetSet.EventFilter.
         {$IFDEF HASX11}
         QObject_event(QWidgetH(Sender), Event);
-        FillChar(PaintData, SizeOf(PaintData), 0);
+        FillChar(PaintData{%H-}, SizeOf(PaintData), 0);
         with PaintData do
         begin
           PaintWidget := FSysTrayWidget;
@@ -319,8 +319,6 @@ begin
 end;
 
 function TQtSystemTrayIcon.GetGeometry: TRect;
-var
-  R: TRect;
 begin
   Result := Classes.Rect(0, 0, 0, 0);
   if Assigned(TheObject) then

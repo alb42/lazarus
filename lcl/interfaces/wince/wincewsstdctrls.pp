@@ -28,7 +28,7 @@ uses
   {$ifdef Win32}win32compat,{$endif}
   // RTL, FCL, LCL
   SysUtils, LCLType, Classes, StdCtrls, Controls, Graphics, Forms, WinCEProc,
-  InterfaceBase, LMessages, LCLMessageGlue, LCLProc,
+  InterfaceBase, LMessages, LCLMessageGlue, LazUTF8, LazUtf8Classes,
   // Widgetset
   WSControls, WSStdCtrls, WSLCLClasses, WinCEInt, WinCEWSControls, WinCEExtra,
   WSProc;
@@ -208,6 +208,9 @@ type
   published
     class function  CreateHandle(const AWinControl: TWinControl;
           const AParams: TCreateParams): HWND; override;
+    class procedure GetPreferredSize(const AWinControl: TWinControl;
+          var PreferredWidth, PreferredHeight: integer;
+          WithThemeSpace: Boolean); override;
     class procedure SetAlignment(const ACustomStaticText: TCustomStaticText; const NewAlignment: TAlignment); override;
     class procedure SetStaticBorderStyle(const ACustomStaticText: TCustomStaticText; const NewBorderStyle: TStaticBorderStyle); override;
     class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
@@ -254,6 +257,7 @@ type
     class function  RetrieveState(const ACustomCheckBox: TCustomCheckBox): TCheckBoxState; override;
     class procedure SetShortCut(const ACustomCheckBox: TCustomCheckBox; const ShortCutK1, ShortCutK2: TShortCut); override;
     class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
+    class procedure SetAlignment(const ACustomCheckBox: TCustomCheckBox; const NewAlignment: TLeftRight); override;
   end;
 
   { TWinCEWSCheckBox }
@@ -1167,6 +1171,20 @@ begin
   Result := Params.Window;
 end;
 
+class procedure TWinCEWSCustomStaticText.GetPreferredSize(const AWinControl: TWinControl;
+  var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  if MeasureText(AWinControl, AWinControl.Caption, PreferredWidth, PreferredHeight) then
+  begin
+    Inc(PreferredHeight);
+    if TCustomStaticText(AWinControl).BorderStyle <> sbsNone then
+    begin
+      Inc(PreferredWidth, 2);
+      Inc(PreferredHeight, 2);
+    end;
+  end;
+end;
+
 class procedure TWinCEWSCustomStaticText.SetAlignment(const ACustomStaticText: TCustomStaticText; const NewAlignment: TAlignment);
 begin
   if not WSCheckHandleAllocated(ACustomStaticText, 'SetAlignment') then
@@ -1185,8 +1203,8 @@ begin
   RecreateWnd(ACustomStaticText);
 end;
 
-class procedure TWinCEWSCustomStaticText.SetText(
-  const AWinControl: TWinControl; const AText: String);
+class procedure TWinCEWSCustomStaticText.SetText(const AWinControl: TWinControl;
+  const AText: string);
 begin
   if not WSCheckHandleAllocated(AWinControl, 'SetText') then
     exit;
@@ -1348,6 +1366,13 @@ begin
   //Pass SKIP_LMCHANGE through lParam to avoid the OnChange event be fired
   Windows.SendMessage(ACustomCheckBox.Handle, BM_SETCHECK, Flags, SKIP_LMCHANGE);
 end;
+
+class procedure TWinCEWSCustomCheckBox.SetAlignment(
+  const ACustomCheckBox: TCustomCheckBox; const NewAlignment: TLeftRight);
+begin
+  RecreateWnd(ACustomCheckBox);
+end;
+
 
 { TWinCEWSToggleBox }
 

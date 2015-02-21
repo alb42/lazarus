@@ -256,7 +256,7 @@ end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
-  //writeln('setVis');
+  //writeln('setVis ', AValue);
   SetAttribute([longint(MUIA_ShowMe), longint(AValue), TAG_END]);
 end;
 
@@ -415,6 +415,7 @@ procedure TMUIObject.RemoveChild(Child: TMUIObject);
 begin
   if Assigned(Child.obj) then
   begin
+    //writeln('Remove Child: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
     DoMethod([IPTR(OM_REMMEMBER), IPTR(Child.obj)]);
   end;
 end;
@@ -438,6 +439,7 @@ end;
 constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
 begin
   inherited Create;
+  EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
@@ -452,6 +454,7 @@ end;
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
+  EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
@@ -460,12 +463,13 @@ begin
   //writeln(self.classname, 'create class ', classname);
   FObject := MUI_NewObjectA(AClassName, Tags);
   InstallHooks;
-  //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
+  //writeln('create class: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
 constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
 begin
   inherited Create;
+  EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
@@ -476,13 +480,14 @@ begin
   if Assigned(FObject) then
     Pointer(INST_DATA(AClassType, Pointer(FObject))^) := Self;
   InstallHooks;
+  //writeln('create classtype: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
 destructor TMUIObject.Destroy;
 begin
   BlockRedraw := True;
   //writeln(self.classname, '--> muiobject destroy');
-  SetParent(nil);
+  SetParent(nil); 
   MUI_DisposeObject(FObject);
   FObjects.Free;
   FMUICanvas.Free;
@@ -595,6 +600,7 @@ begin
   if integer(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
   begin
+    //writeln('got terminate1');
     Application.Terminate;
     Exit;
   end;
@@ -607,6 +613,7 @@ begin
   if DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)]) =
     MUIV_Application_ReturnID_Quit then
   begin
+    //writeln('got terminate2');
     Application.Terminate;
     Exit;
   end;
@@ -615,6 +622,7 @@ begin
     FSignals := CheckSignal(FSignals or SIGBREAKF_CTRL_C);
     if FTerminated or ((FSignals and SIGBREAKF_CTRL_C) <> 0) then
     begin
+      //writeln('got terminate3');
       Application.Terminate;
       Exit;
     end;
@@ -760,8 +768,7 @@ var
   HIMsg: PMUIP_HandleInput;
   HEMsg: PMUIP_HandleEvent;
   iMsg: PIntuiMessage;
-  AE: TMUIP_Window_AddEventHandler;
-  ehN: ^TehNode;
+  //ehN: ^TehNode;
   winObj: PObject_;
   Depth: Integer;
   cap: string;
@@ -774,52 +781,51 @@ var
   ie: TInputEvent;
   Win: PWindow;
 begin
-  //write('Enter Dispatcher with: ');
+  //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
+      //writeln(' setup');
       Result := DoSuperMethodA(cl, obj, msg);
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
-        New(ehN);
-        FillChar(ehN^, SizeOf(ehN^), 0);
+        New(MUIB.EHNode);
+        FillChar(MUIB.EHNode^, SizeOf(MUIB.EHNode^), 0);
         P := MUIB;
-        ehN^.ehn_Priority := -100;
+        MUIB.EHNode^.ehn_Priority := -100;
         repeat
-          Inc(ehN^.ehn_Priority);
+          Inc(MUIB.EHNode^.ehn_Priority);
           p := p.Parent;
         until P = nil;
 
-        ehN^.ehn_Flags := 0;
-        ehN^.ehn_Object := obj;
-        ehN^.ehn_Class := cl;
-        ehN^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
-        AE.MethodID := MUIM_Window_AddEventHandler;
-        AE.ehNode := Pointer(ehN);
+        MUIB.EHNode^.ehn_Flags := 0;
+        MUIB.EHNode^.ehn_Object := obj;
+        MUIB.EHNode^.ehn_Class := cl;
+        MUIB.EHNode^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        //DoMethodA(OBJ_win(obj), @AE);
-        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(ehN)]);
-        //ri := MUIRenderInfo(Obj); writeln(MUIB.classname, ' addeventhandler ', HexStr(winObj), ' parent: ', Muib.Parent.Classname, ' ', HexStr(MUIB.Parent.Obj),' self ', HexStr(MUIB.Obj));
+        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(MUIB.EHNode)]);    
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
     MUIM_CLEANUP: begin
-      Result := DoSuperMethodA(cl, obj, msg);
+      //write(' cleanup');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
         DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[IPTR(MUIB.EHNode)]);
         Dispose(MUIB.EHNode);
+        MUIB.EHNode := nil;
       end;
+      Result := DoSuperMethodA(cl, obj, msg);
       //MUI_RejectIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
     MUIM_Draw:
     begin
-      //writeln('DRAW');
+      //writeln(' DRAW');
       //if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
-      //  Exit;
+      // Exit;
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -867,6 +873,7 @@ begin
       Result := 0;
     end;
     MUIM_HANDLEEVENT: begin
+      //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
@@ -932,7 +939,7 @@ begin
             end;
             else
             begin
-              writeln('IDCMP: ', HexStr(Pointer(IMsg^.IClass)));
+              //writeln('IDCMP: ', HexStr(Pointer(IMsg^.IClass)));
             end;
           end;
           Result := MUI_EventHandlerRC_Eat;

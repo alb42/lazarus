@@ -90,7 +90,8 @@ type
     function RawImage_FromBitmap(out ARawImage: TRawImage; ABitmap, AMask: HBITMAP; ARect: PRect = nil): Boolean; override;
     function RawImage_FromDevice(out ARawImage: TRawImage; ADC: HDC; const ARect: TRect): Boolean; override;
     function RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean; override;
-
+    function  DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor; override;
+    procedure DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor); override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -592,6 +593,22 @@ begin
 *)
 end;
 
+function TMUIWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;
+begin
+  Result := 0;
+end;
+
+procedure TMUIWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
+var
+  Canvas: TMUICanvas;
+  Tags: TTagsList;
+begin
+  Canvas := TMUICanvas(CanvasHandle);
+  if Assigned(Canvas) then
+  begin
+    Canvas.SetPixel(X, Y, AColor);  
+  end;
+end;
 
 constructor TMUIWidgetSet.Create;
 begin

@@ -26,7 +26,7 @@ uses
   // Widgetset
   // aros
   {$ifdef HASAMIGA}
-  ,agraphics, intuition, mui, diskfont
+  ,agraphics, intuition, mui, diskfont, cybergraphics
   {$endif};
 
 const
@@ -241,6 +241,7 @@ type
     function TextHeight(Txt: PChar; Count: integer): integer;
     procedure FillRect(X1, Y1, X2, Y2: Integer);
     procedure Rectangle(X1, Y1, X2, Y2: Integer);
+    procedure SetPixel(X,Y, Color: LongWord);
     // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
     procedure SetBMUIPen(PenDesc: integer);
@@ -412,7 +413,7 @@ constructor TMUIPenObj.Create(const APenData: TLogPen);
 begin
   inherited Create;
   FLCLColor := APenData.lopnColor;
-  writeln('pen created: $', HexStr(Pointer(FLCLColor)));
+  //writeln('pen created: $', HexStr(Pointer(FLCLColor)));
 end;
 
 { TMUIColorObj }
@@ -872,6 +873,17 @@ begin
     LineTo(X2, Y2);
     LineTo(X1, Y2);
     LineTo(X1, Y1);
+  end;
+end;
+
+procedure TMUICanvas.SetPixel(X,Y, Color: LongWord);
+var
+  T: TPoint;
+begin
+  if Assigned(RastPort) then
+  begin
+    T := GetOffset;
+    WriteRGBPixel(RastPort, T.X + X, T.Y + Y, Color);
   end;
 end;
 

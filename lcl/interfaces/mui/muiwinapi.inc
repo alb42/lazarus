@@ -188,7 +188,8 @@ begin
   //if DC <> 0 then
   begin
     NewDC := TMUICanvas.Create;
-    if ADC <> nil then
+    NewDC.RastPort := nil;
+    {if ADC <> nil then
     begin
       NewDC.RastPort := CloneRastPort(ADC.RastPort);
     end else
@@ -196,7 +197,7 @@ begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
       NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, nil);
-    end;
+    end;}
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
     if DC <> 0 then

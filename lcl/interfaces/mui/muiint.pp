@@ -320,46 +320,10 @@ type
 function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;
 var
-  Bit: TMUIBitmap;
-  Src: PABGRPixel; 
-  AIdx, BIdx, RIdx, GIdx: Byte; 
-  Dest: PARGBPixel;
-  x,y: Integer;
-  SrcBytes: Integer;
-  SrcLineLen: Integer;
-  SrcLinePtr: PByte;
-  
+  Bit: TMUIBitmap;  
 begin
-  
   Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
-  //writeln('load image: ', ARawImage.Description.Depth);
-  if ARawImage.Description.Depth = 1 then
-  begin
-    Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
-  end;
-  if ARawImage.Description.Depth = 32 then
-  begin
-    SrcBytes := ARawImage.Description.Depth div 8;
-    SrcLineLen := ARawImage.Description.BytesPerLine;
-    ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
-    //writeln(Ridx, ', ', GIdx, ' ', BIdx);
-    SrcLinePtr := Pointer(ARawImage.Data);
-    Dest := Pointer(Bit.FImage);
-    for y := 0 to ARawImage.Description.Height - 1 do
-    begin
-      Src := Pointer(SrcLinePtr);
-      for x := 0 to ARawImage.Description.Width - 1 do
-      begin
-        Dest^.A := Src^[AIdx];
-        Dest^.R := Src^[RIdx];
-        Dest^.G := Src^[GIdx];
-        Dest^.B := Src^[BIdx];
-        Inc(Src, 1);
-        Inc(Dest);
-      end;
-      Inc(SrcLinePtr, SrcLineLen);  
-    end;
-  end;
+  Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize); 
   ABitmap := HBITMAP(Bit);
   AMask := 0;
   Result := True;
@@ -415,6 +379,19 @@ begin
   end else
   begin
     ADesc.Format:=ricfRGBA;
+    ADesc.RedPrec := 8;
+    ADesc.RedShift := 0;
+    ADesc.GreenPrec := 8;
+    ADesc.GreenShift := 8;
+    ADesc.BluePrec := 8;
+    ADesc.BlueShift := 16;
+    ADesc.AlphaPrec := 8;
+    ADesc.AlphaShift := 24;
+
+    ADesc.MaskBitsPerPixel := 1;
+    ADesc.MaskShift := 0;
+    ADesc.MaskLineEnd := rileByteBoundary;
+    ADesc.MaskBitOrder := riboBitsInOrder;
   end;
 
   // Palette
@@ -499,115 +476,60 @@ begin
   Result := True;
 end;
 
-
-
 function TMUIWidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean;
-var
-  Desc: TRawImageDescription;
 begin
-  if riqfGrey in AFlags then
+  //if riqfAlpha in AFlags
+  //then 
   begin
-    writeln('TMUIWidgetSet.RawImage_QueryDescription: riqfGrey not (yet) supported');
-    Exit(False);
-  end;
+    //always return rgba description
+    if not (riqfUpdate in AFlags)
+    then ADesc.Init;
 
-  if riqfPalette in AFlags then
-  begin
-    writeln('TMUIWidgetSet.RawImage_QueryDescription: riqfPalette not (yet) supported');
-    Exit(False);
-  end;
-
-  Result := False;
-
-  Desc.Init;
-  Result := RawImage_DescriptionFromDrawable(Desc, riqfAlpha in AFlags);
-  // RawImage_DescriptionFromPixbuf(Desc, nil);
-  // RawImage_DescriptionFromDrawable(Desc, nil, riqfAlpha in AFlags);
-  //if not Result then Exit;
-
-  if not (riqfUpdate in AFlags) then
-    ADesc.Init;
-
-  // if there's mask gtk2 assumes it's rgba (not XBM format).issue #12362
-  if (riqfUpdate in AFlags) and (riqfMono in AFlags) and (riqfMask in AFlags) then
-      AFlags := AFlags - [riqfMono] + [riqfRgb];
-
-  if riqfMono in AFlags then
-  begin
-    ADesc.Format := ricfGray;
-    ADesc.Depth := 1;
-    ADesc.BitOrder := Desc.MaskBitOrder;
-    ADesc.ByteOrder := riboLSBFirst;
-    ADesc.LineOrder := Desc.LineOrder;
-    ADesc.LineEnd := Desc.MaskLineEnd;
-    ADesc.BitsPerPixel := Desc.MaskBitsPerPixel;
-    ADesc.RedPrec := 1;
-    ADesc.RedShift := Desc.MaskShift;
-    // in theory only redshift is used, but if someone reads it as color thsi works too.
-    ADesc.GreenPrec := 1;
-    ADesc.GreenShift := Desc.MaskShift;
-    ADesc.BluePrec := 1;
-    ADesc.BlueShift := Desc.MaskShift;
-  end
-  (*
-  //TODO
-  else if riqfGrey in AFlags
-  then begin
-    ADesc.Format := ricfGray;
-    ADesc.Depth := 8;
-    ADesc.BitOrder := Desc.BitOrder;
-    ADesc.ByteOrder := Desc.ByteOrder;
-    ADesc.LineOrder := Desc.LineOrder;
-    ADesc.LineEnd := Desc.LineEnd;
-    ADesc.BitsPerPixel := 8;
-    ADesc.RedPrec := 8;
-    ADesc.RedShift := 0;
-  end
-  *)
-  else
-  if riqfRGB in AFlags then
-  begin
     ADesc.Format := ricfRGBA;
-    ADesc.Depth := Desc.Depth;
-    ADesc.BitOrder := Desc.BitOrder;
-    ADesc.ByteOrder := Desc.ByteOrder;
-    ADesc.LineOrder := Desc.LineOrder;
-    ADesc.LineEnd := Desc.LineEnd;
-    ADesc.BitsPerPixel := Desc.BitsPerPixel;
-    ADesc.RedPrec := Desc.RedPrec;
-    ADesc.RedShift := Desc.RedShift;
-    ADesc.GreenPrec := Desc.GreenPrec;
-    ADesc.GreenShift := Desc.GreenShift;
-    ADesc.BluePrec := Desc.BluePrec;
-    ADesc.BlueShift := Desc.BlueShift;
-  end;
+    ADesc.Depth := 32;
+    ADesc.BitOrder := riboReversedBits;
+    ADesc.ByteOrder := riboLSBFirst;
+    ADesc.LineOrder := riloTopToBottom;
+    ADesc.LineEnd := rileDWordBoundary;
+    ADesc.BitsPerPixel := 32;
 
-  if riqfAlpha in AFlags then
-  begin
-    ADesc.AlphaPrec := Desc.AlphaPrec;
-    ADesc.AlphaShift := Desc.AlphaShift;
-  end;
+    ADesc.AlphaPrec := 8;
+    ADesc.AlphaShift := 0;
 
-  if riqfMask in AFlags then
-  begin
-    ADesc.MaskBitsPerPixel := Desc.MaskBitsPerPixel;
-    ADesc.MaskShift := Desc.MaskShift;
-    ADesc.MaskLineEnd := Desc.MaskLineEnd;
-    ADesc.MaskBitOrder := Desc.MaskBitOrder;
-  end;
+    if riqfRGB in AFlags
+    then begin
+      ADesc.RedPrec := 8;
+      ADesc.GreenPrec := 8;
+      ADesc.BluePrec := 8;
+      ADesc.RedShift := 8;
+      ADesc.GreenShift := 16;
+      ADesc.BlueShift := 24;
+    end;
 
-(*
-  //TODO
-  if riqfPalette in AFlags
-  then begin
-    ADesc.PaletteColorCount := Desc.PaletteColorCount;
-    ADesc.PaletteBitsPerIndex := Desc.PaletteBitsPerIndex;
-    ADesc.PaletteShift := Desc.PaletteShift;
-    ADesc.PaletteLineEnd := Desc.PaletteLineEnd;
-    ADesc.PaletteBitOrder := Desc.PaletteBitOrder;
-    ADesc.PaletteByteOrder := Desc.PaletteByteOrder;
+
+    {ADesc.AlphaPrec := 8;
+    ADesc.AlphaShift := 24;
+
+    if riqfRGB in AFlags
+    then begin
+      ADesc.RedPrec := 8;
+      ADesc.GreenPrec := 8;
+      ADesc.BluePrec := 8;
+      ADesc.RedShift := 16;
+      ADesc.GreenShift := 8;
+      ADesc.BlueShift := 0;
+    end;
+    }
+    AFlags := AFlags - [riqfRGB, riqfAlpha, riqfUpdate];
+    if AFlags = [] then Exit(True);
+    
+    // continue with default
+    Include(AFlags, riqfUpdate);
   end;
-*)
+  //Result := inherited RawImage_QueryDescription(AFlags, ADesc);
+  // reduce mem
+  if Result and (ADesc.Depth = 24) 
+  then ADesc.BitsPerPixel := 24;
 end;
 
 function TMUIWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;

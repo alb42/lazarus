@@ -880,27 +880,33 @@ end;
 
 procedure TMUICanvas.Ellipse(X1, Y1, X2, Y2: Integer);
 const
-  AREA_BYTES = 100;
+  AREA_BYTES = 1000;
 var
   T: TPoint;
   Ras: TPlanePtr;
   TRas: TTmpRas;
   WarBuff: array[0..AREA_BYTES] of Word;
   ari: TAreaInfo;
-  ElWi, ElHi: Integer;
+  ElWi, ElHi: Integer; // ellipse height and width
+  Rx, RY: Integer; // Radius
+  MX, MY: Integer; // center Point
 begin
   if Assigned(RastPort) then
   begin
     T := GetOffset;
     ElWi := X2 - X1;
     ElHi := Y2 - Y1;
+    RX := ElWi div 2;
+    RY := ElHi div 2;
+    MX := X1 + RX;
+    MY := Y1 + RY;
     Ras := AllocRaster(ElWi * 2, ElHi * 2);
     InitTmpRas(@TRas, ras, ElWi * 2 * ElHi * 2 * 3);
     InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
     RastPort^.TmpRas := @TRas;
     RastPort^.AreaInfo := @Ari;
     
-    AreaEllipse(RastPort, T.X + X1 , T.Y + Y1, ElWi div 2, ElHi div 2);
+    AreaEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);
     
     AreaEnd(RastPort);
     RastPort^.TmpRas := nil;

@@ -306,13 +306,13 @@ end;
 procedure TMuiRadioButton.SetChecked(const AValue: LongBool);
 var
   i: Integer;
-  RB: TMUIObject;
+  RB: TObject;
 begin
   if Assigned(Parent) then
   begin
-    for i := 0 to Parent.FObjects.Count - 1 do
+    for i := 0 to Parent.FChilds.Count - 1 do
     begin
-      RB := TMUIObject(Parent.FObjects.Items[i]);
+      RB := TMUIObject(Parent.FChilds.Items[i]);
       if (RB is TMuiRadioButton) and (RB <> Self) then
       begin
         if TMuiRadioButton(RB).checked then
@@ -326,13 +326,13 @@ end;
 procedure TMuiRadioButton.MakeOneChecked;
 var
   i: Integer;
-  RB: TMuiObject;
+  RB: TObject;
 begin
   if Assigned(Parent) then
   begin
-    for i := 0 to Parent.FObjects.Count - 1 do
+    for i := 0 to Parent.FChilds.Count - 1 do
     begin
-      RB := TMUIObject(Parent.FObjects.Items[i]);
+      RB := TMUIObject(Parent.FChilds.Items[i]);
       if (RB is TMuiRadioButton) then
       begin
         if TMuiRadioButton(RB).checked then

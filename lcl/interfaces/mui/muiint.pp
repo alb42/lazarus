@@ -306,41 +306,58 @@ type
   end;
   PARGBPixel = ^TARGBPixel;
 
-  TABGRPixel = packed record
+  {TABGRPixel = packed record
     R: Byte;
     G: Byte;
     B: Byte;
     A: Byte;
-  end;
+  end;}
+  TABGRPixel = array[0..3] of Byte;
   PABGRPixel = ^TABGRPixel;
+
 
 
 function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;
 var
   Bit: TMUIBitmap;
-  Src: PABGRPixel;
+  Src: PABGRPixel; 
+  AIdx, BIdx, RIdx, GIdx: Byte; 
   Dest: PARGBPixel;
-  i: Integer;
+  x,y: Integer;
+  SrcBytes: Integer;
+  SrcLineLen: Integer;
+  SrcLinePtr: PByte;
+  
 begin
+  
   Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
-
+  //writeln('load image: ', ARawImage.Description.Depth);
   if ARawImage.Description.Depth = 1 then
   begin
     Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
   end;
   if ARawImage.Description.Depth = 32 then
   begin
-    Src := Pointer(ARawImage.Data);
+    SrcBytes := ARawImage.Description.Depth div 8;
+    SrcLineLen := ARawImage.Description.BytesPerLine;
+    ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
+    //writeln(Ridx, ', ', GIdx, ' ', BIdx);
+    SrcLinePtr := Pointer(ARawImage.Data);
     Dest := Pointer(Bit.FImage);
-    for i := 0 to (ARawImage.Description.Width * ARawImage.Description.Height) - 1 do
+    for y := 0 to ARawImage.Description.Height - 1 do
     begin
-      Dest^.A := Src^.A;
-      Dest^.R := Src^.R;
-      Dest^.G := Src^.G;
-      Dest^.B := Src^.B;
-      Inc(Src);
-      Inc(Dest);
+      Src := Pointer(SrcLinePtr);
+      for x := 0 to ARawImage.Description.Width - 1 do
+      begin
+        Dest^.A := Src^[AIdx];
+        Dest^.R := Src^[RIdx];
+        Dest^.G := Src^[GIdx];
+        Dest^.B := Src^[BIdx];
+        Inc(Src, 1);
+        Inc(Dest);
+      end;
+      Inc(SrcLinePtr, SrcLineLen);  
     end;
   end;
   ABitmap := HBITMAP(Bit);

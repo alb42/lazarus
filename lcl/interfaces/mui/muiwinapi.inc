@@ -380,6 +380,22 @@ begin
   end;
 end;
 
+function TMUIWidgetSet.Ellipse(DC: HDC; x1, y1, x2, y2: Integer): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('Ellipse ', X1, ', ', Y1, ' - ', X2, ', ', Y2);
+  {$endif}
+  Result := False;
+  if Assigned(ADC) then
+  begin
+    ADC.ellipse(X1, Y1, X2, Y2);
+    Result := True;
+  end;
+
+end;
+
 function TMUIWidgetSet.EnableWindow(hWnd: HWND; bEnable: Boolean): Boolean;
 var
   Widget: TMUIObject absolute hWnd;

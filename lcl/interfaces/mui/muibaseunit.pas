@@ -60,7 +60,7 @@ type
     procedure DoReDraw(); virtual;
   public
     EHNode: PMUI_EventHandlerNode;
-    FObjects: TObjectList;
+    FChilds: TObjectList;
     FObject: pObject_;
     BlockRedraw: boolean;
     MUIDrawing: Boolean;
@@ -91,6 +91,11 @@ type
     property MUICanvas: TMUICanvas read FMUICanvas;
 
     property OnDraw: TNotifyEvent read FOnDraw write FOnDraw;
+  end;
+  
+  TMUIWinControl = class
+    PasObject: TWinControl;
+    Parent: TMUIObject;
   end;
 
   { TMuiArea }
@@ -235,13 +240,13 @@ begin
   if Assigned(FParent) then
   begin
     FParent.RemoveChild(Self);
-    FParent.FObjects.Remove(Self);
+    FParent.FChilds.Remove(Self);
     FParent := nil;
   end;
   if Assigned(AValue) then
   begin
-    //write('  New: ', AValue.Classname, ' assigned: ', Assigned(AValue.FObjects));
-    AValue.FObjects.Add(Self);
+    //write('  New: ', AValue.Classname, ' assigned: ', Assigned(AValue.FChilds));
+    AValue.FChilds.Add(Self);
     AValue.AddChild(Self);
     FParent := AValue;
   end;
@@ -305,14 +310,16 @@ begin
     PS^.hdc := THandle(Pointer(FMuiCanvas));
     PS^.rcPaint := FMuiCanvas.DrawRect;
     //writeln('Send paintmessage to ', pasobject.classname);
-    LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
+    if not MUIDrawing then
+      LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
     LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
     Dispose(PS);
   end;
   FMUICanvas.DeInitCanvas;
-  for i := 0 to FObjects.Count - 1 do
+  for i := 0 to FChilds.Count - 1 do
   begin
-    TMuiObject(FObjects[i]).DoMuiDraw;
+    if FChilds.Items[i] is TMUIObject then
+      TMuiObject(FChilds[i]).DoMuiDraw;
   end;
 end;
 
@@ -443,7 +450,7 @@ begin
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
-  FObjects := TObjectList.Create(False);
+  FChilds := TObjectList.Create(False);
   FParent := nil;
   //writeln(self.classname, 'create obj ', ObjType);
   FObject := MUI_MakeObject(ObjType, Params);
@@ -458,7 +465,7 @@ begin
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
-  FObjects := TObjectList.Create(False);
+  FChilds := TObjectList.Create(False);
   FParent := nil;
   //writeln(self.classname, 'create class ', classname);
   FObject := MUI_NewObjectA(AClassName, Tags);
@@ -473,7 +480,7 @@ begin
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
   BlockRedraw := False;
-  FObjects := TObjectList.Create(False);
+  FChilds := TObjectList.Create(False);
   FParent := nil;
   FObject := NewObjectA(AClassType, nil, Tags);
   //writeln(self.classname, 'create type');
@@ -489,7 +496,7 @@ begin
   //writeln(self.classname, '--> muiobject destroy');
   SetParent(nil); 
   MUI_DisposeObject(FObject);
-  FObjects.Free;
+  FChilds.Free;
   FMUICanvas.Free;
   inherited Destroy;
   //writeln(self.classname, '<-- muiobject destroy');
@@ -505,10 +512,11 @@ begin
   //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', FObjects.Count, ' obj ', HexStr(FObject));
   MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
   //writeln(self.classname, '  setsize done');
-  for i := 0 to FObjects.Count - 1 do
+  for i := 0 to FChilds.Count - 1 do
   begin
     //writeln(self.classname, '  Child ', i);
-    TMuiObject(FObjects.Items[i]).SetOwnSize;
+    if FChilds.Items[i] is TMUIObject then
+      TMuiObject(FChilds.Items[i]).SetOwnSize;
   end;
   //writeln(self.classname, '<--setownsize');
 end;
@@ -753,6 +761,41 @@ type
     ehn_Class: PIClass;
     ehn_Events: ULONG;
   end;}
+  
+{  
+  
+function FindControlWhichReceivedEvent(AForm: TCustomForm;
+  AControlsList: TFPList; AX, AY: Integer): TWinControl;
+var
+  i: Integer;
+  lRegionOfEvent: TLazRegionWithChilds;
+  lCurCDControl: TCDWinControl;
+  lEventPos: TPoint; // local, already adjusted for the scrolling
+begin
+  Result := AForm;
+  lEventPos := Point(AX, AY); // Don't adjust for the scrolling because the regions are scrolled too
+
+  // The order of this loop is important to respect the Z-order of controls
+  for i := AControlsList.Count-1 downto 0 do
+  begin
+    lCurCDControl := TCDWinControl(AControlsList.Items[i]);
+    if lCurCDControl.Region = nil then Continue;
+    if not lCurCDControl.WinControl.HandleObjectShouldBeVisible then Continue;
+    lRegionOfEvent := lCurCDControl.Region.IsPointInRegion(lEventPos.X, lEventPos.Y);
+    if lRegionOfEvent <> nil then
+    begin
+      if lRegionOfEvent.UserData = nil then
+        raise Exception.Create('[FindControlWhichReceivedEvent] Malformed tree of regions');
+      Result := TWinControl(lRegionOfEvent.UserData);
+
+      // If it is a native LCL control, redirect to the CDControl
+      if lCurCDControl.CDControl <> nil then
+        Result := lCurCDControl.CDControl;
+
+      Exit;
+    end;
+  end;
+end;}
 
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
@@ -826,6 +869,7 @@ begin
       //writeln(' DRAW');
       //if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
       // Exit;
+      
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -838,11 +882,22 @@ begin
         try
           if Assigned(MUIB) then
           begin
+            //writeln(muib.classname, ' Draw ', MUIB.MUIDrawing);
             if MUIB.MUIDrawing then
-              Result := DoSuperMethodA(cl, obj, msg);
-            MUIB.FMUICanvas.RastPort := rp;
-            MUIB.FMUICanvas.DrawRect :=
-                Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+              Result := DoSuperMethodA(cl, obj, msg);            
+            if MUIB.FChilds.Count = 0 then
+            begin
+              MUIB.FMUICanvas.DrawRect := Rect(0, 0, Obj_Width(Obj), Obj_Height(Obj));
+              MUIB.FMUICanvas.RastPort := CreateRastPort;
+              MUIB.FMUICanvas.RastPort^.Layer := nil;
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
+              ClipBlit(rp, Obj_Left(Obj), Obj_Top(Obj), MUIB.FMUICanvas.RastPort, 0, 0, Obj_Width(Obj), Obj_Height(Obj), $00C0);
+            end else
+            begin
+              MUIB.FMUICanvas.RastPort := rp;
+              MUIB.FMUICanvas.DrawRect :=
+                  Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+            end;
             MUIB.FMUICanvas.Offset.X := 0;
             MUIB.FMUICanvas.Offset.Y := 0;
             MUIB.FMUICanvas.Position.X := 0;
@@ -851,19 +906,21 @@ begin
             MUIB.FMUICanvas.DeInitCanvas;
             MUIB.FMUICanvas.InitCanvas;
             //writeln('-->Draw ', MUIB.FMUICanvas.DrawRect.Top, ', ', MUIB.FMUICanvas.DrawRect.Bottom);
-            if not MUIB.MUIDrawing then
-            begin
-              SetAPen(rp, ri^.mri_Pens[MPEN_BACKGROUND]);
-              RectFill(rp, MUIB.FMUICanvas.DrawRect.Left, MUIB.FMUICanvas.DrawRect.Top,
-                MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom);
-            end;
             MUIB.DoRedraw;
+
             if Assigned(MUIB.FOnDraw) then
             begin
               MUIB.FOnDraw(MUIB);
-            end;
+            end;  
             MUIB.FMUICanvas.DeInitCanvas;
-            //writeln('<--Draw');
+            if MUIB.FChilds.Count = 0 then
+            begin
+              ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, Obj_Left(Obj), Obj_Top(Obj), Obj_Width(Obj), Obj_Height(Obj), $00C0);
+              FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
+              FreeRastPort(MUIB.FMUICanvas.RastPort);
+              MUIB.FMUICanvas.RastPort := nil;
+            end;
+            //writeln('<--Draw ', muib.classname);   
           end;
         finally
           MUI_RemoveClipRegion(ri, clip);
@@ -876,7 +933,7 @@ begin
       //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
-      begin
+      begin        
         HEMsg := Pointer(Msg);
         iMsg := HeMsg^.imsg;
         ri := MUIRenderInfo(Obj);
@@ -899,6 +956,7 @@ begin
               LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
             end;
             IDCMP_MOUSEBUTTONS: begin
+              //writeln(Muib.Classname,' Button: ', RelX,', ', RelY);
               case iMsg^.Code of
                 SELECTDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                 SELECTUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);

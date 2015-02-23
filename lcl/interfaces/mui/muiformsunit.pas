@@ -153,9 +153,10 @@ begin
     MUILM_LAYOUT:
     begin
       Win.GetSizes;
-      for i:= 0 to Win.FObjects.Count - 1 do
+      for i:= 0 to Win.FChilds.Count - 1 do
       begin
-        TMuiObject(Win.FObjects.Items[i]).SetOwnSize;
+        if Win.FChilds.Items[i] is TMUIObject then 
+          TMuiObject(Win.FChilds.Items[i]).SetOwnSize;
       end;
     end;
   end;

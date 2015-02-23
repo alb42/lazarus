@@ -241,6 +241,7 @@ type
     function TextHeight(Txt: PChar; Count: integer): integer;
     procedure FillRect(X1, Y1, X2, Y2: Integer);
     procedure Rectangle(X1, Y1, X2, Y2: Integer);
+    procedure Ellipse(X1, Y1, X2, Y2: Integer);
     procedure SetPixel(X,Y, Color: LongWord);
     // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
@@ -851,6 +852,7 @@ procedure TMUICanvas.FillRect(X1, Y1, X2, Y2: Integer);
 var
   T: TPoint;
 begin
+  //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
   if Assigned(RastPort) then
   begin
     T := GetOffset;
@@ -874,6 +876,37 @@ begin
     LineTo(X1, Y2);
     LineTo(X1, Y1);
   end;
+end;
+
+procedure TMUICanvas.Ellipse(X1, Y1, X2, Y2: Integer);
+const
+  AREA_BYTES = 100;
+var
+  T: TPoint;
+  Ras: TPlanePtr;
+  TRas: TTmpRas;
+  WarBuff: array[0..AREA_BYTES] of Word;
+  ari: TAreaInfo;
+  ElWi, ElHi: Integer;
+begin
+  if Assigned(RastPort) then
+  begin
+    T := GetOffset;
+    ElWi := X2 - X1;
+    ElHi := Y2 - Y1;
+    Ras := AllocRaster(ElWi * 2, ElHi * 2);
+    InitTmpRas(@TRas, ras, ElWi * 2 * ElHi * 2 * 3);
+    InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
+    RastPort^.TmpRas := @TRas;
+    RastPort^.AreaInfo := @Ari;
+    
+    AreaEllipse(RastPort, T.X + X1 , T.Y + Y1, ElWi div 2, ElHi div 2);
+    
+    AreaEnd(RastPort);
+    RastPort^.TmpRas := nil;
+    RastPort^.AreaInfo := nil;
+    FreeRaster(Ras, ElWi * 2, ElHi * 2);
+  end;  
 end;
 
 procedure TMUICanvas.SetPixel(X,Y, Color: LongWord);

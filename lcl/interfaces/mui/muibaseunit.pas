@@ -64,6 +64,8 @@ type
     FObject: pObject_;
     BlockRedraw: boolean;
     MUIDrawing: Boolean;
+    LastClick: Int64; // time of the last click -> for double click events
+    NumMoves: Integer; // max 3 movements before lastclick is deleted;
     constructor Create(ObjType: longint; const Params: array of const);
       overload; reintroduce; virtual;
     constructor Create(AClassName: PChar; Tags: PTagItem); overload;
@@ -823,6 +825,7 @@ var
   KeyUp: Boolean;
   ie: TInputEvent;
   Win: PWindow;
+  CurTime: Int64;
 begin
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
@@ -867,8 +870,8 @@ begin
     MUIM_Draw:
     begin
       //writeln(' DRAW');
-      //if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT = 0 then
-      // Exit;
+      if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
+       Exit;
       
       rp := nil;
       ri := MUIRenderInfo(Obj);
@@ -954,11 +957,30 @@ begin
           case IMsg^.IClass of
             IDCMP_MOUSEMOVE: begin
               LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
+              if MUIB.LastClick > 0 then
+                if MUIB.NumMoves > 0 then
+                begin
+                  Dec(MUIB.NumMoves)
+                end
+                else
+                  MUIB.LastClick := -1;
             end;
             IDCMP_MOUSEBUTTONS: begin
               //writeln(Muib.Classname,' Button: ', RelX,', ', RelY);
               case iMsg^.Code of
-                SELECTDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                SELECTDOWN: begin
+                  LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                  CurTime := GetMsCount;
+                  if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
+                  begin
+                    LCLSendMouseMultiClickMsg(MUIB.PasObject, RelX, RelY, mbLeft, 2, []);
+                    MUIB.LastClick := -1;                
+                  end else
+                  begin
+                    MUIB.NumMoves := 3;
+                    MUIB.LastClick := CurTime;  
+                  end;
+                end;  
                 SELECTUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                 MIDDLEDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
                 MIDDLEUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);

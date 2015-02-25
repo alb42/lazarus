@@ -130,6 +130,7 @@ type
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
     class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
+    class procedure SetReadOnly(const ACustomEdit: TCustomEdit; NewReadOnly: boolean); override;
   public
   end;
 
@@ -542,6 +543,14 @@ begin
   //writeln('-->Set Text');
   if TObject(AWinControl.Handle) is TMuiStringEdit then
     TMuiStringEdit(AWinControl.Handle).Text := AText;
+end;
+
+class procedure TMUIWSCustomEdit.SetReadOnly(const ACustomEdit: TCustomEdit; NewReadOnly: boolean);
+begin
+  if ACustomEdit is TMemo then
+  begin
+    TMuiTextEdit(ACustomEdit.Handle).ReadOnly := NewReadOnly;  
+  end;
 end;
 
 { TMUIWSButton }

@@ -143,11 +143,14 @@ type
     FText: PChar;
     FStrings: TFlowString;
     FTextObj: pObject_;
+    procedure SetReadOnly(AReadOnly: Boolean);
+    function GetReadOnly: Boolean;
   public
     constructor Create(AStrings: TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
     Destructor Destroy; override;
     property Strings: TFlowString read FStrings write FStrings;
     property TextObj: pObject_ read FTextObj write FTextObj;
+    property ReadOnly: Boolean read GetReadOnly write SetReadOnly;
   end;
 
   { TFloatText }
@@ -969,6 +972,20 @@ Destructor TMuiTextEdit.Destroy;
 begin;
   inherited;
   FStrings.Free;
+end;
+
+const
+  TextEditor_Dummy = $ad000000;
+  MUIA_TextEditor_ReadOnly = TextEditor_Dummy + $19;
+
+procedure TMuiTextEdit.SetReadOnly(AReadOnly: Boolean);
+begin
+  SetAttribute([IPTR(MUIA_TextEditor_ReadOnly), AReadOnly]);
+end;
+
+function TMuiTextEdit.GetReadOnly: Boolean;
+begin
+  Result := Boolean(GetAttribute(IPTR(MUIA_TextEditor_ReadOnly)));
 end;
 
 { TFlowString }

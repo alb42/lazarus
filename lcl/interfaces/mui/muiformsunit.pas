@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types;
+  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType;
 
 type
 
@@ -85,6 +85,8 @@ type
   TMuiWindow = class(TMUIObject)
   private
     CloseWinHook: THook;
+    MoveHook: THook;
+    SizeHook: THook;
     FMainMenu: TMuiMenuStrip;
     FSizeable: Boolean;
     FHasMenu: Boolean;
@@ -104,6 +106,7 @@ type
     procedure DoMUIDraw(); override;
     function GetClientRect: TRect; override;
     function GetWindowOffset: Types.TPoint; override;
+    procedure GetBoundsFromMUI;
     procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
@@ -318,7 +321,7 @@ begin
       IPTR(MUIV_Notify_Self),
       2,
       IPTR(MUIM_CallHook), IPTR(@MenuChoosed)
-      ])
+      ]);      
 end;
 
 { TMuiFamily }
@@ -369,6 +372,29 @@ begin
   end;
 end;
 
+function MoveWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+var
+  MuiObject: TMuiWindow;
+  w,h,l,t: Integer;
+begin
+  if TObject(Hook^.h_Data) is TMuiWindow then
+  begin
+    MuiObject := TMuiWindow(Hook^.h_Data);
+    w := MuiObject.Width;
+    h := MuiObject.Height;
+    t := MuiObject.Top;
+    l := MuiObject.Left;
+    MuiObject.GetBoundsFromMUI;
+    if Assigned(MuiObject.pasobject) then
+    begin
+      if (t <> MuiObject.Top) or (l <> MuiObject.Left) then
+        Result := LCLSendMoveMsg(MuiObject.pasobject, MuiObject.Left, MuiObject.Top);
+      if (w <> MuiObject.Width) or (w <> MuiObject.Width) then
+        Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL);  
+    end;
+  end;
+end;
+
 constructor TMuiWindow.Create(var TagList: TTagsList);
 var
   LT: TTagsList;
@@ -397,6 +423,37 @@ begin
       IPTR(FObject), 2,
       IPTR(MUIM_CallHook), IPTR(@CloseWinHook)
       ]);
+      
+  MoveHook.h_Entry := IPTR(@MoveWinFunc);
+  MoveHook.h_SubEntry := 0;
+  MoveHook.h_Data := Self;
+  
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Window_LeftEdge), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
+    2,
+    IPTR(MUIM_CallHook), IPTR(@MoveHook)
+    ]); 
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Window_TopEdge), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
+    2,
+    IPTR(MUIM_CallHook), IPTR(@MoveHook)
+    ]);      
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Window_Width), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
+    2,
+    IPTR(MUIM_CallHook), IPTR(@MoveHook)
+    ]);   
+  DoMethod([IPTR(MUIM_Notify),
+    IPTR(MUIA_Window_Height), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self),
+    2,
+    IPTR(MUIM_CallHook), IPTR(@MoveHook)
+    ]);   
+      
+      
   //writeln('window: ', HexStr(obj));
 end;
 
@@ -495,6 +552,14 @@ begin
     CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_REMMEMBER, Child.obj]);
   end;  
   //writeln('<-window remove child');  
+end;
+
+procedure TMuiWindow.GetBoundsFromMUI;
+begin
+  FLeft := GetAttribute(MUIA_Window_LeftEdge);
+  FTop := GetAttribute(MUIA_Window_TopEdge);
+  FWidth := GetAttribute(MUIA_Window_Width);
+  FHeight := GetAttribute(MUIA_Window_Height);
 end;
 
 { TMuiGroup }

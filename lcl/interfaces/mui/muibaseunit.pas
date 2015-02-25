@@ -21,8 +21,6 @@ type
     //EventHooks
     ButtonUp: THook;
     ButtonDown: THook;
-    //Position
-    FLeft, FTop, FWidth, FHeight: longint;
     //Parent
     FParent: TMUIObject;
     // AWinControl lcl-Object
@@ -32,6 +30,9 @@ type
     function GetEnabled: boolean;
     procedure SetEnabled(AValue: boolean);
   protected
+    //Position
+    FLeft, FTop, FWidth, FHeight: longint;
+    //
     LayoutHook: THook;
 
     FGrpObj: pObject_;

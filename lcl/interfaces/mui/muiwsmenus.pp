@@ -100,6 +100,7 @@ begin
   If (AMenu.Parent <> nil) and (AMenu.Parent is TCustomForm) then
   begin
     Menu := TMuiWindow(TCustomForm(AMenu.Parent).Handle).MainMenu;
+    TMuiWindow(TCustomForm(AMenu.Parent).Handle).HasMenu := True;
   end;
   Result := HMENU(Menu);
 end;

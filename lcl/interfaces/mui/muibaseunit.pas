@@ -809,6 +809,7 @@ var
   //r: TRectangle;
   clip: Pointer;
   MUIB: TMUIObject;
+  MUIParent: TMUIObject;
   p: TMUIObject;
   HIMsg: PMUIP_HandleInput;
   HEMsg: PMUIP_HandleEvent;
@@ -946,9 +947,21 @@ begin
         end;
         if Assigned(Win) then
         begin
-          // why this is needed?
-          //IMsg^.MouseX := IMsg^.MouseX - 1;
-          //IMsg^.MouseY := IMsg^.MouseY - 6;
+          // Activate the RMBTrap if no menu -> we can use the Right mousekey
+          MUIParent := MUIB;
+          while not(MuiParent is TMuiWindow) and (MUIParent <> nil) do
+          begin
+            MuiParent := MuiParent.Parent;
+            if MuiParent is TMuiApplication then
+              break;
+          end;
+          if MUIParent is TMuiWindow then
+          begin
+            if TMuiWindow(MUIParent).HasMenu then
+              Win^.Flags := Win^.Flags and not WFLG_RMBTrap
+            else
+              Win^.Flags := Win^.Flags or WFLG_RMBTrap;
+          end;
         end;
         if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
         begin
@@ -959,9 +972,7 @@ begin
               LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
               if MUIB.LastClick > 0 then
                 if MUIB.NumMoves > 0 then
-                begin
                   Dec(MUIB.NumMoves)
-                end
                 else
                   MUIB.LastClick := -1;
             end;

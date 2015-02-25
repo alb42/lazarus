@@ -87,6 +87,7 @@ type
     CloseWinHook: THook;
     FMainMenu: TMuiMenuStrip;
     FSizeable: Boolean;
+    FHasMenu: Boolean;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
   protected
@@ -106,7 +107,8 @@ type
     procedure Redraw; override;
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
-    property Sizeable: Boolean read FSizeable write FSizeable;
+    property HasMenu: Boolean read FHasMenu write FHasMenu;
+    property Sizeable: Boolean read FSizeable write FSizeable;    
   end;
 
   { TMuiGroup }
@@ -373,6 +375,7 @@ var
   GrpTags: TTagsList;
 begin
   FMainMenu := TMuiMenuStrip.Create(LT);
+  HasMenu := False;
   //FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
   AddTags(GrpTags, [LongInt(MUIA_Group_LayoutHook), @LayoutHook]);
   FGrpObj := NewObjectA(LCLGroupClass, nil, GetTagPtr(GrpTags));

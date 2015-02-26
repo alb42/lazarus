@@ -235,7 +235,7 @@ type
     function GetOffset: TPoint;
     // Drawing routines
     procedure MoveTo(x, y: integer);
-    procedure LineTo(x, y: integer);
+    procedure LineTo(x, y: integer; SkipPenSetting: Boolean = False);
     procedure WriteText(Txt: PChar; Count: integer);
     function TextWidth(Txt: PChar; Count: integer): integer;
     function TextHeight(Txt: PChar; Count: integer): integer;
@@ -837,11 +837,13 @@ begin
   end;
 end;
 
-procedure TMUICanvas.LineTo(x, y: integer);
+procedure TMUICanvas.LineTo(x, y: integer; SkipPenSetting: Boolean = False);
 begin
   if Assigned(RastPort) then
   begin
     //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
+    if not SkipPenSetting then
+      SetPenToRP();
     Draw(RastPort, GetOffset.X + x, GetOffset.Y + y);
     Position.X := X;
     Position.Y := Y;
@@ -855,8 +857,10 @@ begin
   //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
   if Assigned(RastPort) then
   begin
+    SetBrushToRP(True);
     T := GetOffset;
     RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+    SetPenToRP();
   end;
 end;
 
@@ -868,13 +872,13 @@ begin
   begin
     T := GetOffset;
     SetBrushToRP(True);
-    FillRect(X1, Y1, X2, Y2);
-    SetPenToRP;
-    MoveTo(X1, Y1);
-    LineTo(X2, Y1);
-    LineTo(X2, Y2);
-    LineTo(X1, Y2);
-    LineTo(X1, Y1);
+    RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+    SetPenToRP();
+    GfxMove(RastPort, T.x + X1, T.Y + Y1);
+    Draw(RastPort, T.X + X2, T.Y + Y1);
+    Draw(RastPort, T.X + X2, T.Y + Y2);
+    Draw(RastPort, T.X + X1, T.Y + Y2);
+    Draw(RastPort, T.X + X1, T.Y + Y1);
   end;
 end;
 
@@ -891,6 +895,8 @@ var
   Rx, RY: Integer; // Radius
   MX, MY: Integer; // center Point
 begin
+  SetPenToRP();
+  SetBrushToRP();
   if Assigned(RastPort) then
   begin
     T := GetOffset;

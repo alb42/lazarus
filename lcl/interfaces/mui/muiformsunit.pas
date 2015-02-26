@@ -90,6 +90,7 @@ type
     FMainMenu: TMuiMenuStrip;
     FSizeable: Boolean;
     FHasMenu: Boolean;
+    FInMoveEvent: Boolean;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
   protected
@@ -132,6 +133,8 @@ var
   LMsg: pMUI_LayoutMsg;
   i: LongInt;
   Win: TMuiWindow;
+  PasWin: TWinControl;
+  Miw, Mih, Maw, Mah: Integer;
 begin
   LMsg := Msg;
   Result := LongInt(True);
@@ -140,10 +143,24 @@ begin
     MUILM_MINMAX: begin
       if Win.Sizeable then
       begin
-        LMsg^.lm_MinMax.MinWidth := 100;
-        LMsg^.lm_MinMax.MinHeight := 100;
-        LMsg^.lm_MinMax.MaxWidth := 10000;
-        LMsg^.lm_MinMax.MaxHeight := 10000;
+        Miw := 100;
+        Mih := 100;
+        Maw := 10000;
+        Mah := 10000;        
+        if Assigned(Win.PasObject) then
+        begin
+          PasWin := TWinControl(Win.PasObject);
+          MiW := Max(PasWin.Constraints.MinWidth, 100);
+          MiH := Max(PasWin.Constraints.MinHeight, 100);
+          if PasWin.Constraints.MaxWidth > 0 then
+            MaW := Min(PasWin.Constraints.MaxWidth, 10000);
+          if PasWin.Constraints.MaxHeight > 0 then
+            MaW := Min(PasWin.Constraints.MaxHeight, 10000);
+          LMsg^.lm_MinMax.MinWidth := MiW;
+          LMsg^.lm_MinMax.MinHeight := MiH;
+          LMsg^.lm_MinMax.MaxWidth :=  MaW;
+          LMsg^.lm_MinMax.MaxHeight := MaH;
+        end;  
       end else
       begin
         LMsg^.lm_MinMax.MinWidth := Win.Width;
@@ -380,17 +397,24 @@ begin
   if TObject(Hook^.h_Data) is TMuiWindow then
   begin
     MuiObject := TMuiWindow(Hook^.h_Data);
-    w := MuiObject.Width;
-    h := MuiObject.Height;
-    t := MuiObject.Top;
-    l := MuiObject.Left;
-    MuiObject.GetBoundsFromMUI;
-    if Assigned(MuiObject.pasobject) then
+    if Assigned(MuiObject.PasObject) then
     begin
-      if (t <> MuiObject.Top) or (l <> MuiObject.Left) then
-        Result := LCLSendMoveMsg(MuiObject.pasobject, MuiObject.Left, MuiObject.Top);
-      if (w <> MuiObject.Width) or (w <> MuiObject.Width) then
-        Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL);  
+      Result := LCLSendMoveMsg(MuiObject.pasobject, MuiObject.Left, MuiObject.Top, Move_Default, False);
+    end;
+  end;
+end;
+
+function SizeWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+var
+  MuiObject: TMuiWindow;
+  w,h,l,t: Integer;
+begin
+  if TObject(Hook^.h_Data) is TMuiWindow then
+  begin
+    MuiObject := TMuiWindow(Hook^.h_Data);
+    if Assigned(MuiObject.PasObject) then
+    begin
+      Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL, False);  
     end;
   end;
 end;
@@ -402,6 +426,7 @@ var
 begin
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;
+  FInMoveEvent := False;
   //FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
   AddTags(GrpTags, [LongInt(MUIA_Group_LayoutHook), @LayoutHook]);
   FGrpObj := NewObjectA(LCLGroupClass, nil, GetTagPtr(GrpTags));
@@ -423,11 +448,10 @@ begin
       IPTR(FObject), 2,
       IPTR(MUIM_CallHook), IPTR(@CloseWinHook)
       ]);
-      
+  // Move Window      
   MoveHook.h_Entry := IPTR(@MoveWinFunc);
   MoveHook.h_SubEntry := 0;
-  MoveHook.h_Data := Self;
-  
+  MoveHook.h_Data := Self;  
   DoMethod([IPTR(MUIM_Notify),
     IPTR(MUIA_Window_LeftEdge), IPTR(MUIV_EveryTime),
     IPTR(MUIV_Notify_Self),
@@ -439,22 +463,23 @@ begin
     IPTR(MUIV_Notify_Self),
     2,
     IPTR(MUIM_CallHook), IPTR(@MoveHook)
-    ]);      
+    ]);
+  // Resize Window  
+  SizeHook.h_Entry := IPTR(@SizeWinFunc);
+  SizeHook.h_SubEntry := 0;
+  SizeHook.h_Data := Self;        
   DoMethod([IPTR(MUIM_Notify),
     IPTR(MUIA_Window_Width), IPTR(MUIV_EveryTime),
     IPTR(MUIV_Notify_Self),
     2,
-    IPTR(MUIM_CallHook), IPTR(@MoveHook)
+    IPTR(MUIM_CallHook), IPTR(@SizeHook)
     ]);   
   DoMethod([IPTR(MUIM_Notify),
     IPTR(MUIA_Window_Height), IPTR(MUIV_EveryTime),
     IPTR(MUIV_Notify_Self),
     2,
-    IPTR(MUIM_CallHook), IPTR(@MoveHook)
-    ]);   
-      
-      
-  //writeln('window: ', HexStr(obj));
+    IPTR(MUIM_CallHook), IPTR(@SizeHook)
+    ]);
 end;
 
 destructor TMuiWindow.Destroy;

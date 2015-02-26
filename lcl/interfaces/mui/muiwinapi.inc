@@ -516,23 +516,23 @@ begin
     begin
       ADC.SetAMUIPen(MPEN_SHINE);
       ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
-      ADC.LineTo(ARect.Left, ARect.Top);
-      ADC.LineTo(ARect.Right - 1, ARect.Top);
+      ADC.LineTo(ARect.Left, ARect.Top, True);
+      ADC.LineTo(ARect.Right - 1, ARect.Top, True);
       ADC.SetAMUIPen(MPEN_SHADOW);
       ADC.MoveTo(ARect.Right - 1, ARect.Top);
-      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
-      ADC.LineTo(ARect.Left, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1, True);
+      ADC.LineTo(ARect.Left, ARect.Bottom - 1, True);
     end;
     if Style = bvLowered then
     begin
       ADC.SetAMUIPen(MPEN_SHADOW);
       ADC.MoveTo(ARect.Right - 1, ARect.Top);
-      ADC.LineTo(ARect.Left, ARect.Top);
-      ADC.LineTo(ARect.Left, ARect.Bottom - 1);
+      ADC.LineTo(ARect.Left, ARect.Top, True);
+      ADC.LineTo(ARect.Left, ARect.Bottom - 1, True);
       ADC.SetAMUIPen(MPEN_SHINE);
       ADC.MoveTo(ARect.Left, ARect.Bottom - 1);
-      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1);
-      ADC.LineTo(ARect.Right - 1, ARect.Top);
+      ADC.LineTo(ARect.Right - 1, ARect.Bottom - 1, True);
+      ADC.LineTo(ARect.Right - 1, ARect.Top, True);
     end;
     Inc(ARect.Left);
     Inc(ARect.Top);
@@ -541,6 +541,7 @@ begin
     ADC.ResetPenBrushFont;
     Result := True;
   end;
+  ADC.SetPenToRP();
 end;
 
 function TMUIWidgetSet.FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer;

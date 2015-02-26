@@ -67,6 +67,7 @@ type
   TMUIWidgetSet = class(TWidgetSet)
   protected
     function CreateThemeServices: TThemeServices; override;
+    function GetAppHandle: THandle; override;
   public
     procedure PassCmdLineOptions; override;
   public
@@ -117,6 +118,11 @@ uses
 {$I muiwinapi.inc}
 
 { TMUIWidgetSet }
+
+function TMUIWidgetSet.GetAppHandle: THandle;
+begin
+  Result := THandle(MUIApp);
+end;
 
 procedure TMUIWidgetSet.PassCmdLineOptions;
 begin
@@ -586,5 +592,6 @@ function TMUIWidgetSet.CreateThemeServices: TThemeServices;
 begin
   Result := TMUIThemeServices.Create;
 end;
+
 
 end.

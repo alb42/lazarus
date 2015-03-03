@@ -452,6 +452,7 @@ begin
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
+  FMUICanvas.MUIObject := self;
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;
@@ -467,6 +468,7 @@ begin
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
+  FMUICanvas.MUIObject := self;
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;
@@ -482,6 +484,7 @@ begin
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
+  FMUICanvas.MUIObject := self;
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;
@@ -800,6 +803,274 @@ begin
   end;
 end;}
 
+function RawKeyToKeycode(RawKey: Byte): Word;
+const
+  TranslTable: array[Byte] of Integer = (
+    -1,		// $00  
+    $31,		// $01  1
+    $32,		// $02  2
+    $33,		// $03  3
+    $34,		// $04  4
+    $35,		// $05  5
+    $36,		// $06  6
+    $37,		// $07  7
+    $38,		// $08  8
+    $39,		// $09  9
+    $30,		// $0a  0
+    -1,			// $0b
+    VK_Clear,		// $0c  
+    VK_Return,		// $0d
+    -1,			// $0e
+    -1,			// $0f
+    -1,		// $10  
+    -1,		        // $11  
+    Ord('e'),		// $12  e
+    -1,		        // $13  
+    -1,			// $14  
+    -1,			// $15  
+    -1,			// $16
+    -1,			// $17  
+    -1,			// $18  
+    -1,			// $19  
+    -1,			// $1a
+    VK_Escape,		// $1b  
+    -1,			// $1c  
+    -1,			// $1d  
+    -1,			// $1e  
+    -1, //keyModeSwitch,	// $1f  
+    Ord('a'),		// $20  a
+    -1,//keyPrior,		// $21  
+    Ord('d'),		// $22  d
+    -1,                 // $23  
+    -1,		        // $24  
+    -1,		        // $25  
+    -1,		        // $26  
+    -1,		        // $27  
+    -1,		        // $28  
+    VK_Select,		// $29  
+    -1,//keyPrintScreen,	// $2a  
+    -1, //keyExecute,		// $2b  
+    -1, //keyPrintScreen,	// $2c  
+    VK_Insert,		// $2d  
+    VK_Delete,		// $2e  
+    VK_Help,		// $2f  
+    $30,		// $30  
+    $31,		// $31  
+    $32,		// $32  
+    Ord('c'),		// $33  c
+    $34,		// $34  
+    Ord('b'),		// $35  b
+    $36,		// $36  
+    $37,		// $37  
+    $38,		// $38  
+    $39,		// $39  
+    -1,			// $3a
+    -1,			// $3b
+    -1,			// $3c
+    -1,			// $3d
+    -1,			// $3e
+    -1,			// $3f
+    $20,		// $40 Space
+    -1,			// $41  'A'
+    -1,			// $42  'B'
+    -1,			// $43  'C'
+    -1,			// $44  'D'
+    -1,			// $45  'E'
+    -1,			// $46  'F'
+    VK_Insert,		// $47  'G'
+    -1, //VK_PageUp,		// $48  'H'
+    -1, //VK_PageDown,	// $49  'I'
+    -1,			// $4a  'J'
+    VK_F11,             // $4b  'K'
+    VK_Up,		// $4c  'L'
+    VK_Down,		// $4d  'M'
+    VK_Right,		// $4e  'N'
+    VK_Left,		// $4f  'O'
+    VK_F1,		// $50  'P'
+    VK_F2,		// $51  'Q'
+    VK_F3,		// $52  'R'
+    VK_F4,		// $53  'S'
+    VK_F5,		// $54  'T'
+    VK_F6,		// $55  'U'
+    VK_F7,		// $56  'V'
+    VK_F8,		// $57  'W'
+    VK_F9,		// $58  'X'
+    VK_F10,		// $59  'Y'
+    VK_NumLock,		// $5a  'Z'
+    -1,			// $5b  VK_LWIN
+    -1,			// $5c  VK_RWIN
+    VK_Menu,		// $5d  VK_APPS
+    -1,			// $5e
+    VK_Pause,		// $5f  VK_SLEEP
+    -1, //VK_ShiftL,		// $60  VK_NUMPAD0
+    -1, //VK_ShiftR,	        // $61  VK_NUMPAD1
+    -1, //VK_Caps,            // $62  VK_NUMPAD2
+    -1, //VK_Ctrl,	        // $63  VK_NUMPAD3
+    -1, //VK_Alt,	        // $64  VK_NUMPAD4
+    -1, //VK_AltGr,	        // $65  VK_NUMPAD5
+    -1, //VK_Meta,	        // $66  VK_NUMPAD6
+    -1, //VK_P7,		// $67  VK_NUMPAD7
+    -1, //VK_P8,		// $68  VK_NUMPAD8
+    -1, //VK_P9,		// $69  VK_NUMPAD9
+    -1, //VK_PAsterisk,	// $6a  VK_MULTIPLY
+    -1, //VK_PPlus,		// $6b  VK_ADD
+    -1, //VK_PSeparator,	// $6c  VK_SEPARATOR
+    -1, //VK_PMinus,		// $6d  VK_SUBTRACT
+    -1, //VK_PDecimal,	// $6e  VK_DECIMAL
+    -1, //VK_F12,		// $6f  VK_DIVIDE
+    VK_Home,		// $70  VK_F1
+    VK_End,		// $71  VK_F2
+    $52,		        // $72  VK_F3
+    $53,		        // $73  VK_F4
+    $54,		        // $74  VK_F5
+    $55,		        // $75  VK_F6
+    $56,		        // $76  VK_F7
+    $57,		        // $77  VK_F8
+    $58,		        // $78  VK_F9
+    $59,		        // $79  VK_F10
+    $5a,		        // $7a  VK_F11
+    VK_F12,		// $7b  VK_F12
+    VK_F13,		// $7c  VK_F13
+    VK_F14,		// $7d  VK_F14
+    VK_F15,		// $7e  VK_F15
+    VK_F16,		// $7f  VK_F16
+    VK_F17,		// $80  VK_F17
+    VK_F18,		// $81  VK_F18
+    VK_F19,		// $82  VK_F19
+    VK_F20,		// $83  VK_F20
+    VK_F21,		// $84  VK_F21
+    VK_F22,		// $85  VK_F22
+    VK_F23,		// $86  VK_F23
+    VK_F24,		// $87  VK_F24
+    -1,			// $88
+    -1,			// $89
+    -1,			// $8a
+    -1,			// $8b
+    -1,			// $8c
+    -1,			// $8d
+    -1,			// $8e
+    -1,			// $8f
+    VK_NumLock,		// $90  VK_NUMLOCK
+    VK_Scroll,		// $91  VK_SCROLL
+    -1,			// $92  VK_OEM_NEC_EQUAL
+    -1,			// $93  VK_OEM_FJ_MASSHOU
+    -1,			// $94  VK_OEM_FJ_TOUROKU
+    -1,			// $95  VK_OEM_FJ_LOYA
+    -1,			// $96  VK_OEM_FJ_ROYA
+    -1,			// $97
+    -1,			// $98
+    -1,			// $99
+    -1,			// $9a
+    -1,			// $9b
+    -1,			// $9c
+    -1,			// $9d
+    -1,			// $9e
+    -1,			// $9f
+    -1, //VK_ShiftL,		// $a0  VK_LSHIFT
+    -1, //VK_ShiftR,		// $a1  VK_RSHIFT
+    -1, //VK_CtrlL,		// $a2  VK_LCONTROL
+    -1, //VK_CtrlR,		// $a3  VK_RCONTROL
+    -1,			// $a4  VK_LMENU
+    -1,			// $a5  VK_RMENU
+    -1,			// $a6  VK_BROWSER_BACK
+    -1,			// $a7  VK_BROWSER_FORWARD
+    -1,			// $a8  VK_BROWSER_REFRESH
+    -1,			// $a9  VK_BROWSER_STOP
+    -1,			// $aa  VK_BROWSER_SEARCH
+    -1,			// $ab  VK_BROWSER_FAVORITES
+    -1,			// $ac  VK_BROWSER_HOME
+    -1,			// $ad  VK_VOLUME_MUTE
+    -1,			// $ae  VK_VOLUME_DOWN
+    -1,			// $af  VK_VOLUME_UP
+    -1,			// $b0  VK_MEDIA_NEXT_TRACK
+    -1,			// $b1  VK_MEDIA_PREV_TRACK
+    -1,			// $b2  VK_MEDIA_STOP
+    -1,			// $b3  VK_MEDIA_PLAY_PAUSE
+    -1,			// $b4  VK_LAUNCH_MAIL
+    -1,			// $b5  VK_LAUNCH_MEDIA_SELECT
+    -1,			// $b6  VK_LAUNCH_APP1
+    -1,			// $b7  VK_LAUNCH_APP2
+    -1,			// $b8
+    -1,			// $b9
+    $dc, {U Umlaut}	// $ba  VK_OEM_1
+    $2b, {+ char}	// $bb  VK_OEM_PLUS
+    $2c, {, char}	// $bc  VK_OEM_COMMA
+    $2d, {- char}	// $bd  VK_OEM_MINUS
+    $2e, {. char}	// $be  VK_OEM_PERIOD
+    $23, {# char}	// $bf  VK_OEM_2
+    $d6, {O Umlaut}	// $c0  VK_OEM_3
+    -1,			// $c1
+    -1,			// $c2
+    -1,			// $c3
+    -1,			// $c4
+    -1,			// $c5
+    -1,			// $c6
+    -1,			// $c7
+    -1,			// $c8
+    -1,			// $c9
+    -1,			// $ca
+    -1,			// $cb
+    -1,			// $cc
+    -1,			// $cd
+    -1,			// $ce
+    -1,			// $cf
+    -1,			// $d0
+    -1,			// $d1
+    -1,			// $d2
+    -1,			// $d3
+    -1,			// $d4
+    -1,			// $d5
+    -1,			// $d6
+    -1,			// $d7
+    -1,			// $d8
+    -1,			// $d9
+    -1,			// $da
+    -1,			// $db  VK_OEM_4
+    -1, //VK_DeadCircumflex,	// $dc  VK_OEM_5
+    -1, //VK_DeadAcute,	// $dd  VK_OEM_6
+    $c4, {A Umlaut}	// $de  VK_OEM_7
+    -1,    	        // $df  VK_OEM_8
+    -1,			// $e0
+    -1,			// $e1  VK_OEM_AX
+    $3c, {< char}	// $e2  VK_OEM_102
+    -1,			// $e3  VK_ICO_HELP
+    -1, //VK_P5,		// $e4  VK_ICO_00
+    -1,			// $e5  VK_PROCESSKEY
+    -1,			// $e6  VK_ICO_CLEAR
+    -1,			// $e7  VK_PACKET
+    -1,			// $e8
+    -1,			// $e9  VK_OEM_RESET
+    -1,			// $ea  VK_OEM_JUMP
+    -1,			// $eb  VK_OEM_PA1
+    -1,			// $ec  VK_OEM_PA2
+    -1,			// $ed  VK_OEM_PA3
+    -1,			// $ee  VK_OEM_WSCTRL
+    -1,			// $ef  VK_OEM_CUSEL
+    -1,			// $f0  VK_OEM_ATTN
+    -1,			// $f1  VK_OEM_FINISH
+    -1,			// $f2  VK_OEM_COPY
+    -1,			// $f3  VK_OEM_AUTO
+    -1,			// $f4  VK_OEM_ENLW
+    -1,			// $f5  VK_OEM_BACKTAB
+    -1,			// $f6  VK_ATTN
+    -1,			// $f7  VK_CRSEL
+    -1,			// $f8  VK_EXSEL
+    -1,			// $f9  VK_EREOF
+    -1,			// $fa  VK_PLAY
+    -1,			// $fb  VK_ZOOM
+    -1,			// $fc  VK_NONAME
+    -1,			// $fd  VK_PA1
+    -1,			// $fe  VK_OEM_CLEAR
+    -1			// $ff
+  );
+begin
+  Result := 0;
+  if TranslTable[RawKey]  = -1 then
+    Result := 0
+  else
+    Result := TranslTable[RawKey];
+end;
+
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
   //AskMsg: PMUIP_AskMinMax;
@@ -828,6 +1099,7 @@ var
   ie: TInputEvent;
   Win: PWindow;
   CurTime: Int64;
+  MUIWin: TMUIWindow;
 begin
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
@@ -887,7 +1159,7 @@ begin
         try
           if Assigned(MUIB) then
           begin
-            //writeln(muib.classname, ' Draw ', MUIB.MUIDrawing);
+            //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             if MUIB.MUIDrawing then
               Result := DoSuperMethodA(cl, obj, msg);            
             if MUIB.FChilds.Count = 0 then
@@ -956,9 +1228,12 @@ begin
             if MuiParent is TMuiApplication then
               break;
           end;
+          MUIWin := nil;
           if MUIParent is TMuiWindow then
+            MUIWin := MUIParent as TMuiWindow; 
+          if Assigned(MUIWin) then
           begin
-            if TMuiWindow(MUIParent).HasMenu then
+            if MUIWin.HasMenu then
               Win^.Flags := Win^.Flags and not WFLG_RMBTrap
             else
               Win^.Flags := Win^.Flags or WFLG_RMBTrap;
@@ -981,6 +1256,7 @@ begin
               //writeln(Muib.Classname,' Button: ', RelX,', ', RelY);
               case iMsg^.Code of
                 SELECTDOWN: begin
+                  MUIWin.FFocusedControl := MUIB;
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
@@ -1001,6 +1277,9 @@ begin
               end;
             end;
             IDCMP_RAWKEY: begin
+              //if Assigned(MUIWin) then
+              //  MUIB := MUIWin.FFocusedControl;
+              //writeln('Key to: ', MUIB.PasObject.Classname);  
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin
                 if iMsg^.Code = $7A then
@@ -1021,11 +1300,17 @@ begin
                 if Ret = 0 then
                 begin
                   KeyData := Ord(CharCode);
-                  LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, False, False);
+                  if KeyUp then
+                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, False)
+                  else  
+                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, False);  
                 end else
                 begin
-                  KeyData := 0;
-                  LCLSendKeyDownEvent(MUIB.PasObject, KeyData, IMsg^.Code, False, True);
+                  KeyData := RawKeyToKeycode(IMsg^.Code);
+                  if KeyUp then
+                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, True)
+                  else
+                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, True);                  
                 end;
               end;
             end;

@@ -101,6 +101,7 @@ type
     procedure SetLeft(ALeft: LongInt); override;
     procedure SetTop(ATop: LongInt); override;
   public
+    FFocusedControl: TMuiObject;
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
@@ -424,6 +425,7 @@ var
   LT: TTagsList;
   GrpTags: TTagsList;
 begin
+  FFocusedControl := Self;
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;
   FInMoveEvent := False;

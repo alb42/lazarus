@@ -232,6 +232,7 @@ type
     //Clipping: TMuiBasicRegion;
     Offset: types.TPoint;
     TextColor: LongWord;
+    MUIObject: TObject;
     function GetOffset: TPoint;
     // Drawing routines
     procedure MoveTo(x, y: integer);
@@ -900,6 +901,18 @@ begin
   if Assigned(RastPort) then
   begin
     T := GetOffset;
+    if X2 < X1 then
+    begin
+      RX := X2;
+      X2 := X1;
+      X1 := RX;
+    end;
+    if Y2 < Y1 then
+    begin
+      RX := Y2;
+      Y2 := Y1;
+      Y1 := RY;
+    end;
     ElWi := X2 - X1;
     ElHi := Y2 - Y1;
     RX := ElWi div 2;
@@ -911,9 +924,7 @@ begin
     InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
     RastPort^.TmpRas := @TRas;
     RastPort^.AreaInfo := @Ari;
-    
     AreaEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);
-    
     AreaEnd(RastPort);
     RastPort^.TmpRas := nil;
     RastPort^.AreaInfo := nil;
@@ -936,10 +947,12 @@ procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
 var
   Tags: TTagsList;
   Col: LongWord;
+  Hi: Integer;
 begin
   if Assigned(RastPort) then
   begin
-    MoveTo(Position.X, Position.Y + 2);
+    Hi := TextHeight('|', 1);
+    MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
     Col := TColorToMUIColor(TextColor);
     AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
     SetRPAttrsA(RastPort, GetTagPtr(Tags));
@@ -989,6 +1002,7 @@ var
   AFontData: TLogFont;
 begin
   Bitmap := nil;
+  MUIObject := nil;
   ABrushData.lbColor := clBtnFace;
   APenData.lopnColor := clBlack;
   AFontData.lfFaceName := 'XEN';
@@ -1153,8 +1167,16 @@ begin
   end;
   if NewObj is TMUIBitmap then
   begin
+    //writeln('new bitmap! ', hexstr(Self), ' Bitmap ', HexStr(Newobj));
     Result := Bitmap;
     Bitmap := TMUIBitmap(NewObj);
+    if not Assigned(MUIObject) then
+    begin
+      FreeBitmap(RastPort^.Bitmap);
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, nil);
+      //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
+      //WritePixelarray(Bitmap.FImage, Bitmap.FWidth, Bitmap.FHeight, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_ARGB32);
+    end;
   end;
 end;
 

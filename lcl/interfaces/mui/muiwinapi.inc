@@ -76,7 +76,7 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('BitBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
   {$endif}
-  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
+  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Src.Bitmap.FImage) then
   begin
     WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
   end;
@@ -182,14 +182,14 @@ var
   B: TMuiBitmap;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('CreateCompatibleDC ', HexStr(ADC));
+  writeln('-->CreateCompatibleDC ', HexStr(ADC));
   {$endif}
   Result := 0;
   //if DC <> 0 then
   begin
     NewDC := TMUICanvas.Create;
     NewDC.RastPort := nil;
-    {if ADC <> nil then
+    if ADC <> nil then
     begin
       NewDC.RastPort := CloneRastPort(ADC.RastPort);
     end else
@@ -197,7 +197,7 @@ begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
       NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, nil);
-    end;}
+    end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
     if DC <> 0 then
@@ -205,7 +205,7 @@ begin
     Result := HDC(NewDC);
   end;
   {$ifdef VERBOSEAROS}
-  writeln('CreateCompatibleDC ' , HexStr(Pointer(Result)));
+  writeln('<--CreateCompatibleDC ' , HexStr(Pointer(Result)));
   {$endif}
 
 (*  {$ifdef VerboseFPGUIWinAPI}
@@ -372,7 +372,7 @@ begin
       end;
       {$endif}
       SetDrMd(ADC.RastPort, JAM1);
-      ADC.MoveTo(ARect.Left, ARect.Top + ADC.TextHeight(str, Count) div 2);
+      ADC.MoveTo(ARect.Left, ARect.Top{ + ADC.TextHeight(str, Count) div 2});
       ADC.WriteText(str, Count);
       Result := ADC.TextHeight(Str, Count);
       ADC.ResetPenBrushFont;
@@ -437,12 +437,6 @@ function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 var
   ADC: TMUICanvas absolute DC;
-(*var
-  ADC: TFpGuiDeviceContext absolute DC;
-  AStr: string;
-  r: TfpgRect;
-  rClip,OldClip: TfpgRect;
-  RestoreClip: Boolean;*)
 begin
   {$ifdef VERBOSEAROS}
   writeln('Ext Text out ', str);
@@ -452,33 +446,10 @@ begin
     ADC.MoveTo(X, Y);
     ADC.WriteText(Str, Count);
   end;
-(*  SetLength(AStr,Count);
-  move(Str[0],AStr[1],Count);
-  r:=ADC.PrepareRectOffsets(classes.Rect(X,Y,0,0));
-  RestoreClip:=false;
-  if Rect<>nil then begin
-    rClip:=fpgRect(Rect^.Left,Rect^.Top,Rect^.Right-Rect^.Left,Rect^.Bottom-Rect^.Top);
-    if (ETO_CLIPPED or ETO_OPAQUE) and Options <> 0 then begin
-      OldClip:=ADC.fpgCanvas.GetClipRect;
-      ADC.fpgCanvas.SetClipRect(rClip);
-      RestoreClip:=true;
-    end;
-    if ETO_OPAQUE and Options = ETO_OPAQUE then begin
-      ADC.ClearRectangle(rClip);
-    end;
-  end;
-
-  ADC.fpgCanvas.DrawText(r.Left, r.Top, AStr);
-
-  if RestoreClip then begin
-    ADC.fpgCanvas.SetClipRect(OldClip);
-  end;
-  Result:=true; *)
-  Result:=False;
+  Result := True;
 end;
 
-function TMUIWidgetSet.FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH
-  ): Boolean;
+function TMUIWidgetSet.FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH): Boolean;
 var
   ADC: TMUICanvas absolute DC;
   MUIBrush: TMUIWinAPIElement absolute Brush;
@@ -844,14 +815,90 @@ end;
   http://msdn.microsoft.com/en-us/library/windows/desktop/ms645505%28v=vs.85%29.aspx }
 function TMUIWidgetSet.MessageBox(hWnd: HWND; lpText, lpCaption: PChar;
   uType: Cardinal): integer;
+var
+  ES: PEasyStruct;
+  Buttons: string;
+  Res: LongInt;
+  BtnType: LongWord;
+begin
+  New(ES);
+  ES^.es_StructSize := SizeOf(TEasyStruct);
+  ES^.es_Flags := 0;
+  ES^.es_Title := PChar(lpCaption);
+  ES^.es_TextFormat := PChar(lpText);
+  BtnType := (uType and $0000000F);
+
+  case BtnType of
+    MB_OKCANCEL: Buttons := 'OK|Cancel';
+    MB_ABORTRETRYIGNORE: Buttons := 'Abort|Retry|Ignore';
+    MB_YESNOCANCEL: Buttons := 'Yes|No|Cancel';
+    MB_YESNO: Buttons := 'Yes|No';
+    MB_RETRYCANCEL: Buttons := 'Retry|Cancel';
+    MB_CANCELTRYCONTINUE: Buttons := 'Abort|Retry|Ignore';
+  else
+    Buttons := 'OK';
+  end;  
+  ES^.es_GadgetFormat := PChar(Buttons);
+  //
+  Res := EasyRequestArgs(nil, ES, nil, nil);
+  Result := mrCancel;
+  case BtnType of
+    MB_OKCANCEL: begin
+      if Res = 0 then
+        Result := mrOK
+      else
+        Result := mrCancel;
+    end;  
+    MB_ABORTRETRYIGNORE: begin
+      if Res = 0 then
+        Result := mrAbort;
+      if Res = 1 then     
+        Result := mrRetry;
+      if Res = 2 then
+        Result := mrIgnore;
+    end;  
+    MB_YESNOCANCEL: begin
+      if Res = 0 then
+        Result := mrYes;
+      if Res = 1 then     
+        Result := mrNo;
+      if Res = 2 then
+        Result := mrCancel;
+    end;
+    MB_YESNO:begin
+      if Res = 0 then
+        Result := mrYes;
+      if Res = 1 then     
+        Result := mrNo;
+    end;
+    MB_RETRYCANCEL:begin
+      if Res = 0 then
+        Result := mrRetry;
+      if Res = 1 then     
+        Result := mrCancel;
+    end;
+    MB_CANCELTRYCONTINUE: begin
+      if Res = 0 then
+        Result := mrCancel;
+      if Res = 1 then     
+        Result := mrRetry;
+      if Res = 2 then
+        Result := mrIgnore;
+    end;
+  end;
+  Dispose(ES);
+end;  
+  
+  
+ 
 (*var
   Str: AnsiString;
   TitleStr: AnsiString;
   Buttons : TfpgMsgDlgButtons;
   BtnType: Cardinal;
   DlgType: Cardinal;*)
-begin
-  Result := 0;
+//begin
+//  Result := 0;
 (*  BtnType := (uType and $0000000F); { mask the button type }
 
   if (BtnType = MB_OKCANCEL) then
@@ -898,7 +945,7 @@ begin
     TfpgMessageDialog.Critical(TitleStr, Str, Buttons)
   else
     TfpgMessageDialog.Information(TitleStr, Str, Buttons);*)
-end;
+//end;
 
 function TMUIWidgetSet.MoveToEx(DC: HDC; X, Y: Integer; OldPoint: PPoint): Boolean;
 var
@@ -1126,15 +1173,38 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
+  Sptr, Dptr: PByte;
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
+  
+  writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
+  writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
   {$endif}
-  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
+  if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
     if (SrcWidth = Width) and (SrcHeight = height) then
-      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
-    else
+    begin
+      //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);      
+      {if Dest.MuiObject = nil then
+      begin
+        //dst: APTR; destx: Word; desty: Word; dstmod: Word; rp: PRastPort; srcx: Word; srcy: Word; width: Word; height: Word; dstformat: Byte): LongWord; syscall CyberGfxBase 20;
+        //if Assigned(Dest.Bitmap.FImage) then
+        //  ReadPixelArray(Dest.Bitmap.FImage, Dest.GetOffset.x + x, Dest.GetOffset.Y + y, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, 1, 1, PIXFMT_ARGB32)
+        Sptr := PByte(SRC.Bitmap.FImage);
+        Dptr := PByte(Dest.Bitmap.FImage);
+        Inc(Sptr, (YSrc * Src.Bitmap.FWidth * SizeOf(LongWord)) + (XSrc * SizeOf(LongWord)));
+        Inc(Dptr, ((Dest.GetOffset.Y + Y) * Dest.Bitmap.FWidth * SizeOf(LongWord)) + ((Dest.GetOffset.X + x) * SizeOf(LongWord)));
+        for i := 0 to Height - 1 do
+        begin
+          //writeln('write ', i,' of ', Height-1 );
+          Move(Sptr^, DPtr^, Width*sizeof(LongWord));
+          Inc(Sptr, Src.Bitmap.FWidth * SizeOf(LongWord));
+          Inc(DPtr, Dest.Bitmap.FWidth * SizeOf(LongWord));
+        end;  
+      end;}
+    end else
     begin
       //writeln('Width: ', Width, ' Hegiht: ', Height);
       NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));

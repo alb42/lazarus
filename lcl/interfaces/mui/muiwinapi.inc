@@ -1053,12 +1053,31 @@ begin
 end;
 
 function TMUIWidgetSet.SetFocus(hWnd: HWND): HWND;
-//var
-//  Widget: TFPGUIPrivateWidget absolute hWnd;
+var
+  Widget: TMUIObject absolute hWnd;
+  Obj: TMUIObject;
+  Win: TMUIWindow;
 begin
-  //Result:=LCLType.HWND(Widget.Widget.ActiveWidget);
-  //Widget.SetFocus;
   Result := 0;
+  if Assigned(Widget) then
+  begin
+    Win := nil;
+    Obj := Widget.Parent;
+    while Assigned(Obj) do
+    begin
+      Obj := Obj.Parent;
+      if Obj is TMUIWindow then
+      begin
+        Win := TMUIWindow(Obj);
+        Break;
+      end;
+    end;
+    if Assigned(Win) then
+    begin
+      Win.FFocusedControl := Widget;
+      Result := LCLType.HWND(Widget);
+    end;
+  end;
 end;
 
 function TMUIWidgetSet.SetParent(hWndChild: HWND; hWndParent: HWND): HWND;

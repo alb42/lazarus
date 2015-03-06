@@ -1277,8 +1277,9 @@ begin
               end;
             end;
             IDCMP_RAWKEY: begin
-              //if Assigned(MUIWin) then
-              //  MUIB := MUIWin.FFocusedControl;
+              if Assigned(MUIWin) then
+                if Assigned(MUIWin.FFocusedControl) then
+                  MUIB := MUIWin.FFocusedControl;
               //writeln('Key to: ', MUIB.PasObject.Classname);  
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin
@@ -1297,18 +1298,24 @@ begin
                 ie.ie_NextEvent := nil;
                 Buff[0] := #0;
                 Ret := MapRawKey(@ie, @Buff[0], 1, nil);
-                if Ret = 0 then
-                begin
-                  KeyData := Ord(CharCode);
+                //writeln('Key: ', MUIB.Classname, ' got Key "',Buff[0],'" #', KeyData, ' Ret: ', Ret);
+                if Ret = 1 then
+                begin          
+                  KeyData := Ord(Buff[0]);
+                  CharCode := Ord(uppercase(Buff)[1]);
                   if KeyUp then
-                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, False)
-                  else  
-                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, False);  
+                  begin
+                    LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, False);
+                  end else
+                  begin  
+                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
+                    LCLSendCharEvent(MUIB.PasObject, KeyData, KeyData, False, False, True);
+                  end;  
                 end else
                 begin
                   KeyData := RawKeyToKeycode(IMsg^.Code);
                   if KeyUp then
-                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, True)
+                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, True)
                   else
                     LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, True);                  
                 end;

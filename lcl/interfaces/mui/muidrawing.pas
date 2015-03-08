@@ -44,6 +44,7 @@ const
 
 
 type
+  TMUICanvas = class;
 
   TMUIRegionType=(eRegionNULL,eRegionSimple,eRegionComplex,eRegionNotCombinableOrError);
   TMUIRegionCombine=(eRegionCombineAnd,eRegionCombineCopy, eRegionCombineDiff, eRegionCombineOr, eRegionCombineXor);
@@ -71,8 +72,11 @@ type
     FWidth: Integer;
     FHeight: Integer;
     FDepth: Integer;
+    MUICanvas: TMUICanvas;
     constructor Create(Width, Height, Depth: Integer);
     destructor Destroy; override;
+    
+    procedure GetFromCanvas;
   end;
 
   { TMUIFontObj }
@@ -307,12 +311,26 @@ begin
   FHeight := Height;
   FDepth := Depth;
   FImage := System.AllocMem(Width * Height * SizeOf(LongWord));
+  MUICanvas := nil;
 end;
 
 destructor TMUIBitmap.Destroy;
 begin
   FreeMem(FImage);
+  MUICanvas := nil;
   inherited Destroy;
+end;
+
+procedure TMUIBitmap.GetFromCanvas;
+var
+  i: Integer;
+  T: TPoint;
+begin
+  if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
+  begin
+    T := MUICanvas.GetOffset;
+    ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
+  end;  
 end;
 
 { TMUIFontObj }
@@ -855,9 +873,9 @@ procedure TMUICanvas.FillRect(X1, Y1, X2, Y2: Integer);
 var
   T: TPoint;
 begin
-  //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
   if Assigned(RastPort) then
   begin
+    //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
     SetBrushToRP(True);
     T := GetOffset;
     RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
@@ -895,9 +913,7 @@ var
   ElWi, ElHi: Integer; // ellipse height and width
   Rx, RY: Integer; // Radius
   MX, MY: Integer; // center Point
-begin
-  SetPenToRP();
-  SetBrushToRP();
+begin  
   if Assigned(RastPort) then
   begin
     T := GetOffset;
@@ -919,6 +935,7 @@ begin
     RY := ElHi div 2;
     MX := X1 + RX;
     MY := Y1 + RY;
+    SetBrushToRP(True);
     Ras := AllocRaster(ElWi * 2, ElHi * 2);
     InitTmpRas(@TRas, ras, ElWi * 2 * ElHi * 2 * 3);
     InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
@@ -929,6 +946,8 @@ begin
     RastPort^.TmpRas := nil;
     RastPort^.AreaInfo := nil;
     FreeRaster(Ras, ElWi * 2, ElHi * 2);
+    SetPenToRP();
+    DrawEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);    
   end;  
 end;
 
@@ -1169,13 +1188,17 @@ begin
   begin
     //writeln('new bitmap! ', hexstr(Self), ' Bitmap ', HexStr(Newobj));
     Result := Bitmap;
+    if Assigned(Bitmap) then
+      Bitmap.MUICanvas := nil;
     Bitmap := TMUIBitmap(NewObj);
     if not Assigned(MUIObject) then
     begin
+      Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
-      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, nil);
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
-      //WritePixelarray(Bitmap.FImage, Bitmap.FWidth, Bitmap.FHeight, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_ARGB32);
+      WritePixelarray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_ARGB32);
     end;
   end;
 end;

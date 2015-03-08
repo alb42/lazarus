@@ -196,7 +196,7 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, nil);
+      NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;

@@ -463,12 +463,24 @@ begin
 end;
 
 function TMUIWidgetSet.RawImage_FromBitmap(out ARawImage: TRawImage; ABitmap, AMask: HBITMAP; ARect: PRect = nil): Boolean;
+var
+  Bit: TMUIBitmap absolute ABitmap;
 begin
   ARawImage.Init;
   {$ifdef VERBOSEAROS}
   writeln('RawImage_FromBitmap');
   {$endif}
-  RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
+  if Assigned(Bit) then
+  begin
+    Bit.GetFromCanvas;
+    RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
+    ARawImage.Description.Width := Bit.FWidth;
+    ARawImage.Description.Height := Bit.FHeight;
+    ARawImage.Description.Depth := 32;
+    ARawImage.DataSize := Bit.FWidth * Bit.FHeight * SizeOf(LongWord);
+    ReAllocMem(ARawImage.Data, ARawImage.DataSize);
+    Move(Bit.FImage^, ARawImage.Data^, ARawImage.DataSize);
+  end;
   Result := True;
 end;
 

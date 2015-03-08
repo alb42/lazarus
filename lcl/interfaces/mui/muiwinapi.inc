@@ -78,7 +78,14 @@ begin
   {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Src.Bitmap.FImage) then
   begin
-    WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
+    if Src.Drawn then // means something was drawn on -> no alpha anymore :(
+    begin
+      ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
+    end else
+    begin
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+    end;
+    //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
   end;
   Result := True;
 end;
@@ -1145,8 +1152,15 @@ begin
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
   begin
     if (SrcWidth = Width) and (SrcHeight = height) then
-      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
-    else
+    begin
+      if Src.Drawn then // means something was drawn on -> no alpha anymore :(
+      begin
+        ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
+      end else
+      begin
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+      end;
+    end else
     begin
       NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
       DB := NImage;
@@ -1204,25 +1218,15 @@ begin
   begin
     if (SrcWidth = Width) and (SrcHeight = height) then
     begin
+      //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);      
       //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
-      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);      
-      {if Dest.MuiObject = nil then
+      if Src.Drawn then // means something was drawn on -> no alpha anymore :(
       begin
-        //dst: APTR; destx: Word; desty: Word; dstmod: Word; rp: PRastPort; srcx: Word; srcy: Word; width: Word; height: Word; dstformat: Byte): LongWord; syscall CyberGfxBase 20;
-        //if Assigned(Dest.Bitmap.FImage) then
-        //  ReadPixelArray(Dest.Bitmap.FImage, Dest.GetOffset.x + x, Dest.GetOffset.Y + y, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, 1, 1, PIXFMT_ARGB32)
-        Sptr := PByte(SRC.Bitmap.FImage);
-        Dptr := PByte(Dest.Bitmap.FImage);
-        Inc(Sptr, (YSrc * Src.Bitmap.FWidth * SizeOf(LongWord)) + (XSrc * SizeOf(LongWord)));
-        Inc(Dptr, ((Dest.GetOffset.Y + Y) * Dest.Bitmap.FWidth * SizeOf(LongWord)) + ((Dest.GetOffset.X + x) * SizeOf(LongWord)));
-        for i := 0 to Height - 1 do
-        begin
-          //writeln('write ', i,' of ', Height-1 );
-          Move(Sptr^, DPtr^, Width*sizeof(LongWord));
-          Inc(Sptr, Src.Bitmap.FWidth * SizeOf(LongWord));
-          Inc(DPtr, Dest.Bitmap.FWidth * SizeOf(LongWord));
-        end;  
-      end;}
+        ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
+      end else
+      begin  
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);      
+      end;
     end else
     begin
       //writeln('Width: ', Width, ' Hegiht: ', Height);

@@ -228,6 +228,7 @@ type
     FClip: Pointer;
     FClipping: TRect;
   public
+    Drawn: Boolean;
     RastPort: PRastPort;
     DrawRect: TRect;
     Position: TPoint;
@@ -863,6 +864,7 @@ begin
     //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
     if not SkipPenSetting then
       SetPenToRP();
+    Drawn := True;  
     Draw(RastPort, GetOffset.X + x, GetOffset.Y + y);
     Position.X := X;
     Position.Y := Y;
@@ -878,6 +880,7 @@ begin
     //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
     SetBrushToRP(True);
     T := GetOffset;
+    Drawn := True;
     RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
     SetPenToRP();
   end;
@@ -889,6 +892,7 @@ var
 begin
   if Assigned(RastPort) then
   begin
+    Drawn := True;
     T := GetOffset;
     SetBrushToRP(True);
     RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
@@ -916,6 +920,7 @@ var
 begin  
   if Assigned(RastPort) then
   begin
+    Drawn := True;
     T := GetOffset;
     if X2 < X1 then
     begin
@@ -957,6 +962,7 @@ var
 begin
   if Assigned(RastPort) then
   begin
+    Drawn := True;
     T := GetOffset;
     WriteRGBPixel(RastPort, T.X + X, T.Y + Y, Color);
   end;
@@ -970,6 +976,7 @@ var
 begin
   if Assigned(RastPort) then
   begin
+    Drawn := True;
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
     Col := TColorToMUIColor(TextColor);
@@ -1033,6 +1040,7 @@ begin
   FPen := FDefaultPen;
   FFont := FDefaultFont;
   TextColor := 0;
+  Drawn := True;
 end;
 
 destructor TMUICanvas.Destroy;
@@ -1189,16 +1197,22 @@ begin
     //writeln('new bitmap! ', hexstr(Self), ' Bitmap ', HexStr(Newobj));
     Result := Bitmap;
     if Assigned(Bitmap) then
-      Bitmap.MUICanvas := nil;
+    begin
+      if Bitmap.MUICanvas = self then
+        Bitmap.MUICanvas := nil;    
+    end;  
     Bitmap := TMUIBitmap(NewObj);
     if not Assigned(MUIObject) then
     begin
-      Bitmap.MUICanvas := Self;
+      Drawn := False;
+      if Bitmap.MUICanvas = nil then
+        Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
       RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
-      WritePixelarray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_ARGB32);
+      WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_0RGB32);
+      //WritePixelArrayAlpha(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, LongWord(-1));
     end;
   end;
 end;

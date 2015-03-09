@@ -78,6 +78,7 @@ begin
   {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Src.Bitmap.FImage) then
   begin
+    Dest.Drawn := True;
     if Src.Drawn then // means something was drawn on -> no alpha anymore :(
     begin
       ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
@@ -203,7 +204,7 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(500, 500, 24, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.RastPort^.Bitmap := AllocBitMap(1000, 1000, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
@@ -1151,6 +1152,7 @@ begin
   {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
   begin
+    Dest.Drawn := True;
     if (SrcWidth = Width) and (SrcHeight = height) then
     begin
       if Src.Drawn then // means something was drawn on -> no alpha anymore :(
@@ -1158,6 +1160,7 @@ begin
         ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
       end else
       begin
+        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
         WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
       end;
     end else
@@ -1208,23 +1211,26 @@ var
   LineStart: PLongWord;
   Sptr, Dptr: PByte;
 begin
-  {$ifdef VERBOSEAROS}
-  writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
+  {.$ifdef VERBOSEAROS}
+  //writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
   
-  writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
-  writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
-  {$endif}
+  //writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
+  //writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
+  {.$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
+    Dest.Drawn := True;
     if (SrcWidth = Width) and (SrcHeight = height) then
     begin
       //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);      
-      //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
+      //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight, ', ', Src.Bitmap.FWidth);
+      //writeln('Draw Bitmap: ', HexStr(Src.Bitmap), ' width: ', Src.Bitmap.FWidth, ' ', Src.Drawn);
       if Src.Drawn then // means something was drawn on -> no alpha anymore :(
       begin
         ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
       end else
-      begin  
+      begin
+        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);  
         WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);      
       end;
     end else

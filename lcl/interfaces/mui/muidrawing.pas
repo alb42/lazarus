@@ -331,6 +331,8 @@ begin
   begin
     T := MUICanvas.GetOffset;
     ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
+    MUICanvas.Drawn := False;
+    //writeln('get from canvas');
   end;  
 end;
 
@@ -381,7 +383,7 @@ begin
   inherited Create;
   FontHandle := nil;
   FFontFace := AFontData.lfFaceName;
-  FHeight := AFontData.lfHeight;
+  FHeight := abs(AFontData.lfHeight);
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;
@@ -391,13 +393,12 @@ begin
   OpenFontHandle;
 end;
 
-constructor TMUIFontObj.Create(const AFontData: TLogFont;
-  const LongFontName: string);
+constructor TMUIFontObj.Create(const AFontData: TLogFont; const LongFontName: string);
 begin
   inherited Create;
   FontHandle := nil;
   FFontFace := LongFontName;
-  FHeight := AFontData.lfHeight;
+  FHeight := abs(AFontData.lfHeight);
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;
@@ -1208,10 +1209,10 @@ begin
       if Bitmap.MUICanvas = nil then
         Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
-      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);       
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
-      WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_0RGB32);
+      //WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_0RGB32);
       //WritePixelArrayAlpha(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, LongWord(-1));
     end;
   end;
@@ -1223,6 +1224,10 @@ begin
   SetBrushToRP;
   SetFontToRP;
 end;
+
+initialization
+  
+
 
 finalization
 

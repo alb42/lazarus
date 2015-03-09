@@ -333,6 +333,7 @@ begin
   ABitmap := HBITMAP(Bit);
   AMask := 0;
   Result := True;
+  //writeln('created Bitmap: ', HexStr(Bit), ' width: ', Bit.FWidth, ' ??? ', ARawImage.Description.Width, ' Datasize: ', ARawImage.DataSize);
   //writeln(' create image: ', ARawImage.Description.Width,'x', ARawImage.Description.Height,' : ',ARawImage.Description.Depth, ' - ', ARawImage.DataSize, ' $', HexStr(Bit));
 end;
 
@@ -343,13 +344,14 @@ var
   Width, Height: integer;
   IsBitmap: Boolean;
 begin
+  //writeln('GetDescription from Drawable');
   Width := 0;
   Height := 0;
   IsBitMap := False;
 
   ADesc.Init;
-  ADesc.Width := cardinal(Width);
-  ADesc.Height := cardinal(Height);
+  ADesc.Width := cardinal(0);
+  ADesc.Height := cardinal(0);
   ADesc.BitOrder := riboBitsInOrder;
   ADesc.PaletteColorCount := 0;
   if ACustomAlpha then
@@ -496,12 +498,16 @@ end;
 
 function TMUIWidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean;
 begin
+  //writeln('QueryDescription');
   //if riqfAlpha in AFlags
   //then 
   begin
     //always return rgba description
-    if not (riqfUpdate in AFlags)
-    then ADesc.Init;
+    if not (riqfUpdate in AFlags)  then
+    begin      
+      //writeln('Init ', ADesc.Width);
+      ADesc.Init;
+    end;  
 
     ADesc.Format := ricfRGBA;
     ADesc.Depth := 32;
@@ -546,8 +552,8 @@ begin
   end;
   //Result := inherited RawImage_QueryDescription(AFlags, ADesc);
   // reduce mem
-  if Result and (ADesc.Depth = 24) 
-  then ADesc.BitsPerPixel := 24;
+  //if Result and (ADesc.Depth = 24) 
+  //then ADesc.BitsPerPixel := 24;
 end;
 
 function TMUIWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;

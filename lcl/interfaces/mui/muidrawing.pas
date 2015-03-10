@@ -890,13 +890,29 @@ end;
 procedure TMUICanvas.Rectangle(X1, Y1, X2, Y2: Integer);
 var
   T: TPoint;
+  RX, RY: Integer;
 begin
   if Assigned(RastPort) then
   begin
     Drawn := True;
     T := GetOffset;
-    SetBrushToRP(True);
-    RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+    if X2 < X1 then
+    begin
+      RX := X2;
+      X2 := X1;
+      X1 := RX;
+    end;
+    if Y2 < Y1 then
+    begin
+      RY := Y2;
+      Y2 := Y1;
+      Y1 := RY;
+    end;    
+    if FBrush.FStyle = JAM2 then
+    begin
+      SetBrushToRP(True);
+      RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+    end;  
     SetPenToRP();
     GfxMove(RastPort, T.x + X1, T.Y + Y1);
     Draw(RastPort, T.X + X2, T.Y + Y1);
@@ -931,7 +947,7 @@ begin
     end;
     if Y2 < Y1 then
     begin
-      RX := Y2;
+      RY := Y2;
       Y2 := Y1;
       Y1 := RY;
     end;
@@ -942,16 +958,19 @@ begin
     MX := X1 + RX;
     MY := Y1 + RY;
     SetBrushToRP(True);
-    Ras := AllocRaster(ElWi * 2, ElHi * 2);
-    InitTmpRas(@TRas, ras, ElWi * 2 * ElHi * 2 * 3);
-    InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
-    RastPort^.TmpRas := @TRas;
-    RastPort^.AreaInfo := @Ari;
-    AreaEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);
-    AreaEnd(RastPort);
-    RastPort^.TmpRas := nil;
-    RastPort^.AreaInfo := nil;
-    FreeRaster(Ras, ElWi * 2, ElHi * 2);
+    if (RX > 0) and (RY > 0) and (FBrush.FStyle = JAM2) then
+    begin
+      Ras := AllocRaster(ElWi * 2, ElHi * 2);
+      InitTmpRas(@TRas, ras, ElWi * 2 * ElHi * 2 * 3);
+      InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
+      RastPort^.TmpRas := @TRas;
+      RastPort^.AreaInfo := @Ari;
+      AreaEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);
+      AreaEnd(RastPort);
+      RastPort^.TmpRas := nil;
+      RastPort^.AreaInfo := nil;
+      FreeRaster(Ras, ElWi * 2, ElHi * 2);
+    end;
     SetPenToRP();
     DrawEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);    
   end;  
@@ -965,7 +984,7 @@ begin
   begin
     Drawn := True;
     T := GetOffset;
-    WriteRGBPixel(RastPort, T.X + X, T.Y + Y, Color);
+    WriteRGBPixel(RastPort, T.X + X, T.Y + Y, TColorToMUIColor(Color));
   end;
 end;
 

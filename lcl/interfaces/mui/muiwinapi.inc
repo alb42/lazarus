@@ -1210,6 +1210,8 @@ var
   NX, NY: Integer;
   LineStart: PLongWord;
   Sptr, Dptr: PByte;
+  ScaledBitmap: AGraphics.PBitmap;
+  Bsa: TBitScaleArgs;
 begin
   {.$ifdef VERBOSEAROS}
   //writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1235,32 +1237,63 @@ begin
       end;
     end else
     begin
-      //writeln('Width: ', Width, ' Hegiht: ', Height);
-      NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
-      DB := NImage;
-      FX := 1;
-      FY := 1;
-      if SrcWidth > 0 then
-        FX := SrcWidth/Width;
-      if SrcHeight > 0 then
-        FY := SrcHeight/Height;
-      for ys := 0 to Height - 5 do
+      if Src.Drawn then
       begin
-        NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
-        i := NY * SrcWidth;
-        LineStart := Src.Bitmap.FImage;
-        Inc(LineStart, i);
-        for xs := 0 to Width - 1 do
+        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+        with bsa do
         begin
-          NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
-          SB := LineStart;
-          Inc(SB, NX);
-          DB^ := SB^;
-          Inc(DB);
+          bsa_SrcX := XSrc;
+          bsa_SrcY := YSrc;
+          bsa_SrcWidth := SrcWidth;
+          bsa_SrcHeight := SrcHeight;          
+          bsa_XSrcFactor := SrcWidth;
+          bsa_YSrcFactor := SrcHeight;
+          bsa_DestX := 0;
+          bsa_DestY := 0;
+          bsa_DestWidth := Width;
+          bsa_DestHeight := Height;
+          bsa_XDestFactor := Width;
+          bsa_YDestFactor := Height;
+          bsa_SrcBitmap := Src.RastPort^.Bitmap;
+          bsa_DestBitmap := ScaledBitmap;
+          bsa_Flags := 0;
+          bsa_XDDA := 0;
+          bsa_YDDA := 0;
+          bsa_Reserved1 := 0;
+          bsa_Reserved2 := 0;          
         end;
+        BitmapScale(@bsa);
+        BltBitMapRastPort(ScaledBitmap, 0, 0, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
+        FreeBitmap(ScaledBitmap);
+      end else
+      begin
+        //writeln('Width: ', Width, ' Hegiht: ', Height);
+        NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
+        DB := NImage;
+        FX := 1;
+        FY := 1;
+        if SrcWidth > 0 then
+          FX := SrcWidth/Width;
+        if SrcHeight > 0 then
+          FY := SrcHeight/Height;
+        for ys := 0 to Height - 5 do
+        begin
+          NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
+          i := NY * SrcWidth;
+          LineStart := Src.Bitmap.FImage;
+          Inc(LineStart, i);
+          for xs := 0 to Width - 1 do
+          begin
+            NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
+            SB := LineStart;
+            Inc(SB, NX);
+            DB^ := SB^;
+            Inc(DB);
+          end;
+        end;
+        WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        System.FreeMem(NImage);
       end;
-      WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
-      System.FreeMem(NImage);
       //writeln('stretchblt ok');
     end;
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);

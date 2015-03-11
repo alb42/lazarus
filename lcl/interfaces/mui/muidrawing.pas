@@ -330,9 +330,9 @@ begin
   if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
   begin
     T := MUICanvas.GetOffset;
-    ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
+    i := ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
     MUICanvas.Drawn := False;
-    //writeln('get from canvas');
+    //writeln('get from canvas ', i);
   end;  
 end;
 

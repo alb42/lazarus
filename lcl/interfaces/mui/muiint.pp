@@ -557,8 +557,15 @@ begin
 end;
 
 function TMUIWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;
+var
+  Canvas: TMUICanvas;
+  Tags: TTagsList;
 begin
-  Result := 0;
+  Canvas := TMUICanvas(CanvasHandle);
+  if Assigned(Canvas) then
+  begin
+    Result := Canvas.GetPixel(X, Y);  
+  end;
 end;
 
 procedure TMUIWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);

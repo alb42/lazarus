@@ -248,7 +248,9 @@ type
     procedure FillRect(X1, Y1, X2, Y2: Integer);
     procedure Rectangle(X1, Y1, X2, Y2: Integer);
     procedure Ellipse(X1, Y1, X2, Y2: Integer);
-    procedure SetPixel(X,Y, Color: LongWord);
+    procedure SetPixel(X,Y: Integer; Color: TColor);
+    function GetPixel(X,Y: Integer): TColor;
+    procedure FloodFill(X, Y: Integer; Color: TColor);
     // set a Pen as color
     procedure SetAMUIPen(PenDesc: integer);
     procedure SetBMUIPen(PenDesc: integer);
@@ -268,6 +270,7 @@ type
 
   //function muiGetDesktopDC(): TmuiDeviceContext;
   function TColorToMUIColor(col: TColor): TMuiColor;
+  function MUIColorToTColor(col: TMuiColor): TColor;
 
 implementation
 uses
@@ -302,6 +305,20 @@ begin
     Result := WidgetSet.GetSysColor(c and $000000FF)
   else
     Result := r or g or b;
+end;
+
+function MUIColorToTColor(col: TMuiColor): TColor;
+var
+  c: LongWord;
+  r: LongWord;
+  g: LongWord;
+  b: LongWord;
+begin
+  c := Col;
+  r := (c and $00FF0000) shr 16;
+  g := (c and $0000FF00);
+  b := (c and $000000FF) shl 16;
+  Result := r or g or b;
 end;
 
 { TMUIBitmap }
@@ -976,7 +993,69 @@ begin
   end;  
 end;
 
-procedure TMUICanvas.SetPixel(X,Y, Color: LongWord);
+procedure TMUICanvas.FloodFill(X, Y: Integer; Color: TColor);
+var
+  T: TPoint;
+  NewCol, Col: LongWord;
+  Index, Width, Height: Integer;
+  NX, NY: Integer;
+  ToCheck: array of record
+    x, y: Integer;
+  end;  
+  
+  procedure AddToCheck(AX, AY: Integer);
+  begin
+    Inc(Index);
+    if Index > High(ToCheck) then
+    begin
+      SetLength(ToCheck, Length(ToCheck) + 1000);
+    end;
+    ToCheck[Index].X := AX;
+    ToCheck[Index].Y := AY;
+  end;
+  
+  procedure CheckNeighbours(AX, AY: Integer);
+  begin
+    if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
+    begin
+      if ReadRGBPixel(RastPort, T.X + AX, T.Y + AY) = Col then
+      begin
+        if WriteRGBPixel(RastPort, T.X + AX, T.Y + AY, NewCol) = -1 then
+          Exit;
+        AddToCheck(AX - 1, AY);
+        AddToCheck(AX, AY - 1);
+        AddToCheck(AX + 1, AY);
+        AddToCheck(AX, AY + 1);        
+      end;
+    end;
+  end;
+     
+begin
+  if Assigned(RastPort) then
+  begin
+    Drawn := True;
+    T := GetOffset;
+    Width := DrawRect.Right;
+    Height := DrawRect.Bottom;
+    NewCol := TColorToMUIColor(Color);
+    Col := ReadRGBPixel(RastPort, T.X + X, T.Y + Y);
+    if NewCol <> Col then
+    begin
+      Index := -1;
+      SetLength(ToCheck, 10);
+      CheckNeighbours(X, Y);
+      while Index >= 0 do
+      begin
+        NX := ToCheck[Index].X;
+        NY := ToCheck[Index].Y;
+        Dec(Index);
+        CheckNeighbours(NX, NY);
+      end;
+    end;
+  end;
+end;
+
+procedure TMUICanvas.SetPixel(X, Y: Integer; Color: TColor);
 var
   T: TPoint;
 begin
@@ -985,6 +1064,18 @@ begin
     Drawn := True;
     T := GetOffset;
     WriteRGBPixel(RastPort, T.X + X, T.Y + Y, TColorToMUIColor(Color));
+  end;
+end;
+
+function TMUICanvas.GetPixel(X,Y: Integer): TColor;
+var
+  T: TPoint;
+begin
+  Result := 0;
+  if Assigned(RastPort) then
+  begin
+    T := GetOffset;
+    Result := MUIColorToTColor(ReadRGBPixel(RastPort, T.X + X, T.Y + Y));
   end;
 end;
 

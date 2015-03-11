@@ -477,6 +477,16 @@ begin
   Result:=False;
 end;
 
+function TMUIWidgetSet.FloodFill(DC: HDC; X: Integer; Y: Integer; Color: TGraphicsColor; FillStyle: TGraphicsFillStyle; Brush: HBRUSH):Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  if Assigned(ADC) then
+  begin
+    ADC.FloodFill(X,Y,Color);
+  end;
+end;
+
 {function TMUIWidgetSet.Frame(DC: HDC; const ARect: TRect): Integer;
 begin
 

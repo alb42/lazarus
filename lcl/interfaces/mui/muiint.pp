@@ -296,7 +296,7 @@ begin
     end;
   end;
   ES^.es_GadgetFormat := PChar(BtnText);
-  Res := EasyRequestArgs(nil, ES, nil, nil);
+  Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
   Result := EscapeResult;
   if (Res >= 0) and (Res < ButtonCount) then
     Result := Buttons[Res];

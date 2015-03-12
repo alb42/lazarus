@@ -21,7 +21,7 @@ interface
 
 uses
   // RTL, FCL, LCL
-  Classes, SysUtils, types,
+  Classes, SysUtils, types, dos,
   Graphics, Menus, LCLType
   // Widgetset
   // aros
@@ -348,7 +348,7 @@ begin
   begin
     T := MUICanvas.GetOffset;
     i := ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
-    MUICanvas.Drawn := False;
+    //MUICanvas.Drawn := False;
     //writeln('get from canvas ', i);
   end;  
 end;
@@ -995,21 +995,23 @@ end;
 
 procedure TMUICanvas.FloodFill(X, Y: Integer; Color: TColor);
 var
+  //t1, t2,t3: Int64;
   T: TPoint;
   NewCol, Col: LongWord;
   Index, Width, Height: Integer;
   NX, NY: Integer;
+  Checked: array of array of Boolean;
   ToCheck: array of record
     x, y: Integer;
   end;  
   
   procedure AddToCheck(AX, AY: Integer);
   begin
+    if Checked[AX,AY] then
+      Exit;
     Inc(Index);
     if Index > High(ToCheck) then
-    begin
       SetLength(ToCheck, Length(ToCheck) + 1000);
-    end;
     ToCheck[Index].X := AX;
     ToCheck[Index].Y := AY;
   end;
@@ -1018,11 +1020,12 @@ var
   begin
     if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
     begin
+      Checked[AX,AY] := True;
       if ReadRGBPixel(RastPort, T.X + AX, T.Y + AY) = Col then
       begin
         if WriteRGBPixel(RastPort, T.X + AX, T.Y + AY, NewCol) = -1 then
           Exit;
-        AddToCheck(AX - 1, AY);
+        AddToCheck(AX - 1, AY);          
         AddToCheck(AX, AY - 1);
         AddToCheck(AX + 1, AY);
         AddToCheck(AX, AY + 1);        
@@ -1033,10 +1036,18 @@ var
 begin
   if Assigned(RastPort) then
   begin
+    //t1 := GetMsCount;
     Drawn := True;
     T := GetOffset;
     Width := DrawRect.Right;
     Height := DrawRect.Bottom;
+    SetLength(Checked, Width, Height);
+    for NX := 0 to Width - 1 do
+      for NY := 0 to Height - 1 do
+      begin
+        Checked[Nx,Ny] := False;
+      end;    
+    //t2 := GetMsCount;  
     NewCol := TColorToMUIColor(Color);
     Col := ReadRGBPixel(RastPort, T.X + X, T.Y + Y);
     if NewCol <> Col then
@@ -1052,6 +1063,8 @@ begin
         CheckNeighbours(NX, NY);
       end;
     end;
+    //t3 := GetMsCount;
+    //writeln('Floodfill time: prep: ', t2-t1, ' Fill ', t3-t2, ' all: ', t3-t1);
   end;
 end;
 
@@ -1319,11 +1332,11 @@ begin
       if Bitmap.MUICanvas = nil then
         Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
-      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);       
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);       
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
       //WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_0RGB32);
-      //WritePixelArrayAlpha(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, LongWord(-1));
+      WritePixelArrayAlpha(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, LongWord(-1));
     end;
   end;
 end;

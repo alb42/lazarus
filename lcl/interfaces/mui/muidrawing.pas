@@ -1,8 +1,8 @@
 {
  *****************************************************************************
- *                             muiObjects.pas                              *
+ *                             muidrawing.pas                                *
  *                              --------------                               *
- *      Place for wrapper classes which aren't widgets                       *
+ *      Place for wrapper Canvas/Bitmap/pen/Brush/Font and related           *
  *                                                                           *
  *****************************************************************************
 
@@ -341,15 +341,12 @@ end;
 
 procedure TMUIBitmap.GetFromCanvas;
 var
-  i: Integer;
   T: TPoint;
 begin
   if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
   begin
     T := MUICanvas.GetOffset;
-    i := ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB32);
-    //MUICanvas.Drawn := False;
-    //writeln('get from canvas ', i);
+    ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB);
   end;  
 end;
 
@@ -1334,9 +1331,7 @@ begin
       FreeBitmap(RastPort^.Bitmap);
       RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);       
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
-      //src: APTR; srcx: Word; srcy: Word; srcmod: Word; rp: PRastPort; destx: Word; desty: Word; width: Word; height: Word; srcformat: Byte
-      //WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, PIXFMT_0RGB32);
-      WritePixelArrayAlpha(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, LongWord(-1));
+      WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
     end;
   end;
 end;

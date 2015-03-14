@@ -499,8 +499,7 @@ end;
 function TMUIWidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean;
 begin
   //writeln('QueryDescription');
-  //if riqfAlpha in AFlags
-  //then 
+  //if riqfAlpha in AFlags then 
   begin
     //always return rgba description
     if not (riqfUpdate in AFlags)  then
@@ -516,9 +515,21 @@ begin
     ADesc.LineOrder := riloTopToBottom;
     ADesc.LineEnd := rileDWordBoundary;
     ADesc.BitsPerPixel := 32;
-
+    ADesc.Width := cardinal(640);
+    ADesc.Height := cardinal(480); 
+    
+    if riqfAlpha in AFlags then
+      ADesc.Depth := 32;
     ADesc.AlphaPrec := 8;
     ADesc.AlphaShift := 0;
+
+    if riqfMask in AFlags then
+    begin
+      //ADesc.MaskBitsPerPixel := 8;
+      //ADesc.MaskShift := 0;
+      //ADesc.MaskLineEnd := rileByteBoundary;
+      //ADesc.MaskBitOrder := riboBitsInOrder;
+    end;  
 
     if riqfRGB in AFlags
     then begin

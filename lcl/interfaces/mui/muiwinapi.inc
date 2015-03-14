@@ -339,20 +339,20 @@ var
   ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom);
+  writeln('Draw Text ', str, ' DC: ', HexStr(Pointer(DC)) , ' to ', ARect.Left, ',  ', ARect.Top, '; ', ARect.Right, ', ', ARect.Bottom, ',',  Assigned(ADC.RastPort));
   {$endif}
   Result := 0;
   if Assigned(ADC) then
   begin
-    if Assigned(ADC.RastPort) then
+    if (Flags and DT_CALCRECT) <> 0 then
     begin
-      if (Flags and DT_CALCRECT) <> 0 then
-      begin
-        ARect.Right := ARect.Left + ADC.TextWidth(Str, Count);
-        ARect.Bottom := ARect.Top + ADC.TextHeight(Str, Count);
-        Result := ADC.TextHeight(Str, Count);
-        Exit;
-      end;
+      ARect.Right := ARect.Left + ADC.TextWidth(Str, Count);
+      ARect.Bottom := ARect.Top + ADC.TextHeight(Str, Count);
+      Result := ADC.TextHeight(Str, Count);
+      Exit;
+    end;
+    if Assigned(ADC.RastPort) then
+    begin      
       {$ifdef VERBOSEAROS}
       if (Flags and DT_BOTTOM) <> 0 then
       begin
@@ -446,9 +446,9 @@ function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
 var
   ADC: TMUICanvas absolute DC;
 begin
-  {$ifdef VERBOSEAROS}
+  {.$ifdef VERBOSEAROS}
   writeln('Ext Text out ', str);
-  {$endif}
+  {.$endif}
   if Assigned(ADC) then
   begin
     ADC.MoveTo(X, Y);

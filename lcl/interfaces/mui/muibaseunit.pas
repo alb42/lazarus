@@ -1256,7 +1256,7 @@ begin
                   MUIB.LastClick := -1;
             end;
             IDCMP_MOUSEBUTTONS: begin
-              //writeln(Muib.Classname,' Button: ', RelX,', ', RelY);
+              //writeln(Muib.Classname,' Mouse Button, Position: ', RelX,', ', RelY);
               case iMsg^.Code of
                 SELECTDOWN: begin
                   MUIWin.FFocusedControl := MUIB;

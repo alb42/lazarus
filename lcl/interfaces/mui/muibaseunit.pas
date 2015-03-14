@@ -821,10 +821,10 @@ const
     VK_Clear,		// $0c  
     VK_Return,		// $0d
     -1,			// $0e
-    -1,			// $0f
+    VK_NUMPAD0,			// $0f
     -1,		// $10  
     -1,		        // $11  
-    Ord('e'),		// $12  e
+    -1,		// $12  e
     -1,		        // $13  
     -1,			// $14  
     -1,			// $15  
@@ -833,14 +833,14 @@ const
     -1,			// $18  
     -1,			// $19  
     -1,			// $1a
-    VK_Escape,		// $1b  
+    -1,		  // $1b  
     -1,			// $1c  
-    -1,			// $1d  
-    -1,			// $1e  
-    -1, //keyModeSwitch,	// $1f  
-    Ord('a'),		// $20  a
+    VK_NUMPAD1,			// $1d  
+    VK_NUMPAD2,			// $1e  
+    VK_NUMPAD3, //keyModeSwitch,	// $1f  
+    -1,		// $20  a
     -1,//keyPrior,		// $21  
-    Ord('d'),		// $22  d
+    -1,		// $22  d
     -1,                 // $23  
     -1,		        // $24  
     -1,		        // $25  
@@ -851,9 +851,9 @@ const
     -1,//keyPrintScreen,	// $2a  
     -1, //keyExecute,		// $2b  
     -1, //keyPrintScreen,	// $2c  
-    VK_Insert,		// $2d  
-    VK_Delete,		// $2e  
-    VK_Help,		// $2f  
+    VK_NUMPAD4,		// $2d  
+    VK_NUMPAD5,		// $2e  
+    VK_NUMPAD6,		// $2f  
     $30,		// $30  
     $31,		// $31  
     $32,		// $32  
@@ -867,20 +867,20 @@ const
     -1,			// $3a
     -1,			// $3b
     -1,			// $3c
-    -1,			// $3d
-    -1,			// $3e
-    -1,			// $3f
-    $20,		// $40 Space
-    -1,			// $41  'A'
-    -1,			// $42  'B'
-    -1,			// $43  'C'
-    -1,			// $44  'D'
-    -1,			// $45  'E'
-    -1,			// $46  'F'
-    VK_Insert,		// $47  'G'
-    -1, //VK_PageUp,		// $48  'H'
-    -1, //VK_PageDown,	// $49  'I'
-    -1,			// $4a  'J'
+    VK_NUMPAD7,			// $3d
+    VK_NUMPAD8,			// $3e
+    VK_NUMPAD9,			// $3f
+    $20,		// $40 
+    VK_BACK,			// $41 
+    VK_TAB, // $42 
+    -1,			// $43 
+    -1,			// $44 
+    -1,			// $45 
+    VK_DELETE,	// $46 
+    VK_INSERT,	// $47
+    VK_PRIOR,		// $48
+    VK_NEXT,	// $49
+    -1,			// $4a
     VK_F11,             // $4b  'K'
     VK_Up,		// $4c  'L'
     VK_Down,		// $4d  'M'
@@ -897,27 +897,27 @@ const
     VK_F9,		// $58  'X'
     VK_F10,		// $59  'Y'
     VK_NumLock,		// $5a  'Z'
-    -1,			// $5b  VK_LWIN
-    -1,			// $5c  VK_RWIN
-    VK_Menu,		// $5d  VK_APPS
-    -1,			// $5e
+    VK_DIVIDE,			// $5b  VK_LWIN
+    VK_MULTIPLY,			// $5c  VK_RWIN
+    VK_SUBTRACT,		// $5d  VK_APPS
+    VK_ADD,			// $5e
     VK_Pause,		// $5f  VK_SLEEP
-    -1, //VK_ShiftL,		// $60  VK_NUMPAD0
-    -1, //VK_ShiftR,	        // $61  VK_NUMPAD1
-    -1, //VK_Caps,            // $62  VK_NUMPAD2
-    -1, //VK_Ctrl,	        // $63  VK_NUMPAD3
-    -1, //VK_Alt,	        // $64  VK_NUMPAD4
-    -1, //VK_AltGr,	        // $65  VK_NUMPAD5
-    -1, //VK_Meta,	        // $66  VK_NUMPAD6
-    -1, //VK_P7,		// $67  VK_NUMPAD7
-    -1, //VK_P8,		// $68  VK_NUMPAD8
-    -1, //VK_P9,		// $69  VK_NUMPAD9
-    -1, //VK_PAsterisk,	// $6a  VK_MULTIPLY
-    -1, //VK_PPlus,		// $6b  VK_ADD
-    -1, //VK_PSeparator,	// $6c  VK_SEPARATOR
-    -1, //VK_PMinus,		// $6d  VK_SUBTRACT
-    -1, //VK_PDecimal,	// $6e  VK_DECIMAL
-    -1, //VK_F12,		// $6f  VK_DIVIDE
+    VK_LShift,		// $60
+    VK_LShift,	        // $61
+    VK_CAPITAL,            // $62
+    VK_CONTROL,	        // $63
+    VK_LMENU,	        // $64
+    VK_RMENU,	        // $65
+    VK_LWIN,	        // $66
+    VK_RWIN, //VK_P7,		// $67
+    -1, //VK_P8,		// $68
+    -1, //VK_P9,		// $69
+    -1, //VK_PAsterisk,	// $6a
+    -1, //VK_PPlus,		// $6b
+    -1, //VK_PSeparator,	// $6c
+    -1, //VK_PMinus,		// $6d
+    -1, //VK_PDecimal,	// $6eL
+    VK_F12,		// $6f
     VK_Home,		// $70  VK_F1
     VK_End,		// $71  VK_F2
     $52,		        // $72  VK_F3
@@ -1069,6 +1069,7 @@ begin
     Result := 0
   else
     Result := TranslTable[RawKey];
+  //writeln('tranbslate Key ', RawKey, ' $',IntToHex(RawKey, 2),' -> ', Result);  
 end;
 
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
@@ -1239,7 +1240,9 @@ begin
               Win^.Flags := Win^.Flags or WFLG_RMBTrap;
           end;
         end;
+        // disabled!, also send messages if not in the window
         if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
+        if true then
         begin
           RelX := Imsg^.MouseX - obj_Left(obj);
           RelY := Imsg^.MouseY - obj_Top(obj);
@@ -1302,7 +1305,9 @@ begin
                 if Ret = 1 then
                 begin          
                   KeyData := Ord(Buff[0]);
-                  CharCode := Ord(uppercase(Buff)[1]);
+                  CharCode := RawKeyToKeycode(IMsg^.Code);
+                  if CharCode = 0 then
+                    CharCode := Ord(uppercase(Buff)[1]);
                   if KeyUp then
                   begin
                     LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, False);

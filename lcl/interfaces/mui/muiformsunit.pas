@@ -424,6 +424,7 @@ constructor TMuiWindow.Create(var TagList: TTagsList);
 var
   LT: TTagsList;
   GrpTags: TTagsList;
+  AltLeft, AltTop, AltHeight, AltWidth: Integer;
 begin
   FFocusedControl := Self;
   FMainMenu := TMuiMenuStrip.Create(LT);
@@ -438,6 +439,15 @@ begin
   LayoutHook.h_Entry := IPTR(@LayoutFunc);
   LayoutHook.h_SubEntry := IPTR(@LayoutFunc);
   LayoutHook.h_Data := Self;
+  //
+  AltLeft := 0;
+  AltTop := 0;
+  AltWidth := IntuitionBase^.ActiveScreen^.Width;
+  AltHeight := IntuitionBase^.ActiveScreen^.Height - IntuitionBase^.ActiveScreen^.BarHeight;
+  AddTags(TagList, [MUIA_Window_AltLeftEdge , AltLeft]);
+  AddTags(TagList, [MUIA_Window_AltTopEdge , AltTop]);
+  AddTags(TagList, [MUIA_Window_AltWidth , AltWidth]);  
+  AddTags(TagList, [MUIA_Window_AltHeight , AltHeight]);
   //
   AddTags(TagList, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj]);
   inherited Create(MUIC_Window, GetTagPtr(TagList));
@@ -482,6 +492,8 @@ begin
     2,
     IPTR(MUIM_CallHook), IPTR(@SizeHook)
     ]);
+  if MuiApp.MainWin = obj then
+    SetAttribute([MUIA_Window_Activate, True]);  
 end;
 
 destructor TMuiWindow.Destroy;

@@ -245,7 +245,7 @@ end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + 20]);
+  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + PageSize]);
 end;
 
 procedure TMUIScrollBar.SetMinValue(AValue: Integer);
@@ -255,7 +255,9 @@ end;
 
 procedure TMUIScrollBar.SetPageSize(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Prop_Visible), AValue + 20]);
+  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + PageSize]);  
+  SetAttribute([LongInt(MUIA_Prop_Visible), AValue]);
+  
 end;
 
 procedure TMUIScrollBar.SetPosition(AValue: Integer);

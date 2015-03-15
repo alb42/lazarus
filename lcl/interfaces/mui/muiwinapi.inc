@@ -177,7 +177,6 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('Create Compatible Bitmap');
   {$endif}
-  //writeln('CreateCompatibleBitmap');
   //img:=TFPGUIWinAPIBitmap.Create(32,Width,Height);
   //Result:=HBITMAP(img);
   Result := 0;
@@ -196,15 +195,17 @@ begin
   //if DC <> 0 then
   begin
     NewDC := TMUICanvas.Create;
-    NewDC.RastPort := nil;
+    NewDC.RastPort := nil;    
     if ADC <> nil then
     begin
       NewDC.RastPort := CloneRastPort(ADC.RastPort);
+      NewDC.DrawRect := ADC.DrawRect;
     end else
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
       NewDC.RastPort^.Bitmap := AllocBitMap(1000, 1000, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.DrawRect := Rect(0,0,1000,1000);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
@@ -445,13 +446,28 @@ function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 var
   ADC: TMUICanvas absolute DC;
+  Height, Width: Integer;
 begin
-  {.$ifdef VERBOSEAROS}
-  writeln('Ext Text out ', str);
-  {.$endif}
-  if Assigned(ADC) then
+  {$ifdef VERBOSEAROS}
+  write('Ext Text out "', str,'" - ', Options, ' - ');
+  {$endif}
+  if Assigned(ADC) and Assigned(ADC.RastPort) then
   begin
-    ADC.MoveTo(X, Y);
+    
+    if Assigned(Rect) and ((Options and ETO_OPAQUE) <> 0) then
+    begin
+      Width := Rect^.Right - Rect^.Left;
+      Height := Rect^.Bottom - Rect^.Top;
+      ADC.SetBKToRP(True);      
+      ADC.FillRect(Rect^.Left, Rect^.Top, Rect^.Right, Rect^.Bottom);
+      ADC.SetPenToRP;
+    end;
+    if ADC.BKMode = Opaque then
+      ADC.SetBrushToRP(False)
+    else
+      SetDrMd(ADC.RastPort, JAM1);       
+    //
+    ADC.MoveTo(X, Y);    
     ADC.WriteText(Str, Count);
   end;
   Result := True;
@@ -570,6 +586,26 @@ begin
   Result:=True;
 end;
 
+function TMUIWidgetSet.GetClipBox(DC : hDC; lpRect : PRect) : Longint;
+var
+  ADC: TMUICanvas absolute DC;
+  
+  X, Y : Longint;
+  DCOrigin: Tpoint;
+begin
+  // set default values
+  Result := SIMPLEREGION;
+  if lpRect <> nil then
+    lpRect^ := Rect(0,0,0,0);
+
+  if not Assigned(ADC) then
+  begin
+    Result := ERROR;
+    Exit;
+  end;
+  lpRect^ := ADC.DrawRect;
+end;   
+
 function TMUIWidgetSet.GetClipRGN(DC: hDC; RGN: hRGN): Longint;
 var
   ADC: TMUICanvas absolute DC;
@@ -634,7 +670,8 @@ begin
       end;
     end;
     Result := THandle(PrivateWidget.MuiCanvas);
-  end;
+  end else
+    Result := CreateCompatibleDC(0);
 end;
 
 function TMUIWidgetSet.GetDeviceCaps(DC: HDC; Index: Integer): Integer;
@@ -674,9 +711,53 @@ begin
   Result := nil;
 end;
 
+const
+  SysColorMap: array [0..MAX_SYS_COLORS] of DWORD = (
+    $C0C0C0,     {COLOR_SCROLLBAR}
+    $808000,     {COLOR_BACKGROUND}
+    $800000,     {COLOR_ACTIVECAPTION}
+    $808080,     {COLOR_INACTIVECAPTION}
+    $C0C0C0,     {COLOR_MENU}
+    $FFFFFF,     {COLOR_WINDOW}
+    $000000,     {COLOR_WINDOWFRAME}
+    $000000,     {COLOR_MENUTEXT}
+    $000000,     {COLOR_WINDOWTEXT}
+    $FFFFFF,     {COLOR_CAPTIONTEXT}
+    $C0C0C0,     {COLOR_ACTIVEBORDER}
+    $C0C0C0,     {COLOR_INACTIVEBORDER}
+    $808080,     {COLOR_APPWORKSPACE}
+    $800000,     {COLOR_HIGHLIGHT}
+    $FFFFFF,     {COLOR_HIGHLIGHTTEXT}
+    $D0D0D0,     {COLOR_BTNFACE}
+    $808080,     {COLOR_BTNSHADOW}
+    $808080,     {COLOR_GRAYTEXT}
+    $000000,     {COLOR_BTNTEXT}
+    $C0C0C0,     {COLOR_INACTIVECAPTIONTEXT}
+    $F0F0F0,     {COLOR_BTNHIGHLIGHT}
+    $000000,     {COLOR_3DDKSHADOW}
+    $C0C0C0,     {COLOR_3DLIGHT}
+    $000000,     {COLOR_INFOTEXT}
+    $AEF3F3,     {COLOR_INFOBK}
+    $000000,     {unassigned}
+    $000000,     {COLOR_HOTLIGHT}
+    $800000,     {COLOR_GRADIENTACTIVECAPTION}
+    $808080,     {COLOR_GRADIENTINACTIVECAPTION}
+    $800000,     {COLOR_MENUHILIGHT}
+    $D0D0D0,     {COLOR_MENUBAR}
+    $D0D0D0      {COLOR_FORM}
+  ); {end _SysColors}
+
+
 function TMUIWidgetSet.GetSysColor(nIndex: Integer): DWORD;
 begin
-  Result := $80000000 or nIndex;
+  if (nIndex < 0) or (nIndex > MAX_SYS_COLORS) then
+  begin
+    Result := 0;
+    DumpStack;
+    DebugLn(Format('ERROR: [TMUIWidgetSet.GetSysColor] Bad Value: %d. Valid Range between 0 and %d', [nIndex, MAX_SYS_COLORS]));
+  end
+  else
+    Result := SysColorMap[nIndex]; 
 end;
 
 function TMUIWidgetSet.GetSystemMetrics(nIndex: Integer): Integer;
@@ -1060,13 +1141,37 @@ var
   GDI: TMUIWinAPIObject absolute GDIObj;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('select object ', HexStr(Pointer(GDIObj)), ' ', GDI.classname);
+  writeln('select object ', HexStr(Pointer(GDIObj)), ' ', GDI.classname,' DC ' , HexStr(MyDC));
   {$endif}
   Result := 0;
   if Assigned(MyDC) and Assigned(GDI) and (GDIObj > $100) then
   begin
     if (TObject(GDIObj) is TMUIWinAPIObject) then
       Result := HGDIOBJ(MyDC.SelectObject(GDI));
+  end;
+end;
+
+function TMUIWidgetSet.SetBKColor(DC: HDC; Color: TColorRef): TColorRef;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := 0;
+  if Assigned(ADC) then
+  begin
+    Result := ADC.BKColor;
+    ADC.BKColor := Color;
+  end;
+end;
+
+function TMUIWidgetSet.SetBkMode(DC: HDC; bkMode : Integer) : Integer;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := 0;
+  if Assigned(ADC) then
+  begin
+    Result := ADC.BKMode;
+    ADC.BKMode := bkMode;
   end;
 end;
 

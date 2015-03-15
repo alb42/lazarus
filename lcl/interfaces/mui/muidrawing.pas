@@ -238,6 +238,8 @@ type
     Offset: types.TPoint;
     TextColor: LongWord;
     MUIObject: TObject;
+    BKColor: TColor;
+    BKMode: Integer;
     function GetOffset: TPoint;
     // Drawing routines
     procedure MoveTo(x, y: integer);
@@ -255,7 +257,8 @@ type
     procedure SetAMUIPen(PenDesc: integer);
     procedure SetBMUIPen(PenDesc: integer);
     procedure SetPenToRP;
-    procedure SetBrushToRP(AsPen: Boolean = FALSE);
+    procedure SetBrushToRP(AsPen: Boolean = False);
+    procedure SetBKToRP(AsPen: Boolean = False);
     procedure SetFontToRP;
     procedure SetClipping(AClip: TMuiBasicRegion);
     //
@@ -433,12 +436,14 @@ end;
 constructor TMUIBrushObj.Create(const ABrushData: TLogBrush);
 begin
   inherited Create;
+  //writeln(' Create Brush: ', HexStr(Pointer(ABrushData.lbColor)), ' Style: ', ABrushData.lbStyle, ' ', HexStr(Self));
+  //writeln('Solid: ', BS_SOLID, ' Hatched: ', BS_HATCHED, ' Hollow: ', BS_HOLLOW);
   FLCLColor := ABrushData.lbColor;
   case ABrushData.lbStyle of
     BS_SOLID, BS_HATCHED: FStyle := JAM2;
     BS_HOLLOW: FStyle := JAM1;
     else
-      FStyle := JAM2;
+      FStyle := JAM1;
   end;
   //writeln('Brush created: $', HexStr(Pointer(FLCLColor)));
 end;
@@ -892,8 +897,6 @@ var
 begin
   if Assigned(RastPort) then
   begin
-    //writeln('fillrect ',x1,',',y1,',',x2,',',y2);
-    SetBrushToRP(True);
     T := GetOffset;
     Drawn := True;
     RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
@@ -1095,8 +1098,11 @@ var
   Col: LongWord;
   Hi: Integer;
 begin
+  //writeln('Write Text ', HexStr(Pointer(BKColor)), ' ', HexStr(Pointer(TextColor)));
   if Assigned(RastPort) then
-  begin
+  begin    
+    SetPenToRP;
+    //SetBrushToRP;
     Drawn := True;
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
@@ -1141,7 +1147,6 @@ begin
     SetAPen(RastPort, RenderInfo^.mri_Pens[PenDesc]);
 end;
 
-
 constructor TMUICanvas.Create;
 var
   APenData: TLogPen;
@@ -1162,6 +1167,7 @@ begin
   FFont := FDefaultFont;
   TextColor := 0;
   Drawn := True;
+  BKColor := clNone;
 end;
 
 destructor TMUICanvas.Destroy;
@@ -1249,7 +1255,7 @@ begin
   end;
 end;
 
-procedure TMUICanvas.SetBrushToRP(AsPen: Boolean = FALSE);
+procedure TMUICanvas.SetBrushToRP(AsPen: Boolean = False);
 var
   Col: TColor;
   Tags: TTagsList;
@@ -1285,6 +1291,33 @@ begin
   end;
 end;
 
+procedure TMUICanvas.SetBKToRP(AsPen: Boolean = False);
+var
+  Col: TMUIColor;
+  Tags: TTagsList;
+begin
+  //writeln('set BK Color $', HexStr(Pointer(BKColor)));
+  if Assigned(RastPort) then
+  begin        
+    if BKColor = clNone then
+    begin
+      SetBrushToRP(AsPen);
+      //Col := TColorToMUIColor(clBtnFace);
+    end else
+    begin
+      Col := TColorToMUIColor(BKColor);
+    end;
+    if AsPen then
+    begin
+      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);      
+    end else
+    begin
+      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+    end;
+    SetRPAttrsA(RastPort, GetTagPtr(Tags));
+  end;
+end;
+
 function TMUICanvas.SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
 begin
   Result := nil;
@@ -1305,7 +1338,7 @@ begin
   end;
   if NewObj is TMUIFontObj then
   begin
-    //writeln('1 ', HexStr(FFont));
+    //writeln('SetNewFont: ', HexStr(NewObj), ' curObj: ', HexStr(FFont));
     Result := FFont;
     //writeln('2');
     FFont := TMUIFontObj(NewObj);

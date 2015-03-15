@@ -93,6 +93,7 @@ type
     function RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean; override;
     function  DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor; override;
     procedure DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor); override;
+    function CreateStandardCursor(ACursor: SmallInt): hCursor; override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -589,6 +590,11 @@ begin
   begin
     Canvas.SetPixel(X, Y, AColor);  
   end;
+end;
+
+function TMUIWidgetSet.CreateStandardCursor(ACursor: SmallInt): hCursor;
+begin
+  Result := 1;
 end;
 
 constructor TMUIWidgetSet.Create;

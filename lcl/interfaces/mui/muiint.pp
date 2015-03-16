@@ -148,6 +148,7 @@ begin
     lcModalWindow: Result := LCL_CAPABILITY_NO;
     lcAntialiasingEnabledByDefault: Result := LCL_CAPABILITY_NO;
     lcLMHelpSupport: Result := LCL_CAPABILITY_NO;
+    lcSendsUTF8KeyPress: Result := LCL_CAPABILITY_NO;
   else
     Result := inherited GetLCLCapability(ACapability);
   end;

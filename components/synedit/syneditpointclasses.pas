@@ -2818,6 +2818,9 @@ end;
 
 procedure TSynEditScreenCaretPainterInternal.Init;
 begin
+  {$IFDEF HASAMIGA}
+    FForcePaintEvents := True;
+  {$ELSE}
   {$IFDEF LCLCarbon}
     FForcePaintEvents := True;
   {$ELSE}
@@ -2825,6 +2828,7 @@ begin
     FForcePaintEvents := True;
   {$ELSE}
     FForcePaintEvents := False;
+  {$ENDIF}
   {$ENDIF}
   {$ENDIF}
   FSavePen := TPen.Create;
@@ -3412,4 +3416,3 @@ begin
 end;
 
 end.
-

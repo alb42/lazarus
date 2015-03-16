@@ -169,6 +169,26 @@ begin
   Result:=HBRUSH(TMUIBrushObj.Create(LogBrush));
 end;
 
+function TMUIWidgetSet.CreateCaret(Handle : HWND; Bitmap : hBitmap; Width, Height : Integer) : Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  {.$ifdef VERBOSEAROS}
+  writeln('Create Caret ', Width, ', ', Height);
+  {.$endif}
+  Result := False;
+  if Assigned(Widget) then
+  begin
+    Widget.Caret := TMUICaret.Create;
+    Widget.Caret.Left := 0;
+    Widget.Caret.Top := 0;
+    Widget.Caret.Width := Width;
+    Widget.Caret.Height := Height;
+    Widget.Caret.Shown := False;
+    Result := True;
+  end;  
+end;
+
 function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
   ): HBITMAP;
 //var
@@ -323,6 +343,21 @@ begin
      Obj.Free;
   end;
   Result:=True;
+end;
+
+function TMUIWidgetSet.DestroyCaret(Handle : HWND): Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  {.$ifdef VERBOSEAROS}
+  writeln('Destroy Caret');
+  {.$endif}
+  Result := False;
+  if Assigned(Widget) then
+  begin
+    Widget.Caret.Free;
+    Widget.Caret := nil;
+  end;
 end;
 
 function TMUIWidgetSet.DrawFocusRect(DC: HDC; const Rect: TRect): boolean;
@@ -856,13 +891,28 @@ begin
   Result := True;
 end;
 
+function TMUIWidgetSet.HideCaret(hWnd: HWND): Boolean;
+var
+  Widget: TMUIObject absolute hWnd;
+begin
+  {.$ifdef VERBOSEAROS}
+  writeln('Hide Caret');
+  {.$endif}
+  Result := False;
+  if Assigned(Widget) then
+  begin
+    if Assigned(Widget.Caret) then
+      Widget.Caret.Shown := False;
+  end;
+end;
+
 function TMUIWidgetSet.InvalidateRect(aHandle: HWND; Rect: pRect;
   bErase: Boolean): Boolean;
 var
   PrivateWidget: TMUIObject absolute aHandle;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('-->invalidate');
+  writeln('-->invalidate ', bErase);
   if Assigned(Rect) then
   begin
     writeln('Rect: ', Rect^.Left, ', ', Rect^.Top, ' - ', Rect^.Right,', ', Rect^.Bottom);
@@ -872,7 +922,7 @@ begin
   Result := False;
   if Assigned(PrivateWidget) then
   begin
-    PrivateWidget.DoMUIDraw;
+    MUIApp.AddInvalidatedObject(PrivateWidget);
     Result := True;
   end;
 end;
@@ -1239,6 +1289,34 @@ begin
   ADC.Offset.X := ADC.Offset.X - NewX;
   ADC.Offset.Y := ADC.Offset.Y - NewY;
   Result:=True;
+end;
+
+function TMUIWidgetSet.ShowCaret(hWnd: HWND): Boolean;
+var
+  Widget: TMUIObject absolute hWnd;
+begin
+  {.$ifdef VERBOSEAROS}
+  writeln('Show Caret');
+  {.$endif}
+  Result := False;
+  if Assigned(Widget) then
+  begin
+    if Assigned(Widget.Caret) then
+      Widget.Caret.Shown := True;
+  end;
+end;
+
+function TMUIWidgetSet.SetCaretPos(X, Y: Integer): Boolean;
+begin
+end;
+
+function TMUIWidgetSet.SetCaretPosEx(Handle: HWnd; X, Y: Integer): Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  writeln('SetCarePosEx');
+  if Assigned(Widget) then
+    MUIApp.AddInvalidatedObject(Widget);  
 end;
 
 function TMUIWidgetSet.ShowWindow(hWnd: HWND; nCmdShow: Integer): Boolean;

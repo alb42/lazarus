@@ -187,7 +187,13 @@ var
   Widget: TMuiObject;
 begin
   Widget := TMuiObject(AWinControl.Handle);
-  Widget.DoMUIDraw;
+  if Assigned(Widget) then
+  begin
+    if MUIApp.InsidePaint then
+      MUIApp.AddInvalidatedObject(Widget)
+    else  
+      Widget.DoMUIdraw;
+  end;
 end;
 
 class function TMuiWSWinControl.GetClientRect(const AWincontrol: TWinControl;

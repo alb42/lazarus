@@ -9,11 +9,19 @@ uses
   {$ifdef HASAMIGA}
   Exec, AmigaDos, agraphics, Intuition, Utility,Mui, inputevent, KeyMap,
   {$endif}
-  Forms, LCLMessageGlue, lcltype, interfacebase, muidrawing;
+  Forms, LCLMessageGlue, lcltype, LMessages, interfacebase, muidrawing;
 
 type
   TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
-
+  TMUICaret = class
+    Shown: Boolean;
+    Left: Integer;
+    Top: Integer;
+    Width: Integer;
+    Height: Integer;
+  end;
+  
+  
   { TMUIObject }
 
   TMUIObject = class(TObject)
@@ -65,6 +73,7 @@ type
     FObject: pObject_;
     BlockRedraw: boolean;
     MUIDrawing: Boolean;
+    Caret: TMUICaret;
     LastClick: Int64; // time of the last click -> for double click events
     NumMoves: Integer; // max 3 movements before lastclick is deleted;
     constructor Create(ObjType: longint; const Params: array of const);
@@ -151,6 +160,9 @@ type
     FSignals: longword;
     FMainWin: pObject_;
     FTimers: TObjectList;
+    FInvalidatedObjects: TObjectList;
+    FInsidePaint: Boolean;
+    InRedrawList: Boolean;
     function GetIconified: boolean;
     procedure SetIconified(const AValue: boolean);
     procedure CheckTimer;
@@ -166,9 +178,13 @@ type
     procedure WaitMessages;
     function CreateTimer(Interval: integer; TimerFunc: TWSTimerProc): THandle;
     function DestroyTimer(TimerHandle: THandle): boolean;
+    procedure AddInvalidatedObject(AObj: TMUIObject);
+    procedure RemInvalidatedObject(AObj: TMUIObject);
+    procedure RedrawList;
     property MainWin: pObject_ read FMainWin;
     property Terminated: boolean read FTerminated write FTerminated;
     property Iconified: boolean read GetIconified write SetIconified;
+    property InsidePaint: Boolean read FInsidePaint write FInsidePaint;
   end;
 
 procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
@@ -272,28 +288,28 @@ procedure TMUIObject.SetLeft(ALeft: integer);
 begin
   FLeft := ALeft;
   if Assigned(Parent) then
-    Parent.ReDraw;
+    MUIApp.AddInvalidatedObject(Parent);
 end;
 
 procedure TMUIObject.SetTop(ATop: integer);
 begin
   FTop := ATop;
   if Assigned(Parent) then
-    Parent.ReDraw;
+    MUIApp.AddInvalidatedObject(Parent);
 end;
 
 procedure TMUIObject.SetWidth(AWidth: integer);
 begin
   FWidth := AWidth;
   if Assigned(Parent) then
-    Parent.ReDraw;
+    MUIApp.AddInvalidatedObject(Parent);
 end;
 
 procedure TMUIObject.SetHeight(AHeight: integer);
 begin
   FHeight := AHeight;
   if Assigned(Parent) then
-    Parent.ReDraw;
+    MUIApp.AddInvalidatedObject(Parent);
 end;
 
 function TMUIObject.GetWidth(): integer;
@@ -313,9 +329,14 @@ begin
     PS^.hdc := THandle(Pointer(FMuiCanvas));
     PS^.rcPaint := FMuiCanvas.DrawRect;
     //writeln('Send paintmessage to ', pasobject.classname);
-    if not MUIDrawing then
-      LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
-    LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
+    MUIApp.InsidePaint := True;
+    try
+      if not MUIDrawing then
+        LCLSendEraseBackgroundMsg(TWinControl(PasObject), PS^.hdc);
+      LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
+    finally
+      MUIApp.InsidePaint := False;
+    end;  
     Dispose(PS);
   end;
   FMUICanvas.DeInitCanvas;
@@ -449,6 +470,7 @@ end;
 constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
 begin
   inherited Create;
+  Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
@@ -465,6 +487,7 @@ end;
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
+  Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
@@ -481,6 +504,7 @@ end;
 constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
 begin
   inherited Create;
+  Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
   FMUICanvas := TMUICanvas.Create;
@@ -504,6 +528,7 @@ begin
   MUI_DisposeObject(FObject);
   FChilds.Free;
   FMUICanvas.Free;
+  MUIApp.RemInvalidatedObject(Self);
   inherited Destroy;
   //writeln(self.classname, '<-- muiobject destroy');
 end;
@@ -595,11 +620,15 @@ begin
   FSignals := 0;
   FTimers := TObjectList.Create;
   FTimers.OwnsObjects := True;
+  FInvalidatedObjects := TObjectList.Create;
+  FInvalidatedObjects.OwnsObjects := False;
+  InRedrawList := False;
 end;
 
 destructor TMuiApplication.Destroy;
 begin
   FTimers.Free;
+  FInvalidatedObjects.Free;
   inherited Destroy;
 end;
 
@@ -610,6 +639,7 @@ end;
 
 procedure TMuiApplication.ProcessMessages;
 begin
+  RedrawList; 
   CheckTimer;
   if integer(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
@@ -623,6 +653,7 @@ end;
 
 procedure TMuiApplication.WaitMessages;
 begin
+  RedrawList;
   CheckTimer;
   if DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)]) =
     MUIV_Application_ReturnID_Quit then
@@ -665,6 +696,50 @@ begin
   if TimerHandle <> 0 then
     FTimers.Remove(TObject(TimerHandle));
 end;
+
+procedure TMuiApplication.AddInvalidatedObject(AObj: TMUIObject);
+var
+  Index: Integer;
+begin
+  if not Assigned(AObj) then
+    Exit;
+  Index := FInvalidatedObjects.IndexOf(AObj);
+  if Index >= 0 then 
+    Exit;
+  FInvalidatedObjects.Add(AObj);  
+end;
+
+procedure TMuiApplication.RemInvalidatedObject(AObj: TMUIObject);
+var
+  Index: Integer;
+begin
+  if not Assigned(AObj) then
+    Exit;
+  Index := FInvalidatedObjects.IndexOf(AObj);
+  if Index < 0 then 
+    Exit;  
+  FInvalidatedObjects.Delete(Index);  
+end;
+
+procedure TMuiApplication.RedrawList;
+var
+  ActObj: TMUIObject;
+begin
+  if InRedrawList then
+    Exit;
+  InRedrawList := True;
+  try
+    while FInvalidatedObjects.Count > 0 do
+    begin
+      ActObj := TMUIObject(FInvalidatedObjects.Items[0]);
+      FInvalidatedObjects.Delete(0);
+      ActObj.DoMUIDraw;
+    end;
+  finally
+    InRedrawList := False;
+  end;
+end;
+
 
 { TMuiArea }
 
@@ -1259,7 +1334,13 @@ begin
               //writeln(Muib.Classname,' Mouse Button, Position: ', RelX,', ', RelY);
               case iMsg^.Code of
                 SELECTDOWN: begin
-                  MUIWin.FFocusedControl := MUIB;
+                  if MUIWin.FFocusedControl <> MUIB then
+                  begin
+                    if Assigned(MUIWin.FFocusedControl) then
+                      LCLSendKillFocusMsg(MUIWin.FFocusedControl.PasObject);                  
+                    LCLSendSetFocusMsg(MUIB.PasObject); 
+                  end;
+                  MUIWin.FFocusedControl := MUIB;                  
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
@@ -1279,11 +1360,7 @@ begin
                 MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
               end;
             end;
-            IDCMP_RAWKEY: begin
-              if Assigned(MUIWin) then
-                if Assigned(MUIWin.FFocusedControl) then
-                  MUIB := MUIWin.FFocusedControl;
-              //writeln('Key to: ', MUIB.PasObject.Classname);  
+            IDCMP_RAWKEY: begin 
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin
                 if iMsg^.Code = $7A then
@@ -1292,6 +1369,9 @@ begin
                   LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +1, [])
               end else
               begin
+                if Assigned(MUIWin) then
+                  if Assigned(MUIWin.FFocusedControl) then
+                    MUIB := MUIWin.FFocusedControl;
                 KeyUp := (IMsg^.Code and IECODE_UP_PREFIX) <> 0;
                 IMsg^.Code := IMsg^.Code and not IECODE_UP_PREFIX;
                 ie.ie_Class := IECLASS_RAWKEY;
@@ -1303,7 +1383,7 @@ begin
                 Ret := MapRawKey(@ie, @Buff[0], 1, nil);
                 //writeln('Key: ', MUIB.Classname, ' got Key "',Buff[0],'" #', KeyData, ' Ret: ', Ret);
                 if Ret = 1 then
-                begin          
+                begin 
                   KeyData := Ord(Buff[0]);
                   CharCode := RawKeyToKeycode(IMsg^.Code);
                   if CharCode = 0 then
@@ -1314,15 +1394,15 @@ begin
                   end else
                   begin  
                     LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
-                    LCLSendCharEvent(MUIB.PasObject, KeyData, KeyData, False, False, True);
+                    LCLSendCharEvent(MUIB.PasObject, KeyData, KeyData, True, False, True);
                   end;  
                 end else
                 begin
                   KeyData := RawKeyToKeycode(IMsg^.Code);
                   if KeyUp then
-                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, True)
+                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, False)
                   else
-                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, True);                  
+                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, False);                  
                 end;
               end;
             end;

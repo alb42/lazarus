@@ -327,20 +327,11 @@ end;
 function TMUIObject.GetWidth(): integer;
 begin
   Result := FWidth;
-  if Assigned(VScroll) then
-    if VScroll.Visible then
-      Result := FWidth - 15;
 end;
 
 function TMUIObject.GetHeight(): integer;
 begin
   Result := FHeight;
-  if Assigned(HScroll) then
-  begin   
-    if HScroll.Visible then
-      Result := FHeight - 15;
-    writeln(pasobject.classname, ' get height: ', FHeight, ' -> ', Result, ' vis: ', HScroll.Visible);  
-  end;   
 end;
 
 procedure TMUIObject.DoReDraw();

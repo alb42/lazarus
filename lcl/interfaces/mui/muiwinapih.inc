@@ -106,11 +106,11 @@ function GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointer): Integer; ov
 function GetParent(Handle : HWND): HWND; override;}
 function GetProp(Handle : hwnd; Str : PChar): Pointer; override;
 {function GetRgnBox(RGN : HRGN; lpRect : PRect) : Longint; override;
-function GetROP2(DC: HDC): Integer; override;
+function GetROP2(DC: HDC): Integer; override;}
 function GetScrollBarSize(Handle: HWND; BarKind: Integer): integer; override;
 function GetScrollbarVisible(Handle: HWND; SBStyle: Integer): boolean; override;
 function GetScrollInfo(Handle: HWND; BarFlag: Integer; Var ScrollInfo: TScrollInfo): Boolean; override;
-function GetStockObject(Value: Integer): THandle; override;}
+{function GetStockObject(Value: Integer): THandle; override;}
 function GetSysColor(nIndex: Integer): DWORD; override;
 function GetSystemMetrics(nIndex: Integer): Integer; override;
 {function GetTextColor(DC: HDC) : TColorRef; Override;}
@@ -169,13 +169,13 @@ function SetCursorPos(X, Y: Integer): Boolean; override;}
 function SetFocus(hWnd: HWND): HWND; override;
 {function SetForegroundWindow(HWnd: HWND): boolean; override;}
 function SetParent(hWndChild: HWND; hWndParent: HWND): HWND; override;
-{function SetProp(Handle: hwnd; Str : PChar; Data : Pointer) : Boolean; override;
-function SetScrollInfo(Handle : HWND; SBStyle : Integer; ScrollInfo: TScrollInfo; bRedraw : Boolean): Integer; override;}
+{function SetProp(Handle: hwnd; Str : PChar; Data : Pointer) : Boolean; override;}
+function SetScrollInfo(Handle : HWND; SBStyle : Integer; ScrollInfo: TScrollInfo; bRedraw : Boolean): Integer; override;
 function SetTextColor(DC: HDC; Color: TColorRef): TColorRef; override;
 function SetWindowOrgEx(DC : HDC; NewX, NewY : Integer; OldPoint: PPoint) : Boolean; override;
 function ShowCaret(hWnd: HWND): Boolean; override;
-{function ShowScrollBar(Handle: HWND; wBar: Integer; bShow: Boolean): Boolean; override;
-}
+function ShowScrollBar(Handle: HWND; wBar: Integer; bShow: Boolean): Boolean; override;
+
 function ShowWindow(hWnd: HWND; nCmdShow: Integer): Boolean; override;
 function StretchBlt(DestDC: HDC; X, Y, Width, Height: Integer;
   SrcDC: HDC; XSrc, YSrc, SrcWidth, SrcHeight: Integer; ROp: Cardinal): Boolean; override;

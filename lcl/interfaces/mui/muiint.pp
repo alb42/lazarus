@@ -113,7 +113,7 @@ type
 implementation
 
 uses
-  MUIWSFactory, MUIWSForms, VInfo;
+  MUIWSFactory, MUIWSForms, VInfo, muistdctrls;
 
 
 {$I muiwinapi.inc}

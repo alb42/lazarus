@@ -173,9 +173,9 @@ function TMUIWidgetSet.CreateCaret(Handle : HWND; Bitmap : hBitmap; Width, Heigh
 var
   Widget: TMUIObject absolute Handle;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('Create Caret ', Width, ', ', Height);
-  {.$endif}
+  {$endif}
   Result := False;
   if Assigned(Widget) then
   begin
@@ -349,9 +349,9 @@ function TMUIWidgetSet.DestroyCaret(Handle : HWND): Boolean;
 var
   Widget: TMUIObject absolute Handle;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('Destroy Caret');
-  {.$endif}
+  {$endif}
   Result := False;
   if Assigned(Widget) then
   begin
@@ -606,6 +606,7 @@ begin
   ARect.Right := Widget.Left + Widget.Width;
   ARect.Top := Widget.Top;
   ARect.Bottom := Widget.Top + Widget.Height;
+  //writeln(Widget.classname, '################Get Clientbounds ', ARect.Left, ', ', ARect.Right);
   Result := True;
 end;
 
@@ -623,8 +624,7 @@ end;
 
 function TMUIWidgetSet.GetClipBox(DC : hDC; lpRect : PRect) : Longint;
 var
-  ADC: TMUICanvas absolute DC;
-  
+  ADC: TMUICanvas absolute DC; 
   X, Y : Longint;
   DCOrigin: Tpoint;
 begin
@@ -744,6 +744,69 @@ begin
     Result:=nil;
   end;*)
   Result := nil;
+end;
+
+function TMUIWidgetSet.GetScrollBarSize(Handle: HWND; BarKind: Integer): integer;
+var
+  Widget: TMUIObject absolute Handle;
+  SC: TMUIScrollbar;
+begin
+  Result := 0;
+  if Assigned(Widget) then
+  begin
+    if BarKind = SB_VERT then
+      SC := TMUIScrollbar(Widget.VScroll);
+    if BarKind = SB_Horz then
+      SC := TMUIScrollbar(Widget.HScroll);  
+    if not Assigned(SC) then
+      Exit;
+    //????  what it wants to know?
+  end;
+end;
+
+function TMUIWidgetSet.GetScrollbarVisible(Handle: HWND; SBStyle: Integer): boolean;
+var
+  Widget: TMUIObject absolute Handle;
+  SC: TMUIScrollbar;
+begin
+  Result := False;
+  if Assigned(Widget) then
+  begin
+    if SBStyle = SB_VERT then
+      SC := TMUIScrollbar(Widget.VScroll);
+    if SBStyle = SB_Horz then
+      SC := TMUIScrollbar(Widget.HScroll);  
+    if not Assigned(SC) then
+      Exit;  
+    Result := SC.Visible;   
+  end;
+end;
+
+function TMUIWidgetSet.GetScrollInfo(Handle: HWND; BarFlag: Integer; Var ScrollInfo: TScrollInfo): Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+  SC: TMUIScrollbar;
+begin
+  Result := False;
+  //writeln('Get Scroll info');
+  Exit;
+  {
+  if Assigned(Widget) then
+  begin
+    if not Widget.Visible then
+      Exit;
+    if BarFlag = SB_VERT then
+      SC := TMUIScrollbar(Widget.VScroll);
+    if BarFlag = SB_Horz then
+      SC := TMUIScrollbar(Widget.HScroll);  
+    if not Assigned(SC) then
+      Exit;
+    ScrollInfo.nMin := SC.MinValue + 1;
+    ScrollInfo.nMax := SC.MaxValue + SC.PageSize + 1;
+    ScrollInfo.nPage := SC.PageSize;
+    ScrollInfo.nPos := SC.Position  + 1;      
+    Result := True;
+  end;}
 end;
 
 const
@@ -886,6 +949,9 @@ function TMUIWidgetSet.GetWindowSize(Handle: hwnd; var Width, Height: Integer
 var
   Widget: TMUIObject absolute Handle;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('Get Window Size');
+  {$endif}
   Width := Widget.Width;
   Height := Widget.Height;
   Result := True;
@@ -895,9 +961,9 @@ function TMUIWidgetSet.HideCaret(hWnd: HWND): Boolean;
 var
   Widget: TMUIObject absolute hWnd;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('Hide Caret');
-  {.$endif}
+  {$endif}
   Result := False;
   if Assigned(Widget) then
   begin
@@ -1262,6 +1328,44 @@ begin
   Result:=0; //???
 end;
 
+function TMUIWidgetSet.SetScrollInfo(Handle : HWND; SBStyle : Integer; ScrollInfo: TScrollInfo; bRedraw : Boolean): Integer;
+var
+  Widget: TMUIObject absolute Handle;
+  Sc: TMUIScrollbar;
+begin
+  Result := 0;
+  if Assigned(Widget) then
+  begin
+    //if not Assigned(Widget.VScroll) or not Assigned(Widget.HScroll) then
+    //  Widget.CreateScrollbars;
+    if not Widget.Visible then
+      Exit;
+    Sc := nil;
+    if SBStyle = SB_Vert then
+    begin
+      SC := TMUIScrollbar(Widget.VScroll);
+      Widget.VScrollPos := ScrollInfo.nPos;
+    end;  
+    if SBStyle = SB_HORZ then
+    begin
+      SC := TMUIScrollbar(Widget.HScroll);
+      Widget.HScrollPos := ScrollInfo.nPos;
+    end;  
+    if not Assigned(SC) then
+      Exit;
+    if SC.MinValue <> ScrollInfo.nMin then
+      SC.MinValue := ScrollInfo.nMin;
+    if SC.MaxValue <> (ScrollInfo.nMax) - (ScrollInfo.nPage) + 1 then       
+      SC.MaxValue := (ScrollInfo.nMax) - (ScrollInfo.nPage) + 1;
+    if SC.PageSize <> ScrollInfo.nPage then   
+      SC.PageSize := ScrollInfo.nPage;
+    if SC.Position <> ScrollInfo.nPos then   
+      SC.Position := ScrollInfo.nPos;
+    //SC.Visible := True;
+    Result := SC.Position;  
+  end;
+end;
+
 function TMUIWidgetSet.SetTextColor(DC: HDC; Color: TColorRef): TColorRef;
 var
   ADC: TMUICanvas absolute DC;
@@ -1295,9 +1399,9 @@ function TMUIWidgetSet.ShowCaret(hWnd: HWND): Boolean;
 var
   Widget: TMUIObject absolute hWnd;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('Show Caret');
-  {.$endif}
+  {$endif}
   Result := False;
   if Assigned(Widget) then
   begin
@@ -1305,6 +1409,34 @@ begin
       Widget.Caret.Shown := True;
   end;
 end;
+
+function TMUIWidgetSet.ShowScrollBar(Handle: HWND; wBar: Integer; bShow: Boolean): Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  if Assigned(Widget) then
+  begin
+    if bShow and (not Assigned(Widget.VScroll) or not Assigned(Widget.HScroll)) then
+      Widget.CreateScrollbars;
+    if wBar = SB_Vert then
+    begin
+      if Assigned(Widget.VSCroll) then
+      begin
+        Widget.VScroll.Visible := bShow;      
+      end;
+    end;  
+    if wBar = SB_Horz then
+    begin
+      if Assigned(Widget.HScroll) then
+      begin
+        Widget.HScroll.Visible := bShow;
+      end;  
+    end;
+    if Widget.PasObject is TWinControl then
+      TWinControl(Widget.PasObject).InvalidateClientRectCache(True);
+  end;  
+end;
+
 
 function TMUIWidgetSet.SetCaretPos(X, Y: Integer): Boolean;
 begin
@@ -1314,7 +1446,7 @@ function TMUIWidgetSet.SetCaretPosEx(Handle: HWnd; X, Y: Integer): Boolean;
 var
   Widget: TMUIObject absolute Handle;
 begin
-  writeln('SetCarePosEx');
+  //writeln('SetCarePosEx');
   if Assigned(Widget) then
     MUIApp.AddInvalidatedObject(Widget);  
 end;

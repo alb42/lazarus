@@ -183,7 +183,11 @@ type
 
   TMUIScrollBar = class(TMuiGroup)
   private
+    FMinValue: Integer;
+    FMaxValue: Integer;
+    FPageSize: Integer;
     ChangeHook: THook;
+    BlockScrollEvent: Boolean;
     function GetHoriz: Boolean;
     function GetMaxValue: Integer;
     function GetMinValue: Integer;
@@ -220,17 +224,17 @@ end;
 
 function TMUIScrollBar.GetMaxValue: Integer;
 begin
-  Result := MinValue + GetAttribute(MUIA_Prop_Entries) - 20;
+  Result := FMaxValue;
 end;
 
 function TMUIScrollBar.GetMinValue: Integer;
 begin
-  Result := 0;
+  Result := FMinValue;
 end;
 
 function TMUIScrollBar.GetPageSize: Integer;
 begin
-  Result := GetAttribute(MUIA_Prop_Visible) - 20;
+  Result := GetAttribute(MUIA_Prop_Visible);
 end;
 
 function TMUIScrollBar.GetPosition: Integer;
@@ -245,47 +249,82 @@ end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + PageSize]);
+  FMaxValue := AValue;
+  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);
 end;
 
 procedure TMUIScrollBar.SetMinValue(AValue: Integer);
 begin
-  //
+  FMinValue := AValue;
+  SetAttribute([LongInt(MUIA_Prop_Entries), (FMaxValue - AValue) + FPageSize]);
 end;
 
 procedure TMUIScrollBar.SetPageSize(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Prop_Entries), (AValue - MinValue) + PageSize]);  
-  SetAttribute([LongInt(MUIA_Prop_Visible), AValue]);
-  
+  FPageSize := AValue;
+  SetAttribute([LongInt(MUIA_Prop_Entries), (FMaxValue - FMinValue) + AValue]);  
+  SetAttribute([LongInt(MUIA_Prop_Visible), AValue]);  
 end;
 
 procedure TMUIScrollBar.SetPosition(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Prop_First), AValue]);
+  if AValue <> Position then
+  begin
+    SetAttribute([LongInt(MUIA_Prop_First), AValue]);
+  end;  
 end;
 
 procedure ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
 var
-  MuiObject: TMuiObject;
+  Parent, MuiObject: TMuiObject;
   ScrollMsg: TLMVScroll;
+  SendMsg: Boolean;
 begin
+  //writeln('--> Scroll hook');
+  //Exit;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     if TMUIScrollbar(MUIObject).Horizontal then
       ScrollMsg.Msg := LM_HSCROLL
     else
-      ScrollMsg.Msg := LM_VScroll;
+      ScrollMsg.Msg := LM_VScroll;  
     ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
     ScrollMsg.ScrollBar := PtrUInt(MuiObject);
-    ScrollMsg.ScrollCode := SB_ENDSCROLL;
-    if TScrollbar(MuiObject.PasObject).Position <> ScrollMsg.Pos then
+    ScrollMsg.ScrollCode := SB_THUMBPOSITION;//SB_ENDSCROLL;   
+    if MuiObject.PasObject is TScrollbar then
     begin
-      TScrollbar(MuiObject.PasObject).Position := ScrollMsg.Pos;
-      DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
+      if TScrollbar(MuiObject.PasObject).Position <> ScrollMsg.Pos then
+      begin
+        TScrollbar(MuiObject.PasObject).Position := ScrollMsg.Pos;
+        DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
+      end;
+    end else
+    begin
+      Parent := MUIObject.Parent;
+      SendMsg := False;
+      ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
+      if (Parent.VScroll = MUIObject) then
+      begin
+        if ScrollMsg.Pos <> Parent.VScrollPos then
+        begin
+          Parent.VSCrollPos := Scrollmsg.Pos;
+          SendMsg := True;
+        end;
+      end;
+      if (Parent.HScroll = MUIObject) then
+      begin
+        if ScrollMsg.Pos <> Parent.HScrollPos then
+        begin
+          Parent.HSCrollPos := Scrollmsg.Pos;
+          SendMsg := True;
+        end;
+      end;
+      if SendMsg then
+        DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
     end;
   end;
+  //writeln('<-- Scroll hook');
 end;
 
 
@@ -302,6 +341,10 @@ end;
 
 constructor TMUIScrollBar.Create(var Tags: TTagsList);
 begin
+  FMinValue := 0;
+  FMaxValue := 100;
+  FPageSize := 10;
+  BlockScrollEvent := False;
   inherited Create(MUIC_Scrollbar, GetTagPtr(Tags));
 end;
 

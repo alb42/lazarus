@@ -65,8 +65,12 @@ type
     procedure SetHeight(AHeight: integer); virtual;
 
     function GetWidth(): integer; virtual;
+    function GetHeight(): integer; virtual;
     procedure InstallHooks; virtual;
     procedure DoReDraw(); virtual;
+    //
+    procedure BasicInitOnCreate(); virtual;
+    procedure SetScrollbarPos;
   public
     EHNode: PMUI_EventHandlerNode;
     FChilds: TObjectList;
@@ -76,6 +80,8 @@ type
     Caret: TMUICaret;
     LastClick: Int64; // time of the last click -> for double click events
     NumMoves: Integer; // max 3 movements before lastclick is deleted;
+    VScroll, HScroll: TMUIObject;
+    VScrollPos, HScrollPos: Integer;
     constructor Create(ObjType: longint; const Params: array of const);
       overload; reintroduce; virtual;
     constructor Create(AClassName: PChar; Tags: PTagItem); overload;
@@ -89,12 +95,14 @@ type
     procedure DoMUIDraw; virtual;
     function GetClientRect: TRect; virtual;
     function GetWindowOffset: Types.TPoint; virtual;
+    // scrollbars
+    procedure CreateScrollbars;
 
     property Parent: TMUIObject read FParent write SetParent;
     property Left: longint read FLeft write SetLeft;
     property Top: longint read FTop write SetTop;
     property Width: longint read GetWidth write SetWidth;
-    property Height: longint read FHeight write SetHeight;
+    property Height: longint read GetHeight write SetHeight;
     property Obj: pObject_ read FObject write FObject;
     property GrpObj: pObject_ read FGrpObj;
     property PasObject: TControl read FPasObject write FPasObject;
@@ -197,7 +205,7 @@ var
 implementation
 
 uses
-  tagsarray, longarray, muiformsunit;
+  tagsarray, longarray, muiformsunit, muistdctrls;
 
 var
   GroupSuperClass: PIClass;
@@ -287,6 +295,7 @@ end;
 procedure TMUIObject.SetLeft(ALeft: integer);
 begin
   FLeft := ALeft;
+  SetScrollbarPos();
   if Assigned(Parent) then
     MUIApp.AddInvalidatedObject(Parent);
 end;
@@ -294,6 +303,7 @@ end;
 procedure TMUIObject.SetTop(ATop: integer);
 begin
   FTop := ATop;
+  SetScrollbarPos();
   if Assigned(Parent) then
     MUIApp.AddInvalidatedObject(Parent);
 end;
@@ -301,6 +311,7 @@ end;
 procedure TMUIObject.SetWidth(AWidth: integer);
 begin
   FWidth := AWidth;
+  SetScrollbarPos();
   if Assigned(Parent) then
     MUIApp.AddInvalidatedObject(Parent);
 end;
@@ -308,6 +319,7 @@ end;
 procedure TMUIObject.SetHeight(AHeight: integer);
 begin
   FHeight := AHeight;
+  SetScrollbarPos();
   if Assigned(Parent) then
     MUIApp.AddInvalidatedObject(Parent);
 end;
@@ -315,6 +327,20 @@ end;
 function TMUIObject.GetWidth(): integer;
 begin
   Result := FWidth;
+  if Assigned(VScroll) then
+    if VScroll.Visible then
+      Result := FWidth - 15;
+end;
+
+function TMUIObject.GetHeight(): integer;
+begin
+  Result := FHeight;
+  if Assigned(HScroll) then
+  begin   
+    if HScroll.Visible then
+      Result := FHeight - 15;
+    writeln(pasobject.classname, ' get height: ', FHeight, ' -> ', Result, ' vis: ', HScroll.Visible);  
+  end;   
 end;
 
 procedure TMUIObject.DoReDraw();
@@ -343,7 +369,10 @@ begin
   for i := 0 to FChilds.Count - 1 do
   begin
     if FChilds.Items[i] is TMUIObject then
-      TMuiObject(FChilds[i]).DoMuiDraw;
+    begin
+      if TMuiObject(FChilds.Items[i]).Visible then
+        TMuiObject(FChilds[i]).DoMuiDraw;
+    end;  
   end;
 end;
 
@@ -358,6 +387,13 @@ begin
   Result.Top := 0;
   Result.Right:= Width;
   Result.Bottom := Height;
+  if Assigned(VSCroll) and Assigned(VScroll) then
+  begin
+    if VScroll.Visible then    
+      Result.Right:= Result.Right - 15;
+    if HScroll.Visible then  
+      Result.Bottom := Result.Bottom - 15;
+  end;
 end;
 
 function TMUIObject.GetWindowOffset: Types.TPoint;
@@ -465,11 +501,12 @@ begin
     IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDown)]);
   DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(False),
     IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUp)]);
+  //if (self is TMUIArea) and not (self is TMUIScrollbar)then  
+  //  CreateScrollbars;
 end;
 
-constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
+procedure TMUIObject.BasicInitOnCreate();
 begin
-  inherited Create;
   Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
@@ -478,6 +515,14 @@ begin
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;
+  VScroll := nil;
+  HSCroll := nil;
+end;
+
+constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
+begin
+  inherited Create;
+  BasicInitOnCreate;
   //writeln(self.classname, 'create obj ', ObjType);
   FObject := MUI_MakeObject(ObjType, Params);
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
@@ -487,14 +532,7 @@ end;
 constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
 begin
   inherited Create;
-  Caret := nil;
-  EHNode := nil;
-  MUIDrawing := False;
-  FMUICanvas := TMUICanvas.Create;
-  FMUICanvas.MUIObject := self;
-  BlockRedraw := False;
-  FChilds := TObjectList.Create(False);
-  FParent := nil;
+  BasicInitOnCreate();
   //writeln(self.classname, 'create class ', classname);
   FObject := MUI_NewObjectA(AClassName, Tags);
   InstallHooks;
@@ -504,16 +542,9 @@ end;
 constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
 begin
   inherited Create;
-  Caret := nil;
-  EHNode := nil;
-  MUIDrawing := False;
-  FMUICanvas := TMUICanvas.Create;
-  FMUICanvas.MUIObject := self;
-  BlockRedraw := False;
-  FChilds := TObjectList.Create(False);
-  FParent := nil;
-  FObject := NewObjectA(AClassType, nil, Tags);
+  BasicInitOnCreate();
   //writeln(self.classname, 'create type');
+  FObject := NewObjectA(AClassType, nil, Tags);  
   if Assigned(FObject) then
     Pointer(INST_DATA(AClassType, Pointer(FObject))^) := Self;
   InstallHooks;
@@ -528,9 +559,53 @@ begin
   MUI_DisposeObject(FObject);
   FChilds.Free;
   FMUICanvas.Free;
-  MUIApp.RemInvalidatedObject(Self);
+  if not (self is TMUIApplication) then
+    MUIApp.RemInvalidatedObject(Self);
   inherited Destroy;
   //writeln(self.classname, '<-- muiobject destroy');
+end;
+
+procedure TMUIObject.CreateScrollbars;
+var
+  Tags1, Tags2: TTagsList;
+begin
+  //writeln(pasobject.classname, ' create scrollbars');
+  AddTags(Tags1, [MUIA_Group_Horiz, False]);
+  VScroll := TMUIScrollBar.Create(Tags1);
+  VScroll.PasObject := Self.PasObject;
+  VScroll.Parent := self;
+  VScroll.Visible := False;
+  AddTags(Tags2, [MUIA_Group_Horiz, True]);
+  HScroll := TMUIScrollBar.Create(Tags2);
+  HScroll.PasObject := Self.PasObject;
+  HScroll.Parent := Self;
+  HScroll.Visible := False;
+  if pasobject is TWIncontrol then
+    TWinControl(pasobject).InvalidateClientRectCache(True);
+end;
+
+procedure TMUIObject.SetScrollbarPos;
+begin
+  if Assigned(VScroll) then
+  begin
+    if VScroll.Visible then
+    begin
+      VScroll.Width := 15;
+      VScroll.Left := FWidth -  VScroll.Width;
+      VScroll.Top := 0;
+      VScroll.Height := FHeight - 15;
+    end;
+  end;
+  if Assigned(HScroll) then
+  begin
+    if HScroll.Visible then
+    begin
+      HScroll.Height := 15;
+      HScroll.Top := FHeight - HScroll.Height;
+      HScroll.Left := 0;
+      HScroll.Width := FWidth - 15;
+    end;
+  end;
 end;
 
 procedure TMUIObject.SetOwnSize;
@@ -540,8 +615,8 @@ begin
   //writeln(self.classname, '-->setownsize');
   if not Assigned(FObject) then
     Exit;
-  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', FObjects.Count, ' obj ', HexStr(FObject));
-  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
+  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
+  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);    
   //writeln(self.classname, '  setsize done');
   for i := 0 to FChilds.Count - 1 do
   begin
@@ -1176,7 +1251,10 @@ var
   Win: PWindow;
   CurTime: Int64;
   MUIWin: TMUIWindow;
-begin
+  Buffered: Boolean;
+  WithScrollbars: Boolean;
+  PaintH, PaintW: Integer;
+begin 
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
@@ -1231,20 +1309,32 @@ begin
       begin
         MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
         clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj),
-            Obj_Width(Obj), Obj_Height(Obj));
+            Obj_Width(Obj), Obj_Height(Obj));                
         try
           if Assigned(MUIB) then
           begin
             //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             if MUIB.MUIDrawing then
-              Result := DoSuperMethodA(cl, obj, msg);            
-            if MUIB.FChilds.Count = 0 then
+              Result := DoSuperMethodA(cl, obj, msg); 
+            WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);  
+            Buffered := (MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);             
+            if Buffered then
             begin
-              MUIB.FMUICanvas.DrawRect := Rect(0, 0, Obj_Width(Obj), Obj_Height(Obj));
+              PaintW := Obj_Width(Obj);
+              PaintH := Obj_Height(Obj);
+              if WithScrollbars then
+              begin                              
+                if MUIB.VScroll.Visible then
+                  PaintW := PaintW - MUIB.VScroll.Width - 1;
+                If MUIB.HScroll.Visible then
+                  PaintH := PaintH - MUIB.HScroll.Height - 1;                  
+                //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas)); 
+              end;  
+              MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
-              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(MUIB.FMUICanvas.DrawRect.Right, MUIB.FMUICanvas.DrawRect.Bottom, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
-              ClipBlit(rp, Obj_Left(Obj), Obj_Top(Obj), MUIB.FMUICanvas.RastPort, 0, 0, Obj_Width(Obj), Obj_Height(Obj), $00C0);
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
+              ClipBlit(rp, Obj_Left(Obj), Obj_Top(Obj), MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin
               MUIB.FMUICanvas.RastPort := rp;
@@ -1266,9 +1356,9 @@ begin
               MUIB.FOnDraw(MUIB);
             end;  
             MUIB.FMUICanvas.DeInitCanvas;
-            if MUIB.FChilds.Count = 0 then
+            if Buffered then
             begin
-              ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, Obj_Left(Obj), Obj_Top(Obj), Obj_Width(Obj), Obj_Height(Obj), $00C0);
+              ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, Obj_Left(Obj), Obj_Top(Obj), PaintW, PaintH, $00C0);
               FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;

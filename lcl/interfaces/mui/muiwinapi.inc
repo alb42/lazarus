@@ -598,6 +598,11 @@ begin
   Result := 0;
 end;
 
+function TMUIWidgetSet.GetCapture: HWND;
+begin
+  Result := HWND(CaptureObj);
+end;
+
 function TMUIWidgetSet.GetClientBounds(handle : HWND; var ARect : TRect) : Boolean;
 var
   Widget: TMUIObject absolute handle;
@@ -766,19 +771,19 @@ begin
 end;
 
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
-//var
-//  PrivateWidget: TFPGUIPrivateWidget absolute Handle;
+var
+    Widget: TMUIObject absolute Handle;
 begin
-   WriteLn('Trace:Unknown Window property: ',Str);
-(*  if Str='WinControl' then begin
-    Result:=PrivateWidget.LCLObject;
-  end else begin
-    {$ifdef VerboseFPGUIWinAPI}
+  if Str = 'WinControl' then
+  begin
+    Result := Widget.PasObject;
+  end else
+  begin
+    {.$ifdef VerboseFPGUIWinAPI}
       WriteLn('Trace:Unknown Window property: ',Str);
-    {$endif}
+    {.$endif}
     Result:=nil;
-  end;*)
-  Result := nil;
+  end;
 end;
 
 function TMUIWidgetSet.GetScrollBarSize(Handle: HWND; BarKind: Integer): integer;
@@ -1324,6 +1329,16 @@ begin
     Result := ADC.BKMode;
     ADC.BKMode := bkMode;
   end;
+end;
+
+function TMUIWidgetSet.SetCapture(AHandle: HWND): HWND;
+var
+  Widget: TMUIObject absolute AHandle;
+begin
+  Result := HWND(CaptureObj);
+  CaptureObj := Widget;
+  if CaptureObj<>nil then
+    SendMessage(HWnd({%H-}PtrUInt(CaptureObj.PasObject)), LM_CAPTURECHANGED, 0, Result);
 end;
 
 function TMUIWidgetSet.SetFocus(hWnd: HWND): HWND;

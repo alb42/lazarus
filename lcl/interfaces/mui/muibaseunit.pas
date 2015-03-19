@@ -201,7 +201,8 @@ procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
 var
   MUIApp: TMuiApplication;
   LCLGroupClass: PIClass;
-  KeyState: Integer;
+  KeyState: Integer = 0;
+  CaptureObj: TMUIObject = nil;
 
 implementation
 
@@ -949,18 +950,18 @@ function RawKeyToKeycode(RawKey: Byte): Word;
 const
   TranslTable: array[Byte] of Integer = (
     -1,		// $00  
-    -1,		// $01  1
-    -1,		// $02  2
-    -1,		// $03  3
-    -1,		// $04  4
-    -1,		// $05  5
-    -1,		// $06  6
-    -1,		// $07  7
-    -1,		// $08  8
-    -1,		// $09  9
-    -1,		// $0a  0
+    49,		// $01  1
+    50,		// $02  2
+    51,		// $03  3
+    52,		// $04  4
+    53,		// $05  5
+    54,		// $06  6
+    55,		// $07  7
+    56,		// $08  8
+    57,		// $09  9
+    58,		// $0a  0
     -1,			// $0b
-    VK_Clear,		// $0c  
+    187,		// $0c  //VK_CLEAR?
     VK_Return,		// $0d
     -1,			// $0e
     VK_NUMPAD0,			// $0f
@@ -991,7 +992,7 @@ const
     -1,		        // $28  
     VK_Select,		// $29  
     -1,//keyPrintScreen,	// $2a  
-    -1, //keyExecute,		// $2b  
+    146, //keyExecute,		// $2b  
     -1, //keyPrintScreen,	// $2c  
     VK_NUMPAD4,		// $2d  
     VK_NUMPAD5,		// $2e  
@@ -1004,9 +1005,9 @@ const
     -1,		// $35  b
     -1,		// $36  
     -1,		// $37  
-    -1,		// $38  
-    -1,		// $39  
-    -1,			// $3a
+    188,		// $38  
+    190,		// $39  
+    189,			// $3a
     -1,			// $3b
     -1,			// $3c
     VK_NUMPAD7,			// $3d
@@ -1487,16 +1488,17 @@ begin
                   CharCode := RawKeyToKeycode(IMsg^.Code);
                   if CharCode = 0 then
                     CharCode := Ord(uppercase(Buff)[1]);
-                  //writeln(IntToHex(Imsg^.Code,2), ' -> ', CharCode , ' ', ORD('C'));  
                   if KeyUp then
                   begin
                     LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, False);
                   end else
                   begin  
+                    //writeln('Down ', Char(CharCode), ' ', Charcode, ' ', Ord('!'));
                     LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
                     if (IMsg^.Qualifier and IEQUALIFIER_CONTROL = 0) then
                     begin
                       CharCode := Ord(Buff[0]); 
+                      //writeln('Press ', Char(CharCode));
                       LCLSendCharEvent(MUIB.PasObject, CharCode, KeyData, True, False, True);
                     end;
                   end;  

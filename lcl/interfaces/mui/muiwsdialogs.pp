@@ -29,7 +29,7 @@ interface
 uses
   // RTL + LCL
   SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
-  exec, asl, utility, tagsarray,
+  exec, asl, utility, tagsarray, mui,
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -211,7 +211,9 @@ begin
   begin
     AddTags(TagsList, [ASLFR_DrawersOnly, True]);
   end;
-  if AslRequestA(MuiDialog, GetTagPtr(TagsList)) then
+  //
+  //if AslRequestA(MuiDialog, GetTagPtr(TagsList)) then
+  if MUI_AslRequest(MuiDialog, GetTagPtr(TagsList)) then
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_file));
     if MultiSelect then

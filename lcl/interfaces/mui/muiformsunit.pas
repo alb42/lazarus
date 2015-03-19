@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType;
+  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType, gadtools;
 
 type
 
@@ -91,6 +91,7 @@ type
     FSizeable: Boolean;
     FHasMenu: Boolean;
     FInMoveEvent: Boolean;
+    FFocusedControl: TMuiObject;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
   protected
@@ -100,8 +101,8 @@ type
     procedure RemoveChild(Child: TMUIObject); override;
     procedure SetLeft(ALeft: LongInt); override;
     procedure SetTop(ATop: LongInt); override;
-  public
-    FFocusedControl: TMuiObject;
+    procedure SetFocusedControl(AControl: TMUIObject); virtual;
+  public    
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
@@ -114,6 +115,7 @@ type
     property MainMenu: TMuiMenuStrip read FMainMenu;
     property HasMenu: Boolean read FHasMenu write FHasMenu;
     property Sizeable: Boolean read FSizeable write FSizeable;    
+    property FocusedControl: TMUIObject read FFocusedControl write SetFocusedControl;
   end;
 
   { TMuiGroup }
@@ -310,9 +312,12 @@ begin
 end;
 
 procedure TMuiMenuItem.SetTitle(const AValue: string);
-begin
+begin  
   FTitle := AValue;
-  SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(PChar(FTitle)), TAG_END]);
+  if AValue = '-' then
+    SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(NM_BARLABEL), TAG_END])
+  else
+    SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(PChar(FTitle)), TAG_END]);
 end;
 
 procedure MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
@@ -532,7 +537,7 @@ begin
   Result.Left := 0;
   Result.Top := 0;
   Result.Right := Width - 5 ;
-  Result.Bottom := Height - 15;
+  Result.Bottom := Height - 5;
 end;
 
 function TMuiWindow.GetWindowOffset: TPoint;
@@ -599,6 +604,15 @@ begin
   FTop := GetAttribute(MUIA_Window_TopEdge);
   FWidth := GetAttribute(MUIA_Window_Width);
   FHeight := GetAttribute(MUIA_Window_Height);
+end;
+
+procedure TMuiWindow.SetFocusedControl(AControl: TMUIObject);
+begin
+  FFocusedControl := AControl;
+  if Assigned(AControl) then
+  begin
+    SetAttribute([MUIA_Window_Activate, True, MUIA_Window_ActiveObject, AControl.obj]);
+  end;  
 end;
 
 { TMuiGroup }

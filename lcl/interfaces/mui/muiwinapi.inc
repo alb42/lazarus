@@ -1346,25 +1346,24 @@ var
   Widget: TMUIObject absolute hWnd;
   Obj: TMUIObject;
   Win: TMUIWindow;
-begin
-  Result := 0;
+begin  Result := 0;
   if Assigned(Widget) then
   begin
     Win := nil;
-    Obj := Widget.Parent;
+    Obj := Widget;
     while Assigned(Obj) do
-    begin
-      Obj := Obj.Parent;
+    begin      
       if Obj is TMUIWindow then
       begin
         Win := TMUIWindow(Obj);
         Break;
       end;
+      Obj := Obj.Parent;
     end;
     if Assigned(Win) then
     begin
-      Win.FFocusedControl := Widget;
-      Result := LCLType.HWND(Widget);
+      Result := LCLType.HWND(Win.FocusedControl);
+      Win.FocusedControl := Widget;      
     end;
   end;
 end;

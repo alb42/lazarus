@@ -1257,6 +1257,7 @@ var
   WithScrollbars: Boolean;
   PaintH, PaintW: Integer;
   IsSysKey: Boolean;
+  EatEvent: Boolean;
 begin 
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
@@ -1410,9 +1411,10 @@ begin
         end;
         KeyState := IMsg^.Qualifier;
         // disabled!, also send messages if not in the window
-        //if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
+        EatEvent := OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj);
         if true then
         begin
+          //writeln(MUIB.classname,' obj Event ', Imsg^.MouseX, ' ', Imsg^.MouseY);
           RelX := Imsg^.MouseX - obj_Left(obj);
           RelY := Imsg^.MouseY - obj_Top(obj);
           case IMsg^.IClass of
@@ -1428,13 +1430,13 @@ begin
               //writeln(Muib.Classname,' Mouse Button, Position: ', RelX,', ', RelY);
               case iMsg^.Code of
                 SELECTDOWN: begin
-                  if MUIWin.FFocusedControl <> MUIB then
+                  if MUIWin.FocusedControl <> MUIB then
                   begin
-                    if Assigned(MUIWin.FFocusedControl) then
-                      LCLSendKillFocusMsg(MUIWin.FFocusedControl.PasObject);                  
+                    if Assigned(MUIWin.FocusedControl) then
+                      LCLSendKillFocusMsg(MUIWin.FocusedControl.PasObject);                  
                     LCLSendSetFocusMsg(MUIB.PasObject); 
                   end;
-                  MUIWin.FFocusedControl := MUIB;                  
+                  MUIWin.FocusedControl := MUIB;                  
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
@@ -1467,8 +1469,9 @@ begin
               end else
               begin
                 if Assigned(MUIWin) then
-                  if Assigned(MUIWin.FFocusedControl) then
-                    MUIB := MUIWin.FFocusedControl;
+                  if Assigned(MUIWin.FocusedControl) then
+                    MUIB := MUIWin.FocusedControl;
+                EatEvent := True;    
                 KeyUp := (IMsg^.Code and IECODE_UP_PREFIX) <> 0;
                 IMsg^.Code := IMsg^.Code and not IECODE_UP_PREFIX;
                 ie.ie_Class := IECLASS_RAWKEY;
@@ -1517,7 +1520,9 @@ begin
               //writeln('IDCMP: ', HexStr(Pointer(IMsg^.IClass)));
             end;
           end;
-          Result := MUI_EventHandlerRC_Eat;
+          Result := 0;
+          if EatEvent then
+            Result := MUI_EventHandlerRC_Eat;
         end else
         begin
           Result := 0;

@@ -210,10 +210,11 @@ var
   MuiMenu: TMuiFamily;
 begin
   s := ShortCutToText(ShortCutK1);
+  //writeln('shortcut: ', s);
   MuiMenu := TMuiFamily(AMenuItem.Handle);
   if MuiMenu is TMuiMenuItem then
   begin
-    //TMuiMenuItem(MuiMenu).ShortCut := s;
+    TMuiMenuItem(MuiMenu).ShortCut := s;
   end;
 end;
 

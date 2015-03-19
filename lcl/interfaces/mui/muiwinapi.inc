@@ -730,6 +730,41 @@ begin
   Result := 0;
 end;
 
+function TMUIWidgetSet.GetKeyState(nVirtKey: Integer): Smallint;
+const
+  StateDown: SmallInt = $FF80;
+var
+  RShift, LShift, Shift, Control, LAlt, RAlt, Alt: Boolean;
+  LMouse, MMouse, RMouse: Boolean;
+begin
+  Result := 0;
+  
+  RShift := KeyState and IEQUALIFIER_RSHIFT <> 0;
+  LShift := KeyState and IEQUALIFIER_LSHIFT <> 0;
+  Shift := RShift or LShift;  
+  Control := KeyState and IEQUALIFIER_CONTROL <> 0; 
+  LAlt := keyState and IEQUALIFIER_LALT <> 0; 
+  RAlt := keyState and IEQUALIFIER_LALT <> 0;    
+  Alt := RAlt or LAlt;
+   
+  LMouse := KeyState and IEQUALIFIER_LEFTBUTTON <> 0;
+  MMouse := KeyState and IEQUALIFIER_MIDBUTTON <> 0;
+  RMouse := keyState and IEQUALIFIER_RBUTTON <> 0;   
+  case nVirtKey of
+    VK_LShift: Result := ifthen(LShift, StateDown, 0);
+    VK_RShift: Result := ifthen(RShift, StateDown, 0);
+    VK_Shift: Result := ifthen(Shift, StateDown, 0);
+    VK_Control: Result := ifthen(Control, StateDown, 0);
+    VK_LControl: Result := ifthen(Control, StateDown, 0);
+    VK_LMENU: Result := ifthen(LAlt, StateDown, 0);
+    VK_RMENU: Result := ifthen(RAlt, StateDown, 0);
+    VK_MENU: Result := ifthen(Alt, StateDown, 0);
+    VK_LBUTTON: Result := ifthen(LMouse, StateDown, 0);
+    VK_MBUTTON: Result := ifthen(MMouse, StateDown, 0);
+    VK_RBUTTON: Result := ifthen(RMouse, StateDown, 0);
+  end;
+end;
+
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
 //var
 //  PrivateWidget: TFPGUIPrivateWidget absolute Handle;
@@ -1355,8 +1390,8 @@ begin
       Exit;
     if SC.MinValue <> ScrollInfo.nMin then
       SC.MinValue := ScrollInfo.nMin;
-    if SC.MaxValue <> (ScrollInfo.nMax) - (ScrollInfo.nPage) + 1 then       
-      SC.MaxValue := (ScrollInfo.nMax) - (ScrollInfo.nPage) + 1;
+    if SC.MaxValue <> (ScrollInfo.nMax) - ScrollInfo.nPage then       
+      SC.MaxValue := (ScrollInfo.nMax) - ScrollInfo.nPage;
     if SC.PageSize <> ScrollInfo.nPage then   
       SC.PageSize := ScrollInfo.nPage;
     if SC.Position <> ScrollInfo.nPos then   

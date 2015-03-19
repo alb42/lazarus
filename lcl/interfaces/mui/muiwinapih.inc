@@ -100,9 +100,9 @@ function GetDC(hWnd: HWND): HDC; override;
 function GetDeviceCaps(DC: HDC; Index: Integer): Integer; override;
 //function GetDeviceSize(DC: HDC; var P: TPoint): Boolean; Override;
 function GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer; Override;
-{function GetFocus: HWND; override;
+{function GetFocus: HWND; override;}
 function GetKeyState(nVirtKey: Integer): Smallint; override;
-function GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointer): Integer; override;
+{function GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointer): Integer; override;
 function GetParent(Handle : HWND): HWND; override;}
 function GetProp(Handle : hwnd; Str : PChar): Pointer; override;
 {function GetRgnBox(RGN : HRGN; lpRect : PRect) : Longint; override;

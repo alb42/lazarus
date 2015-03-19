@@ -39,6 +39,7 @@ uses
   MUIBaseUnit, MUIFormsUnit, muidrawing,
   {$ifdef HASAMIGA}
   exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray, cybergraphics,
+  inputevent, Cliputils,
   {$endif}
   // widgetset
   WSLCLClasses, LCLMessageGlue;
@@ -94,6 +95,14 @@ type
     function  DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor; override;
     procedure DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor); override;
     function CreateStandardCursor(ACursor: SmallInt): hCursor; override;
+    // Clipboard
+    function ClipboardFormatToMimeType(FormatID: TClipboardFormat): string; override;
+    function ClipboardGetData(ClipboardType: TClipboardType; FormatID: TClipboardFormat; Stream: TStream): boolean; override;
+    // ! ClipboardGetFormats: List will be created. You must free it yourself with FreeMem(List) !
+    function ClipboardGetFormats(ClipboardType: TClipboardType; var Count: integer; var List: PClipboardFormat): boolean; override;
+    function ClipboardGetOwnerShip(ClipboardType: TClipboardType; OnRequestProc: TClipboardRequestEvent;  FormatCount: integer; Formats: PClipboardFormat): boolean; override;
+    function ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat; override;
+    
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -634,6 +643,72 @@ end;
 function TMUIWidgetSet.CreateThemeServices: TThemeServices;
 begin
   Result := TMUIThemeServices.Create;
+end;
+
+function TMUIWidgetSet.ClipboardFormatToMimeType(FormatID: TClipboardFormat): string;
+begin
+  Result := '';
+  if FormatID = 2 then
+    Result := 'text/plain';
+end;
+
+function TMUIWidgetSet.ClipboardGetData(ClipboardType: TClipboardType; FormatID: TClipboardFormat; Stream: TStream): boolean;
+var
+  temp: string;
+begin
+  Result := False;
+  if FormatID = 1 then
+  begin
+    Temp := GetTextFromClip(0);
+    Stream.Write(temp[1], Length(temp));
+    Result := True;
+  end;
+end;
+    // ! ClipboardGetFormats: List will be created. You must free it yourself with FreeMem(List) !
+function TMUIWidgetSet.ClipboardGetFormats(ClipboardType: TClipboardType; var Count: integer; var List: PClipboardFormat): boolean;
+begin
+  Count := 1;
+  GetMem(List, SizeOf(TClipBoardFormat));
+  List^ := 2;
+end;
+
+
+function TMUIWidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType; OnRequestProc: TClipboardRequestEvent;  FormatCount: integer; Formats: PClipboardFormat): boolean;
+var
+  DataStream: TStringStream;
+  Temp: string;
+  c: Char;
+  i,j: Integer;
+begin
+  Result := True;
+  if (FormatCount = 0) or (OnRequestProc = nil) then
+  begin
+  end else
+  begin
+    DataStream := TStringStream.Create('');
+    DataStream.Size := 0;
+    DataStream.Position := 0;
+    For i := 0 to FormatCount - 1 do
+    begin
+      if Formats[i] <> 2 then
+        Continue;    
+      OnRequestProc(Formats[i], DataStream);
+      if DataStream.Size > 0 then
+      begin
+        DataStream.Seek(0, soFromBeginning); 
+        Temp := DataStream.ReadString(DataStream.Size);
+        PutTextToClip(0, Temp);
+      end;  
+    end;  
+  end;
+end;
+
+
+function TMUIWidgetSet.ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat;
+begin
+  Result := 1;
+  if AMimeType = 'text/plain' then
+    Result := 2;
 end;
 
 

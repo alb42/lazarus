@@ -239,7 +239,7 @@ end;
 
 function TMUIScrollBar.GetPosition: Integer;
 begin
-  Result := GetAttribute(MUIA_Prop_First);
+  Result := GetAttribute(MUIA_Prop_First) + FMinValue;
 end;
 
 procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
@@ -270,7 +270,7 @@ procedure TMUIScrollBar.SetPosition(AValue: Integer);
 begin
   if AValue <> Position then
   begin
-    SetAttribute([LongInt(MUIA_Prop_First), AValue]);
+    SetAttribute([LongInt(MUIA_Prop_First), AValue - FMinValue]);
   end;  
 end;
 

@@ -119,6 +119,8 @@ type
   { TMUIPenObj }
 
   TMUIPenObj = class(TMUIColorObj)
+  private
+    FWidth: Integer;
   public
     constructor Create(const APenData: TLogPen);
   end;
@@ -454,6 +456,7 @@ constructor TMUIPenObj.Create(const APenData: TLogPen);
 begin
   inherited Create;
   FLCLColor := APenData.lopnColor;
+  FWidth := APenData.lopnWidth.X;
   //writeln('pen created: $', HexStr(Pointer(FLCLColor)));
 end;
 
@@ -878,14 +881,32 @@ begin
 end;
 
 procedure TMUICanvas.LineTo(x, y: integer; SkipPenSetting: Boolean = False);
+var
+  T: TPoint;
+  sx, sy, ex, ey: Integer;
 begin
   if Assigned(RastPort) then
   begin
     //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
     if not SkipPenSetting then
       SetPenToRP();
-    Drawn := True;  
-    Draw(RastPort, GetOffset.X + x, GetOffset.Y + y);
+    Drawn := True;    
+    T := GetOffset;
+    Draw(RastPort, T.X + x, T.Y + y);
+    if (Position.X = X) and (FPen.FWidth > 1) then
+    begin
+      sx := x - (FPen.FWidth div 2);
+      ex := x + (FPen.FWidth div 2) + (FPen.FWidth mod 2);
+      RectFill(RastPort, T.X + SX, T.Y + Position.Y, T.X + ex, T.Y + Y);
+      MoveTo(x, y);
+    end;
+    if (Position.Y = Y) and (FPen.FWidth > 1) then
+    begin
+      SY := Y - (FPen.FWidth div 2);
+      EY := Y + (FPen.FWidth div 2) + (FPen.FWidth mod 2);
+      RectFill(RastPort, T.X + Position.X, T.Y + SY, T.X + X, T.Y + EY);
+      MoveTo(x, y);
+    end;
     Position.X := X;
     Position.Y := Y;
   end;

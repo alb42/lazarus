@@ -201,6 +201,7 @@ procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
 var
   MUIApp: TMuiApplication;
   LCLGroupClass: PIClass;
+  KeyState: Integer;
 
 implementation
 
@@ -948,16 +949,16 @@ function RawKeyToKeycode(RawKey: Byte): Word;
 const
   TranslTable: array[Byte] of Integer = (
     -1,		// $00  
-    $31,		// $01  1
-    $32,		// $02  2
-    $33,		// $03  3
-    $34,		// $04  4
-    $35,		// $05  5
-    $36,		// $06  6
-    $37,		// $07  7
-    $38,		// $08  8
-    $39,		// $09  9
-    $30,		// $0a  0
+    -1,		// $01  1
+    -1,		// $02  2
+    -1,		// $03  3
+    -1,		// $04  4
+    -1,		// $05  5
+    -1,		// $06  6
+    -1,		// $07  7
+    -1,		// $08  8
+    -1,		// $09  9
+    -1,		// $0a  0
     -1,			// $0b
     VK_Clear,		// $0c  
     VK_Return,		// $0d
@@ -995,16 +996,16 @@ const
     VK_NUMPAD4,		// $2d  
     VK_NUMPAD5,		// $2e  
     VK_NUMPAD6,		// $2f  
-    $30,		// $30  
-    $31,		// $31  
-    $32,		// $32  
-    Ord('c'),		// $33  c
-    $34,		// $34  
-    Ord('b'),		// $35  b
-    $36,		// $36  
-    $37,		// $37  
-    $38,		// $38  
-    $39,		// $39  
+    -1,		// $30  
+    -1,		// $31  
+    -1,		// $32  
+    -1,		// $33  c
+    -1,		// $34  
+    -1,		// $35  b
+    -1,		// $36  
+    -1,		// $37  
+    -1,		// $38  
+    -1,		// $39  
     -1,			// $3a
     -1,			// $3b
     -1,			// $3c
@@ -1047,8 +1048,8 @@ const
     VK_LShift,	        // $61
     VK_CAPITAL,            // $62
     VK_CONTROL,	        // $63
-    VK_LMENU,	        // $64
-    VK_RMENU,	        // $65
+    VK_MENU,	        // $64
+    $e6,//VK_RMENU,	        // $65
     VK_LWIN,	        // $66
     VK_RWIN, //VK_P7,		// $67
     -1, //VK_P8,		// $68
@@ -1061,15 +1062,15 @@ const
     VK_F12,		// $6f
     VK_Home,		// $70  VK_F1
     VK_End,		// $71  VK_F2
-    $52,		        // $72  VK_F3
-    $53,		        // $73  VK_F4
-    $54,		        // $74  VK_F5
-    $55,		        // $75  VK_F6
-    $56,		        // $76  VK_F7
-    $57,		        // $77  VK_F8
-    $58,		        // $78  VK_F9
-    $59,		        // $79  VK_F10
-    $5a,		        // $7a  VK_F11
+    -1,		        // $72  VK_F3
+    -1,		        // $73  VK_F4
+    -1,		        // $74  VK_F5
+    -1,		        // $75  VK_F6
+    -1,		        // $76  VK_F7
+    -1,		        // $77  VK_F8
+    -1,		        // $78  VK_F9
+    -1,		        // $79  VK_F10
+    -1,		        // $7a  VK_F11
     VK_F12,		// $7b  VK_F12
     VK_F13,		// $7c  VK_F13
     VK_F14,		// $7d  VK_F14
@@ -1133,13 +1134,13 @@ const
     -1,			// $b7  VK_LAUNCH_APP2
     -1,			// $b8
     -1,			// $b9
-    $dc, {U Umlaut}	// $ba  VK_OEM_1
-    $2b, {+ char}	// $bb  VK_OEM_PLUS
-    $2c, {, char}	// $bc  VK_OEM_COMMA
-    $2d, {- char}	// $bd  VK_OEM_MINUS
-    $2e, {. char}	// $be  VK_OEM_PERIOD
-    $23, {# char}	// $bf  VK_OEM_2
-    $d6, {O Umlaut}	// $c0  VK_OEM_3
+    -1, {U Umlaut}	// $ba  VK_OEM_1
+    -1, {+ char}	// $bb  VK_OEM_PLUS
+    -1, {, char}	// $bc  VK_OEM_COMMA
+    -1, {- char}	// $bd  VK_OEM_MINUS
+    -1, {. char}	// $be  VK_OEM_PERIOD
+    -1, {# char}	// $bf  VK_OEM_2
+    -1, {O Umlaut}	// $c0  VK_OEM_3
     -1,			// $c1
     -1,			// $c2
     -1,			// $c3
@@ -1169,11 +1170,11 @@ const
     -1,			// $db  VK_OEM_4
     -1, //VK_DeadCircumflex,	// $dc  VK_OEM_5
     -1, //VK_DeadAcute,	// $dd  VK_OEM_6
-    $c4, {A Umlaut}	// $de  VK_OEM_7
+    -1, {A Umlaut}	// $de  VK_OEM_7
     -1,    	        // $df  VK_OEM_8
     -1,			// $e0
     -1,			// $e1  VK_OEM_AX
-    $3c, {< char}	// $e2  VK_OEM_102
+    -1, {< char}	// $e2  VK_OEM_102
     -1,			// $e3  VK_ICO_HELP
     -1, //VK_P5,		// $e4  VK_ICO_00
     -1,			// $e5  VK_PROCESSKEY
@@ -1213,6 +1214,15 @@ begin
   //writeln('tranbslate Key ', RawKey, ' $',IntToHex(RawKey, 2),' -> ', Result);  
 end;
 
+function KeyboardShiftState(State: Word): PtrInt;
+begin
+  Result := 0;
+  if State and IEQUALIFIER_LALT <> 0 then
+    Result := Result or $20000000;
+  if State and IEQUALIFIER_RALT <> 0 then
+    Result := Result or $20000000;
+end;
+
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
   //AskMsg: PMUIP_AskMinMax;
@@ -1245,6 +1255,7 @@ var
   Buffered: Boolean;
   WithScrollbars: Boolean;
   PaintH, PaintW: Integer;
+  IsSysKey: Boolean;
 begin 
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
@@ -1396,8 +1407,9 @@ begin
               Win^.Flags := Win^.Flags or WFLG_RMBTrap;
           end;
         end;
+        KeyState := IMsg^.Qualifier;
         // disabled!, also send messages if not in the window
-        if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
+        //if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj) then
         if true then
         begin
           RelX := Imsg^.MouseX - obj_Left(obj);
@@ -1444,10 +1456,13 @@ begin
             IDCMP_RAWKEY: begin 
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin
-                if iMsg^.Code = $7A then
-                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, -1, [])
+                RelX := Imsg^.MouseX - obj_Left(obj);
+                RelY := Imsg^.MouseY - obj_Top(obj); 
+                // Mouse wheel with Value 120 (from the other interfaces)
+                if iMsg^.Code = $7B then
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, -120, [])
                 else
-                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +1, [])
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +120, [])
               end else
               begin
                 if Assigned(MUIWin) then
@@ -1458,32 +1473,40 @@ begin
                 ie.ie_Class := IECLASS_RAWKEY;
                 ie.ie_SubClass := 0;
                 ie.ie_Code := IMsg^.Code;
-                ie.ie_Qualifier := IMsg^.Qualifier;
+                ie.ie_Qualifier := IMsg^.Qualifier and (not IEQUALIFIER_CONTROL);
                 ie.ie_NextEvent := nil;
                 Buff[0] := #0;
                 Ret := MapRawKey(@ie, @Buff[0], 1, nil);
                 //writeln('Key: ', MUIB.Classname, ' got Key "',Buff[0],'" #', KeyData, ' Ret: ', Ret);
-                if Ret = 1 then
+                KeyData := KeyboardShiftState(IMsg^.Qualifier);
+                KeyState := IMsg^.Qualifier;
+                IsSysKey := KeyData <> 0;
+                //writeln(' send key: $', IntToHex(KeyData,8) );
+                if (Ret = 1) and (IMsg^.Qualifier and IEQUALIFIER_LALT = 0) then
                 begin 
-                  KeyData := Ord(Buff[0]);
                   CharCode := RawKeyToKeycode(IMsg^.Code);
                   if CharCode = 0 then
                     CharCode := Ord(uppercase(Buff)[1]);
+                  //writeln(IntToHex(Imsg^.Code,2), ' -> ', CharCode , ' ', ORD('C'));  
                   if KeyUp then
                   begin
                     LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, False);
                   end else
                   begin  
                     LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
-                    LCLSendCharEvent(MUIB.PasObject, KeyData, KeyData, True, False, True);
+                    if (IMsg^.Qualifier and IEQUALIFIER_CONTROL = 0) then
+                    begin
+                      CharCode := Ord(Buff[0]); 
+                      LCLSendCharEvent(MUIB.PasObject, CharCode, KeyData, True, False, True);
+                    end;
                   end;  
                 end else
                 begin
-                  KeyData := RawKeyToKeycode(IMsg^.Code);
+                  CharCode := RawKeyToKeycode(IMsg^.Code);
                   if KeyUp then
-                    LCLSendKeyUpEvent(MUIB.PasObject, KeyData, KeyData, True, False)
+                    LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, IsSysKey)
                   else
-                    LCLSendKeyDownEvent(MUIB.PasObject, KeyData, KeyData, True, False);                  
+                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, IsSysKey);                  
                 end;
               end;
             end;

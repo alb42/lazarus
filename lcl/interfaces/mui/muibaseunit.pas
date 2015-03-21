@@ -711,12 +711,11 @@ begin
   CheckTimer;
   if integer(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
-  begin
-    //writeln('got terminate1');
-    Application.Terminate;
+  begin    
+    //writeln('got terminate1'); // no need to terminate self, LCL will do it for us
+    //Application.Terminate;
     Exit;
   end;
-  CheckTimer;
 end;
 
 procedure TMuiApplication.WaitMessages;
@@ -727,7 +726,7 @@ begin
     MUIV_Application_ReturnID_Quit then
   begin
     //writeln('got terminate2');
-    Application.Terminate;
+    //Application.Terminate;
     Exit;
   end;
   if (FSignals <> 0) then

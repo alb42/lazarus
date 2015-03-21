@@ -150,7 +150,7 @@ begin
       AddTags(TagList, [MUIA_Window_Borderless, True]);
     end;
     bsDialog: begin
-      AddTags(TagList, [MUIA_Window_CloseGadget, False, MUIA_Window_SizeRight, False, MUIA_Window_SizeGadget, False]);
+      AddTags(TagList, [MUIA_Window_CloseGadget, True, MUIA_Window_SizeRight, False, MUIA_Window_SizeGadget, False]);
       Sizeable := False; 
     end;
     bsSingle: begin

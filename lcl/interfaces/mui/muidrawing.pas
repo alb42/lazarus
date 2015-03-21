@@ -36,7 +36,7 @@ const
   end =
     (
      (OldName: 'default';
-      NewName: 'XEN';),
+      NewName: 'Arial';),
 
      (OldName: 'courier';
       NewName: 'ttcourier';)
@@ -403,6 +403,8 @@ begin
   FontHandle := nil;
   FFontFace := AFontData.lfFaceName;
   FHeight := abs(AFontData.lfHeight);
+  if FHeight = 0 then
+    FHeight := 13;
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;
@@ -418,6 +420,8 @@ begin
   FontHandle := nil;
   FFontFace := LongFontName;
   FHeight := abs(AFontData.lfHeight);
+  if FHeight = 0 then
+    FHeight := 13;
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;
@@ -1178,8 +1182,8 @@ begin
   MUIObject := nil;
   ABrushData.lbColor := clBtnFace;
   APenData.lopnColor := clBlack;
-  AFontData.lfFaceName := 'XEN';
-  AFontData.lfHeight := 8;
+  AFontData.lfFaceName := 'Arial';
+  AFontData.lfHeight := 13;
   FDefaultBrush := TMUIBrushObj.Create(ABrushData);
   FDefaultPen := TMUIPenObj.Create(APenData);
   FDefaultFont := TMUIFontObj.Create(AFontData);

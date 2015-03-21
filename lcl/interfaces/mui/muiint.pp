@@ -154,7 +154,7 @@ begin
     lcApplicationTitle: Result := LCL_CAPABILITY_YES;
     lcApplicationWindow:Result := LCL_CAPABILITY_YES;
     lcFormIcon: Result := LCL_CAPABILITY_NO;
-    lcModalWindow: Result := LCL_CAPABILITY_NO;
+    lcModalWindow: Result := LCL_CAPABILITY_YES;
     lcAntialiasingEnabledByDefault: Result := LCL_CAPABILITY_NO;
     lcLMHelpSupport: Result := LCL_CAPABILITY_NO;
     lcSendsUTF8KeyPress: Result := LCL_CAPABILITY_NO;

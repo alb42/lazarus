@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
-  tagsarray, muidrawing, buttons, Math,
+  tagsarray, muidrawing, buttons, Math, Graphics,
   {$ifdef HASAMIGA}
   cybergraphics, agraphics,
   {$endif}
@@ -703,7 +703,8 @@ end;
 
 constructor TMuiText.Create(var Tags: TTagsList);
 begin
-  AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_BACKGROUND]);
+  //AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_BACKGROUND]);
+  //AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_FILLSHINE]);
   inherited Create(MUIC_Text, GetTagPtr(Tags));
 end;
 

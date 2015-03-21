@@ -32,6 +32,7 @@ type
   private
     MenuChoosed: THook;
     FTitle: string;
+    FShortCut: string;
     function GetChecked: Boolean;
     function GetCheckIt: Boolean;
     function GetEnabled: Boolean;
@@ -308,7 +309,8 @@ end;
 
 procedure TMuiMenuItem.SetShortCut(const AValue: string);
 begin
-  //SetAttribute([LongInt(MUIA_Menuitem_ShortCut), PChar(AValue), TAG_END]);
+  FShortCut := AValue;
+  //SetAttribute([MUIA_Menuitem_CommandString, 1, LongInt(MUIA_Menuitem_ShortCut), PChar(FShortCut), TAG_END]);
 end;
 
 procedure TMuiMenuItem.SetTitle(const AValue: string);
@@ -398,7 +400,6 @@ end;
 function MoveWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
 var
   MuiObject: TMuiWindow;
-  w,h,l,t: Integer;
 begin
   if TObject(Hook^.h_Data) is TMuiWindow then
   begin
@@ -413,7 +414,6 @@ end;
 function SizeWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
 var
   MuiObject: TMuiWindow;
-  w,h,l,t: Integer;
 begin
   if TObject(Hook^.h_Data) is TMuiWindow then
   begin

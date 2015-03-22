@@ -640,6 +640,10 @@ begin
 
 end;
 
+
+Const
+  CLIP_PLAINTEXT = 2;
+
 function TMUIWidgetSet.CreateThemeServices: TThemeServices;
 begin
   Result := TMUIThemeServices.Create;
@@ -648,7 +652,7 @@ end;
 function TMUIWidgetSet.ClipboardFormatToMimeType(FormatID: TClipboardFormat): string;
 begin
   Result := '';
-  if FormatID = 2 then
+  if FormatID = CLIP_PLAINTEXT then
     Result := 'text/plain';
 end;
 
@@ -657,7 +661,7 @@ var
   temp: string;
 begin
   Result := False;
-  if FormatID = 1 then
+  if FormatID = CLIP_PLAINTEXT then
   begin
     Temp := GetTextFromClip(0);
     Stream.Write(temp[1], Length(temp));
@@ -690,7 +694,7 @@ begin
     DataStream.Position := 0;
     For i := 0 to FormatCount - 1 do
     begin
-      if Formats[i] <> 2 then
+      if Formats[i] <> CLIP_PLAINTEXT then
         Continue;    
       OnRequestProc(Formats[i], DataStream);
       if DataStream.Size > 0 then
@@ -708,7 +712,7 @@ function TMUIWidgetSet.ClipboardRegisterFormat(const AMimeType: string): TClipbo
 begin
   Result := 1;
   if AMimeType = 'text/plain' then
-    Result := 2;
+    Result := CLIP_PLAINTEXT;
 end;
 
 

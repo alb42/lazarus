@@ -328,7 +328,8 @@ end;
 
 function RegisterCustomNotebook: Boolean; alias : 'WSRegisterCustomNotebook';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomTabControl, TMUIWSCustomTabControl);
+  Result := True;
 end;
 
 function RegisterShape: Boolean; alias : 'WSRegisterShape';

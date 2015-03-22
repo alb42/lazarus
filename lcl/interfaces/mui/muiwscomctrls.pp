@@ -29,6 +29,43 @@ uses
   WSComCtrls, WSLCLClasses;
 
 type
+  
+  
+  { TGtk2WSCustomTabControl }
+
+  TMUIWSCustomTabControl = class(TWSCustomTabControl)
+  private
+    //class function CreateTTabControlHandle(const AWinControl: TWinControl;
+    //  const AParams: TCreateParams): HWND;
+  protected
+    //class procedure SetCallbacks(const AGtkWidget: PGtkWidget; const AWidgetInfo: PWidgetInfo); virtual;
+  published
+    class function CreateHandle(const AWinControl: TWinControl;
+                                const AParams: TCreateParams): HWND; override;
+    (*)class function GetDefaultClientRect(const AWinControl: TWinControl;
+             const {%H-}aLeft, {%H-}aTop, aWidth, aHeight: integer; var aClientRect: TRect
+             ): boolean; override;*)
+    class procedure AddPage(const ATabControl: TCustomTabControl;
+      const AChild: TCustomPage; const AIndex: integer); override;
+    
+    class procedure SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer); override;
+    
+    (*class procedure MovePage(const ATabControl: TCustomTabControl;
+      const AChild: TCustomPage; const NewIndex: integer); override;
+
+    class function GetCapabilities: TCTabControlCapabilities; override;
+    class function GetNotebookMinTabHeight(const AWinControl: TWinControl): integer; override;
+    class function GetNotebookMinTabWidth(const AWinControl: TWinControl): integer; override;
+    class function GetTabIndexAtPos(const ATabControl: TCustomTabControl; const AClientPos: TPoint): integer; override;
+    class function GetTabRect(const ATabControl: TCustomTabControl; const AIndex: Integer): TRect; override;
+    class procedure SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer); override;
+    class procedure SetTabPosition(const ATabControl: TCustomTabControl; const ATabPosition: TTabPosition); override;
+    class procedure ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean); override;
+    class procedure UpdateProperties(const ATabControl: TCustomTabControl); override;*)
+  end;
+  
+  
+  
   { TmuiWSCustomPage }
 
   TmuiWSCustomPage = class(TWSCustomPage)
@@ -163,6 +200,55 @@ implementation
 
 uses
   tagsarray;
+  
+  
+class function TMUIWSCustomTabControl.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): HWND;
+var
+  MUIRegister: TMUIRegister;
+  TagList: TTagsList;
+begin
+  writeln('Create Tabcontrol');
+  //AddTags(TagList, [MUIA_Group_PageMode, True]);
+  MUIRegister := TMUIRegister.Create(MUIC_Group, TagList);
+  With MUIRegister do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+    Caption := PChar(AParams.Caption);
+  end;
+  if AWinControl.Parent <> NIL then
+  begin
+    MUIRegister.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  Result := HWND(MUIRegister);  
+end;                                
+
+class procedure TMUIWSCustomTabControl.AddPage(const ATabControl: TCustomTabControl; const AChild: TCustomPage; const AIndex: integer);
+var
+  MUIRegister: TMUIRegister;
+  MUIObj: TMUIObject;
+begin
+  //Writeln('Add now page ', AChild.Caption, ' ', HexStr(ATabControl));
+  MUIRegister := TMUIRegister(ATabControl.Handle);   
+  MUIObj := TMUIObject(AChild.Handle);
+  MUIObj.Parent := MUIRegister;
+  //AChild.Parent := ATabControl;
+end;
+
+class procedure TMUIWSCustomTabControl.SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer);
+var
+  MUIRegister: TMUIRegister;
+begin
+  //writeln('Set Pageidx to ', AIndex);
+  MUIRegister := TMUIRegister(ATabControl.Handle);
+  if Assigned(MUIRegister) then
+  begin
+    MuiRegister.ActivePage := AIndex;
+  end;  
+end;
 
 { TmuiWSProgressBar }
 

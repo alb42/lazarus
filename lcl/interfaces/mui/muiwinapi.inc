@@ -92,24 +92,27 @@ begin
 end;
 
 function TMUIWidgetSet.ClientToScreen(Handle: HWND; var P: TPoint): Boolean;
-//var
-//  O: TFPGUIPrivateWidget;
+var
+  Widget: TMUIObject absolute Handle;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('client to screen');
+  writeln('client to screen start ', P.X ,' ', HexStr(Widget));
   {$endif}
-(*  O:=GlobalMouseCursorPosWidget;
-  while O<>nil do begin
-    P.X:=P.X+O.Widget.Left;
-    P.Y:=P.Y+O.Widget.Top;
-    if O.LCLObject.Parent<>nil then begin
-      O:=TFPGUIPrivateWidget(O.LCLObject.Parent.Handle);
-    end else begin
-      O:=nil;
-    end;
+  if Assigned(Widget) then
+  begin
+    repeat
+      P.X := P.X + Widget.Left;
+      P.Y := P.Y + Widget.Top;
+      Widget := Widget.Parent;
+    until not Assigned(Widget) or (Widget is TMUIApplication);
+    //TODO: get real left and top border from Widget
+    P.X := P.X + 15;
+    P.Y := P.Y + 30;
   end;
-  Result:=true; *)
-  Result := False;
+  {$ifdef VERBOSEAROS}
+  writeln('client to screen end ', P.X);
+  {$endif}
+  Result := True;
 end;
 
 function TMUIWidgetSet.CombineRgn(Dest, Src1, Src2: HRGN;
@@ -668,21 +671,10 @@ begin
 end;
 
 function TMUIWidgetSet.GetCursorPos(var lpPoint: TPoint): Boolean;
-//var
-//  O: TFPGUIPrivateWidget;
 begin
-(*  O:=GlobalMouseCursorPosWidget;
-  lpPoint:=GlobalMouseCursorPos;
-  while O<>nil do begin
-    lpPoint.X:=lpPoint.X+O.Widget.Left;
-    lpPoint.Y:=lpPoint.Y+O.Widget.Top;
-    if O.LCLObject.Parent<>nil then begin
-      O:=TFPGUIPrivateWidget(O.LCLObject.Parent.Handle);
-    end else begin
-      O:=nil;
-    end;
-  end;*)
-  Result := False;
+  lpPoint.X := IntuitionBase^.ActiveScreen^.MouseX;
+  lpPoint.Y := IntuitionBase^.ActiveScreen^.MouseY;
+  Result := True;
 end;
 
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;

@@ -71,6 +71,7 @@ type
     //
     procedure BasicInitOnCreate(); virtual;
     procedure SetScrollbarPos;
+    function GetParentWindow: TMUIObject; virtual;
   public
     EHNode: PMUI_EventHandlerNode;
     FChilds: TObjectList;
@@ -130,12 +131,14 @@ type
     function GetEnabled: boolean; virtual;
     function GetHint: string; virtual;
     function GetSelected: boolean; virtual;
+    function GetTabStop: boolean; virtual;
     procedure SetCaption(const AValue: string); virtual;
     procedure SetDragable(const AValue: boolean); virtual;
     procedure SetDropable(const AValue: boolean); virtual;
     procedure SetEnabled(const AValue: boolean); virtual;
     procedure SetHint(const AValue: string); virtual;
     procedure SetSelected(const AValue: boolean); virtual;
+    procedure SetTabStop(const AValue: boolean); virtual;
   public
     property Caption: string read GetCaption write SetCaption;
     property Enabled: boolean read GetEnabled write SetEnabled;
@@ -144,6 +147,7 @@ type
     property Selected: boolean read GetSelected write SetSelected;
     property Hint: string read GetHint write SetHint;
     property Checked: longbool read GetChecked write SetChecked;
+    property TabStop: boolean read GetTabStop write SetTabStop;
   end;
 
   TMUIGroup = class(TMUIArea)
@@ -258,7 +262,18 @@ end;
 
 { TMUIObject }
 
+// search for the parent window (can be many Parent relations)
+// or nil if it is not connected to a Window
+function TMUIObject.GetParentWindow: TMUIObject;
+begin
+  Result := Self;
+  while Assigned(Result) and (not (Result is TMUIWindow)) do
+    Result := Result.Parent;  
+end;
+
 procedure TMUIObject.SetParent(const AValue: TMUIObject);
+var
+  Win: TMUIObject;
 begin
   //Writeln(self.classname, 'Set Parent: ', HexStr(AValue));
   if FParent = AValue then
@@ -266,12 +281,23 @@ begin
     //writeln('same');
     Exit;
   end;
+  // Unlink the old Parent
   if Assigned(FParent) then
   begin
+    // if the Widget is the Focused Control, we have to remove it
+    // or we will earn a crash after it gets destroyed or so
+    // destroy always make an SetParent(nil)
+    Win := GetParentWindow;
+    if Assigned(Win) and (Win is TMUIWindow) then
+    begin
+      if TMUIWindow(Win).FocusedControl = self then
+        TMUIWindow(Win).FocusedControl := nil;
+    end;
     FParent.RemoveChild(Self);
     FParent.FChilds.Remove(Self);
     FParent := nil;
   end;
+  // Link the new Parent
   if Assigned(AValue) then
   begin
     //write('  New: ', AValue.Classname, ' assigned: ', Assigned(AValue.FChilds));
@@ -888,6 +914,21 @@ begin
   SetAttribute([longint(MUIA_Selected), AValue, TAG_END]);
 end;
 
+function TMuiArea.GetTabStop: boolean;
+begin
+  Result := GetAttribute(longint(MUIA_CycleChain)) <> 0;
+end;
+
+procedure TMuiArea.SetTabStop(const AValue: boolean);
+var
+  Val: Integer;
+begin
+  if AValue then
+    Val := 1
+  else
+    Val := 0;  
+  SetAttribute([IPTR(MUIA_CycleChain), Val]);
+end;
 
 {$PACKRECORDS 4}
 type
@@ -899,51 +940,6 @@ type
     ehn_Events: ULONG;
     ehn_Priority: Byte;
   end;
-
-  {TehNode = record
-    ehn_Node: TMinNode;
-    ehn_Reserved: Byte;
-    ehn_Priority: Byte;
-    ehn_Flags: Word;
-    ehn_Object: PObject_;
-    ehn_Class: PIClass;
-    ehn_Events: ULONG;
-  end;}
-  
-{  
-  
-function FindControlWhichReceivedEvent(AForm: TCustomForm;
-  AControlsList: TFPList; AX, AY: Integer): TWinControl;
-var
-  i: Integer;
-  lRegionOfEvent: TLazRegionWithChilds;
-  lCurCDControl: TCDWinControl;
-  lEventPos: TPoint; // local, already adjusted for the scrolling
-begin
-  Result := AForm;
-  lEventPos := Point(AX, AY); // Don't adjust for the scrolling because the regions are scrolled too
-
-  // The order of this loop is important to respect the Z-order of controls
-  for i := AControlsList.Count-1 downto 0 do
-  begin
-    lCurCDControl := TCDWinControl(AControlsList.Items[i]);
-    if lCurCDControl.Region = nil then Continue;
-    if not lCurCDControl.WinControl.HandleObjectShouldBeVisible then Continue;
-    lRegionOfEvent := lCurCDControl.Region.IsPointInRegion(lEventPos.X, lEventPos.Y);
-    if lRegionOfEvent <> nil then
-    begin
-      if lRegionOfEvent.UserData = nil then
-        raise Exception.Create('[FindControlWhichReceivedEvent] Malformed tree of regions');
-      Result := TWinControl(lRegionOfEvent.UserData);
-
-      // If it is a native LCL control, redirect to the CDControl
-      if lCurCDControl.CDControl <> nil then
-        Result := lCurCDControl.CDControl;
-
-      Exit;
-    end;
-  end;
-end;}
 
 function RawKeyToKeycode(RawKey: Byte): Word;
 const
@@ -1258,6 +1254,7 @@ var
   IsSysKey: Boolean;
   EatEvent: Boolean;
   Key: Char;
+  i: Integer;
 begin 
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
@@ -1299,7 +1296,7 @@ begin
       Result := DoSuperMethodA(cl, obj, msg);
       //MUI_RejectIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
-    MUIM_Draw:
+    MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
       //writeln(' DRAW');
       if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
@@ -1385,40 +1382,43 @@ begin
         iMsg := HeMsg^.imsg;
         ri := MUIRenderInfo(Obj);
         if Assigned(ri) then
-        begin
           Win := ri^.mri_Window;
-        end;
         if Assigned(Win) then
         begin
           // Activate the RMBTrap if no menu -> we can use the Right mousekey
-          MUIParent := MUIB;
-          while not(MuiParent is TMuiWindow) and (MUIParent <> nil) do
-          begin
-            MuiParent := MuiParent.Parent;
-            if MuiParent is TMuiApplication then
-              break;
-          end;
+          // get parent window
+          MUIParent := MUIB.GetParentWindow;
           MUIWin := nil;
           if MUIParent is TMuiWindow then
             MUIWin := MUIParent as TMuiWindow; 
           if Assigned(MUIWin) then
           begin
+            // if Window has a MainMenu do not catch Right MB
             if MUIWin.HasMenu then
               Win^.Flags := Win^.Flags and not WFLG_RMBTrap
             else
               Win^.Flags := Win^.Flags or WFLG_RMBTrap;
           end;
         end;
+        // save Keystate for Winapi.GetKeyState
         KeyState := IMsg^.Qualifier;
-        // disabled!, also send messages if not in the window
+        // Eat this Event if it is inside our border
+        // but not inside of any of my Childs
         EatEvent := OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj);
+        for i := 0 to MUIB.FChilds.Count - 1 do
+        begin
+          if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
+            EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
+        end;        
         if true then
         begin
           //writeln(MUIB.classname,' obj Event ', Imsg^.MouseX, ' ', Imsg^.MouseY);
+          // Calc relative mouse coordinates for this Item
           RelX := Imsg^.MouseX - obj_Left(obj);
           RelY := Imsg^.MouseY - obj_Top(obj);
+          // Check the EventClass
           case IMsg^.IClass of
-            IDCMP_MOUSEMOVE: begin
+            IDCMP_MOUSEMOVE: begin     // Mouse MOVE  ############################################
               LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
               if MUIB.LastClick > 0 then
                 if MUIB.NumMoves > 0 then
@@ -1426,39 +1426,60 @@ begin
                 else
                   MUIB.LastClick := -1;
             end;
-            IDCMP_MOUSEBUTTONS: begin
-              //writeln(Muib.Classname,' Mouse Button, Position: ', RelX,', ', RelY);
+            IDCMP_MOUSEBUTTONS: begin  // MOUSE BUTTON ###########################################
+              
+              // Check the Mouse Status  
               case iMsg^.Code of
-                SELECTDOWN: begin
+                SELECTDOWN: begin  // Left Button down
+                  if not EatEvent then
+                    Exit;  // Mouse buttons only send if the mouse is inside the Widget
+                  // Check if we have to switch the Focus to the clicked one
                   if MUIWin.FocusedControl <> MUIB then
                   begin
                     if Assigned(MUIWin.FocusedControl) then
-                      LCLSendKillFocusMsg(MUIWin.FocusedControl.PasObject);                  
-                    LCLSendSetFocusMsg(MUIB.PasObject); 
+                      LCLSendKillFocusMsg(MUIWin.FocusedControl.PasObject); // send 'Unfocus' message
+                    LCLSendSetFocusMsg(MUIB.PasObject);                     // send 'Focus' message
                   end;
-                  MUIWin.FocusedControl := MUIB;                  
+                  MUIWin.FocusedControl := MUIB;
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                  // Check if it is an Double click < 250 ms and less than 3 move events between
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
-                  begin
-                    LCLSendMouseMultiClickMsg(MUIB.PasObject, RelX, RelY, mbLeft, 2, []);
+                  begin  
+                    LCLSendMouseMultiClickMsg(MUIB.PasObject, RelX, RelY, mbLeft, 2, []);  // its a double click
                     MUIB.LastClick := -1;                
                   end else
                   begin
-                    MUIB.NumMoves := 3;
+                    MUIB.NumMoves := 3;            // first click, maybe later as Double Click ;)
                     MUIB.LastClick := CurTime;  
                   end;
-                end;  
+                end;
+                // Left Mouse UP
                 SELECTUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
-                MIDDLEDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
+                // Middle Mouse Down
+                MIDDLEDOWN: begin
+                    if not EatEvent then
+                      Exit;  // Mouse buttons only send if the mouse is inside the Widget
+                    LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
+                  end;  
+                // Middle Mouse Up  
                 MIDDLEUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
-                MENUDOWN: LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
+                // Right Mouse Down;
+                MENUDOWN: begin
+                    if not EatEvent then
+                      Exit;  // Mouse buttons only send if the mouse is inside the Widget
+                    LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
+                  end;
+                // Right Mouse Up
                 MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
               end;
             end;
-            IDCMP_RAWKEY: begin 
+            IDCMP_RAWKEY: begin              // KEYS ###########################################
+              // Mouse scroll wheel produce a up/down message
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin
+                if not EatEvent then
+                  Exit;
                 RelX := Imsg^.MouseX - obj_Left(obj);
                 RelY := Imsg^.MouseY - obj_Top(obj); 
                 // Mouse wheel with Value 120 (from the other interfaces)
@@ -1468,10 +1489,13 @@ begin
                   LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +120, [])
               end else
               begin
+                // Get the Keyboard Focus (see Mouse Buttons Left Down)
                 if Assigned(MUIWin) then
                   if Assigned(MUIWin.FocusedControl) then
-                    MUIB := MUIWin.FocusedControl;
-                EatEvent := True;    
+                    MUIB := MUIWin.FocusedControl;                    
+                // Keyboard events always get eaten -> focussed Control    
+                EatEvent := True;
+                // Extrace some data and let MapRawKey do the job
                 KeyUp := (IMsg^.Code and IECODE_UP_PREFIX) <> 0;
                 IMsg^.Code := IMsg^.Code and not IECODE_UP_PREFIX;
                 ie.ie_Class := IECLASS_RAWKEY;
@@ -1481,9 +1505,12 @@ begin
                 ie.ie_NextEvent := nil;
                 Buff[0] := #0;
                 Ret := MapRawKey(@ie, @Buff[0], 1, nil);
-                //writeln('Key: ', MUIB.Classname, ' got Key "',Buff[0],'" #', KeyData, ' Ret: ', Ret);
+                //writeln('Key: ', MUIB.PasObject.Classname, ' got Key "',Buff[0],'" #', KeyData, ' Ret: ', Ret);
                 Key := Buff[0];
+                // Shiftstate mainly for ALT
+                // TODO: still not working!!!! ssALT is never set
                 KeyData := KeyboardShiftState(IMsg^.Qualifier);
+                // save KeyState for Winapi.GetKeyState
                 KeyState := IMsg^.Qualifier;
                 IsSysKey := KeyData <> 0;
                 //writeln(' send key: $', IntToHex(KeyData,8) );

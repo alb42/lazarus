@@ -159,7 +159,7 @@ begin
           if PasWin.Constraints.MaxWidth > 0 then
             MaW := Min(PasWin.Constraints.MaxWidth, 10000);
           if PasWin.Constraints.MaxHeight > 0 then
-            MaW := Min(PasWin.Constraints.MaxHeight, 10000);
+            MaH := Min(PasWin.Constraints.MaxHeight, 10000);
           LMsg^.lm_MinMax.MinWidth := MiW;
           LMsg^.lm_MinMax.MinHeight := MiH;
           LMsg^.lm_MinMax.MaxWidth :=  MaW;

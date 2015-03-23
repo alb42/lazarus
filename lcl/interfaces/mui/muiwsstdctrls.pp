@@ -510,6 +510,7 @@ begin
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;
+    TabStop := AWinControl.TabStop;
   end;
 
   if AWinControl.Parent <> NIL then

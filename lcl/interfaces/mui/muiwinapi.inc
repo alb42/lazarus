@@ -1354,8 +1354,11 @@ begin  Result := 0;
     end;
     if Assigned(Win) then
     begin
+      if Assigned(Win.FocusedControl) then
+        LCLSendKillFocusMsg(Win.FocusedControl.PasObject);                  
       Result := LCLType.HWND(Win.FocusedControl);
-      Win.FocusedControl := Widget;      
+      Win.FocusedControl := Widget;
+      LCLSendSetFocusMsg(Widget.PasObject);  
     end;
   end;
 end;

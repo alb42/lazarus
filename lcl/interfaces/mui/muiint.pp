@@ -106,6 +106,10 @@ type
   public
     constructor Create; override;
     destructor Destroy; override;
+    
+    // debugging
+    procedure DebugOutEvent(Sender: TObject;s: string; var Handled: Boolean);
+    procedure DebugOutLNEvent(Sender: TObject;s: string; var Handled: Boolean);
 
     // create and destroy
     function CreateTimer(Interval: integer; TimerFunc: TWSTimerProc) : THandle; override;
@@ -122,7 +126,7 @@ type
 implementation
 
 uses
-  MUIWSFactory, MUIWSForms, VInfo, muistdctrls;
+  MUIWSFactory, MUIWSForms, VInfo, muistdctrls, lazlogger;
 
 
 {$I muiwinapi.inc}
@@ -166,6 +170,18 @@ end;
 var
   AppTitle, FinalVers, Vers, CopyR, Comment, prgName, Author: string;
 
+procedure TMUIWidgetSet.DebugOutEvent(Sender: TObject;s: string; var Handled: Boolean);
+begin
+  System.SysDebug('(LCL:'+Sender.classname+'): '+ s);
+  Handled := True;
+end;
+
+procedure TMUIWidgetSet.DebugOutLNEvent(Sender: TObject;s: string; var Handled: Boolean);
+begin
+  System.SysDebug('(LCL:'+Sender.classname+'): '+ s);
+  Handled := True;
+end;
+
 procedure TMUIWidgetSet.AppInit(var ScreenInfo: TScreenInfo);
 type
   TVerArray = array[0..3] of Word;
@@ -180,6 +196,8 @@ var
    end;
 
 begin
+  DebugLogger.OnDbgOut := @DebugOutEvent;
+  DebugLogger.OnDebugLn := @DebugOutLNEvent;
   Vers := '';
   CopyR := '';
   Comment := '';
@@ -346,6 +364,7 @@ begin
   Result := True;
   //writeln('created Bitmap: ', HexStr(Bit), ' width: ', Bit.FWidth, ' ??? ', ARawImage.Description.Width, ' Datasize: ', ARawImage.DataSize);
   //writeln(' create image: ', ARawImage.Description.Width,'x', ARawImage.Description.Height,' : ',ARawImage.Description.Depth, ' - ', ARawImage.DataSize, ' $', HexStr(Bit));
+  //writeln('   Desc: ', HexStr(@(ARawImage.Description)));
 end;
 
 function RawImage_DescriptionFromDrawable(out
@@ -457,9 +476,13 @@ end;
 
 function TMUIWidgetSet.RawImage_DescriptionFromBitmap(ABitmap: HBITMAP; out ADesc: TRawImageDescription): boolean;
 begin
-  ADesc.Init_BPP32_A8R8G8B8_BIO_TTB(0,0);
-  ADesc.PaletteColorCount := 0;
-  RawImage_DescriptionFromDrawable(ADesc, False);
+  //ADesc.Init_BPP32_A8R8G8B8_BIO_TTB(0,0);
+  //ADesc.PaletteColorCount := 0;
+  //RawImage_DescriptionFromDrawable(ADesc, False);
+  RawImage_QueryDescription([riqfRGB, riqfAlpha], ADesc);
+  ADesc.Width := TMuiBitmap(ABitmap).FWidth;
+  ADesc.Height := TMuiBitmap(ABitmap).FHeight;
+  
   {$ifdef VERBOSEAROS}
   writeln('RawImage_DescriptionFromBitmap ', HexStr(Pointer(ABitmap)));
   {$endif}

@@ -102,6 +102,8 @@ type
     procedure RemoveChild(Child: TMUIObject); override;
     procedure SetLeft(ALeft: LongInt); override;
     procedure SetTop(ATop: LongInt); override;
+    function GetTop(): Integer; override;
+    function GetLeft(): Integer; override;
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
   public    
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
@@ -556,6 +558,16 @@ procedure TMuiWindow.SetTop(ATop: LongInt);
 begin
   inherited;
   SetAttribute([LongInt(MUIA_Window_TopEdge), ATop]);
+end;
+
+function TMuiWindow.GetTop(): Integer;
+begin
+  Result := GetAttribute(MUIA_Window_TopEdge);
+end;
+
+function TMuiWindow.GetLeft(): Integer;
+begin
+  Result := GetAttribute(MUIA_Window_LeftEdge);
 end;
 
 function TMuiWindow.GetCaption: string;

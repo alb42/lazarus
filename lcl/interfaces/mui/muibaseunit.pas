@@ -64,6 +64,8 @@ type
     procedure SetWidth(AWidth: integer); virtual;
     procedure SetHeight(AHeight: integer); virtual;
 
+    function GetTop(): Integer; virtual;
+    function GetLeft(): Integer; virtual;
     function GetWidth(): integer; virtual;
     function GetHeight(): integer; virtual;
     procedure InstallHooks; virtual;
@@ -100,8 +102,8 @@ type
     procedure CreateScrollbars;
 
     property Parent: TMUIObject read FParent write SetParent;
-    property Left: longint read FLeft write SetLeft;
-    property Top: longint read FTop write SetTop;
+    property Left: longint read GetLeft write SetLeft;
+    property Top: longint read GetTop write SetTop;
     property Width: longint read GetWidth write SetWidth;
     property Height: longint read GetHeight write SetHeight;
     property Obj: pObject_ read FObject write FObject;
@@ -350,6 +352,16 @@ begin
   SetScrollbarPos();
   if Assigned(Parent) then
     MUIApp.AddInvalidatedObject(Parent);
+end;
+
+function TMUIObject.GetTop(): Integer;
+begin
+  Result := FTop;  
+end;
+
+function TMUIObject.GetLeft(): Integer;
+begin
+  Result := FLeft;
 end;
 
 function TMUIObject.GetWidth(): integer;

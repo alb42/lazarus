@@ -325,7 +325,8 @@ begin
     end;
   end;
   ES^.es_GadgetFormat := PChar(BtnText);
-  Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
+  Res := (ButtonCount - 1) - MUI_RequestA(MuiApp.Obj, MuiApp.MainWin, 0, ES^.es_Title, ES^.es_GadgetFormat, ES^.es_TextFormat, nil);
+  //Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
   Result := EscapeResult;
   if (Res >= 0) and (Res < ButtonCount) then
     Result := Buttons[Res];

@@ -771,7 +771,10 @@ end;
 procedure TMuiCheckMark.SetCaption(const AValue: string);
 begin
   if Assigned(CheckLabel) then
+  begin
     CheckLabel.Caption := AValue;
+    CheckLabel.Visible := AValue <> '';
+  end;  
 end;
 
 procedure TMuiCheckMark.SetParent(const AValue: TMUIObject);
@@ -809,7 +812,7 @@ begin
   begin
     inherited SetWidth(Height);
   end;
-  if Assigned(CheckLabel) then
+  if Assigned(CheckLabel) and (CheckLabel.Visible) then
   begin
     CheckLabel.Left := Left + Height + 2;
     CheckLabel.Width := FullWidth - (Height + 2);
@@ -826,7 +829,7 @@ begin
     inherited SetHeight(AHeight);
   end;
   SetWidth(FullWidth);
-  if Assigned(CheckLabel) then
+  if Assigned(CheckLabel) and (CheckLabel.Visible) then
     CheckLabel.Height := Height;
 end;
 
@@ -839,7 +842,7 @@ procedure TMuiCheckMark.SetVisible(const AValue: Boolean);
 begin
   inherited;
   if Assigned(CheckLabel) then
-    CheckLabel.Visible := AValue;
+    CheckLabel.Visible := AValue and (Caption <> '');
 end;
 
 { TMuiToggleButton }

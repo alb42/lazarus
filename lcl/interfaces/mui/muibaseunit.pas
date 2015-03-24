@@ -187,6 +187,7 @@ type
   public
     constructor Create(Tags: PTagItem); overload; reintroduce; virtual;
     destructor Destroy; override;
+    procedure DoMUIDraw; override;
     function NewInput(Signals: PLongword): longword;
     procedure ProcessMessages;
     procedure WaitMessages;
@@ -741,6 +742,11 @@ end;
 function TMuiApplication.NewInput(Signals: PLongword): longword;
 begin
   Result := DoMethod([IPTR(Signals)]);
+end;
+
+procedure TMuiApplication.DoMUIDraw;
+begin
+  //writeln('MUI Draw for application called');
 end;
 
 procedure TMuiApplication.ProcessMessages;

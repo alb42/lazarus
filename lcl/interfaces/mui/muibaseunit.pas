@@ -132,21 +132,19 @@ type
     function GetDropable: boolean; virtual;
     function GetEnabled: boolean; virtual;
     function GetHint: string; virtual;
-    function GetSelected: boolean; virtual;
     function GetTabStop: boolean; virtual;
     procedure SetCaption(const AValue: string); virtual;
     procedure SetDragable(const AValue: boolean); virtual;
     procedure SetDropable(const AValue: boolean); virtual;
     procedure SetEnabled(const AValue: boolean); virtual;
     procedure SetHint(const AValue: string); virtual;
-    procedure SetSelected(const AValue: boolean); virtual;
     procedure SetTabStop(const AValue: boolean); virtual;
   public
+    FBlockChecked: Boolean;
     property Caption: string read GetCaption write SetCaption;
     property Enabled: boolean read GetEnabled write SetEnabled;
     property Dragable: boolean read GetDragable write SetDragable;
     property Dropable: boolean read GetDropable write SetDropable;
-    property Selected: boolean read GetSelected write SetSelected;
     property Hint: string read GetHint write SetHint;
     property Checked: longbool read GetChecked write SetChecked;
     property TabStop: boolean read GetTabStop write SetTabStop;
@@ -861,7 +859,11 @@ end;
 
 procedure TMuiArea.SetChecked(const AValue: longbool);
 begin
+  if Checked = AValue then
+    Exit;
+  FBlockChecked := True;
   SetAttribute([longint(MUIA_Selected), longint(AValue), TAG_END]);
+  FBlockChecked := False;
 end;
 
 function TMuiArea.GetCaption: string;
@@ -894,11 +896,6 @@ begin
   Result := string(PChar(GetAttribute(MUIA_ShortHelp)));
 end;
 
-function TMuiArea.GetSelected: boolean;
-begin
-  Result := not boolean(GetAttribute(MUIA_Selected));
-end;
-
 procedure TMuiArea.SetCaption(const AValue: string);
 begin
   SetAttribute([longint(MUIA_Text_Contents), PChar(AValue), TAG_END]);
@@ -925,11 +922,6 @@ end;
 procedure TMuiArea.SetHint(const AValue: string);
 begin
   SetAttribute([longint(MUIA_ShortHelp), PChar(AValue), TAG_END]);
-end;
-
-procedure TMuiArea.SetSelected(const AValue: boolean);
-begin
-  SetAttribute([longint(MUIA_Selected), AValue, TAG_END]);
 end;
 
 function TMuiArea.GetTabStop: boolean;

@@ -172,13 +172,13 @@ var
 
 procedure TMUIWidgetSet.DebugOutEvent(Sender: TObject;s: string; var Handled: Boolean);
 begin
-  System.SysDebug('(LCL:'+Sender.classname+'): '+ s);
+  System.SysDebugln('(LCL:'+Sender.classname+'): '+ s);
   Handled := True;
 end;
 
 procedure TMUIWidgetSet.DebugOutLNEvent(Sender: TObject;s: string; var Handled: Boolean);
 begin
-  System.SysDebug('(LCL:'+Sender.classname+'): '+ s);
+  System.SysDebugln('(LCL:'+Sender.classname+'): '+ s);
   Handled := True;
 end;
 
@@ -356,9 +356,12 @@ type
 function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;
 var
-  Bit: TMUIBitmap;  
+  Bit: TMUIBitmap;
+  //Ridx, GIdx, BIdx, AIdx: Byte;  
 begin
   Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
+  //ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
+  //writeln('R: ',Ridx, ' G: ', GIdx, ' B: ', BIdx, ' A: ', AIdx);
   Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize); 
   ABitmap := HBITMAP(Bit);
   AMask := 0;

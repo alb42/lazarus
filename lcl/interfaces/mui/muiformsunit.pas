@@ -93,6 +93,7 @@ type
     FHasMenu: Boolean;
     FInMoveEvent: Boolean;
     FFocusedControl: TMuiObject;
+    FBlocksize, FBlockMove: Boolean;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
   protected
@@ -406,7 +407,7 @@ begin
   if TObject(Hook^.h_Data) is TMuiWindow then
   begin
     MuiObject := TMuiWindow(Hook^.h_Data);
-    if Assigned(MuiObject.PasObject) then
+    if Assigned(MuiObject.PasObject) and (not TMUIWindow(MUIObject).FBlockMove) then
     begin
       Result := LCLSendMoveMsg(MuiObject.pasobject, MuiObject.Left, MuiObject.Top, Move_Default, False);
     end;
@@ -420,7 +421,7 @@ begin
   if TObject(Hook^.h_Data) is TMuiWindow then
   begin
     MuiObject := TMuiWindow(Hook^.h_Data);
-    if Assigned(MuiObject.PasObject) then
+    if Assigned(MuiObject.PasObject) and (not TMUIWindow(MUIObject).FBlockSize) then
     begin
       Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL, False);  
     end;
@@ -433,6 +434,8 @@ var
   GrpTags: TTagsList;
   AltLeft, AltTop, AltHeight, AltWidth: Integer;
 begin
+  FBlockSize := False;
+  FBlockMove := False;
   FFocusedControl := Self;
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;
@@ -550,14 +553,18 @@ end;
 
 procedure TMuiWindow.SetLeft(ALeft: LongInt);
 begin
+  FBlockMove := True;
   inherited;
   SetAttribute([LongInt(MUIA_Window_LeftEdge), ALeft]);
+  FBlockMove := False;
 end;
 
 procedure TMuiWindow.SetTop(ATop: LongInt);
 begin
+  FBlockMove := True;
   inherited;
   SetAttribute([LongInt(MUIA_Window_TopEdge), ATop]);
+  FBlockMove := False;
 end;
 
 function TMuiWindow.GetTop(): Integer;

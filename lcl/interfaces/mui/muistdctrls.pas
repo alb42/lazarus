@@ -376,6 +376,8 @@ var
   i: Integer;
   RB: TObject;
 begin
+  { deactivated, not needed anymore? To Check
+  //
   if Assigned(Parent) then
   begin
     for i := 0 to Parent.FChilds.Count - 1 do
@@ -390,7 +392,7 @@ begin
       end;
     end;
     Self.Checked := True;
-  end;
+  end;}
 end;
 
 procedure TMuiRadioButton.RemoveCheck;
@@ -713,11 +715,19 @@ end;
 procedure CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
+  SendMessages: Boolean;
 begin
+  SendMessages := True;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
-    LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
+    if MUIObject is TMUIArea then
+    begin
+      if TMUIArea(MUIObject).FBlockChecked then
+        SendMessages := False;  
+    end;
+    if SendMessages then
+      LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
     if MuiObject is TMUIRadioButton then
     begin
       if TMUIRadioButton(MUIObject).Checked then

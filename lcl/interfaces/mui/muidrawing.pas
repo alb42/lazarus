@@ -1197,6 +1197,11 @@ end;
 
 destructor TMUICanvas.Destroy;
 begin
+  if not Assigned(MUIObject) then
+  begin
+    FreeBitmap(RastPort^.Bitmap);
+    FreeRastPort(RastPort);
+  end;  
   FDefaultBrush.Free;
   FDefaultPen.Free;
   FDefaultFont.Free;

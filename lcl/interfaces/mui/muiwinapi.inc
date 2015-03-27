@@ -227,8 +227,8 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(1000, 1000, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
-      NewDC.DrawRect := Rect(0,0,1000,1000);
+      NewDC.RastPort^.Bitmap := AllocBitMap(1, 1, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.DrawRect := Rect(0,0,1,1);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
@@ -239,25 +239,6 @@ begin
   {$ifdef VERBOSEAROS}
   writeln('<--CreateCompatibleDC ' , HexStr(Pointer(Result)));
   {$endif}
-
-(*  {$ifdef VerboseFPGUIWinAPI}
-    if DC=0 then begin
-      WriteLn(Self.ClassName,'.CreateCompatibleDC ','NULL');
-    end else begin
-      if ADC.FPrivateWidget<>nil then begin
-        WriteLn(Self.ClassName,'.CreateCompatibleDC ',ADC.FPrivateWidget.LCLObject.Name);
-      end else begin
-        WriteLn(Self.ClassName,'.CreateCompatibleDC ','Desktop');
-      end;
-    end;
-  {$endif}
-  if DC=0 then begin
-    //Create DC desktop compatible, or retrieve the destop one to avoid memory leask.
-    Result:=HDC(FPGUIGetDesktopDC());
-  end else begin
-    //Create DC widget compatible
-    Result:=HDC(TFpGuiDeviceContext.Create(ADC.FPrivateWidget));
-  end;*)
 end;
 
 function TMUIWidgetSet.CreateFontIndirect(const LogFont: TLogFont): HFONT;
@@ -338,7 +319,7 @@ var
   Obj: TObject absolute GDIObject;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('DeleteObject $', HexStr(Pointer(GDIObject)));
+  writeln(obj.classname, ' DeleteObject $', HexStr(Pointer(GDIObject)));
   {$endif}
   if (GDIObject > $100) and Assigned(Obj) then
   begin

@@ -810,7 +810,7 @@ begin
     inherited SetWidth(16);
   end else
   begin
-    inherited SetWidth(Height);
+    inherited SetWidth(20);
   end;
   if Assigned(CheckLabel) and (CheckLabel.Visible) then
   begin
@@ -826,7 +826,7 @@ begin
     inherited SetHeight(16);
   end else
   begin
-    inherited SetHeight(AHeight);
+    inherited SetHeight(20);
   end;
   SetWidth(FullWidth);
   if Assigned(CheckLabel) and (CheckLabel.Visible) then

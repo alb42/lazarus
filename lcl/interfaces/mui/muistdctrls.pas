@@ -164,6 +164,7 @@ type
 
   TMuiListView = class(TMuiArea)
   private
+    FText: PChar;
     ListChangeHook: THook;
     DoubleClickHook: THook;
     FFloatText: TFloatText;
@@ -354,14 +355,14 @@ end;
 procedure TMuiRadioButton.SetChecked(const AValue: LongBool);
 var
   i: Integer;
-  RB: TObject;
+  RB: TMUIObject;
 begin
-  if Assigned(Parent) then
+  if AValue and Assigned(Parent) then
   begin
     for i := 0 to Parent.FChilds.Count - 1 do
     begin
       RB := TMUIObject(Parent.FChilds.Items[i]);
-      if (RB is TMuiRadioButton) and (RB <> Self) then
+      if (RB is TMuiRadioButton) and (RB.obj <> Self.obj) then
       begin
         if TMuiRadioButton(RB).checked then
           TMuiRadioButton(RB).RemoveCheck;
@@ -376,8 +377,6 @@ var
   i: Integer;
   RB: TObject;
 begin
-  { deactivated, not needed anymore? To Check
-  //
   if Assigned(Parent) then
   begin
     for i := 0 to Parent.FChilds.Count - 1 do
@@ -392,7 +391,7 @@ begin
       end;
     end;
     Self.Checked := True;
-  end;}
+  end;
 end;
 
 procedure TMuiRadioButton.RemoveCheck;
@@ -607,6 +606,7 @@ constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
 var
   MenuTags: TTagsList;
 begin
+  FText := nil;
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
   FFloatText := TFloatText.create(MenuTags);
@@ -643,16 +643,22 @@ begin
   // Object ist automatically destroyed by Listview
   FFloatText.Obj := nil;
   FFloatText.Free;
+  FreeMem(FText);
+  FStrings.Free;
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
 var
-  FText: PChar;
+  str: String;
   TagList: TTagsList;
 begin
   if Assigned(FStrings) then
   begin
-    FText := FStrings.GetText;
+    Str := FStrings.GetText + #0;
+    if Assigned(FText) then
+      FreeMem(FText);
+    FText := system.AllocMem(Length(str));
+    Move(str[1], FText^, Length(str));
     AddTags(TagList, [LongInt(MUIA_FloatText_Text), FText, TAG_END]);
     SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
   end;  
@@ -726,14 +732,18 @@ begin
       if TMUIArea(MUIObject).FBlockChecked then
         SendMessages := False;  
     end;
-    if SendMessages then
-      LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
     if MuiObject is TMUIRadioButton then
     begin
       if TMUIRadioButton(MUIObject).Checked then
-        TMUIRadioButton(MUIObject).Checked := TMUIRadioButton(MUIObject).Checked;
-      TMUIRadioButton(MUIObject).MakeOneChecked;
+      begin   
+        TMUIRadioButton(MUIObject).Checked := True;
+      end else
+      begin  
+        TMUIRadioButton(MUIObject).MakeOneChecked;
+      end;
     end;
+    if SendMessages then
+      LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);    
   end;
 end;
 

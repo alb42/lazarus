@@ -639,7 +639,9 @@ end;
 class procedure TMUIWSCustomCheckBox.SetState(
   const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState);
 begin
+  //writeln('----> SET ', ACustomCheckBox.Tag, ' to ', (NewState = cbChecked));
   TMuiArea(ACustomCheckBox.Handle).Checked := (NewState = cbChecked);
+  //writeln('<---- SET ', ACustomCheckBox.Tag, ' to ', (NewState = cbChecked));
 end;
 
 class function TMUIWSCustomCheckBox.GetText(const AWinControl: TWinControl;

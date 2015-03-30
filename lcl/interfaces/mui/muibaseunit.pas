@@ -1,7 +1,6 @@
 unit MUIBaseUnit;
 
 {$mode objfpc}{$H+}
-
 interface
 
 uses
@@ -415,8 +414,8 @@ function TMUIObject.GetClientRect: TRect;
 begin
   Result.Left := 0;
   Result.Top := 0;
-  Result.Right:= Width;
-  Result.Bottom := Height;
+  Result.Right:= FWidth;
+  Result.Bottom := FHeight;
   if Assigned(VSCroll) and Assigned(VScroll) then
   begin
     if VScroll.Visible then    
@@ -678,7 +677,7 @@ end;
 
 procedure TMuiApplication.SetIconified(const AValue: boolean);
 begin
-  SetAttribute([LongInt(MUIA_Application_Iconified), IPTR(AValue), IPTR(TAG_END)]);
+  SetAttribute([IPTR(MUIA_Application_Iconified), IPTR(AValue), IPTR(TAG_END)]);
 end;
 
 procedure TMuiApplication.CheckTimer;
@@ -697,11 +696,11 @@ begin
   if FMainWin = nil then
   begin
     FMainWin := Child.obj;
-    SetAttribute([longint(MUIA_Application_Window), child.obj, TAG_END]);
+    SetAttribute([IPTR(MUIA_Application_Window), child.obj, TAG_END]);
     CallHook(PHook(OCLASS(FMainWin)), FMainWin,
-      [longint(MUIM_Notify), longint(MUIA_Window_CloseRequest), True,
-      longword(FObject), 2, longint(MUIM_Application_ReturnID),
-      longint(MUIV_Application_ReturnID_Quit)]);
+      [IPTR(MUIM_Notify), IPTR(MUIA_Window_CloseRequest), True,
+      longword(FObject), 2, IPTR(MUIM_Application_ReturnID),
+      IPTR(MUIV_Application_ReturnID_Quit)]);
   end;
 end;
 
@@ -711,7 +710,7 @@ begin
   if Child.obj = FMainWin then
   begin
     FMainWin := nil;
-    SetAttribute([longint(MUIA_Application_Window), nil, TAG_END]);
+    SetAttribute([IPTR(MUIA_Application_Window), nil, TAG_END]);
   end;
 end;
 
@@ -751,7 +750,7 @@ procedure TMuiApplication.ProcessMessages;
 begin
   RedrawList; 
   CheckTimer;
-  if integer(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
+  if IPTR(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
   begin    
     //writeln('got terminate1'); // no need to terminate self, LCL will do it for us
@@ -854,7 +853,7 @@ end;
 
 function TMuiArea.GetChecked: longbool;
 begin
-  Result := longbool(GetAttribute(MUIA_Selected));
+  Result := boolean(GetAttribute(MUIA_Selected));
 end;
 
 procedure TMuiArea.SetChecked(const AValue: longbool);
@@ -862,7 +861,7 @@ begin
   if Checked = AValue then
     Exit;
   FBlockChecked := True;
-  SetAttribute([longint(MUIA_Selected), longint(AValue), TAG_END]);
+  SetAttribute([IPTR(MUIA_Selected), IPTR(AValue), TAG_END]);
   FBlockChecked := False;
 end;
 
@@ -898,17 +897,17 @@ end;
 
 procedure TMuiArea.SetCaption(const AValue: string);
 begin
-  SetAttribute([longint(MUIA_Text_Contents), PChar(AValue), TAG_END]);
+  SetAttribute([IPTR(MUIA_Text_Contents), PChar(AValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetDragable(const AValue: boolean);
 begin
-  SetAttribute([longint(MUIA_Draggable), AValue, TAG_END]);
+  SetAttribute([IPTR(MUIA_Draggable), IPTR(AValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetDropable(const AValue: boolean);
 begin
-  SetAttribute([longint(MUIA_Dropable), AValue, TAG_END]);
+  SetAttribute([IPTR(MUIA_Dropable), IPTR(AValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetEnabled(const AValue: boolean);
@@ -916,17 +915,17 @@ var
   NValue: longbool;
 begin
   NValue := not AValue;
-  SetAttribute([longint(MUIA_Disabled), longint(NValue), TAG_END]);
+  SetAttribute([IPTR(MUIA_Disabled), IPTR(NValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetHint(const AValue: string);
 begin
-  SetAttribute([longint(MUIA_ShortHelp), PChar(AValue), TAG_END]);
+  SetAttribute([IPTR(MUIA_ShortHelp), PChar(AValue), TAG_END]);
 end;
 
 function TMuiArea.GetTabStop: boolean;
 begin
-  Result := GetAttribute(longint(MUIA_CycleChain)) <> 0;
+  Result := GetAttribute(IPTR(MUIA_CycleChain)) <> 0;
 end;
 
 procedure TMuiArea.SetTabStop(const AValue: boolean);
@@ -937,7 +936,7 @@ begin
     Val := 1
   else
     Val := 0;  
-  SetAttribute([IPTR(MUIA_CycleChain), Val]);
+  SetAttribute([IPTR(MUIA_CycleChain), IPTR(Val)]);
 end;
 
 {$PACKRECORDS 4}

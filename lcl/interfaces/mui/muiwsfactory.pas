@@ -231,7 +231,8 @@ end;
 
 function RegisterColorDialog: Boolean; alias : 'WSRegisterColorDialog';
 begin
-  Result := False;
+  RegisterWSComponent(TColorDialog, TMuiWSColorDialog);
+  Result := True;
 end;
 
 function RegisterColorButton: Boolean; alias : 'WSRegisterColorButton';
@@ -253,7 +254,8 @@ end;
 
 function RegisterCustomGroupBox: Boolean; alias : 'WSRegisterCustomGroupBox';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomGroupBox, TMUIWSCustomGroupBox);
+  Result := True;
 end;
 
 function RegisterCustomComboBox: Boolean; alias : 'WSRegisterCustomComboBox';

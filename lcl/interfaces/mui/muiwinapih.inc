@@ -64,7 +64,7 @@ function DestroyCaret(Handle : HWND): Boolean; override;
 {function DestroyCursor(Handle: hCursor): Boolean; override;
 function DPtoLP(DC: HDC; var Points; Count: Integer): BOOL; override;}
 function DrawFocusRect(DC: HDC; const Rect: TRect): boolean; override;
-{function DrawEdge(DC: HDC; var Rect: TRect; edge: Cardinal; grfFlags: Cardinal): Boolean; override;}
+function DrawEdge(DC: HDC; var Rect: TRect; edge: Cardinal; grfFlags: Cardinal): Boolean; override;
 function DrawText(DC: HDC; Str: PChar; Count: Integer; var ARect: TRect; Flags: Cardinal): Integer; override;
 
 function Ellipse(DC: HDC; x1, y1, x2, y2: Integer): Boolean; override;
@@ -80,7 +80,6 @@ function ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint; Rect: PRect; Str: 
 function FillRect(DC: HDC; const Rect: TRect; Brush: HBRUSH): Boolean; override;
 {function FillRgn(DC: HDC; RegionHnd: HRGN; hbr: HBRUSH): Bool; override;}
 function FloodFill(DC: HDC; X: Integer; Y: Integer; Color: TGraphicsColor; FillStyle: TGraphicsFillStyle; Brush: HBRUSH): Boolean; override;
-//function Frame(DC: HDC; const ARect: TRect): Integer; override;
 function Frame3d(DC: HDC; var ARect: TRect; const FrameWidth : integer; const Style : TBevelCut): Boolean; override;
 function FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer; override;
 
@@ -121,8 +120,8 @@ function GetWindowOrgEx(dc : hdc; P : PPoint): Integer; override;
 function GetWindowRect(Handle: hwnd; var ARect: TRect): Integer; override;
 {function GetWindowRelativePosition(Handle: hwnd; var Left, Top: Integer): boolean; override;}
 function GetWindowSize(Handle: hwnd; var Width, Height: Integer): boolean; override;
-{function GradientFill(DC: HDC; Vertices: PTriVertex; NumVertices : Longint;
-  Meshes: Pointer; NumMeshes : Longint; Mode : Longint): Boolean; override;}
+function GradientFill(DC: HDC; Vertices: PTriVertex; NumVertices : Longint;
+  Meshes: Pointer; NumMeshes : Longint; Mode : Longint): Boolean; override;
 
 function HideCaret(hWnd: HWND): Boolean; override;
 
@@ -150,7 +149,7 @@ function RectVisible(dc : hdc; const ARect: TRect) : Boolean; override;
 {function ReleaseCapture : Boolean; override;}
 function ReleaseDC(hWnd: HWND; DC: HDC): Integer; override;
 function RestoreDC(DC: HDC; SavedDC: Integer): Boolean; override;
-{function RoundRect(DC : hDC; X1, Y1, X2, Y2: Integer; RX,RY : Integer): Boolean; override;}
+function RoundRect(DC : hDC; X1, Y1, X2, Y2: Integer; RX,RY : Integer): Boolean; override;
 
 function SaveDC(DC: HDC): Integer; override;
 {function ScreenToClient(Handle : HWND; var P : TPoint) : Integer; override;}

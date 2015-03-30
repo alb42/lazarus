@@ -29,7 +29,8 @@ interface
 uses
   // RTL + LCL
   SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
-  exec, asl, utility, tagsarray, mui,
+  exec, asl, utility, tagsarray, mui, intuition, MuibaseUnit, MUIformsunit,
+  AmigaDos,
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -145,6 +146,12 @@ begin
   Result := THandle(FileDialog);
 end;
 
+procedure IntuiMsgFunc(iMsg: PIntuiMessage; Req: PFileRequester); cdecl;
+begin
+  //writeln('test');
+  DoMethod(MUIApp.obj, MUIM_Application_CheckRefresh, []);
+end;
+
 {------------------------------------------------------------------------------
   Function: TMuiWSFileDialog.ShowModal
   Params:  None
@@ -157,6 +164,8 @@ var
   TagsList: TTagsList;
   MultiSelect: Boolean;
   i: LongInt;
+  Hook: THook;
+  Win: IPTR;
 
   function GetFilename(FDir, FName: string): string;
   begin
@@ -180,8 +189,13 @@ begin
   SetLength(TagsList, 0);
   FileDialog := TFileDialog(ACommonDialog);
   MuiDialog := PFileRequester(FileDialog.Handle);
-
+  
+  //Win := 0;  
+  //GetAttr(MUIA_Window_Window, MUIApp.MainWin, @Win);
+  
+  
   AddTags(TagsList, [
+    //ASLFR_Window, Win,    
     ASLFR_TitleText,	Pchar(ACommonDialog.Title),
     ASLFR_InitialDrawer, PChar(TFileDialog(ACommonDialog).InitialDir),
     ASLFR_InitialFile, PChar(TFileDialog(ACommonDialog).FileName)
@@ -212,6 +226,11 @@ begin
     AddTags(TagsList, [ASLFR_DrawersOnly, True]);
   end;
   //
+  Hook.h_Entry := IPTR(@IntuiMsgFunc);
+  Hook.h_SubEntry := 0;
+  Hook.h_Data := MuiDialog;
+  //AddTags(TagsList, [ASLFR_UserData, MUIApp, ASLFR_IntuiMsgFunc, @Hook]);//}
+  
   //if AslRequestA(MuiDialog, GetTagPtr(TagsList)) then
   if MUI_AslRequest(MuiDialog, GetTagPtr(TagsList)) then
   begin
@@ -228,89 +247,6 @@ begin
   end else
     FileDialog.UserChoice := mrCancel;
 end;
-
-  (*end else
-  begin
-    {$ifdef QT_NATIVE_DIALOGS}
-    saveFilter := GetQtFilterString(TOpenDialog(ACommonDialog), selectedFilter);
-    saveFileName := GetUtf8String(FileDialog.InitialDir+FileDialog.Filename);
-    saveTitle := GetUTF8String(FileDialog.Title);
-
-    Flags := 0;
-    if (ofReadOnly in TOpenDialog(FileDialog).Options) then
-      Flags := Flags or QFileDialogReadOnly;
-
-    if (ofAllowMultiSelect in TOpenDialog(FileDialog).Options) then
-    begin
-      ReturnText := '';
-      ReturnList := QStringList_create;
-      {$IFDEF HASX11}
-      Clipboard.BeginX11SelectionLock;
-      {$ENDIF}
-      try
-        QFileDialog_getOpenFileNames(ReturnList,
-          QWidget_parentWidget(QtFileDialog.Widget), @SaveTitle, @saveFileName,
-          @saveFilter, @selectedFilter, Flags);
-        FileDialog.Files.Clear;
-        for i := 0 to QStringList_size(ReturnList) - 1 do
-        begin
-          QStringList_at(ReturnList, @ReturnText, i);
-          FileDialog.Files.Add(UTF16ToUTF8(ReturnText));
-          if i = 0 then
-            FileDialog.FileName := UTF16ToUTF8(ReturnText);
-        end;
-        {assign to ReturnText first filename}
-        if QStringList_size(ReturnList) > 0 then
-          QStringList_at(ReturnList, @ReturnText, 0);
-
-      finally
-        QStringList_destroy(ReturnList);
-        {$IFDEF HASX11}
-        Clipboard.EndX11SelectionLock;
-        {$ENDIF}
-      end;
-    end else
-    begin
-      {$IFDEF HASX11}
-      Clipboard.BeginX11SelectionLock;
-      try
-      {$ENDIF}
-        QFileDialog_getOpenFileName(@ReturnText,
-          QWidget_parentWidget(QtFileDialog.Widget), @SaveTitle, @saveFileName,
-          @saveFilter, @selectedFilter, Flags);
-      {$IFDEF HASX11}
-      finally
-        Clipboard.EndX11SelectionLock;
-      end;
-      {$ENDIF}
-    end;
-
-    if ReturnText <> '' then
-    begin
-      FileDialog.FileName := UTF16ToUTF8(ReturnText);
-      FileDialog.UserChoice := mrOK;
-    end else
-      FileDialog.UserChoice := mrCancel;
-    {$else}
-    FileDialog.UserChoice := QtDialogCodeToModalResultMap[QDialogDialogCode(QtFileDialog.exec)];
-    ReturnList := QStringList_create;
-    try
-      QtFileDialog.selectedFiles(ReturnList);
-      FileDialog.Files.Clear;
-      for i := 0 to QStringList_size(ReturnList) - 1 do
-      begin
-        QStringList_at(ReturnList, @ReturnText, i);
-        FileDialog.Files.Add(UTF16ToUTF8(ReturnText));
-        if i = 0 then
-          FileDialog.FileName := UTF16ToUTF8(ReturnText);
-      end;
-      ReturnText := FileDialog.Files.Text;
-    finally
-      QStringList_destroy(ReturnList);
-    end;
-    {$endif}
-
-  end;*)
 
 { TMuiWSSelectDirectoryDialog }
 
@@ -355,7 +291,7 @@ end;
 
 class function TMuiWSColorDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
 begin
-  Result := 0;
+  Result := 1;
 end;
 
 {------------------------------------------------------------------------------
@@ -363,53 +299,121 @@ end;
   Params:  None
   Returns: Nothing
  ------------------------------------------------------------------------------}
-class procedure TMuiWSColorDialog.ShowModal(const ACommonDialog: TCommonDialog);
-{var
-  AColor: TColorRef;
-  AQColor: TQColor;
-  AQtColor: QColorH;
-  ARgb: QRgb;
-  ReturnBool: Boolean;
-  ColorDialog: TColorDialog absolute ACommonDialog;
-
-  procedure FillCustomColors;
-  var
-    i, AIndex, CustomColorCount: integer;
-    AColor: TColor;
-  begin
-    CustomColorCount := QColorDialog_customCount();
-    for i := 0 to ColorDialog.CustomColors.Count - 1 do
-      if ExtractColorIndexAndColor(ColorDialog.CustomColors, i, AIndex, AColor) then
-        if AIndex < CustomColorCount then
-          QColorDialog_setCustomColor(AIndex, QRgb(AColor));
-  end;
- }
+ 
+function ColLongWord(c: Byte): LongWord;
 begin
-  {AColor := ColorToRgb(ColorDialog.Color);
-  AQColor.Alpha := $FFFF;
-  AQColor.ColorSpec := 1;
-  AQColor.Pad := 0;
-  ColorRefToTQColor(AColor, AQColor);
-  AQtColor := QColor_create(PQColor(@AQColor));
-  ARgb := QColor_rgba(AQtColor);
-  FillCustomColors;
+  Result := c or (c shl 8) or (c shl 16) or (c shl 24);
+end;
+ 
+class procedure TMuiWSColorDialog.ShowModal(const ACommonDialog: TCommonDialog);
+var
+  ColorDialog: TColorDialog absolute ACommonDialog; 
+  AppTags: TTagsList;
+  GrpTags: TTagsList;
+  BGrpTags: TTagsList;
+  WinTags: TTagsList;
+  PalTags: TTagsList;
+  LocalApp: PObject_; 
+  Win: PObject_;
+  Palette: PObject_;
+  Group: PObject_;
+  BGroup: PObject_;
+  but1, but2: PObject_;
+  sigs: LongWord;
+  cols: array of TMUI_Palette_Entry;
+  Res: Integer;
+  r,g,b: LongWord;
+  DefWidth, DefHeight: Integer;
+begin
+  SetLength(cols, 2);
+  cols[0].mpe_ID := 0;
+  cols[0].mpe_Red := ColLongWord(Red(ColorDialog.Color));
+  cols[0].mpe_Green := ColLongWord(Green(ColorDialog.Color));
+  cols[0].mpe_Blue := ColLongWord(Blue(ColorDialog.Color));
+  cols[0].mpe_Group := 0;
+  // last color
+  cols[1].mpe_ID := MUIV_Palette_Entry_End;
+  cols[1].mpe_Red := 0;
+  cols[1].mpe_Green := 0;
+  cols[1].mpe_Blue := 0;
+  cols[1].mpe_Group := 0;
+   
+  
+  AddTags(PalTags, [
+    MUIA_Palette_Entries, @Cols[0],
+    MUIA_Palette_Groupable, False]);
+  Palette := MUI_NewObjectA(MUIC_Palette, GetTagPtr(PalTags));
 
-  ARgb := QColorDialog_getRgba(ARgb, @ReturnBool,
-    TMuiWSCommonDialog.GetDialogParent(ACommonDialog));
-
-  QColor_fromRgba(PQColor(AQtColor), ARgb);
-  try
-    QColor_toRgb(AQtColor, @AQColor);
-    TQColorToColorRef(AQColor, AColor);
-    ColorDialog.Color := TColor(AColor);
-  finally
-    QColor_destroy(AQtColor);
+  but1 := MUI_MakeObject(MUIO_Button, [PChar('OK')]);
+  but2 := MUI_MakeObject(MUIO_Button, [PChar('Cancel')]);
+  
+  AddTags(BGrpTags, [
+    MUIA_Group_Child, but1,
+    MUIA_Group_Child, but2,
+    MUIA_Group_Horiz, True]);
+  BGroup := MUI_NewObjectA(MUIC_Group, GetTagPtr(BGrpTags));
+  
+  AddTags(GrpTags, [
+    MUIA_Group_Child, Palette,
+    MUIA_Group_Child, BGroup,
+    MUIA_Group_Horiz, False]);
+  
+  Group := MUI_NewObjectA(MUIC_Group, GetTagPtr(GrpTags));
+  
+  DefWidth := 400;
+  DefHeight := 300;
+  
+  if ColorDialog.Width > 0 then
+    DefWidth := ColorDialog.Width;
+  if ColorDialog.Height > 0 then
+    DefHeight := ColorDialog.Height;
+  
+  AddTags(WinTags, [
+    MUIA_Window_Title, PChar(ColorDialog.Title),
+    MUIA_Window_RootObject, Group,
+    MUIA_Window_Width, DefWidth,
+    MUIA_Window_Height, DefHeight]);
+  Win := MUI_NewObjectA(MUIC_Window, GetTagPtr(WinTags));  
+  
+  AddTags(AppTags, [MUIA_Application_Window, Win]);
+  LocalApp := MUI_NewObjectA(MUIC_Application, GetTagPtr(AppTags));
+  
+  CallHook(PHook(OCLASS(Win)), Win,
+    [MUIM_Notify, MUIA_Window_CloseRequest, True,
+    LocalApp, 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+  
+  CallHook(PHook(OCLASS(Win)), but2,
+    [MUIM_Notify, MUIA_Pressed, True,
+    LocalApp, 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+  
+  CallHook(PHook(OCLASS(Win)), but1,
+    [MUIM_Notify, MUIA_Pressed, True,
+    LocalApp, 2, MUIM_Application_ReturnID, 42]);
+  
+  SetAttrs(Win, [MUIA_Window_Open, True, TAG_END]);
+  Res := -1; 
+  while true  do
+  begin
+    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [MUIM_Application_NewInput, @sigs]));
+    case Res of
+      MUIV_Application_ReturnID_Quit: begin
+        ACommonDialog.UserChoice := mrCancel;
+        Break;
+      end;  
+      42: begin
+        ACommonDialog.UserChoice := mrOK; 
+        Break;
+      end;  
+    end;
+    if sigs <> 0 then
+    begin
+      sigs := Wait(sigs or SIGBREAKF_CTRL_C);
+      if (Sigs and SIGBREAKF_CTRL_C) <> 0 then
+        Break;
+    end;
   end;
-
-  if ReturnBool then
-    ACommonDialog.UserChoice := mrOk
-  else
-    ACommonDialog.UserChoice := mrCancel;}
+  MUI_DisposeObject(LocalApp);
+  ColorDialog.Color := RGBToColor((cols[0].mpe_Red shr 24) and $FF, (cols[0].mpe_Green shr 24) and $FF, (cols[0].mpe_Blue shr 24) and $FF);
 end;
 
 { TMuiWSFontDialog }

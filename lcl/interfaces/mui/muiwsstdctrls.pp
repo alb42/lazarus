@@ -882,14 +882,36 @@ end;
 class function TMUIWSCustomGroupBox.CreateHandle(
   const AWinControl: TWinControl; const AParams: TCreateParams
   ): TLCLIntfHandle;
+var
+  MuiArea: TMUIGroupBox;
+  TagList: TTagsList;
+  Cap: string;
 begin
-  Result := 0;//TLCLIntfHandle(TMUIPrivateGroupBox.Create(AWinControl, AParams));
+  Cap := AWinControl.Caption;
+  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Group, MUIA_FrameTitle, PChar(Cap)]);
+  MuiArea := TMUIGroupBox.Create(TagList);
+  With MuiArea do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;    
+    Width := AParams.Width;
+    Height := AParams.Height;    
+    PasObject := AWinControl;
+  end;
+
+  if AWinControl.Parent <> NIL then
+  begin
+    MuiArea.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  //
+  Result := TLCLIntfHandle(MUIArea);
+  //
 end;
 
 class procedure TMUIWSCustomGroupBox.DestroyHandle(
   const AWinControl: TWinControl);
 begin
-  AWinControl.Handle := 0;
+  TMUIGroupBox(AWinControl.Handle).Free;
 end;
 
 end.

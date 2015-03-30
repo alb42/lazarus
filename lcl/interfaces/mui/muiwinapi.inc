@@ -192,8 +192,7 @@ begin
   end;  
 end;
 
-function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer
-  ): HBITMAP;
+function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer): HBITMAP;
 //var
 //  img: TFPGUIWinAPIBitmap;
 begin
@@ -349,8 +348,16 @@ function TMUIWidgetSet.DrawFocusRect(DC: HDC; const Rect: TRect): boolean;
 //  ADC: TFpGuiDeviceContext absolute DC;
 //  r: TfpgRect;
 begin
+  //writeln('DrawFocusRect');
   //ADC.fpgCanvas.DrawFocusRect(ADC.PrepareRectOffsets(Rect));
   Result:=true;
+end;
+
+function TMUIWidgetSet.DrawEdge(DC: HDC; var Rect: TRect; edge: Cardinal; grfFlags: Cardinal): Boolean;
+begin
+  //writeln('DrawEdge');
+  Frame3d(DC, Rect, 1, bvRaised);
+  Result := True;
 end;
 
 function TMUIWidgetSet.DrawText(DC: HDC; Str: PChar; Count: Integer;
@@ -522,11 +529,6 @@ begin
   end;
 end;
 
-{function TMUIWidgetSet.Frame(DC: HDC; const ARect: TRect): Integer;
-begin
-
-end;}
-
 function TMUIWidgetSet.Frame3d(DC: HDC; var ARect: TRect; const FrameWidth : integer; const Style : TBevelCut): Boolean;
 var
   ADC: TMUICanvas absolute DC;
@@ -569,8 +571,11 @@ begin
 end;
 
 function TMUIWidgetSet.FrameRect(DC: HDC; const ARect: TRect; hBr: HBRUSH): Integer;
+var
+  ADC: TMUICanvas absolute DC;
 begin
-  //writeln('FrameRect');
+  ////writeln('FrameRect');
+  ADC.Rectangle(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
   Result := 0;
 end;
 
@@ -970,6 +975,12 @@ begin
   Result := True;
 end;
 
+function TMUIWidgetSet.GradientFill(DC: HDC; Vertices: PTriVertex; NumVertices : Longint; Meshes: Pointer; NumMeshes : Longint; Mode : Longint): Boolean;
+begin
+  //writeln('GradientFill');
+  Result := True;
+end;
+
 function TMUIWidgetSet.HideCaret(hWnd: HWND): Boolean;
 var
   Widget: TMUIObject absolute hWnd;
@@ -1222,15 +1233,18 @@ end;
 
 function TMUIWidgetSet.ReleaseDC(hWnd: HWND; DC: HDC): Integer;
 var
-  PrivateWidget: TMUIObject absolute hWnd;
+  Widget: TMUIObject absolute hWnd;
+  ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('release dc');
+  writeln('release dc ', HexStr(Widget), ' ',HexStr(ADC));
   {$endif}
-//  if MyDC<>FPGUIGetDesktopDC then begin //DesktopDC can not be freed
-//    MyDC.Free;
-//  end;
-  Result:=0;
+  Result := 0;
+  if not Assigned(Widget) then // Only Release if not attached to a Widget
+  begin
+    ADC.Free;  
+    Result := 1;
+  end;  
 end;
 
 function TMUIWidgetSet.RestoreDC(DC: HDC; SavedDC: Integer): Boolean;
@@ -1239,6 +1253,11 @@ function TMUIWidgetSet.RestoreDC(DC: HDC; SavedDC: Integer): Boolean;
 begin
   //Result:=ADC.RestoreDC(SavedDC);
   Result := False;
+end;
+
+function TMUIWidgetSet.RoundRect(DC : hDC; X1, Y1, X2, Y2: Integer; RX,RY : Integer): Boolean;
+begin
+  Rectangle(DC, x1, y1, x2, y2);
 end;
 
 function TMUIWidgetSet.SaveDC(DC: HDC): Integer;

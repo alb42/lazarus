@@ -10,7 +10,7 @@ uses
   // os
   MUI, agraphics, intuition,
   // lcl
-  LCLType, LCLProc, LCLIntf, Graphics, Themes, TmSchema, Forms,
+  LCLType, LCLProc, LCLIntf, Graphics, Themes, TmSchema, Forms, Controls,
   // widgetset
   MUIdrawing, MUIBaseUnit;
 
@@ -44,7 +44,7 @@ type
   end;
 
 implementation
-uses math;
+uses math, muiint;
 
 { TMUIThemeServices }
 
@@ -108,7 +108,7 @@ begin
     Result := Size(AValue.data[0].v_int, AValue.data[0].v_int);
   end else
     Result := GetBaseDetailsSize(Details);}
-  Result := Size(0,0);
+  Result := Size(1,1);
 end;
 
 function TMUIThemeServices.GetStockImage(StockID: LongInt; out Image, Mask: HBitmap): Boolean;
@@ -233,9 +233,21 @@ end;
 
 procedure TMUIThemeServices.DrawElement(DC: HDC;
   Details: TThemedElementDetails; const R: TRect; ClipRect: PRect);
-//var
-//  Widget: PGtkWidget;
+var
+  ADC: TMUICanvas absolute DC;
+  r1: TRect;
 begin
+  //inherited DrawElement(DC, Details, R, ClipRect);
+  //writeln(Details.Part, ' ', Details.State);
+  r1 := r;
+  if Details.Part = 1 then
+  begin
+    if Details.State = 1 then
+      Frame3d(DC, r1, 1, bvRaised);
+    if Details.State = 3 then
+      Frame3d(DC, r1, 1, bvLowered);
+  end;      
+      
 {  if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and
      (Details.State = TREIS_SELECTED) then
   begin
@@ -270,9 +282,10 @@ begin
   //if StyleParams.Style <> nil then
   //  with StyleParams do
   //  begin
+      //writeln('write ', s);
       P := PChar(S);
       tmpRect := R;
-      //MUIWidgetset.DrawText(DC, P, Length(S), tmpRect, Flags);
+      MUIWidgetset.DrawText(DC, P, Length(S), tmpRect, Flags);
       // TODO: parse flags
       //gtk_draw_string(Style, Window, State, R.Left + Origin.x, R.Top + Origin.y, P);
   //  end;
@@ -282,8 +295,11 @@ function TMUIThemeServices.ContentRect(DC: HDC;
   Details: TThemedElementDetails; BoundingRect: TRect): TRect;
 //var
 //  StyleParams: TGtkStyleParams;
-begin
+begin  
   Result := BoundingRect;
+  //Result.Bottom := 100;
+  //Result.Right := Result.Right - 5;
+  
   {StyleParams := GetGtkStyleParams(DC, Details, 0);
   if StyleParams.Style <> nil then
     InflateRect(Result,

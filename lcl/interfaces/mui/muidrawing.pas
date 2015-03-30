@@ -397,8 +397,18 @@ begin
   FontHandle := nil;
 end;
 
+{.$define COUNTFONTS}
+
+{$ifdef COUNTFONTS}
+var NumFonts: Integer = 0;
+{$endif}
+
 constructor TMUIFontObj.Create(const AFontData: TLogFont);
 begin
+  {$ifdef COUNTFONTS}
+  Inc(NumFonts);
+  writeln('create font ', HexStr(self),' ', NumFonts);
+  {$endif}
   inherited Create;
   FontHandle := nil;
   FFontFace := AFontData.lfFaceName;
@@ -416,6 +426,10 @@ end;
 
 constructor TMUIFontObj.Create(const AFontData: TLogFont; const LongFontName: string);
 begin
+  {$ifdef COUNTFONTS}
+  Inc(NumFonts);
+  writeln('create font ', HexStr(self),' ', NumFonts);
+  {$endif}
   inherited Create;
   FontHandle := nil;
   FFontFace := LongFontName;
@@ -433,6 +447,10 @@ end;
 
 destructor TMUIFontObj.Destroy;
 begin
+  {$ifdef COUNTFONTS}
+  Dec(NumFonts);
+  writeln('Destroy font', HexStr(Self),' ', NumFonts); 
+  {$endif} 
   CloseFontHandle;
   inherited Destroy;
 end;
@@ -1178,6 +1196,7 @@ var
   ABrushData: TLogBrush;
   AFontData: TLogFont;
 begin
+  //writeln('-->TCanvas.create ', HexStr(Self));
   Bitmap := nil;
   MUIObject := nil;
   ABrushData.lbColor := clBtnFace;
@@ -1193,10 +1212,12 @@ begin
   TextColor := 0;
   Drawn := True;
   BKColor := clNone;
+  //writeln('<--TCanvas.create ', HexStr(Self));
 end;
 
 destructor TMUICanvas.Destroy;
 begin
+  //writeln('-->TCanvas.destroy ', HexStr(Self));
   if not Assigned(MUIObject) then
   begin
     FreeBitmap(RastPort^.Bitmap);
@@ -1206,6 +1227,7 @@ begin
   FDefaultPen.Free;
   FDefaultFont.Free;
   inherited;
+  //writeln('<--TCanvas.destroy ', HexStr(Self));
 end;
 
 procedure TMUICanvas.InitCanvas;

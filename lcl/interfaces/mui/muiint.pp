@@ -120,8 +120,8 @@ type
   public
   end;
 
-//var
-//  MUIWidgetSet: TMUIWidgetSet;
+var
+  MUIWidgetSet: TMUIWidgetSet;
 
 implementation
 
@@ -189,6 +189,7 @@ var
   Info: TVersionInfo;
   i,j: Integer;
   TagList: TTagsList;
+  Dollar: string;
 
   function PV2Str(PV: TVerArray): String;
    begin
@@ -201,6 +202,7 @@ begin
   Vers := '';
   CopyR := '';
   Comment := '';
+  Dollar := '$';
   prgName := Application.title;
   AppTitle := Application.title;
   try
@@ -233,7 +235,8 @@ begin
     Info.Free;
   except
   end;
-  FinalVers := '$VER: ' + PrgName + ' ' + Vers;
+  
+  FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   AddTags(TagList, [
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
     LongInt(MUIA_Application_Title), PChar(AppTitle),
@@ -637,10 +640,12 @@ end;
 constructor TMUIWidgetSet.Create;
 begin
   inherited Create;
+  MUIWidgetSet := self;
 end;
 
 destructor TMUIWidgetSet.Destroy;
 begin
+  MUIWidgetSet := nil;
   inherited Destroy;
 end;
 

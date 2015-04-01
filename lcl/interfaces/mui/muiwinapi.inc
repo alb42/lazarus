@@ -1268,6 +1268,30 @@ begin
   Result := 0;
 end;
 
+function TMUIWidgetSet.ScreenToClient(Handle : HWND; var P : TPoint) : Integer;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('screen to client start ', P.X ,' ', HexStr(Widget));
+  {$endif}
+  if Assigned(Widget) then
+  begin
+    //TODO: get real left and top border from Widget
+    P.X := P.X - 15;
+    P.Y := P.Y - 30;
+    repeat
+      P.X := P.X - Widget.Left;
+      P.Y := P.Y - Widget.Top;
+      Widget := Widget.Parent;
+    until not Assigned(Widget) or (Widget is TMUIApplication);    
+  end;
+  {$ifdef VERBOSEAROS}
+  writeln('screen to client end ', P.X);
+  {$endif}
+  Result := 1;
+end;
+
 function TMUIWidgetSet.SelectClipRGN(DC: hDC; RGN: HRGN): Longint;
 var
   ADC: TMUICanvas absolute DC;

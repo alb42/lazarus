@@ -3,7 +3,7 @@ unit muicomctrls;
 interface
 
 uses
-  controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition;
+  controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition, Types;
 
 type
 
@@ -47,7 +47,8 @@ type
   private
     
   protected
-    procedure BasicInitOnCreate(); override;  
+    procedure BasicInitOnCreate(); override;
+      
   public
     FNames: array[0..100] of PChar;
     constructor Create(AClassName: PChar; var TagList: TTagsList); overload; reintroduce; virtual;
@@ -180,7 +181,6 @@ procedure TMUIRegister.BasicInitOnCreate();
 begin
   inherited;
 end;
-
 
 destructor TMUIRegister.Destroy;
 var

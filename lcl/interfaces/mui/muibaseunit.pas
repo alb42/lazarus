@@ -1259,6 +1259,7 @@ var
   MUIWin: TMUIWindow;
   Buffered: Boolean;
   WithScrollbars: Boolean;
+  PaintX, PaintY: Integer;
   PaintH, PaintW: Integer;
   IsSysKey: Boolean;
   EatEvent: Boolean;
@@ -1309,8 +1310,7 @@ begin
     begin
       //writeln(' DRAW');
       if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
-       Exit;
-      
+       Exit;      
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -1328,10 +1328,21 @@ begin
               Result := DoSuperMethodA(cl, obj, msg); 
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);  
             Buffered := (MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);             
-            if Buffered then
+            if MUIB is TMUIWindow then
             begin
+              PaintX := Obj_Left(Obj);
+              PaintY := Obj_Top(Obj);
               PaintW := Obj_Width(Obj);
               PaintH := Obj_Height(Obj);
+            end else
+            begin
+              PaintX := Obj_MLeft(Obj);
+              PaintY := Obj_MTop(Obj);
+              PaintW := Obj_MWidth(Obj);
+              PaintH := Obj_MHeight(Obj);
+            end;
+            if Buffered then
+            begin
               if WithScrollbars then
               begin                              
                 if MUIB.VScroll.Visible then
@@ -1344,12 +1355,12 @@ begin
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
               MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
-              ClipBlit(rp, Obj_Left(Obj), Obj_Top(Obj), MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
+              ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin
               MUIB.FMUICanvas.RastPort := rp;
               MUIB.FMUICanvas.DrawRect :=
-                  Rect(Obj_Left(Obj), Obj_Top(Obj), Obj_Right(Obj), Obj_Bottom(Obj));
+                  Rect(PaintX, PaintY, PaintW, PaintH);
             end;
             MUIB.FMUICanvas.Offset.X := 0;
             MUIB.FMUICanvas.Offset.Y := 0;
@@ -1368,7 +1379,7 @@ begin
             MUIB.FMUICanvas.DeInitCanvas;
             if Buffered then
             begin
-              ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, Obj_Left(Obj), Obj_Top(Obj), PaintW, PaintH, $00C0);
+              ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, PaintX, PaintY, PaintW, PaintH, $00C0);
               FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;

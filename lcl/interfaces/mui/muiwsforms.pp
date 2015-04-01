@@ -164,6 +164,12 @@ begin
       AddTags(TagList, [MUIA_Window_SizeRight, False]);
     end;
   end;
+  AddTags(TagList, [
+    MUIA_Window_LeftEdge, AParams.X,
+    MUIA_Window_TopEdge, AParams.Y,
+    MUIA_Window_Width, AParams.Width, 
+    MUIA_Window_Height, AParams.Height
+    ]);
   MuiForm := TMuiWindow.create(TagList);
   MuiForm.Sizeable := Sizeable;
   With Muiform do

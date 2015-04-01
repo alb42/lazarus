@@ -705,7 +705,7 @@ function TMUIWidgetSet.ClipboardGetFormats(ClipboardType: TClipboardType; var Co
 begin
   Count := 1;
   GetMem(List, SizeOf(TClipBoardFormat));
-  List^ := 2;
+  List^ := CLIP_PLAINTEXT;
 end;
 
 
@@ -742,7 +742,7 @@ end;
 
 function TMUIWidgetSet.ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat;
 begin
-  Result := 1;
+  Result := -1;
   if AMimeType = 'text/plain' then
     Result := CLIP_PLAINTEXT;
 end;

@@ -207,7 +207,7 @@ var
   MUIRegister: TMUIRegister;
   TagList: TTagsList;
 begin
-  writeln('Create Tabcontrol');
+  //writeln('Create Tabcontrol');
   //AddTags(TagList, [MUIA_Group_PageMode, True]);
   MUIRegister := TMUIRegister.Create(MUIC_Group, TagList);
   With MUIRegister do

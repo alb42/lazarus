@@ -218,6 +218,7 @@ type
     function GetCaption: string; override;
     procedure SetCaption(const AValue: string); override;
   public
+    function GetClientRect: TRect; override;
     constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
   end;
 
@@ -291,7 +292,7 @@ var
   ScrollMsg: TLMVScroll;
   SendMsg: Boolean;
 begin
-  //writeln('--> Scroll hook');
+  //debugln('--> Scroll hook');
   //Exit;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
@@ -335,7 +336,7 @@ begin
         DeliverMessage(TControl(MuiObject.PasObject), ScrollMsg);
     end;
   end;
-  //writeln('<-- Scroll hook');
+  //debugln('<-- Scroll hook');
 end;
 
 
@@ -1223,6 +1224,14 @@ end;
 procedure TMUIGroupBox.SetCaption(const AValue: string);
 begin
   SetAttribute([MUIA_FrameTitle, AValue]);
+end;
+
+function TMUIGroupBox.GetClientRect: TRect;
+begin
+  Result.Left := -5;
+  Result.Top := -10;
+  Result.Right:= FWidth - 10;
+  Result.Bottom := FHeight - 15;
 end;
 
 

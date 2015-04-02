@@ -6,8 +6,9 @@ interface
 
 uses
   Classes, forms, Controls, StdCtrls, Menus, Dialogs, ComCtrls, Buttons,
+  Spin,
   MuiWSControls, MUIwsforms, MuiWSMenus, MUIWSStdCtrls,
-  MuiWSDialogs, MuiWSComCtrls, MUIWSButtons,
+  MuiWSDialogs, MuiWSComCtrls, MUIWSButtons, MUIWSSpin,
   WSLCLClasses;
 
 // imglist
@@ -515,7 +516,8 @@ end;
 // Spin
 function RegisterCustomFloatSpinEdit: Boolean; alias : 'WSRegisterCustomFloatSpinEdit';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomFloatSpinEdit, TMUIWSCustomFloatSpinEdit);
+  Result := True;
 end;
 
 // RubberBand

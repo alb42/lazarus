@@ -131,6 +131,7 @@ type
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
     class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
     class procedure SetReadOnly(const ACustomEdit: TCustomEdit; NewReadOnly: boolean); override;
+    class procedure SetNumbersOnly(const ACustomEdit: TCustomEdit; NewNumbersOnly: Boolean); override;
   public
   end;
 
@@ -500,16 +501,39 @@ class function TMUIWSCustomEdit.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiEdit: TMuiStringEdit;
+  Tags: TTagsList;
+  CEdit: TCustomEdit absolute AWinControl;
+  Len: Integer;
+  MUIAlign: Integer;
 begin
-  //writeln('-->Create StringEdit');
-  MuiEdit := TMuiStringEdit.Create([PChar(AParams.Caption), 2048]);
+  //writeln('-->Create StringEdit ', AWinControl.name);
+  //writeln('    Caption: "', CEdit.Text, '" ', CEdit.MaxLength, ' password: ', CEdit.EchoMode);
+  //writeln('    Align: ', CEDit.Alignment);
+  //MuiEdit := TMuiStringEdit.Create([PChar(AParams.Caption), 2048]);
+  MUIAlign := MUIV_String_Format_Left;
+  case CEDit.Alignment of
+    taLeftJustify: MUIAlign := MUIV_String_Format_Left;
+    taRightJustify: MUIAlign := MUIV_String_Format_Right;
+    taCenter: MUIAlign := MUIV_String_Format_Center;
+  end;
+  Len := CEdit.MaxLength;
+  if Len = 0 then
+    Len := 2048;
+  AddTags(Tags, [
+    MUIA_String_Format, MUIAlign,
+    MUIA_String_MaxLen, Len,
+    MUIA_String_Contents, PChar(CEDit.Text),
+    MUIA_String_Secret, CEdit.EchoMode <> emNormal
+    ]);
+  MuiEdit := TMuiStringEdit.Create(Tags);
   With MuiEdit do
   begin
     Left := AParams.X;
     Top := AParams.Y;
     Width := AParams.Width;
-    Height := AParams.Height;
+    Height := AParams.Height;    
     PasObject := AWinControl;
+    Text := CEDit.Text;
     TabStop := AWinControl.TabStop;
   end;
 
@@ -536,12 +560,13 @@ begin
   Result := True;
   if TObject(AWinControl.Handle) is TMuiStringEdit then
     AText := TMuiStringEdit(AWinControl.Handle).Text;
+  //writeln('-->Get Text ', AWinControl.Name, ' "'+AText+'"');  
 end;
 
 class procedure TMUIWSCustomEdit.SetText(const AWinControl: TWinControl;
   const AText: String);
 begin
-  //writeln('-->Set Text');
+  //writeln('-->Set Text ', AWinControl.Name, ' "'+AText+'"');
   if TObject(AWinControl.Handle) is TMuiStringEdit then
     TMuiStringEdit(AWinControl.Handle).Text := AText;
 end;
@@ -552,6 +577,13 @@ begin
   begin
     TMuiTextEdit(ACustomEdit.Handle).ReadOnly := NewReadOnly;  
   end;
+end;
+
+class procedure TMUIWSCustomEdit.SetNumbersOnly(const ACustomEdit: TCustomEdit; NewNumbersOnly: Boolean);
+begin
+  writeln('set numbers only ', NewNumbersOnly);
+  if TObject(ACustomEdit.Handle) is TMuiStringEdit then
+    TMuiStringEdit(ACustomEdit.Handle).NumbersOnly := NewNumbersOnly; 
 end;
 
 { TMUIWSButton }

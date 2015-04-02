@@ -89,12 +89,60 @@ type
   private
     TextChanged: THook;
     TextDone: THook;
+    FNumbersOnly: Boolean;
+    FText: PChar;
     function GetText: string;
     procedure SetText(const AValue: string);
+    function GetNumbersOnly: Boolean;
+    procedure SetNumbersOnly(const AValue: Boolean);
   public
-    constructor Create(const Params : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    destructor Destroy; override;
     property Text:string read GetText write SetText;
+    property NumbersOnly: Boolean read GetNumbersOnly write SetNumbersOnly;
   end;
+  
+  { TMuiSpinEdit }
+
+  TMuiSpinEdit = class(TMuiArea)
+  private
+    //EventHooks
+    ButtonUpClick: THook;
+    ButtonDownClick: THook;
+    TextChanged: THook;
+    TextDone: THook;
+    //
+    FMinValue: Double;
+    FMaxValue: Double;
+    FDecimals: Integer;
+    FIncrement: Double;
+    //
+    FText: PChar;
+    BtnUp: PObject_;
+    BtnDown: PObject_;
+    UpDownPanel: PObject_;
+    Edit: PObject_;
+  protected  
+    function GetNumValue: Double;
+    procedure SetNumValue(const AValue: Double);
+    //
+    procedure SetMinValue(const AValue: Double);
+    procedure SetMaxValue(const AValue: Double);
+    procedure SetIncrement(const AValue: Double);
+    procedure SetDecimals(const AValue: Integer);
+    function GetTabStop: boolean; override;
+    procedure SetTabStop(const AValue: boolean); override;
+    function GetFocusObject: PObject_; override;
+  public
+    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    destructor Destroy; override;
+    property CurValue: Double read GetNumValue write SetNumValue;
+    property MinValue: Double read FMinValue write SetMinValue;
+    property MaxValue: Double read FMaxValue write SetMaxValue;
+    property Increment: Double read FIncrement write SetIncrement;
+    property Decimals: Integer read FDecimals write SetDecimals;
+  end;
+  
 
   { TMuiCycle }
 
@@ -905,7 +953,11 @@ begin
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
-    MuiObject.PasObject.EditingDone;
+    if MUIObject is TMUISpinEdit then
+    begin
+      TMUISpinEdit(MUIObject).CurValue := TMUISpinEdit(MUIObject).CurValue;
+    end;    
+    MuiObject.PasObject.EditingDone;    
   end;
 end;
 
@@ -937,12 +989,24 @@ end;
 procedure TMuiStringEdit.SetText(const AValue: string);
 begin
   if AValue <> GetText then
-    SetAttribute([IPTR(MUIA_String_Contents), PChar(AValue), TAG_END]);
+  begin
+    FreeMem(FText);
+    FText := System.AllocMem(Length(AValue) + 1);
+    Move(AValue[1], FText^, Length(AValue));
+    SetAttribute([IPTR(MUIA_String_Contents), FText, TAG_END]);
+  end;  
 end;
 
-constructor TMuiStringEdit.Create(const Params: array of const);
+constructor TMuiStringEdit.Create(var Tags: TTagsList);
 begin
-  inherited Create(MUIO_String, Params);
+  AddTags(Tags, [
+    MUIA_Background, MUII_TextBack,
+    MUIA_Frame, MUIV_Frame_String 
+  ]);
+  inherited Create(MUIC_String, GetTagPtr(Tags));
+  //
+  FNumbersOnly := False;
+  FText := System.AllocMem(2048);
   // Set Event for Changed Text
   TextChanged.h_Entry := IPTR(@TextChangedFunc);
   TextChanged.h_SubEntry := 0;
@@ -962,7 +1026,266 @@ begin
       2,
       IPTR(MUIM_CallHook), @TextDone
       ]);
+      
 end;
+
+destructor TMuiStringEdit.Destroy;
+begin
+  FreeMem(FText);
+  inherited;
+end;
+
+function TMuiStringEdit.GetNumbersOnly: Boolean;
+begin
+  Result := FNumbersOnly;
+end;
+
+var
+  IntegerChars: string = '0123456789-';
+  FloatChars: string = '0123456789-.,';  
+
+procedure TMuiStringEdit.SetNumbersOnly(const AValue: Boolean);
+var
+  StrTxt: String;
+begin
+  if FNumbersOnly = AValue then
+    Exit;
+  FNumbersOnly := AValue;
+  if FNumbersOnly then
+  begin
+    StrTxt := GetText;
+    SetAttribute([MUIA_String_Integer, StrToIntDef(StrTxt, 0)]);
+    SetAttribute([MUIA_String_Accept, PChar(IntegerChars)]);
+  end else
+  begin
+    SetAttribute([MUIA_String_Accept, '']);
+  end;  
+end;
+
+
+{ TMuiSpinEdit }
+
+procedure BtnDownClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+var
+  MuiSpin: TMuiSpinEdit;
+begin
+  if TObject(Hook^.h_Data) is TMuiSpinEdit then
+  begin
+    MuiSpin := TMuiSpinEdit(Hook^.h_Data);
+    MuiSpin.CurValue := MuiSpin.CurValue - MuiSpin.Increment;
+  end;
+end;
+
+procedure BtnUpClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+var
+  MuiSpin: TMuiSpinEdit;
+begin
+  if TObject(Hook^.h_Data) is TMuiSpinEdit then
+  begin
+    MuiSpin := TMuiSpinEdit(Hook^.h_Data);
+    MuiSpin.CurValue := MuiSpin.CurValue + MuiSpin.Increment;
+  end;
+end;
+
+function TMuiSpinEdit.GetNumValue: Double;
+var
+  PC: PChar;
+  strValue: string;
+begin
+  Result := 0;
+  if Assigned(Edit) then
+  begin
+    PC := PChar(GetAttObj(Edit, MUIA_String_Contents));
+    if Assigned(PC) then
+    begin
+      strValue := StringReplace(string(PC), ',', DECIMALSEPARATOR, [rfReplaceAll]);
+      strValue := StringReplace(strValue, '.', DECIMALSEPARATOR, [rfReplaceAll]);
+      Result := StrToFloatDef(string(PC), 0);
+      Result := Min(FMaxValue, Max(FMinValue, Result));
+    end;  
+  end;    
+end;
+
+procedure TMuiSpinEdit.SetNumValue(const AValue: Double);
+var
+  StrValue: String;
+  Val: Double;
+begin
+  Val := Min(FMaxValue, Max(FMinValue, AValue));
+  StrValue := FloatToStrF(Val, ffFixed, 8, FDecimals);
+  FillChar(FText^, Length(StrValue) + 10, 0);
+  Move(StrValue[1], FText^, Length(strValue));
+  SetAttObj(Edit, [MUIA_String_Contents, PChar(FText)]);
+end;
+
+constructor TMuiSpinEdit.Create(var Tags: TTagsList);
+var
+  GrpTags: TTagsList;
+  BtnUpTags: TTagsList;
+  BtnDownTags: TTagsList; 
+  BtnGroupTags: TTagsList;
+  EditTags: TTagsList;
+begin
+  FIncrement := 1;
+  FMinValue := -1e308;
+  FMaxValue := 1e308;
+  FDecimals := 2;
+  // BUTTON DOWN  ##################################
+  FText := System.AllocMem(2048);
+  AddTags(BtnUpTags, [
+    IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
+    IPTR(MUIA_ShowSelState), IPTR(True),
+    //MUIA_Frame, MUIV_Frame_ImageButton,
+    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
+    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,    
+    IPTR(MUIA_Image_Spec), IPTR(MUII_ArrowUp)
+    ]);
+  btnUp := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnUpTags));
+  
+  ButtonUpClick.h_Entry := IPTR(@BtnUpClickFunc);
+  ButtonUpClick.h_SubEntry := 0;
+  ButtonUpClick.h_Data := Self;
+  
+  DoMethodObj(btnUp, [IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUpClick)]);
+  
+  // BUTTON UP #######################################
+  AddTags(BtnDownTags, [
+    IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
+    IPTR(MUIA_ShowSelState), IPTR(True),
+    //MUIA_Frame, MUIV_Frame_ImageButton,
+    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
+    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
+    IPTR(MUIA_Image_Spec), IPTR(MUII_ArrowDown)
+    ]);
+  btndown := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnDownTags));
+  
+  ButtonDownClick.h_Entry := IPTR(@BtnDownClickFunc);
+  ButtonDownClick.h_SubEntry := 0;
+  ButtonDownClick.h_Data := Self;
+  
+  DoMethodObj(btnDown, [IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDownClick)]);
+  
+  // BUTTON GROUP ####################################
+  AddTags(BtnGroupTags, [
+    MUIA_Background, MUII_TextBack,
+    MUIA_Group_Child, BtnUp,
+    MUIA_Group_Child, BtnDown,
+    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
+    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
+    MUIA_Group_Spacing, 0,
+    MUIA_Group_Horiz, False
+    ]);
+  
+  UpDownPanel := MUI_NewObjectA(MUIC_Group, GetTagPtr(BtnGroupTags));
+  //
+  // Editor ###########################################
+  AddTags(EditTags, [
+    MUIA_String_Format, MUIV_String_Format_Right, 
+    MUIA_Background, MUII_TextBack,
+    MUIA_Frame, MUIV_Frame_String,
+    MUIA_Group_Spacing, 0,
+    MUIA_String_Accept, PChar(FloatChars)
+  ]);
+  Edit := MUI_NewObjectA(MUIC_String, GetTagPtr(EditTags));
+  //
+  // Group ############################################# 
+  AddTags(GrpTags, [
+    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
+    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
+    MUIA_Group_Spacing, 0,
+    MUIA_Group_Child, Edit,
+    MUIA_Group_Child, UpDownPanel,
+    MUIA_Frame, MUIV_Frame_string,
+    MUIA_Group_Horiz, True
+    ]); 
+  inherited Create(MUIC_Group, GetTagPtr(GrpTags));
+  
+  TextChanged.h_Entry := IPTR(@TextChangedFunc);
+  TextChanged.h_SubEntry := 0;
+  TextChanged.h_Data := Self;
+  DoMethodObj(Edit, [IPTR(MUIM_Notify), IPTR(MUIA_String_Contents), IPTR(MUIV_EveryTime),
+      IPTR(MUIV_Notify_Self), 2,
+      IPTR(MUIM_CallHook), IPTR(@TextChanged)
+      ]);
+  TextDone.h_Entry := IPTR(@TextDoneFunc);
+  TextDone.h_SubEntry := 0;
+  TextDone.h_Data := Self;
+  DoMethodObj(Edit, [IPTR(MUIM_Notify), IPTR(MUIA_String_Acknowledge), IPTR(MUIV_EveryTime),
+      IPTR(MUIV_Notify_Self), 2,
+      IPTR(MUIM_CallHook), IPTR(@TextDone)
+      ]);
+end;
+
+destructor TMuiSpinEdit.Destroy;
+begin
+  System.FreeMem(FText);
+  inherited;
+end;
+
+procedure TMuiSpinEdit.SetMinValue(const AValue: Double);
+begin
+  if FMinValue = AValue then
+    Exit;
+  FMinValue := AValue;
+  if CurValue < FMinValue then
+    CurValue := FMinValue;  
+end;
+
+procedure TMuiSpinEdit.SetMaxValue(const AValue: Double);
+begin
+  if FMaxValue = AValue then
+    Exit;
+  FMaxValue := AValue;
+  if CurValue > FMaxValue then
+    CurValue := FMaxValue;
+end;
+
+procedure TMuiSpinEdit.SetIncrement(const AValue: Double);
+begin
+  FIncrement := AValue;
+end;
+
+procedure TMuiSpinEdit.SetDecimals(const AValue: Integer);
+begin
+  if FDecimals = AValue then
+    Exit;
+  if FDecimals = 0 then
+  begin
+    if AValue <> 0 then
+      SetAttObj(Edit, [MUIA_String_Accept, PChar(FloatChars)]);
+  end else
+  begin
+    if AValue = 0 then
+      SetAttObj(Edit, [MUIA_String_Accept, PChar(IntegerChars)]);
+  end;
+  FDecimals := AValue;
+  CurValue := CurValue;  
+end;
+
+function TMuiSpinEdit.GetTabStop: boolean;
+begin
+  Result := GetAttObj(Edit, IPTR(MUIA_CycleChain)) <> 0;
+end;
+
+procedure TMuiSpinEdit.SetTabStop(const AValue: boolean);
+var
+  Val: Integer;
+begin
+  if AValue then
+    Val := 1
+  else
+    Val := 0;  
+  SetAttObj(Edit, [IPTR(MUIA_CycleChain), IPTR(Val)]);
+  SetAttribute([IPTR(MUIA_CycleChain), 0]);
+end;
+
+function TMuiSpinEdit.GetFocusObject: PObject_;
+begin
+  Result := Edit;
+end;
+
 
 { TMuiCycle }
 

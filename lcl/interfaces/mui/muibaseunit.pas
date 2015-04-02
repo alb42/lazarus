@@ -48,7 +48,7 @@ type
     procedure SetAttObj(obje: pObject_; const Tags: array of const);
     function GetAttObj(obje: pObject_; tag: longword): longword;
     // DoMethod(Params = [MethodID, Parameter for Method ...])
-    function DoMethodObj(Obje: pObject_; const Params: array of const): longint;
+    function DoMethodObj(Obje: pObject_; const Params: array of IPTR): longint;
     function DoMethod(const Params: array of IPTR): longint;
 
     procedure SetParent(const AValue: TMUIObject); virtual;
@@ -73,6 +73,7 @@ type
     procedure BasicInitOnCreate(); virtual;
     procedure SetScrollbarPos;
     function GetParentWindow: TMUIObject; virtual;
+    function GetFocusObject: PObject_; virtual;
   public
     EHNode: PMUI_EventHandlerNode;
     FChilds: TObjectList;
@@ -111,6 +112,7 @@ type
     property Visible: boolean read GetVisible write SetVisible;
     property Enabled: boolean read GetEnabled write SetEnabled;
     property MUICanvas: TMUICanvas read FMUICanvas;
+    property FocusObject: PObject_ read GetFocusObject;
 
     property OnDraw: TNotifyEvent read FOnDraw write FOnDraw;
   end;
@@ -269,6 +271,12 @@ begin
   Result := Self;
   while Assigned(Result) and (not (Result is TMUIWindow)) do
     Result := Result.Parent;  
+end;
+
+// Object which should get the focus on Set Focus (for combined things)
+function TMUIObject.GetFocusObject: PObject_;
+begin
+  Result := FObject;
 end;
 
 procedure TMUIObject.SetParent(const AValue: TMUIObject);
@@ -455,12 +463,9 @@ begin
   Result := Res;
 end;
 
-function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of const): longint;
-var
-  Tags: TTagsList;
+function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of IPTR): longint;
 begin
-  AddTags(Tags, Params);
-  Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, GetTagPtr(Tags));
+  Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, @(Params[0]));
 end;
 
 function TMUIObject.GetEnabled: boolean;

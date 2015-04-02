@@ -651,7 +651,7 @@ begin
   FFocusedControl := AControl;
   if Assigned(AControl) then
   begin
-    SetAttribute([MUIA_Window_Activate, True, MUIA_Window_ActiveObject, AControl.obj]);
+    SetAttribute([MUIA_Window_Activate, True, MUIA_Window_ActiveObject, AControl.FocusObject]);
   end;  
 end;
 

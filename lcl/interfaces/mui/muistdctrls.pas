@@ -212,10 +212,10 @@ type
 
   TMuiListView = class(TMuiArea)
   private
-    FText: PChar;
     ListChangeHook: THook;
     DoubleClickHook: THook;
     FFloatText: TFloatText;
+    Texts: array of PChar;
     FStrings: TStringList;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
@@ -626,7 +626,7 @@ end;
 
 constructor TFloatText.Create(var Tags: TTagsList);
 begin
-  inherited Create(MUIC_FloatText, GetTagPtr(Tags));
+  inherited Create(MUIC_List, GetTagPtr(Tags));
 end;
 
 
@@ -665,13 +665,10 @@ constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
 var
   MenuTags: TTagsList;
 begin
-  FText := nil;
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
   FFloatText := TFloatText.create(MenuTags);
-  AddTags(Tags, [
-    IPTR(MUIA_Listview_List), FloatText.Obj
-    ]);
+  AddTags(Tags, [IPTR(MUIA_Listview_List), FloatText.Obj]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
@@ -699,29 +696,39 @@ begin
 end;
 
 destructor TMuiListView.Destroy;
+var
+  i: Integer;
 begin
   inherited Destroy;
   // Object ist automatically destroyed by Listview
   FFloatText.Obj := nil;
   FFloatText.Free;
-  FreeMem(FText);
   FStrings.Free;
+  for i := 0 to High(Texts) do
+    System.FreeMem(Texts[i]);
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
 var
   str: String;
   TagList: TTagsList;
+  i: Integer;
 begin
   if Assigned(FStrings) then
   begin
-    Str := FStrings.GetText + #0;
-    if Assigned(FText) then
-      FreeMem(FText);
-    FText := system.AllocMem(Length(str));
-    Move(str[1], FText^, Length(str));
-    AddTags(TagList, [IPTR(MUIA_FloatText_Text), FText, TAG_END]);
-    SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
+    DoMethodObj(FFloatText.Obj, [MUIM_List_Clear]);
+    for i := 0 to High(Texts) do
+      System.FreeMem(Texts[i]);
+    SetLength(Texts, FStrings.Count + 1);
+    for i := 0 to FStrings.Count - 1 do
+    begin
+      str := FStrings[i] + #0;      
+      Texts[i] := System.AllocMem(Length(str));
+      Move(str[1], Texts[i]^, Length(str));
+    end;
+    Texts[FStrings.Count] := nil;
+    DoMethodObj(FFloatText.Obj, [MUIM_List_Insert, IPTR(@(Texts[0])), FStrings.Count, MUIV_List_Insert_Bottom]);
+    DoMethodObj(FFloatText.Obj, [MUIM_List_Redraw, MUIV_List_Redraw_All]);
   end;  
 end;
 
@@ -730,7 +737,7 @@ var
   Res: LongInt;
 begin
   Result := 0;
-  GetAttr(IPTR(MUIA_List_Active), FloatText.Obj, @Res);
+  GetAttr(IPTR(MUIA_List_Active), FFloatText.Obj, @Res);
   if Res = MUIV_List_Active_Off then
     Result := 0
   else
@@ -758,7 +765,7 @@ begin
   else
     Res := AValue;
   AddTags(TagList, [IPTR(MUIA_List_Active), Res, TAG_END]);  
-  SetAttrsA(FloatText.Obj, GetTagPtr(TagList));
+  SetAttrsA(FFloatText.Obj, GetTagPtr(TagList));
 end;
 
 { TMuiButton }

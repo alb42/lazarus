@@ -669,7 +669,9 @@ begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
   FFloatText := TFloatText.create(MenuTags);
-  AddTags(Tags, [IPTR(MUIA_Listview_List), FloatText.Obj ,TAG_DONE]);
+  AddTags(Tags, [
+    IPTR(MUIA_Listview_List), FloatText.Obj
+    ]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
@@ -1098,6 +1100,7 @@ begin
     PC := PChar(GetAttObj(Edit, MUIA_String_Contents));
     if Assigned(PC) then
     begin
+      // we accept , and . :-P but set it to the system set DECIMALSEPARATOR
       strValue := StringReplace(string(PC), ',', DECIMALSEPARATOR, [rfReplaceAll]);
       strValue := StringReplace(strValue, '.', DECIMALSEPARATOR, [rfReplaceAll]);
       Result := StrToFloatDef(string(PC), 0);
@@ -1113,9 +1116,10 @@ var
 begin
   Val := Min(FMaxValue, Max(FMinValue, AValue));
   StrValue := FloatToStrF(Val, ffFixed, 8, FDecimals);
-  FillChar(FText^, Length(StrValue) + 10, 0);
+  FillChar(FText^, Length(StrValue) + 2, 0);
   Move(StrValue[1], FText^, Length(strValue));
   SetAttObj(Edit, [MUIA_String_Contents, PChar(FText)]);
+  SetAttObj(Edit, [MUIA_String_BufferPos, Length(FText)]);
 end;
 
 constructor TMuiSpinEdit.Create(var Tags: TTagsList);
@@ -1131,7 +1135,7 @@ begin
   FMaxValue := 1e308;
   FDecimals := 2;
   // BUTTON DOWN  ##################################
-  FText := System.AllocMem(2048);
+  FText := System.AllocMem(100);
   AddTags(BtnUpTags, [
     IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
     IPTR(MUIA_ShowSelState), IPTR(True),
@@ -1146,8 +1150,8 @@ begin
   ButtonUpClick.h_SubEntry := 0;
   ButtonUpClick.h_Data := Self;
   
-  DoMethodObj(btnUp, [IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUpClick)]);
+  DoMethodObj(btnUp, [IPTR(MUIM_Notify), IPTR(MUIA_Timer), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUpClick)]);  
   
   // BUTTON UP #######################################
   AddTags(BtnDownTags, [
@@ -1164,8 +1168,8 @@ begin
   ButtonDownClick.h_SubEntry := 0;
   ButtonDownClick.h_Data := Self;
   
-  DoMethodObj(btnDown, [IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDownClick)]);
+  DoMethodObj(btnDown, [IPTR(MUIM_Notify), IPTR(MUIA_Timer), IPTR(MUIV_EveryTime),
+    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDownClick)]);  
   
   // BUTTON GROUP ####################################
   AddTags(BtnGroupTags, [
@@ -1186,6 +1190,7 @@ begin
     MUIA_Background, MUII_TextBack,
     MUIA_Frame, MUIV_Frame_String,
     MUIA_Group_Spacing, 0,
+    MUIA_String_MaxLen, 100,
     MUIA_String_Accept, PChar(FloatChars)
   ]);
   Edit := MUI_NewObjectA(MUIC_String, GetTagPtr(EditTags));
@@ -1201,7 +1206,8 @@ begin
     MUIA_Group_Horiz, True
     ]); 
   inherited Create(MUIC_Group, GetTagPtr(GrpTags));
-  
+  //
+  // connect some events
   TextChanged.h_Entry := IPTR(@TextChangedFunc);
   TextChanged.h_SubEntry := 0;
   TextChanged.h_Data := Self;

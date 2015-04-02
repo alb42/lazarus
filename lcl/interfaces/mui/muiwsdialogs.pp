@@ -320,29 +320,20 @@ var
   BGroup: PObject_;
   but1, but2: PObject_;
   sigs: LongWord;
-  cols: array of TMUI_Palette_Entry;
   Res: Integer;
   r,g,b: LongWord;
   DefWidth, DefHeight: Integer;
-begin
-  SetLength(cols, 2);
-  cols[0].mpe_ID := 0;
-  cols[0].mpe_Red := ColLongWord(Red(ColorDialog.Color));
-  cols[0].mpe_Green := ColLongWord(Green(ColorDialog.Color));
-  cols[0].mpe_Blue := ColLongWord(Blue(ColorDialog.Color));
-  cols[0].mpe_Group := 0;
-  // last color
-  cols[1].mpe_ID := MUIV_Palette_Entry_End;
-  cols[1].mpe_Red := 0;
-  cols[1].mpe_Green := 0;
-  cols[1].mpe_Blue := 0;
-  cols[1].mpe_Group := 0;
-   
-  
+begin 
+  R := ColLongWord(Red(ColorDialog.Color));
+  G := ColLongWord(Green(ColorDialog.Color));
+  B := ColLongWord(Blue(ColorDialog.Color));
+  //
   AddTags(PalTags, [
-    MUIA_Palette_Entries, @Cols[0],
-    MUIA_Palette_Groupable, False]);
-  Palette := MUI_NewObjectA(MUIC_Palette, GetTagPtr(PalTags));
+    MUIA_Coloradjust_Red, R,
+    MUIA_Coloradjust_Green, G,
+    MUIA_Coloradjust_Blue, B
+  ]);
+  Palette := MUI_NewObjectA(MUIC_ColorAdjust, GetTagPtr(PalTags));
 
   but1 := MUI_MakeObject(MUIO_Button, [PChar('OK')]);
   but2 := MUI_MakeObject(MUIO_Button, [PChar('Cancel')]);
@@ -350,6 +341,7 @@ begin
   AddTags(BGrpTags, [
     MUIA_Group_Child, but1,
     MUIA_Group_Child, but2,
+    MUIA_Group_HorizSpacing, 20,
     MUIA_Group_Horiz, True]);
   BGroup := MUI_NewObjectA(MUIC_Group, GetTagPtr(BGrpTags));
   
@@ -360,7 +352,7 @@ begin
   
   Group := MUI_NewObjectA(MUIC_Group, GetTagPtr(GrpTags));
   
-  DefWidth := 400;
+  DefWidth := 300;
   DefHeight := 300;
   
   if ColorDialog.Width > 0 then
@@ -413,7 +405,12 @@ begin
     end;
   end;
   MUI_DisposeObject(LocalApp);
-  ColorDialog.Color := RGBToColor((cols[0].mpe_Red shr 24) and $FF, (cols[0].mpe_Green shr 24) and $FF, (cols[0].mpe_Blue shr 24) and $FF);
+  
+  GetAttr(MUIA_Coloradjust_Red, Palette, @R);
+  GetAttr(MUIA_Coloradjust_Green, Palette, @G);
+  GetAttr(MUIA_Coloradjust_Blue, Palette, @B);
+  
+  ColorDialog.Color := RGBToColor((R shr 24) and $FF, (G shr 24) and $FF, (B shr 24) and $FF);
 end;
 
 { TMuiWSFontDialog }

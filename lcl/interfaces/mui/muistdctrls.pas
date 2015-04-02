@@ -1228,10 +1228,10 @@ end;
 
 function TMUIGroupBox.GetClientRect: TRect;
 begin
-  Result.Left := -5;
-  Result.Top := -10;
-  Result.Right:= FWidth - 10;
-  Result.Bottom := FHeight - 15;
+  Result.Left := GetAttribute(MUIA_InnerLeft);
+  Result.Top := GetAttribute(MUIA_InnerTop);
+  Result.Right:= FWidth - GetAttribute(MUIA_InnerRight);
+  Result.Bottom := FHeight - GetAttribute(MUIA_InnerBottom);
 end;
 
 

@@ -533,8 +533,8 @@ begin
   if not Sizeable then
   begin
     AWin := Obj_Window(Obj);
-    Width := GetAttribute(MUIA_Window_Width) - AWin^.BorderRight;
-    Height := GetAttribute(MUIA_Window_Height) - AWin^.BorderBottom;
+    Width := GetAttribute(MUIA_Window_Width) - AWin^.BorderRight - 2;
+    Height := GetAttribute(MUIA_Window_Height) - AWin^.BorderBottom - 2;
   end else
   begin
     Width := GetAttribute(MUIA_Window_Width);

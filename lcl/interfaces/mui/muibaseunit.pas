@@ -412,10 +412,10 @@ end;
 
 function TMUIObject.GetClientRect: TRect;
 begin
-  Result.Left := 0;
-  Result.Top := 0;
-  Result.Right:= FWidth;
-  Result.Bottom := FHeight;
+  Result.Left := GetAttribute(MUIA_InnerLeft);
+  Result.Top := GetAttribute(MUIA_InnerTop);
+  Result.Right:= FWidth - GetAttribute(MUIA_InnerRight);
+  Result.Bottom := FHeight - GetAttribute(MUIA_InnerBottom);
   if Assigned(VSCroll) and Assigned(VScroll) then
   begin
     if VScroll.Visible then    

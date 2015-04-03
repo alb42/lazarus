@@ -6,7 +6,8 @@ interface
 
 uses
   Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType, gadtools;
+  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType,
+  gadtools, strutils;
 
 type
 
@@ -65,6 +66,7 @@ type
     procedure SetTitle(const AValue: string);
   public
     constructor Create(var tags: TTagsList);
+    destructor Destroy; override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
     property Title: string read GetTitle write SetTitle;
   end;
@@ -214,8 +216,11 @@ begin
 end;
 
 destructor TMuiMenuStrip.Destroy;
+var
+  i: Integer;
 begin
-  //
+  FObject := nil;
+  inherited;
 end;
 
 { TMuiMenu }
@@ -245,6 +250,11 @@ constructor TMuiMenu.Create(var tags: TTagsList);
 begin
   inherited Create(MUIC_Menu, GetTagPtr(tags));
   Par := nil;
+end;
+
+destructor TMuiMenu.Destroy;
+begin
+  inherited;
 end;
 
 { TMuiMenuItem }
@@ -321,7 +331,7 @@ begin
 end;
 
 procedure TMuiMenuItem.SetTitle(const AValue: string);
-begin  
+begin
   FTitle := AValue;
   if AValue = '-' then
     SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(NM_BARLABEL), TAG_END])
@@ -333,6 +343,7 @@ procedure MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiMenuItem;
   TargetObject: TObject;
+  mi: PNewMenu;
 begin
   if TObject(Hook^.h_Data) is TMuiMenuItem then
   begin
@@ -365,7 +376,16 @@ begin
 end;
 
 destructor TMuiFamily.Destroy;
+var
+  i: Integer;
+  MUIObject: TMuiObject;
 begin
+  for i := 0 to ChildList.Count - 1 do
+  begin
+    MUIObject := TMUIObject(ChildList[i]);
+    MUIObject.FObject := nil;
+    MUIObject.Free;
+  end;
   ChildList.Free;
   inherited;
 end;

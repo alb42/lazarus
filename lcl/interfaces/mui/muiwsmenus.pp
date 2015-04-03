@@ -171,7 +171,10 @@ var
 begin
   MuiMenu:= TMuiFamily(AMenuItem.Handle);
   if AMenuItem.HasParent then
+  begin
     TMuiFamily(AMenuItem.Parent.Handle).Remove(MuiMenu);
+    MuiMenu.Free;
+  end;  
 end;
 
 {------------------------------------------------------------------------------

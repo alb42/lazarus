@@ -10,6 +10,8 @@ uses
   {$endif}
   Forms, LCLMessageGlue, lcltype, LMessages, interfacebase, muidrawing;
 
+{.$define CHECKOBJECTS} // reports not freed MUIObjects on exit
+
 type
   TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
   TMUICaret = class
@@ -75,6 +77,7 @@ type
     function GetParentWindow: TMUIObject; virtual;
     function GetFocusObject: PObject_; virtual;
   public
+    FirstPaint: Boolean;
     EHNode: PMUI_EventHandlerNode;
     FChilds: TObjectList;
     FObject: pObject_;
@@ -209,7 +212,9 @@ var
   LCLGroupClass: PIClass;
   KeyState: Integer = 0;
   CaptureObj: TMUIObject = nil;
-
+  {$ifdef CHECKOBJECTS}
+  AllItems: Classes.TList;
+  {$endif}
 implementation
 
 uses
@@ -325,6 +330,8 @@ end;
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
   //writeln('setVis ', AValue);
+  if not AValue then
+    FirstPaint := True;    
   SetAttribute([longint(MUIA_ShowMe), longint(AValue), TAG_END]);
 end;
 
@@ -521,6 +528,7 @@ begin
   end;
 end;
 
+
 procedure TMUIObject.InstallHooks;
 begin
   ButtonUp.h_Entry := IPTR(@BtnUpFunc);
@@ -536,11 +544,15 @@ begin
   DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(False),
     IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUp)]);
   //if (self is TMUIArea) and not (self is TMUIScrollbar)then  
-  //  CreateScrollbars;
+  //  CreateScrollbars;  
 end;
 
 procedure TMUIObject.BasicInitOnCreate();
 begin
+  {$ifdef CHECKOBJECTS}
+  AllItems.Add(Self);
+  {$endif}
+  //writeln(self.classname, ' create');
   Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
@@ -551,6 +563,7 @@ begin
   FParent := nil;
   VScroll := nil;
   HSCroll := nil;
+  FirstPaint := True;
 end;
 
 constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
@@ -587,12 +600,22 @@ end;
 
 destructor TMUIObject.Destroy;
 begin
+  {$ifdef CHECKOBJECTS}
+  AllItems.Remove(Self);
+  {$endif}
   BlockRedraw := True;
-  //writeln(self.classname, '--> muiobject destroy');
+  //writeln(self.classname, '--> destroy');
+  if Assigned(HScroll) then
+    HScroll.Free;
+  if Assigned(VScroll) then
+    VScroll.Free;
+  HScroll := nil;
+  VScroll := nil;
+  //
   SetParent(nil); 
   MUI_DisposeObject(FObject);
   FChilds.Free;
-  FMUICanvas.Free;
+  FMUICanvas.Free;    
   if not (self is TMUIApplication) then
     MUIApp.RemInvalidatedObject(Self);
   inherited Destroy;
@@ -1314,6 +1337,7 @@ begin
     MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
       //writeln(' DRAW');
+      
       if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
        Exit;      
       rp := nil;
@@ -1328,6 +1352,11 @@ begin
         try
           if Assigned(MUIB) then
           begin
+            if MUIB.FirstPaint and (MUIB is TMUIGroupBox) then
+            begin
+              MUIB.FirstPaint := False;
+              TWinControl(MUIB.pasobject).InvalidateClientRectCache(True);
+            end;  
             //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             if MUIB.MUIDrawing then
               Result := DoSuperMethodA(cl, obj, msg); 
@@ -1618,13 +1647,28 @@ begin
   LCLGroupClass^.cl_Dispatcher.h_Data := nil;
 end;
 
-
+{$ifdef CHECKOBJECTS}
+procedure NotDestroyed;
+var
+  i: Integer;
+begin
+  System.DebugLn('not destroyed : ' + IntToStr(AllItems.Count));
+  for i := 0 to AllItems.Count - 1 do
+    System.Debugln(TMuiObject(AllItems[i]).Classname);
+end;
+{$endif}
 
 initialization
   CreateClasses;
-
+  {$ifdef CHECKOBJECTS}
+  AllItems := classes.TList.create;
+  {$endif}
 finalization
   MUIApp.Free;
   DestroyClasses;
+  {$ifdef CHECKOBJECTS}
+  NotDestroyed;
+  AllItems.Free;
+  {$endif}
 end.
 

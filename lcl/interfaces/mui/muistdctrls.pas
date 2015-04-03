@@ -209,20 +209,13 @@ type
     property ReadOnly: Boolean read GetReadOnly write SetReadOnly;
   end;
 
-  { TFloatText }
-
-  TFloatText = class(TMuiArea)
-  public
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
-  end;
-
   { TMuiListView }
 
   TMuiListView = class(TMuiArea)
   private
     ListChangeHook: THook;
     DoubleClickHook: THook;
-    FFloatText: TFloatText;
+    StrObj: PObject_;
     Texts: array of PChar;
     FStrings: TStringList;
     function GetActive: LongInt;
@@ -233,7 +226,6 @@ type
     destructor Destroy; override;
     property Strings: TStringList read FStrings;
     property Active: LongInt read GetActive write SetActive;
-    property FloatText: TFloatText read FFloatText;
   end;
 
   { TMUIScrollbar }
@@ -630,14 +622,6 @@ begin
   Result := FCaption;
 end;
 
-{ TFloatText }
-
-constructor TFloatText.Create(var Tags: TTagsList);
-begin
-  inherited Create(MUIC_List, GetTagPtr(Tags));
-end;
-
-
 procedure ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiListView;
@@ -671,12 +655,12 @@ end;
 
 constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
 var
-  MenuTags: TTagsList;
+  StrTags: TTagsList;
 begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
-  FFloatText := TFloatText.create(MenuTags);
-  AddTags(Tags, [IPTR(MUIA_Listview_List), FloatText.Obj]);
+  StrObj := MUI_NewObjectA(MUIC_List, GetTagPtr(StrTags)); 
+  AddTags(Tags, [IPTR(MUIA_Listview_List), StrObj]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
@@ -707,13 +691,10 @@ destructor TMuiListView.Destroy;
 var
   i: Integer;
 begin
-  inherited Destroy;
-  // Object ist automatically destroyed by Listview
-  FFloatText.Obj := nil;
-  FFloatText.Free;
   FStrings.Free;
   for i := 0 to High(Texts) do
     System.FreeMem(Texts[i]);
+  inherited Destroy;  
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
@@ -724,7 +705,7 @@ var
 begin
   if Assigned(FStrings) then
   begin
-    DoMethodObj(FFloatText.Obj, [MUIM_List_Clear]);
+    DoMethodObj(StrObj, [MUIM_List_Clear]);
     for i := 0 to High(Texts) do
       System.FreeMem(Texts[i]);
     SetLength(Texts, FStrings.Count + 1);
@@ -735,8 +716,8 @@ begin
       Move(str[1], Texts[i]^, Length(str));
     end;
     Texts[FStrings.Count] := nil;
-    DoMethodObj(FFloatText.Obj, [MUIM_List_Insert, IPTR(@(Texts[0])), FStrings.Count, MUIV_List_Insert_Bottom]);
-    DoMethodObj(FFloatText.Obj, [MUIM_List_Redraw, MUIV_List_Redraw_All]);
+    DoMethodObj(StrObj, [MUIM_List_Insert, IPTR(@(Texts[0])), FStrings.Count, MUIV_List_Insert_Bottom]);
+    DoMethodObj(StrObj, [MUIM_List_Redraw, MUIV_List_Redraw_All]);
   end;  
 end;
 
@@ -745,7 +726,7 @@ var
   Res: LongInt;
 begin
   Result := 0;
-  GetAttr(IPTR(MUIA_List_Active), FFloatText.Obj, @Res);
+  GetAttr(IPTR(MUIA_List_Active), StrObj, @Res);
   if Res = MUIV_List_Active_Off then
     Result := 0
   else
@@ -773,7 +754,7 @@ begin
   else
     Res := AValue;
   AddTags(TagList, [IPTR(MUIA_List_Active), Res, TAG_END]);  
-  SetAttrsA(FFloatText.Obj, GetTagPtr(TagList));
+  SetAttrsA(StrObj, GetTagPtr(TagList));
 end;
 
 { TMuiButton }
@@ -1550,9 +1531,11 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     Result := SL.Count;
+    SL.EndUpdate;
   end;
 end;
 
@@ -1562,6 +1545,7 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     //writeln('add: ', s);
     //PC := PChar(#10 + S);
     //CallHookPkt(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [LongInt($ad000026), PC, 2]);
@@ -1569,7 +1553,8 @@ begin
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);;
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1588,12 +1573,14 @@ var
 begin
   if Assigned(FMuiObject) then
   begin;
+    SL.BeginUpdate;
     SL.Clear;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
     FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1603,12 +1590,14 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
     FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1618,10 +1607,12 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     Result := SL.strings[Index];
+    SL.EndUpdate;
   end;
 end;
 
@@ -1632,12 +1623,14 @@ begin
   inherited Put(Index, S);
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
     FMuiObject.SetAttObj(FMuiObject.FTextObj,[LongInt($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1647,12 +1640,14 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;
     FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1662,10 +1657,12 @@ var
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     SL.LoadFromFile(FileName);
     PC := SL.GetText;
     FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    SL.EndUpdate;
   end;
 end;
 
@@ -1689,10 +1686,13 @@ end;
 
 function TMUIGroupBox.GetClientRect: TRect;
 begin
+  //writeln(TGroupBox(pasobject).caption);
   Result.Left := GetAttribute(MUIA_InnerLeft);
   Result.Top := GetAttribute(MUIA_InnerTop);
-  Result.Right:= FWidth - GetAttribute(MUIA_InnerRight);
-  Result.Bottom := FHeight - GetAttribute(MUIA_InnerBottom);
+  Result.Right:= FWidth - (GetAttribute(MUIA_InnerRight) + 2* Result.Left);
+  Result.Bottom := FHeight - (GetAttribute(MUIA_InnerBottom) + 2* Result.Top);
+  //writeln('get clientrect ', Result.Top, ' ', Result.Bottom);
+  //writeln('               ', Result.Left, ' ', Result.Right);
 end;
 
 

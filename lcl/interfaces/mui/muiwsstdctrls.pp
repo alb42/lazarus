@@ -864,7 +864,6 @@ begin
     Width := AParams.Width;
     Height := AParams.Height;    
     PasObject := AWinControl;
-    FloatText.PasObject := AWinControl;
   end;
 
   if AWinControl.Parent <> NIL then

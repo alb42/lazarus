@@ -406,8 +406,8 @@ var NumFonts: Integer = 0;
 constructor TMUIFontObj.Create(const AFontData: TLogFont);
 begin
   {$ifdef COUNTFONTS}
-  Inc(NumFonts);
   writeln('create font ', HexStr(self),' ', NumFonts);
+  Inc(NumFonts);
   {$endif}
   inherited Create;
   FontHandle := nil;
@@ -427,8 +427,8 @@ end;
 constructor TMUIFontObj.Create(const AFontData: TLogFont; const LongFontName: string);
 begin
   {$ifdef COUNTFONTS}
-  Inc(NumFonts);
   writeln('create font ', HexStr(self),' ', NumFonts);
+  Inc(NumFonts);
   {$endif}
   inherited Create;
   FontHandle := nil;

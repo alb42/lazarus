@@ -148,18 +148,26 @@ type
 
   TMuiCycle = class(TMuiArea)
   private
+    FEditable: Boolean;
+    StrObj: PObject_;
+    BtnObj: PObject_;
     ActiveItemChanged: THook;
+    TextEntered: THook;    
     FStrings: TMuiStrings;
     StringPtrs: TStringPtrs;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
+    function GetText: string;
+    procedure SetText(const AText: string);    
     procedure ChangedItems(Sender: TObject);
   public
-    constructor Create(ACaption: PChar; AStrings: TStrings); overload; reintroduce; virtual;
+    constructor Create(ACaption: PChar; AStrings: TStrings; AEditable: Boolean); overload; reintroduce; virtual;
     Destructor Destroy; override;
     //
     property Strings: TMuiStrings read FStrings write FStrings;
     property Active: LongInt read GetActive write SetActive;
+    property Editable: Boolean read FEditable;
+    property Text: string read GetText write SetText;
   end;
 
   { TMuiTextEdit }
@@ -1305,23 +1313,93 @@ end;
 procedure ActiveItemChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiCycle;
+  ItemIndex: Integer;
 begin
   if TObject(Hook^.h_Data) is TMuiCycle then
   begin
     MuiObject := TMuiCycle(Hook^.h_Data);
-    LCLSendChangedMsg(MuiObject.PasObject, MuiObject.Active);
+    ItemIndex := MuiObject.Active;
+    LCLSendChangedMsg(MuiObject.PasObject, ItemIndex);
+  end;
+end;
+
+procedure TextEnteredFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiCycle;
+  ItemIndex: Integer;
+begin
+  if TObject(Hook^.h_Data) is TMuiCycle then
+  begin
+    MuiObject := TMuiCycle(Hook^.h_Data);
+    ItemIndex := MuiObject.Active;
+    if MuiObject.Editable then
+    begin
+      if ItemIndex < 0 then
+        Exit;      
+    end;
+    LCLSendChangedMsg(MuiObject.PasObject, ItemIndex);
   end;
 end;
 
 function TMuiCycle.GetActive: LongInt;
+var
+  str: string;
 begin
-  Result := LongInt(GetAttribute(MUIA_Cycle_Active));
+  if FEditable then
+  begin
+    str := PChar(GetAttObj(StrObj, MUIA_String_Contents));    
+    Result := FStrings.IndexOf(str);
+  end else
+  begin
+    Result := LongInt(GetAttribute(MUIA_Cycle_Active));
+  end;  
 end;
 
 procedure TMuiCycle.SetActive(const AValue: LongInt);
 begin
-  SetAttribute([IPTR(MUIA_Cycle_Active), AValue, TAG_END]);
+  if FEditable then
+  begin
+    SetAttObj(StrObj, [MUIA_String_Contents, PChar(FStrings[AValue])]);
+  end else
+  begin
+    SetAttribute([IPTR(MUIA_Cycle_Active), AValue, TAG_END]);
+  end;
 end;
+
+
+function TMuiCycle.GetText: string;
+var
+  Idx: Integer;
+begin
+  Result := '';
+  if FEditable then
+  begin
+    Result := PChar(GetAttObj(StrObj, MUIA_String_Contents));  
+  end else
+  begin
+    Idx := GetActive;
+    if (Idx >= 0) and (Idx < FStrings.Count) then
+    begin
+      Result := FStrings[Idx];
+    end;
+  end;
+end;
+
+procedure TMuiCycle.SetText(const AText: string);
+var
+  Idx: Integer;
+begin
+  if FEditable then
+  begin
+    SetAttObj(StrObj, [MUIA_String_Contents, PChar(AText)]);  
+  end else
+  begin
+    Idx := FStrings.IndexOf(AText);
+    if (Idx >= 0) and (Idx < FStrings.Count) then
+      SetActive(Idx);
+  end;
+end;
+
 
 procedure TMuiCycle.ChangedItems(Sender: TObject);
 begin
@@ -1329,12 +1407,17 @@ begin
   RecreateWnd(TWinControl(PasObject));
 end;
 
-constructor TMuiCycle.Create(ACaption: PChar; AStrings: TStrings);
+constructor TMuiCycle.Create(ACaption: PChar; AStrings: TStrings; AEditable: Boolean);
 var
   str: string;
   Len: Integer;
   i: LongInt;
+  ListTags: TTagsList;
+  BtnTags: TTagsList;
+  StrTags: TTagsList;
 begin
+  FEditable := AEditable;
+  //
   FStrings := TMuiStrings.create;
   SetLength(StringPtrs, AStrings.Count + 1);
   for i:= 0 to AStrings.Count - 1 do
@@ -1346,18 +1429,60 @@ begin
     Move(Str[1], StringPtrs[i]^, Len);
   end;
   StringPtrs[High(StringPtrs)] := nil;
-  inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);
-  FStrings.OnChange := @ChangedItems;
-  // event for item changed
-  ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
-  ActiveItemChanged.h_SubEntry := 0;
-  ActiveItemChanged.h_Data := Self;
-  CallHook(PHook(OCLASS(FObject)), FObject,
-      [IPTR(MUIM_Notify), IPTR(MUIA_Cycle_Active), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self),
-      2,
-      IPTR(MUIM_CallHook), @ActiveItemChanged
+  if FEditable then
+  begin
+    AddTags(BtnTags, [
+      IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
+      IPTR(MUIA_ShowSelState), IPTR(True),
+      IPTR(MUIA_Frame), IPTR(MUIV_Frame_Button),
+      IPTR(MUIA_Image_Spec), IPTR(MUII_PopUp)    
+    ]);
+    BtnObj := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnTags));
+    
+    AddTags(StrTags, [
+      IPTR(MUIA_Frame), IPTR(MUIV_Frame_String)
+    ]);
+    StrObj := MUI_NewObjectA(MUIC_String, GetTagPtr(StrTags));
+    
+    AddTags(ListTags, [
+      MUIA_Popstring_String, StrObj,
+      MUIA_Popstring_Button, BtnObj,
+      MUIA_PopList_Array, IPTR(@(StringPtrs[0]))
       ]);
+    
+    inherited Create(MUIC_PopList, GetTagPtr(ListTags));    
+    
+    
+    TextEntered.h_Entry := IPTR(@TextEnteredFunc);
+    TextEntered.h_SubEntry := 0;
+    TextEntered.h_Data := Self;
+    DoMethodObj(StrObj, [IPTR(MUIM_Notify), IPTR(MUIA_String_Contents), IPTR(MUIV_EveryTime),
+        IPTR(MUIV_Notify_Self), 2,
+        IPTR(MUIM_CallHook), IPTR(@TextEntered)
+        ]);
+
+    ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
+    ActiveItemChanged.h_SubEntry := 0;
+    ActiveItemChanged.h_Data := Self;    
+    DoMethodObj(StrObj, [IPTR(MUIM_Notify), IPTR(MUIA_String_Acknowledge), IPTR(MUIV_EveryTime),
+        IPTR(MUIV_Notify_Self), 2,
+        IPTR(MUIM_CallHook), IPTR(@ActiveItemChanged)
+        ]);
+  end else
+  begin
+    inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);
+    // event for item changed
+    ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
+    ActiveItemChanged.h_SubEntry := 0;
+    ActiveItemChanged.h_Data := Self;
+    CallHook(PHook(OCLASS(FObject)), FObject,
+        [IPTR(MUIM_Notify), IPTR(MUIA_Cycle_Active), IPTR(MUIV_EveryTime),
+        IPTR(MUIV_Notify_Self),
+        2,
+        IPTR(MUIM_CallHook), @ActiveItemChanged
+        ]);
+  end;        
+  FStrings.OnChange := @ChangedItems;   
 end;
 
 Destructor TMuiCycle.Destroy;

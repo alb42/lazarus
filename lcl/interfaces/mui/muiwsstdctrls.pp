@@ -392,7 +392,7 @@ var
   MuiCycle: TMuiCycle;
 begin
   //writeln('-->Create ComboBox');
-  MuiCycle := TMuiCycle.Create(PChar(AWinControl.Caption), TCustomComboBox(AWinControl).items);
+  MuiCycle := TMuiCycle.Create(PChar(AWinControl.Caption), TCustomComboBox(AWinControl).items, TCustomComboBox(AWinControl).Style = csDropDown);
   With MuiCycle do
   begin
     Left := AParams.X;
@@ -450,28 +450,18 @@ class function TMUIWSCustomComboBox.GetText(const AWinControl: TWinControl;
   var AText: String): Boolean;
 var
   MuiCycle: TMuiCycle;
-  ItemIndex: Integer;
 begin
-  Result := False;
+  Result := True;
   MuiCycle := TMuiCycle(AWinControl.Handle);
-  ItemIndex:= MuiCycle.Active;
-  if (ItemIndex >= 0) and (ItemIndex < MuiCycle.Strings.Count) then
-  begin
-    AText := string(MuiCycle.Strings.strings[ItemIndex]);
-    Result := True;
-  end;
+  AText := MuiCycle.Text;
 end;
 
-class procedure TMUIWSCustomComboBox.SetText(const AWinControl: TWinControl;
-  const AText: String);
+class procedure TMUIWSCustomComboBox.SetText(const AWinControl: TWinControl; const AText: String);
 var
   MuiCycle: TMuiCycle;
-  idx: LongInt;
 begin
   MuiCycle := TMuiCycle(AWinControl.Handle);
-  idx := MuiCycle.Strings.IndexOf(AText);
-  if Idx >= 0 then
-    MuiCycle.Active := Idx;
+  MuiCycle.Text := AText;
 end;
 
 {------------------------------------------------------------------------------

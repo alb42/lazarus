@@ -906,19 +906,23 @@ class function TMUIWSCustomGroupBox.CreateHandle(
 var
   MuiArea: TMUIGroupBox;
   TagList: TTagsList;
-  Cap: string;
+  FText: PChar;
+  cap: String;
 begin
   Cap := AWinControl.Caption;
-  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Group, MUIA_FrameTitle, PChar(Cap)]);
+  FText := System.AllocMem(Length(Cap) + 1);
+  Move(cap[1], FText^, Length(cap));
+  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Group, MUIA_FrameTitle, FText]);
   MuiArea := TMUIGroupBox.Create(TagList);
   With MuiArea do
   begin
     Left := AParams.X;
     Top := AParams.Y;    
     Width := AParams.Width;
-    Height := AParams.Height;    
+    Height := AParams.Height;
     PasObject := AWinControl;
   end;
+  MUIArea.FText := FText;
 
   if AWinControl.Parent <> NIL then
   begin

@@ -887,8 +887,8 @@ begin
   Result.X := DrawRect.Left + Offset.X;
   Result.Y := DrawRect.Top + Offset.Y;
   //writeln('  GetOffset: ', Result.X);
-  Result.X := Result.X + FClipping.Left;
-  Result.Y := Result.Y + FClipping.Top;
+  //Result.X := Result.X + FClipping.Left;
+  //Result.Y := Result.Y + FClipping.Top;
 end;
 
 procedure TMUICanvas.MoveTo(x, y: integer);
@@ -972,7 +972,7 @@ begin
     begin
       SetBrushToRP(True);
       RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
-    end;  
+    end;
     SetPenToRP();
     GfxMove(RastPort, T.x + X1, T.Y + Y1);
     Draw(RastPort, T.X + X2, T.Y + Y1);

@@ -266,8 +266,10 @@ type
     function GetCaption: string; override;
     procedure SetCaption(const AValue: string); override;
   public
+    FText: PChar;
     function GetClientRect: TRect; override;
     constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    destructor Destroy; override;
   end;
 
 implementation
@@ -1672,16 +1674,24 @@ constructor TMUIGroupBox.Create(var Tags: TTagsList);
 begin
   inherited Create(LCLGroupClass, GetTagPtr(Tags));
   MUIDrawing := True;
+  FText := nil;
+end;
+
+destructor TMUIGroupBox.Destroy;
+begin
+  FreeMem(FText);
+  inherited;
 end;
 
 function TMUIGroupBox.GetCaption: string;
 begin
-  Result := PChar(GetAttribute(MUIA_FrameTitle));
+  Result := FText;//PChar(GetAttribute(MUIA_FrameTitle));
 end;
 
 procedure TMUIGroupBox.SetCaption(const AValue: string);
 begin
-  SetAttribute([MUIA_FrameTitle, AValue]);
+  //Set is not supported
+  //SetAttribute([MUIA_FrameTitle, AValue]);
 end;
 
 function TMUIGroupBox.GetClientRect: TRect;
@@ -1689,8 +1699,8 @@ begin
   //writeln(TGroupBox(pasobject).caption);
   Result.Left := GetAttribute(MUIA_InnerLeft);
   Result.Top := GetAttribute(MUIA_InnerTop);
-  Result.Right:= FWidth - (GetAttribute(MUIA_InnerRight) + 2* Result.Left);
-  Result.Bottom := FHeight - (GetAttribute(MUIA_InnerBottom) + 2* Result.Top);
+  Result.Right:= FWidth - (GetAttribute(MUIA_InnerRight) + Result.Left + 1);
+  Result.Bottom := FHeight - (GetAttribute(MUIA_InnerBottom) + Result.Top + 1);
   //writeln('get clientrect ', Result.Top, ' ', Result.Bottom);
   //writeln('               ', Result.Left, ' ', Result.Right);
 end;

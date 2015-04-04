@@ -218,7 +218,7 @@ var
 implementation
 
 uses
-  tagsarray, longarray, muiformsunit, muistdctrls;
+  tagsarray, longarray, muiformsunit, muistdctrls, muiint;
 
 var
   GroupSuperClass: PIClass;
@@ -1493,6 +1493,7 @@ begin
                     if Assigned(MUIWin.FocusedControl) then
                       LCLSendKillFocusMsg(MUIWin.FocusedControl.PasObject); // send 'Unfocus' message
                     LCLSendSetFocusMsg(MUIB.PasObject);                     // send 'Focus' message
+                    FocusWidget := HWND(MUIB.PasObject);
                   end;
                   MUIWin.FocusedControl := MUIB;
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);

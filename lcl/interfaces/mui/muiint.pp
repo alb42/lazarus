@@ -122,7 +122,7 @@ type
 
 var
   MUIWidgetSet: TMUIWidgetSet;
-
+  FocusWidget: Hwnd;
 implementation
 
 uses

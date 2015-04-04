@@ -713,6 +713,11 @@ begin
   Result := 0;
 end;
 
+function TMUIWidgetSet.GetFocus: HWND;
+begin
+  Result := FocusWidget;
+end;
+
 function TMUIWidgetSet.GetKeyState(nVirtKey: Integer): Smallint;
 const
   StateDown: SmallInt = $FF80;
@@ -1362,7 +1367,9 @@ var
   Widget: TMUIObject absolute hWnd;
   Obj: TMUIObject;
   Win: TMUIWindow;
-begin  Result := 0;
+begin 
+  FocusWidget := hwnd;
+  Result := 0;
   if Assigned(Widget) then
   begin
     Win := nil;

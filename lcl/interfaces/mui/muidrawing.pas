@@ -252,6 +252,7 @@ type
     procedure FillRect(X1, Y1, X2, Y2: Integer);
     procedure Rectangle(X1, Y1, X2, Y2: Integer);
     procedure Ellipse(X1, Y1, X2, Y2: Integer);
+    procedure Polygon(Points: Types.PPoint; NumPoint: Integer);
     procedure SetPixel(X,Y: Integer; Color: TColor);
     function GetPixel(X,Y: Integer): TColor;
     procedure FloodFill(X, Y: Integer; Color: TColor);
@@ -1034,6 +1035,53 @@ begin
     SetPenToRP();
     DrawEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);    
   end;  
+end;
+
+procedure TMUICanvas.Polygon(Points: Types.PPoint; NumPoint: Integer);
+const
+  AREA_BYTES = 1000;
+var
+  CurPoint: Types.PPoint;
+  Ras: TPlanePtr;
+  TRas: TTmpRas;
+  WarBuff: array[0..AREA_BYTES] of Word;
+  ari: TAreaInfo;
+  T: TPoint;
+  i: Integer;
+begin
+  if not Assigned(RastPort) then
+    Exit;
+  //
+  Drawn := True;
+  T := GetOffset;
+  if FBrush.FStyle = JAM2 then
+  begin
+    SetBrushToRP(True);
+    Ras := AllocRaster(DrawRect.Right, DrawRect.Bottom);
+    InitTmpRas(@TRas, ras, DrawRect.Right * DrawRect.Bottom * 3);
+		InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
+		RastPort^.TmpRas := @TRas;
+		RastPort^.AreaInfo := @Ari;
+    CurPoint := Points;
+    AreaMove(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
+    for i := 1 to NumPoint - 1 do
+    begin
+      Inc(CurPoint);
+      AreaDraw(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
+    end;
+		AreaEnd(RastPort);
+		RastPort^.TmpRas := nil;
+		RastPort^.AreaInfo := nil;
+    FreeRaster(Ras, DrawRect.Right, DrawRect.Bottom);
+  end;
+  SetPenToRP();
+  CurPoint := Points;
+  GfxMove(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
+  for i := 1 to NumPoint - 1 do
+  begin
+    Inc(CurPoint);
+    Draw(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
+  end;
 end;
 
 procedure TMUICanvas.FloodFill(X, Y: Integer; Color: TColor);

@@ -1212,6 +1212,41 @@ begin
   end;
 end;
 
+function TMUIWidgetSet.Polygon(DC: HDC; Points: PPoint; NumPts: Integer; Winding: boolean): boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('Polygon ', IntToStr(NumPoints));
+  {$endif}
+  if Assigned(ADC) then
+    ADC.Polygon(Points, NumPts);
+end;
+
+function TMUIWidgetSet.Polyline(DC: HDC; Points: PPoint; NumPts: Integer): boolean;
+var
+  CurPoint: PPoint;
+  i: Integer;
+  ADC: TMUICanvas absolute DC;
+begin
+  {$ifdef VERBOSEAROS}
+  writeln('Polyline ', IntToStr(NumPoints));
+  {$endif}
+  Result := False;
+  if Assigned(ADC) then
+  begin
+    Result := True;
+    CurPoint := Points;
+    ADC.MoveTo(CurPoint^.X, CurPoint^.Y);
+    for i := 1 to NumPts - 1 do
+    begin
+      Inc(CurPoint);
+      ADC.LineTo(CurPoint^.X, CurPoint^.Y);
+    end;
+  end;
+end;
+
+
 function TMUIWidgetSet.Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean;
 var
   ADC: TMUICanvas absolute DC;

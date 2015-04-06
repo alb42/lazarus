@@ -144,7 +144,6 @@ var
   Win: TMuiWindow;
   PasWin: TWinControl;
   Miw, Mih, Maw, Mah: Integer;
-  AWin: PWindow;
 begin
   LMsg := Msg;
   Result := LongInt(True);
@@ -175,13 +174,12 @@ begin
         LMsg^.lm_MinMax.DefHeight := Win.Height;
       end else
       begin
-        AWin := Obj_Window(Win.Obj);
-        LMsg^.lm_MinMax.MinWidth := Win.Width - AWin^.BorderRight;
-        LMsg^.lm_MinMax.MinHeight := Win.Height - AWin^.BorderBottom;
-        LMsg^.lm_MinMax.MaxWidth := Win.Width - AWin^.BorderRight;
-        LMsg^.lm_MinMax.MaxHeight := Win.Height - AWin^.BorderBottom;
-        LMsg^.lm_MinMax.DefWidth := Win.Width - AWin^.BorderRight;
-        LMsg^.lm_MinMax.DefHeight := Win.Height - AWin^.BorderBottom;
+        LMsg^.lm_MinMax.MinWidth := Win.Width;
+        LMsg^.lm_MinMax.MinHeight := Win.Height;
+        LMsg^.lm_MinMax.MaxWidth := Win.Width;
+        LMsg^.lm_MinMax.MaxHeight := Win.Height;
+        LMsg^.lm_MinMax.DefWidth := Win.Width;
+        LMsg^.lm_MinMax.DefHeight := Win.Height;
       end;    
       TWinControl(Win.PasObject).Realign;
     end;
@@ -544,17 +542,14 @@ begin
 end;
 
 procedure TMuiWindow.GetSizes;
-var
-  AWin: PWindow;
 begin
   Left := GetAttribute(MUIA_Window_LeftEdge);
   Top := GetAttribute(MUIA_Window_TopEdge);
   //
   if not Sizeable then
   begin
-    AWin := Obj_Window(Obj);
-    Width := GetAttribute(MUIA_Window_Width) - AWin^.BorderRight - 2;
-    Height := GetAttribute(MUIA_Window_Height) - AWin^.BorderBottom - 2;
+    Width := GetAttribute(MUIA_Window_Width) - 2;
+    Height := GetAttribute(MUIA_Window_Height) - 2;
   end else
   begin
     Width := GetAttribute(MUIA_Window_Width);

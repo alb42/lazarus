@@ -1252,8 +1252,9 @@ begin
   Result := 0;
   if State and IEQUALIFIER_LALT <> 0 then
     Result := Result or $20000000;
-  if State and IEQUALIFIER_RALT <> 0 then
-    Result := Result or $20000000;
+  //if State and IEQUALIFIER_RALT <> 0 then
+  //  Result := Result or $20000000;
+  //writeln('ShiftState AROS: ', HexStr(Pointer(State)), ' and ', HexStr(Pointer(IEQUALIFIER_LALT)),' -> ', HexStr(Pointer(Result)));
 end;
 
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
@@ -1279,7 +1280,7 @@ var
   Buff: array[0..19] of Char;
   Ret: Integer;
   CharCode: Word;
-  KeyData: Word;
+  KeyData: PtrInt;
   KeyUp: Boolean;
   ie: TInputEvent;
   Win: PWindow;
@@ -1556,7 +1557,7 @@ begin
                 ie.ie_Class := IECLASS_RAWKEY;
                 ie.ie_SubClass := 0;
                 ie.ie_Code := IMsg^.Code;
-                ie.ie_Qualifier := IMsg^.Qualifier and (not IEQUALIFIER_CONTROL);
+                ie.ie_Qualifier := IMsg^.Qualifier and (not (IEQUALIFIER_CONTROL or IEQUALIFIER_LALT));
                 ie.ie_NextEvent := nil;
                 Buff[0] := #0;
                 Ret := MapRawKey(@ie, @Buff[0], 1, nil);
@@ -1569,7 +1570,7 @@ begin
                 KeyState := IMsg^.Qualifier;
                 IsSysKey := KeyData <> 0;
                 //writeln(' send key: $', IntToHex(KeyData,8) );
-                if (Ret = 1) and (IMsg^.Qualifier and IEQUALIFIER_LALT = 0) then
+                if Ret = 1 then
                 begin 
                   CharCode := RawKeyToKeycode(IMsg^.Code);
                   if CharCode = 0 then
@@ -1581,7 +1582,7 @@ begin
                   begin  
                     //writeln('Down ', Char(CharCode), ' ', Charcode, ' ', Ord(''''));
                     LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
-                    if (IMsg^.Qualifier and IEQUALIFIER_CONTROL = 0) then
+                    if (IMsg^.Qualifier and (IEQUALIFIER_CONTROL or IEQUALIFIER_LALT) = 0) then
                     begin
                       CharCode := Ord(Key); 
                       //writeln('Press ', Char(CharCode), '  ', Key,' ' ,charcode);
@@ -1594,7 +1595,7 @@ begin
                   if KeyUp then
                     LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, IsSysKey)
                   else
-                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, IsSysKey);                  
+                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, IsSysKey);
                 end;
               end;
             end;

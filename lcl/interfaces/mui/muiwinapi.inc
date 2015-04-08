@@ -722,19 +722,23 @@ function TMUIWidgetSet.GetKeyState(nVirtKey: Integer): Smallint;
 const
   StateDown: SmallInt = $FF80;
 var
-  RShift, LShift, Shift, Control, LAlt, RAlt, Alt: Boolean;
+  RShift, LShift, Shift, Control, LAlt, RAlt, Alt, RMeta, LMeta: Boolean;
   LMouse, MMouse, RMouse: Boolean;
 begin
   Result := 0;
-  
+  //writeln('Keystate: ', HexStr(Pointer(KeyState)));
   RShift := KeyState and IEQUALIFIER_RSHIFT <> 0;
   LShift := KeyState and IEQUALIFIER_LSHIFT <> 0;
   Shift := RShift or LShift;  
   Control := KeyState and IEQUALIFIER_CONTROL <> 0; 
-  LAlt := keyState and IEQUALIFIER_LALT <> 0; 
-  RAlt := keyState and IEQUALIFIER_LALT <> 0;    
+  //
+  LAlt := keyState and IEQUALIFIER_LALT <> 0;
+  RAlt := keyState and IEQUALIFIER_RALT <> 0;
   Alt := RAlt or LAlt;
-   
+  //
+  LMeta := keyState and IEQUALIFIER_LCOMMAND <> 0;
+  RMeta := keyState and IEQUALIFIER_RCOMMAND <> 0;
+  //
   LMouse := KeyState and IEQUALIFIER_LEFTBUTTON <> 0;
   MMouse := KeyState and IEQUALIFIER_MIDBUTTON <> 0;
   RMouse := keyState and IEQUALIFIER_RBUTTON <> 0;   
@@ -747,6 +751,8 @@ begin
     VK_LMENU: Result := ifthen(LAlt, StateDown, 0);
     VK_RMENU: Result := ifthen(RAlt, StateDown, 0);
     VK_MENU: Result := ifthen(Alt, StateDown, 0);
+    VK_LWIN: Result := ifthen(LMeta, StateDown, 0);
+    VK_RWIN: Result := ifthen(RMeta, StateDown, 0);
     VK_LBUTTON: Result := ifthen(LMouse, StateDown, 0);
     VK_MBUTTON: Result := ifthen(MMouse, StateDown, 0);
     VK_RBUTTON: Result := ifthen(RMouse, StateDown, 0);
@@ -812,8 +818,8 @@ var
 begin
   Result := False;
   //writeln('Get Scroll info');
-  Exit;
-  {
+  //Exit;
+  
   if Assigned(Widget) then
   begin
     if not Widget.Visible then
@@ -824,12 +830,12 @@ begin
       SC := TMUIScrollbar(Widget.HScroll);  
     if not Assigned(SC) then
       Exit;
-    ScrollInfo.nMin := SC.MinValue + 1;
-    ScrollInfo.nMax := SC.MaxValue + SC.PageSize + 1;
+    ScrollInfo.nMin := SC.MinValue;
+    ScrollInfo.nMax := SC.MaxValue + SC.PageSize;
     ScrollInfo.nPage := SC.PageSize;
-    ScrollInfo.nPos := SC.Position  + 1;      
+    ScrollInfo.nPos := SC.Position;      
     Result := True;
-  end;}
+  end; //}
 end;
 
 const
@@ -1444,6 +1450,9 @@ var
   Sc: TMUIScrollbar;
 begin
   Result := 0;
+  //writeln(' Set ScrollInfo ',SBStyle,' ', ScrollInfo.NMax, ' ', ScrollInfo.nPage);
+  if (ScrollInfo.NMax = 0) and (ScrollInfo.NPage = 0) and (ScrollInfo.NMin = 0) then
+    Exit;
   if Assigned(Widget) then
   begin
     //if not Assigned(Widget.VScroll) or not Assigned(Widget.HScroll) then

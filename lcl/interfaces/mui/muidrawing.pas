@@ -1082,6 +1082,7 @@ begin
     Inc(CurPoint);
     Draw(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
   end;
+  Draw(RastPort, T.X + Points^.X, T.Y + Points^.Y);
 end;
 
 procedure TMUICanvas.FloodFill(X, Y: Integer; Color: TColor);

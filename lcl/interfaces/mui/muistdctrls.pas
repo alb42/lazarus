@@ -235,6 +235,7 @@ type
     FMinValue: Integer;
     FMaxValue: Integer;
     FPageSize: Integer;
+    FPosition: Integer;
     ChangeHook: THook;
     BlockScrollEvent: Boolean;
     function GetHoriz: Boolean;
@@ -302,6 +303,7 @@ end;
 function TMUIScrollBar.GetPosition: Integer;
 begin
   Result := GetAttribute(MUIA_Prop_First) + FMinValue;
+  //DebugLn('LCL: GetPosition: ' + IntToStr(Result) + ' MinValue: ' + IntToStr(FMinValue));
 end;
 
 procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
@@ -310,26 +312,48 @@ begin
 end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
+var
+  Pos: Integer;
 begin
+  //debugln('set MaxValue ' + IntToStr(AValue));
+  if (AValue = FMaxValue) or (AValue <= FMinValue) then
+    Exit;
+  Pos := Position;  
   FMaxValue := AValue;
-  SetAttribute([IPTR(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);
+  SetAttribute([IPTR(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);  
+  Position := Pos;
 end;
 
 procedure TMUIScrollBar.SetMinValue(AValue: Integer);
+var
+  Pos: Integer;
 begin
+  if AValue = FMinValue then
+    Exit;
+  //debugln('set MinValue ' + IntToStr(AValue));
+  Pos := Position;
   FMinValue := AValue;
   SetAttribute([IPTR(MUIA_Prop_Entries), (FMaxValue - AValue) + FPageSize]);
+  Position := Pos;
 end;
 
 procedure TMUIScrollBar.SetPageSize(AValue: Integer);
+var
+  Pos: Integer;
 begin
+  if PageSize = FPageSize then
+    Exit;
+  //debugln('set page size ' + IntToStr(AValue));
+  Pos := Position;
   FPageSize := AValue;
   SetAttribute([IPTR(MUIA_Prop_Entries), (FMaxValue - FMinValue) + AValue]);  
   SetAttribute([IPTR(MUIA_Prop_Visible), AValue]);  
+  Position := Pos;
 end;
 
 procedure TMUIScrollBar.SetPosition(AValue: Integer);
 begin
+  //DebugLn('LCL: set to '+ IntToStr(AValue) + ' Position is ' + IntToStr(Position) + ' MinValue: ' + IntToStr(FMinValue));
   if AValue <> Position then
   begin
     SetAttribute([IPTR(MUIA_Prop_First), AValue - FMinValue]);

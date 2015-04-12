@@ -224,6 +224,7 @@ type
   public
     constructor Create(AStrings:TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
+    procedure SetOwnSize; override;
     property Strings: TStringList read FStrings;
     property Active: LongInt read GetActive write SetActive;
   end;
@@ -781,6 +782,16 @@ begin
     Res := AValue;
   AddTags(TagList, [IPTR(MUIA_List_Active), Res, TAG_END]);  
   SetAttrsA(StrObj, GetTagPtr(TagList));
+end;
+
+procedure TMuiListView.SetOwnSize;
+begin
+  //writeln('Listview set own size: ', FWidth);
+  inherited;
+  //MUI_Layout(FObject, FLeft, FTop, FHeight, FHeight, 0);  
+  //MUI_Layout(StrObj, FLeft, FTop, FWidth, FHeight, 0);
+  
+  //MUI_Layout(StrObj, FLeft, FTop, FWidth, FHeight, 0);  
 end;
 
 { TMuiButton }

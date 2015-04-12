@@ -39,7 +39,7 @@ uses
   MUIBaseUnit, MUIFormsUnit, muidrawing,
   {$ifdef HASAMIGA}
   exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray, cybergraphics,
-  inputevent, Cliputils,
+  inputevent, Cliputils, icon,
   {$endif}
   // widgetset
   WSLCLClasses, LCLMessageGlue;
@@ -67,6 +67,7 @@ type
 
   TMUIWidgetSet = class(TWidgetSet)
   protected
+    ThisAppDiskIcon: Pointer;
     function CreateThemeServices: TThemeServices; override;
     function GetAppHandle: THandle; override;
   public
@@ -235,10 +236,11 @@ begin
     Info.Free;
   except
   end;
-  
+  ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));  
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   AddTags(TagList, [
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
+    LongInt(MUIA_Application_DiskObject), ThisAppDiskIcon,
     LongInt(MUIA_Application_Title), PChar(AppTitle),
     LongInt(MUIA_Application_Version), PChar(FinalVers),
     LongInt(MUIA_Application_Copyright), PChar(CopyR),
@@ -260,7 +262,7 @@ end;
 
 procedure TMUIWidgetSet.AppTerminate;
 begin
-
+  FreeDiskObject(ThisAppDiskIcon);
 end;
 
 procedure TMUIWidgetSet.AppMinimize;

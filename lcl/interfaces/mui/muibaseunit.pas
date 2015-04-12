@@ -836,12 +836,18 @@ end;
 procedure TMuiApplication.AddInvalidatedObject(AObj: TMUIObject);
 var
   Index: Integer;
+  PObj: TMUIObject;
 begin
   if not Assigned(AObj) then
-    Exit;
-  Index := FInvalidatedObjects.IndexOf(AObj);
-  if Index >= 0 then 
-    Exit;
+    Exit;  
+  PObj := AObj;
+  while Assigned(PObj) do
+  begin
+    Index := FInvalidatedObjects.IndexOf(AObj);
+    if Index >= 0 then 
+      Exit;
+    PObj := PObj.Parent;  
+  end;  
   FInvalidatedObjects.Add(AObj);  
 end;
 
@@ -1460,6 +1466,11 @@ begin
         // Eat this Event if it is inside our border
         // but not inside of any of my Childs
         EatEvent := OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj);
+        if EatEvent and not MUIB.Enabled then
+        begin
+          Result := MUI_EventHandlerRC_Eat;
+          Exit;
+        end;  
         for i := 0 to MUIB.FChilds.Count - 1 do
         begin
           if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then

@@ -500,7 +500,8 @@ end;
 
 function RegisterPopupMenu: Boolean; alias : 'WSRegisterPopupMenu';
 begin
-  Result := False;
+  RegisterWSComponent(TPopupMenu, TMUIWSPopupMenu);
+  Result := True;
 end;
 
 function RegisterPairSplitterSide: Boolean; alias : 'WSRegisterPairSplitterSide';

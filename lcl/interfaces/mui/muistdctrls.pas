@@ -87,6 +87,7 @@ type
 
   TMuiStringEdit = class(TMuiArea)
   private
+    EditHook: THook;
     TextChanged: THook;
     TextDone: THook;
     FNumbersOnly: Boolean;
@@ -1009,6 +1010,18 @@ begin
   end;
 end;
 
+procedure TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+var
+  MuiObject: TMuiObject;
+begin
+  writeln('edit text Event');
+  if TObject(Hook^.h_Data) is TMuiObject then
+  begin
+    //MuiObject := TMuiObject(Hook^.h_Data);
+    //SendSimpleMessage(MuiObject.PasObject, CM_TEXTCHANGED);
+  end;
+end;
+
 function TMuiStringEdit.GetText: string;
 var
   Pc: PChar;
@@ -1033,10 +1046,20 @@ begin
 end;
 
 constructor TMuiStringEdit.Create(var Tags: TTagsList);
+var
+  p: Pointer;
 begin
+  EditHook.h_Entry := IPTR(@TextEditFunc);
+  EditHook.h_SubEntry := 0;
+  EditHook.h_Data := Self;
+  P := @EditHook;
+  // Edithook does not work currently
   AddTags(Tags, [
     MUIA_Background, MUII_TextBack,
-    MUIA_Frame, MUIV_Frame_String 
+    MUIA_Frame, MUIV_Frame_String
+    //,
+    //MUIA_String_EditHook, P,
+    //MUIA_String_LonelyEditHook, 1
   ]);
   inherited Create(MUIC_String, GetTagPtr(Tags));
   //
@@ -1061,7 +1084,6 @@ begin
       2,
       IPTR(MUIM_CallHook), @TextDone
       ]);
-      
 end;
 
 destructor TMuiStringEdit.Destroy;

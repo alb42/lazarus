@@ -30,12 +30,15 @@ uses
   {$endif};
 
 const
-  FONTREPLACEMENTS: array[0..1] of record
+  FONTREPLACEMENTS: array[0..2] of record
     OldName: string;
     NewName: string;
   end =
     (
      (OldName: 'default';
+      NewName: 'Arial';),
+      
+     (OldName: 'tahoma';
       NewName: 'Arial';),
 
      (OldName: 'courier';
@@ -86,6 +89,7 @@ type
     FFontFace: string;
     FHeight: Integer;
     FontHandle: PTextFont;
+    FontStyle: LongWord;
     FIsItalic: Boolean;
     FIsBold: Boolean;
     FIsUnderlined: Boolean;
@@ -375,7 +379,6 @@ begin
     end;
   end;
   FontFile := LowerCase(SFontName + '.font');
-
   TextAttr.ta_Style := FS_NORMAL;
   if FIsItalic then
     TextAttr.ta_Style := TextAttr.ta_Style or FSF_ITALIC;
@@ -383,12 +386,14 @@ begin
     TextAttr.ta_Style := TextAttr.ta_Style or FSF_BOLD;
   if FIsUnderlined then
     TextAttr.ta_Style := TextAttr.ta_Style or FSF_UNDERLINED;
+  FontStyle := TextAttr.ta_Style;  
   TextAttr.ta_Name := PChar(FontFile);
   TextAttr.ta_YSize := FHeight;
   TextAttr.ta_Flags := FPF_DISKFONT;
   FontHandle := OpenDiskFont(@TextAttr);
   //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
+  //writeln(   ' FontStyle = ', HexStr(Pointer(FontStyle)));
 end;
 
 procedure TMUIFontObj.CloseFontHandle;
@@ -1194,6 +1199,7 @@ begin
   if Assigned(RastPort) then
   begin    
     SetPenToRP;
+    //SetFontToRP;
     //SetBrushToRP;
     Drawn := True;
     Hi := TextHeight('|', 1);
@@ -1281,10 +1287,10 @@ end;
 
 procedure TMUICanvas.InitCanvas;
 begin
+  DeInitCanvas;
   SetPenToRP;
   SetBrushToRP;
   SetFontToRP;
-  DeInitCanvas;
 end;
 
 procedure TMUICanvas.DeInitCanvas;
@@ -1298,6 +1304,8 @@ begin
   FClipping.Top := 0;
   FClipping.Right := 0;
   FClipping.Bottom := 0;
+  if Assigned(RastPort) then
+    SetSoftStyle(RastPort, 0, $FFFFFFFF);
 end;
 
 procedure TMUICanvas.SetFontToRP;
@@ -1306,7 +1314,12 @@ begin
   begin
     if Assigned(FFont) and Assigned(FFont.FontHandle) then
     begin
-      SetFont(RastPort, FFont.FontHandle);
+      SetFont(RastPort, FFont.FontHandle);   
+      SetSoftStyle(RastPort, FFont.FontStyle, $FFFFFFFF);
+    end else
+    begin
+      SetFont(RastPort, FDefaultFont.FontHandle);
+      SetSoftStyle(RastPort, 0, $FFFFFFFF);      
     end;
   end;
 end;

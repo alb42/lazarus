@@ -1343,8 +1343,7 @@ begin
     end;
     MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
-      //writeln(' DRAW');
-      
+      //writeln(' DRAW');      
       if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
        Exit;      
       rp := nil;
@@ -1353,6 +1352,7 @@ begin
         rp := ri^.mri_RastPort;
       if Assigned(rp) then
       begin
+        SetSoftStyle(rp, 0, $FFFFFFFF);
         MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
         clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj),
             Obj_Width(Obj), Obj_Height(Obj));                
@@ -1395,7 +1395,7 @@ begin
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
-              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW + PaintX, PaintH + PaintY, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
               ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin
@@ -1412,20 +1412,19 @@ begin
             MUIB.FMUICanvas.InitCanvas;
             //writeln('-->Draw ', MUIB.FMUICanvas.DrawRect.Top, ', ', MUIB.FMUICanvas.DrawRect.Bottom);
             MUIB.DoRedraw;
-
             if Assigned(MUIB.FOnDraw) then
             begin
               MUIB.FOnDraw(MUIB);
-            end;  
+            end;
             MUIB.FMUICanvas.DeInitCanvas;
-            if Buffered then
-            begin
+            if Buffered and Assigned(MUIB.FMUICanvas.RastPort) then
+            begin              
               ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, PaintX, PaintY, PaintW, PaintH, $00C0);
               FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;
-            end;
-            //writeln('<--Draw ', muib.classname);   
+            end;            
+            //writeln('<--Draw ', muib.classname);               
           end;
         finally
           MUI_RemoveClipRegion(ri, clip);

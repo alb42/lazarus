@@ -83,6 +83,7 @@ type
 
   TMuiWSPopupMenu = class(TWSPopupMenu)
   published
+    class function CreateHandle(const AMenu: TMenu): HMENU; override;
     class procedure Popup(const APopupMenu: TPopupMenu; const X, Y: integer); override;
   end;
 
@@ -117,7 +118,9 @@ class procedure TMuiWSMenuItem.AttachMenu(const AMenuItem: TMenuItem);
 
 begin
   //writeln('TMuiWidgetSet.AttachMenu START ',AMenuItem.Name,':',AMenuItem.ClassName,' Parent=',AMenuItem.Parent.Name,':',AMenuItem.Parent.ClassName);
-  //writeln('--> attachmenu');
+  //writeln('--> attachmenu ', HexStr(Pointer(AMenuItem.Handle)));
+  if (AMenuItem.Handle <= 1) or (AMenuItem.Parent.Handle <= 1) then
+    Exit;
   TMuiFamily(AMenuItem.Parent.Handle).AddTail(TMuiFamily(AMenuItem.Handle));
   TMuiFamily(AMenuItem.Handle).Par := TMuiFamily(AMenuItem.Parent.Handle);
 end;
@@ -172,6 +175,8 @@ begin
   MuiMenu:= TMuiFamily(AMenuItem.Handle);
   if AMenuItem.HasParent then
   begin
+    if (AMenuItem.Handle <= 1) or (AMenuItem.Parent.Handle <= 1) then
+      Exit;
     TMuiFamily(AMenuItem.Parent.Handle).Remove(MuiMenu);
     MuiMenu.Free;
   end;  
@@ -328,7 +333,7 @@ end;
 class function TMuiWSMenu.CreateHandle(const AMenu: TMenu): HMENU;
 begin
   //writeln('_____>>>>Create Menu');
-  REsult := HMENU(0);
+  REsult := HMENU(1);
 end;
 
 class procedure TMuiWSMenu.SetBiDiMode(const AMenu: TMenu;
@@ -339,6 +344,12 @@ end;
 
 { TMuiWSPopupMenu }
 
+class function TMUIWSPopupMenu.CreateHandle(const AMenu: TMenu): HMENU;
+begin
+  //writeln('create Popupmenu ', HexStr(Amenu.Parent));
+  Result := 1;
+end;
+
 {------------------------------------------------------------------------------
   Function: TMuiWSPopupMenu.Popup
   Params:  None
@@ -348,7 +359,7 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSPopupMenu.Popup(const APopupMenu: TPopupMenu; const X, Y: integer);
 begin
-  writeln('-->Creates a PopupMenu');
+  //writeln(' open PopupMenu');
   //
 end;
 

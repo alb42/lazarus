@@ -233,6 +233,9 @@ type
     FDefaultFont: TMUIFontObj;
     FClip: Pointer;
     FClipping: TRect;
+    OldAPen: LongWord;
+    OldBPen: LongWord;
+    OldFont: PTextFont;
   public
     Drawn: Boolean;
     RastPort: PRastPort;
@@ -1287,6 +1290,12 @@ end;
 
 procedure TMUICanvas.InitCanvas;
 begin
+  if Assigned(RastPort) then
+  begin
+    OldAPen := GetAPen(RastPort);
+    OldBPen := GetBPen(RastPort);
+    OldFont := RastPort^.Font;
+  end;
   DeInitCanvas;
   SetPenToRP;
   SetBrushToRP;
@@ -1305,7 +1314,12 @@ begin
   FClipping.Right := 0;
   FClipping.Bottom := 0;
   if Assigned(RastPort) then
+  begin
     SetSoftStyle(RastPort, 0, $FFFFFFFF);
+    SetAPen(RastPort, OldAPen);
+    SetBPen(RastPort, OldBPen);
+    SetFont(RastPort, OldFont);
+  end;  
 end;
 
 procedure TMUICanvas.SetFontToRP;
@@ -1329,11 +1343,11 @@ var
   T: TPoint;
 begin
   if Assigned(FClip) then
-    MUI_RemoveClipRegion(RenderInfo, FClip);
+    MUI_RemoveClipRegion(RenderInfo, FClip); 
   FClip := nil;
   FClipping.Left := 0;
   FClipping.Top := 0;
-  if Assigned(AClip) then
+  if Assigned(AClip) and Assigned(RenderInfo) then
   begin
     if AClip.GetRegionType = eRegionNULL then
       Exit;

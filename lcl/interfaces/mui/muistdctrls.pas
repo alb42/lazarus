@@ -1056,6 +1056,7 @@ begin
   // Edithook does not work currently
   AddTags(Tags, [
     MUIA_Background, MUII_TextBack,
+    MUIA_Font, MUIV_Font_Title,
     MUIA_Frame, MUIV_Frame_String
     //,
     //MUIA_String_EditHook, P,
@@ -1621,8 +1622,10 @@ procedure TFlowString.Clear;
 begin
   if Assigned(FMuiObject) then
   begin
+    SL.BeginUpdate;
     SL.Clear;
     CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000024)]);
+    SL.EndUpdate;
   end;
 end;
 

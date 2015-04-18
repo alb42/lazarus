@@ -221,8 +221,8 @@ class procedure TMuiWSWinControl.GetPreferredSize(
 begin
   if Assigned(AWinControl) then
   begin
-    PreferredHeight:=AWinControl.Height;
-    PreferredWidth:=AWinControl.Width;
+    PreferredHeight:=20;//AWinControl.Height;
+    PreferredWidth:=20;//AWinControl.Width;
   end;  
   //writeln('Prefered Size',PreferredHeight,',',PreferredWidth);
 end;

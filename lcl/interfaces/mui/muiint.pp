@@ -734,7 +734,7 @@ begin
       if DataStream.Size > 0 then
       begin
         DataStream.Seek(0, soFromBeginning); 
-        Temp := DataStream.ReadString(DataStream.Size);
+        Temp := DataStream.ReadString(DataStream.Size - 1);
         PutTextToClip(0, Temp);
       end;  
     end;  

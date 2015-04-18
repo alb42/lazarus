@@ -52,6 +52,9 @@ unit SynEdit;
 
 {$I synedit.inc}
 
+{$ifdef AROS}
+{$DEFINE EnableDoubleBuf}
+{$endif}
 
 {$IFDEF LCLGTK1}
 {$DEFINE EnableDoubleBuf} // gtk1 does not have double buffering
@@ -1629,6 +1632,11 @@ begin
   {$IFDEF LCLcarbon}
     SynDefaultFontName   := 'Monaco'; // Note: carbon is case sensitive
     SynDefaultFontHeight := 12;
+    {$DEFINE SynDefaultFont}  
+  {$ENDIF}
+  {$IFDEF AROS}
+    SynDefaultFontName   := 'ttcourier';
+    SynDefaultFontHeight := 13;
     {$DEFINE SynDefaultFont}
   {$ENDIF}
   // LCLgtk2 and LCLQt use default settings

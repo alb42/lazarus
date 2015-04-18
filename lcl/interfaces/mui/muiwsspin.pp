@@ -36,6 +36,9 @@ type
 
   TMUIWSCustomFloatSpinEdit = class(TWSCustomFloatSpinEdit)
   published
+    class procedure GetPreferredSize(const AWinControl: TWinControl;
+                            var PreferredWidth, PreferredHeight: integer;
+                            WithThemeSpace: Boolean); override;
     class function GetSelStart(const ACustomEdit: TCustomEdit): integer; override;
     class function GetSelLength(const ACustomEdit: TCustomEdit): integer; override;
     class function GetValue(const ACustomFloatSpinEdit: TCustomFloatSpinEdit): Double; override;
@@ -52,6 +55,13 @@ implementation
 
 
 { TMUIWSCustomFloatSpinEdit }
+
+
+class procedure TMUIWSCustomFloatSpinEdit.GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  PreferredHeight := 25;
+  PreferredWidth := AWinControl.Width;
+end;
 
 class function TMUIWSCustomFloatSpinEdit.GetSelStart(const ACustomEdit: TCustomEdit): integer;
 begin

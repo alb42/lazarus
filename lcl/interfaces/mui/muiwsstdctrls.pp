@@ -79,6 +79,7 @@ type
       const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
 
+    class procedure GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean); override;
     class function  GetItemIndex(const ACustomComboBox: TCustomComboBox): integer; override;
     class procedure SetItemIndex(const ACustomComboBox: TCustomComboBox; NewIndex: integer); override;
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
@@ -182,6 +183,7 @@ type
   private
   protected
   published
+    class procedure GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean); override;
     class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
     class procedure Invalidate(const AWinControl: TWinControl); override;
@@ -198,7 +200,7 @@ type
     class function  CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
-
+    
     class function  RetrieveState(const ACustomCheckBox: TCustomCheckBox): TCheckBoxState; override;
     class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
@@ -424,6 +426,28 @@ begin
   AWinControl.Handle := 0;
 end;
 
+class procedure TMUIWSCustomComboBox.GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+var
+  i: Integer;
+  CCN: TCustomComboBox absolute AWinControl;
+  MaxWidth: Integer;
+begin
+  PreferredHeight := 22;
+  PreferredWidth := 50;  
+  if Assigned(CCN) then
+  begin
+    MaxWidth := Length(CCN.Text);
+    for i := 0 to CCN.Items.Count - 1 do
+    begin
+      if Length(CCN.Items[i]) > MaxWidth then
+        MaxWidth := Length(CCN.Items[i]);
+    end;
+    PreferredWidth := 20 + (MaxWidth + 2) * 7;
+  end;
+  if AWinControl.Width < PreferredWidth then
+    PreferredWidth := AWinControl.Width;
+end;
+
 {------------------------------------------------------------------------------
   Method: TMUIWSCustomComboBox.GetItemIndex
   Params:  None
@@ -571,12 +595,24 @@ end;
 
 class procedure TMUIWSCustomEdit.SetNumbersOnly(const ACustomEdit: TCustomEdit; NewNumbersOnly: Boolean);
 begin
-  writeln('set numbers only ', NewNumbersOnly);
+  //writeln('set numbers only ', NewNumbersOnly);
   if TObject(ACustomEdit.Handle) is TMuiStringEdit then
     TMuiStringEdit(ACustomEdit.Handle).NumbersOnly := NewNumbersOnly; 
 end;
 
 { TMUIWSButton }
+
+class procedure TMUIWSButton.GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  PreferredHeight := 20;
+  PreferredWidth := 150;
+  if AWinControl is TCustomButton then
+  begin
+    PreferredWidth := 7 * Length(TCustomButton(AWinControl).Caption);
+  end;
+  if AWinControl.Width < PreferredWidth then
+    PreferredWidth := AWinControl.Width;
+end;
 
 {------------------------------------------------------------------------------
   Method: TMUIWSButton.GetText
@@ -649,6 +685,15 @@ end;
 
 { TMUIWSCustomCheckBox }
 
+class procedure TMUIWSCustomCheckBox.GetPreferredSize(const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  PreferredHeight := 20;
+  PreferredWidth := Length(AWinControl.Caption) * 7 + 40;
+  if AWinControl.Width < PreferredWidth then
+    PreferredWidth := AWinControl.Width;
+end;
+
+
 class function TMUIWSCustomCheckBox.RetrieveState(
   const ACustomCheckBox: TCustomCheckBox): TCheckBoxState;
 begin
@@ -684,13 +729,6 @@ begin
   //
   //writeln('checkmark text: ',AText);
   TMuiArea(AWinControl.Handle).Caption := AText;
-end;
-
-class procedure TMUIWSCustomCheckBox.GetPreferredSize(
-  const AWinControl: TWinControl; var PreferredWidth, PreferredHeight: integer;
-  WithThemeSpace: Boolean);
-begin
-  //
 end;
 
 class function TMUIWSCustomCheckBox.CreateHandle(

@@ -824,6 +824,9 @@ begin
   begin
     if not Widget.Visible then
       Exit;
+    SC := nil;
+    if TObject(Widget) is TMUIScrollbar then  
+      SC := TMUIScrollbar(Widget);  
     if BarFlag = SB_VERT then
       SC := TMUIScrollbar(Widget.VScroll);
     if BarFlag = SB_Horz then

@@ -147,6 +147,7 @@ end;
 // comctrls
 function RegisterStatusBar: Boolean; alias : 'WSRegisterStatusBar';
 begin
+  RegisterWSComponent(TStatusBar, TMuiWSStatusBar);
   Result := False;
 end;
 

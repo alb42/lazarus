@@ -21,7 +21,8 @@ interface
 
 uses
   // Bindings
-  muicomctrls, muibaseunit, dos, exec,
+  muicomctrls, muibaseunit, muistdctrls,
+  dos, exec,
   // LCL
   Classes,
   ComCtrls, Controls, LCLType, mui,
@@ -49,7 +50,8 @@ type
       const AChild: TCustomPage; const AIndex: integer); override;
     
     class procedure SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer); override;
-    
+
+    class procedure ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean); override;
     (*class procedure MovePage(const ATabControl: TCustomTabControl;
       const AChild: TCustomPage; const NewIndex: integer); override;
 
@@ -58,9 +60,8 @@ type
     class function GetNotebookMinTabWidth(const AWinControl: TWinControl): integer; override;
     class function GetTabIndexAtPos(const ATabControl: TCustomTabControl; const AClientPos: TPoint): integer; override;
     class function GetTabRect(const ATabControl: TCustomTabControl; const AIndex: Integer): TRect; override;
-    class procedure SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer); override;
     class procedure SetTabPosition(const ATabControl: TCustomTabControl; const ATabPosition: TTabPosition); override;
-    class procedure ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean); override;
+
     class procedure UpdateProperties(const ATabControl: TCustomTabControl); override;*)
   end;
   
@@ -90,7 +91,16 @@ type
   TmuiWSStatusBar = class(TWSStatusBar)
   private
   protected
-  public
+  published
+    class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
+    class procedure PanelUpdate(const AStatusBar: TStatusBar; PanelIndex: integer); override;
+    class procedure SetPanelText(const AStatusBar: TStatusBar; PanelIndex: integer); override;
+    class procedure Update(const AStatusBar: TStatusBar); override;
+    class procedure GetPreferredSize(const {%H-}AWinControl: TWinControl;
+                        var {%H-}PreferredWidth, PreferredHeight: integer;
+                        {%H-}WithThemeSpace: Boolean); override;
+
+    class procedure SetSizeGrip(const AStatusBar: TStatusBar; {%H-}SizeGrip: Boolean); override;
   end;
 
   { TmuiWSTabSheet }
@@ -250,6 +260,71 @@ begin
     MuiRegister.ActivePage := AIndex;
   end;  
 end;
+
+class procedure TMUIWSCustomTabControl.ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean);
+begin
+  //RecreateWnd(ATabControl);
+end;
+
+{ TmuiWSStatusBar }
+
+class function  TmuiWSStatusBar.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
+var
+  MUIText: TMUIText;
+  TagList: TTagsList;
+begin
+  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Text]);
+  MUIText := TMUIText.Create(TagList);
+  with MUIText do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+    Caption := TStatusBar(AWinControl).SimpleText;
+  end;
+  if AWinControl.Parent <> NIL then
+  begin
+    MUIText.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  Result := TLCLIntfHandle(MUIText);
+end;
+
+class procedure TmuiWSStatusBar.PanelUpdate(const AStatusBar: TStatusBar; PanelIndex: integer);
+begin
+  //
+end;
+
+class procedure TmuiWSStatusBar.SetPanelText(const AStatusBar: TStatusBar; PanelIndex: integer);
+var
+  Area: TMUIText;
+begin
+  Area := TMUIText(AStatusBar.Handle);
+  if Assigned(Area) then
+  begin
+    Area.Caption := AStatusbar.SimpleText;
+  end;
+end;
+
+class procedure TmuiWSStatusBar.Update(const AStatusBar: TStatusBar);
+begin
+
+end;
+
+class procedure TmuiWSStatusBar.GetPreferredSize(const {%H-}AWinControl: TWinControl;
+                    var {%H-}PreferredWidth, PreferredHeight: integer;
+                    {%H-}WithThemeSpace: Boolean);
+begin
+  PreferredHeight := 22;
+  PreferredWidth := 100;
+end;
+
+class procedure TmuiWSStatusBar.SetSizeGrip(const AStatusBar: TStatusBar; {%H-}SizeGrip: Boolean);
+begin
+
+end;
+
 
 { TmuiWSProgressBar }
 

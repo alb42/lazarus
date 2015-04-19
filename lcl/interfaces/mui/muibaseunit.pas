@@ -129,6 +129,8 @@ type
   { TMuiArea }
 
   TMuiArea = class(TMUIObject)
+  private
+    FCaption: string;
   protected
     function GetChecked: longbool; virtual;
     procedure SetChecked(const AValue: longbool); virtual;
@@ -932,7 +934,8 @@ end;
 
 procedure TMuiArea.SetCaption(const AValue: string);
 begin
-  SetAttribute([IPTR(MUIA_Text_Contents), PChar(AValue), TAG_END]);
+  FCaption := AValue;
+  SetAttribute([IPTR(MUIA_Text_Contents), IPTR(PChar(FCaption)), TAG_END]);
 end;
 
 procedure TMuiArea.SetDragable(const AValue: boolean);

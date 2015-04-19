@@ -212,6 +212,7 @@ begin
   MUIRegister := TMUIRegister.Create(MUIC_Group, TagList);
   With MUIRegister do
   begin
+    ShowTabs := TCustomTabControl(AWinControl).ShowTabs;
     Left := AParams.X;
     Top := AParams.Y;
     Width := AParams.Width;

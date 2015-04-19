@@ -44,7 +44,7 @@ const
      (OldName: 'courier';
       NewName: 'ttcourier';)
       );
-
+  ALLSTYLES = FSF_ITALIC or FSF_BOLD or FSF_UNDERLINED;
 
 type
   TMUICanvas = class;
@@ -235,7 +235,11 @@ type
     FClipping: TRect;
     OldAPen: LongWord;
     OldBPen: LongWord;
+    OldOPen: LongWord;
     OldFont: PTextFont;
+    OldDrMd: LongWord;
+    OldStyle: LongWord;
+    InitDone: Boolean;
   public
     Drawn: Boolean;
     RastPort: PRastPort;
@@ -1270,6 +1274,7 @@ begin
   TextColor := 0;
   Drawn := True;
   BKColor := clNone;
+  InitDone := False;
   //writeln('<--TCanvas.create ', HexStr(Self));
 end;
 
@@ -1289,14 +1294,20 @@ begin
 end;
 
 procedure TMUICanvas.InitCanvas;
-begin
+begin  
+  if InitDone then
+    Exit;  
+  //DeInitCanvas;
+  InitDone := True;
   if Assigned(RastPort) then
   begin
     OldAPen := GetAPen(RastPort);
     OldBPen := GetBPen(RastPort);
+    OldOPen := GetOutlinePen(RastPort);
     OldFont := RastPort^.Font;
+    OldDrMd := GetDrMd(RastPort);
+    OldStyle := SetSoftStyle(RastPort, 0,0);
   end;
-  DeInitCanvas;
   SetPenToRP;
   SetBrushToRP;
   SetFontToRP;
@@ -1304,6 +1315,9 @@ end;
 
 procedure TMUICanvas.DeInitCanvas;
 begin
+  if not InitDone then
+    Exit;
+  InitDone := False;  
   if Assigned(FClip) and Assigned(RenderInfo) then
   begin
     MUI_RemoveClipRegion(RenderInfo, FClip);
@@ -1315,10 +1329,12 @@ begin
   FClipping.Bottom := 0;
   if Assigned(RastPort) then
   begin
-    SetSoftStyle(RastPort, 0, $FFFFFFFF);
     SetAPen(RastPort, OldAPen);
     SetBPen(RastPort, OldBPen);
+    SetOutlinePen(RastPort, OldOPen);
     SetFont(RastPort, OldFont);
+    SetDrMd(RastPort, OldDrMd);
+    SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
   end;  
 end;
 
@@ -1329,11 +1345,11 @@ begin
     if Assigned(FFont) and Assigned(FFont.FontHandle) then
     begin
       SetFont(RastPort, FFont.FontHandle);   
-      SetSoftStyle(RastPort, FFont.FontStyle, $FFFFFFFF);
+      SetSoftStyle(RastPort, FFont.FontStyle, ALLSTYLES);
     end else
     begin
       SetFont(RastPort, FDefaultFont.FontHandle);
-      SetSoftStyle(RastPort, 0, $FFFFFFFF);      
+      SetSoftStyle(RastPort, 0, ALLSTYLES);      
     end;
   end;
 end;

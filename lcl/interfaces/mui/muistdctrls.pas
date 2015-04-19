@@ -1056,7 +1056,7 @@ begin
   // Edithook does not work currently
   AddTags(Tags, [
     MUIA_Background, MUII_TextBack,
-    MUIA_Font, MUIV_Font_Title,
+    MUIA_Font, MUIV_Font_Button,
     MUIA_Frame, MUIV_Frame_String
     //,
     //MUIA_String_EditHook, P,
@@ -1245,6 +1245,7 @@ begin
     MUIA_String_Format, MUIV_String_Format_Right, 
     MUIA_Background, MUII_TextBack,
     MUIA_Frame, MUIV_Frame_String,
+    MUIA_Font, MUIV_Font_Fixed,
     MUIA_Group_Spacing, 0,
     MUIA_String_MaxLen, 100,
     MUIA_String_Accept, PChar(FloatChars)

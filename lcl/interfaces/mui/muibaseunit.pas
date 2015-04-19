@@ -36,8 +36,7 @@ type
     FPasObject: TControl;
     FOnDraw: TNotifyEvent;
     FMuiCanvas: TMUICanvas;
-    function GetEnabled: boolean;
-    procedure SetEnabled(AValue: boolean);
+    
   protected
     //Position
     FLeft, FTop, FWidth, FHeight: longint;
@@ -59,6 +58,8 @@ type
     procedure RemoveChild(Child: TMUIObject); virtual;
     procedure SetVisible(const AValue: boolean); virtual;
     function GetVisible: boolean; virtual;
+    function GetEnabled: boolean; virtual;
+    procedure SetEnabled(const AValue: boolean); virtual;
 
     procedure SetLeft(ALeft: integer); virtual;
     procedure SetTop(ATop: integer); virtual;
@@ -134,13 +135,13 @@ type
     function GetCaption: string; virtual;
     function GetDragable: boolean; virtual;
     function GetDropable: boolean; virtual;
-    function GetEnabled: boolean; virtual;
+    function GetEnabled: boolean; override;
     function GetHint: string; virtual;
     function GetTabStop: boolean; virtual;
     procedure SetCaption(const AValue: string); virtual;
     procedure SetDragable(const AValue: boolean); virtual;
     procedure SetDropable(const AValue: boolean); virtual;
-    procedure SetEnabled(const AValue: boolean); virtual;
+    procedure SetEnabled(const AValue: boolean); override;
     procedure SetHint(const AValue: string); virtual;
     procedure SetTabStop(const AValue: boolean); virtual;
   public
@@ -480,7 +481,7 @@ begin
   Result := not boolean(GetAttribute(MUIA_Disabled));
 end;
 
-procedure TMUIObject.SetEnabled(AValue: boolean);
+procedure TMUIObject.SetEnabled(const AValue: boolean);
 begin
   if AValue then
     SetAttribute([longint(MUIA_Disabled), LFalse, TAG_END])
@@ -1352,7 +1353,6 @@ begin
         rp := ri^.mri_RastPort;
       if Assigned(rp) then
       begin
-        SetSoftStyle(rp, 0, $FFFFFFFF);
         MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
         clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj),
             Obj_Width(Obj), Obj_Height(Obj));                

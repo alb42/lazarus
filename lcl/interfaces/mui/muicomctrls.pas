@@ -3,7 +3,8 @@ unit muicomctrls;
 interface
 
 uses
-  controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition, Types;
+  controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition, Types,
+  ComCtrls, LCLMessageGlue, LMessages, LCLType;
 
 type
 
@@ -34,22 +35,38 @@ type
   end;
   
   TMUIGroup = class(TMUIArea)
-  private
-    function GetActivePage: Integer;
-    procedure SetActivePage(AValue: Integer);
   protected
     procedure BasicInitOnCreate(); override;  
+    procedure InstallHooks; override;
+    function GetActivePage: Integer; virtual;
+    procedure SetActivePage(AValue: Integer); virtual;
   public
     property ActivePage: Integer read GetActivePage write SetActivePage;    
   end;
   
   TMUIRegister = class(TMUIGroup)
   private
-    
+    FActivePage: Integer;
+    FRegister: TMUIArea;
+    FTexts: TMUIGroup;
+    FRegisterHeight: Integer;
+    TabHook: THook;
   protected
     procedure BasicInitOnCreate(); override;
-      
+    procedure SetParent(const AValue: TMUIObject); override;
+    procedure InstallHooks; override;
+    procedure SetLeft(ALeft: Integer); override;
+    procedure SetTop(ATop: Integer); override;
+    procedure SetWidth(AWidth: Integer); override;
+    procedure SetHeight(AHeight: Integer); override;
+    function GetHeight: Integer; override;
+    function GetActivePage: Integer; override;
+    procedure SetActivePage(AValue: Integer); override;
+    procedure SetVisible(const AValue: boolean); override;
+    procedure SetEnabled(const AValue: boolean); override;
+    function RegisterHeight: Integer;
   public
+    ShowTabs: Boolean;
     FNames: array[0..100] of PChar;
     constructor Create(AClassName: PChar; var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -157,23 +174,27 @@ begin
   inherited;
 end;
 
+procedure TMUIGroup.InstallHooks;
+begin
+end;
+
 { TMUIRegister }
 
 constructor TMUIRegister.Create(AClassName: PChar; var TagList: TTagsList);
 var
   i: Integer;
   MyStr: string;
+  tg: TTagsList;
+  gt: TTagsList;
 begin
+  FActivePage := -1;
+  FRegisterHeight := 30;
   //writeln('I got it');
-  //FNames[0] := GetMem(100);
-  //StrCopy(FNames[0], 'Page 1');
-  //FNames[1] := GetMem(100);
-  //StrCopy(FNames[1], 'Page 2');
-  //FNames[2] := GetMem(100);
-  //StrCopy(FNames[2], 'Page3');
-  //FNames[0] := nil;
-  
-  //AddTags(TagList, [MUIA_Register_Titles, @FNames[0], MUIA_Register_Frame, True]);
+  FNames[0] := GetMem(100);
+  StrCopy(FNames[0], ' ');
+  FNames[1] := nil;
+  AddTags(tg, [MUIA_Register_Titles, IPTR(@FNames[0])]);
+  FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
   inherited Create(AClassName, GetTagPtr(TagList));
 end;
 
@@ -183,49 +204,218 @@ begin
 end;
 
 destructor TMUIRegister.Destroy;
-var
-  i: Integer;
 begin
   inherited;
-  //for i := 0 to High(FNames) do
-  //  if Assigned(FNames[i]) then
-  //    FreeMem(FNames[i]);
+  FTexts.Free;
 end;
 
-procedure TMUIRegister.AddChild(APage: TMUIObject);
-//var
-  //sIdx: Integer;
-  //Idx: Integer;
-  //i: Integer;
-  //MyStr: string;
+procedure TMUIRegister.InstallHooks;
 begin
-  
-  {writeln('recreate ', FChilds.Count + 1); // Elements  
-  for i := 0 to FChilds.Count do
+end;
+
+procedure TMUIRegister.SetParent(const AValue: TMUIObject);
+begin
+  inherited SetParent(AValue);
+  if ShowTabs and Assigned(FTexts) then
+    FTexts.Parent := AValue;
+end;
+
+procedure TMUIRegister.SetLeft(ALeft: Integer);
+begin
+  inherited SetLeft(ALeft);
+  if ShowTabs then
+    FTexts.Left := ALeft;
+end;
+
+procedure TMUIRegister.SetTop(ATop: Integer);
+begin
+  if ShowTabs then
   begin
-    if Assigned(FNames[i]) then
-      FreeMem(FNames[i]);
-    MyStr := 'MyPage ' + IntToStr(i + 1);//APage.Title + #0;
-    writeln(MyStr);
-    FNames[i] := GetMem(Length(FNames) + 1);
-    strings.StrCopy(FNames[i], PChar(MyStr));
+    inherited SetTop(ATop + RegisterHeight);
+    FTexts.Top := ATop;
+  end else
+  begin
+    inherited SetTop(ATop);
+  end;  
+end;
+
+procedure TMUIRegister.SetWidth(AWidth: Integer);
+begin
+  inherited SetWidth(AWidth);
+  if ShowTabs then
+    FTexts.Width := AWidth;  
+end;
+
+procedure TMUIRegister.SetHeight(AHeight: Integer);
+begin
+  if ShowTabs then
+  begin
+    inherited SetHeight(AHeight - RegisterHeight);
+    FTexts.Height := RegisterHeight;
+  end else
+  begin
+    inherited SetHeight(AHeight);
   end;
-  FNames[FChilds.Count + 1] := nil;}
-  inherited;
-  ActivePage := FChilds.Count - 1;
-  {Idx := FChilds.Count - 1;
-  sIdx := High(FNames);
-  for i := sIdx to Idx do
+end;
+
+function TMUIRegister.GetHeight: Integer;
+begin
+  if ShowTabs then  
   begin
-    if not Assigned(FNames[i]) then
+    Result := FHeight + RegisterHeight;
+  end else
+  begin
+    Result := FHeight;
+  end;  
+end;
+
+function TMUIRegister.GetActivePage: Integer;
+begin
+  Result := GetAttribute(MUIA_Group_ActivePage);
+end;
+
+procedure TMUIRegister.SetActivePage(AValue: Integer);
+var
+  PGIdx: Integer;
+begin
+  if AValue < 0 then
+    AValue := 0;
+  FActivePage := AValue;
+  TCustomTabControl(PasObject).PageIndex := AValue;  
+  inherited SetActivePage(AValue);
+  if ShowTabs and Assigned(FTexts.Obj) then
+  begin
+    PGIdx := GetAttObj(FTexts.Obj, MUIA_Group_ActivePage);
+    if PGIdx <> FActivePage then
     begin
-      FNames[i] := GetMem(10);
-      MyStr := 'Page ' + IntToStr(i + 1);
-      strcopy(MyStr, FNames[i])
-    end;      
+      SetAttObj(FTexts.Obj, [MUIA_Group_ActivePage, AValue]);
+    end;  
+    PasObject.Invalidate;
+  end;  
+end;
+
+procedure TMUIRegister.SetVisible(const AValue: boolean);
+begin
+  inherited SetVisible(AValue);
+  if Assigned(FTexts) then
+    FTexts.Visible := AValue;
+end;
+
+procedure TMUIRegister.SetEnabled(const AValue: boolean);
+begin
+  inherited SetEnabled(AValue);
+  if Assigned(FTexts) then
+    FTexts.Enabled := AValue;
+end;
+
+function TMUIRegister.RegisterHeight: Integer;
+begin
+  Result := 0;
+  if Assigned(FTexts) then
+    Result := GetAttObj(FTexts.Obj, MUIA_InnerTop); 
+  if Result = 0 then
+    Result := FRegisterHeight;
+end;
+
+procedure TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+var
+  MUIRegister: TMUIRegister;
+  PGIdx: Integer;
+  Mess: TLMNotify;
+  NMHdr: tagNMHDR;
+begin
+  if TObject(Hook^.h_Data) is TMUIRegister then
+  begin
+    MUIRegister := TMUIRegister(Hook^.h_Data);
+    PGIdx := MUIRegister.GetAttObj(MUIRegister.FTexts.Obj, MUIA_Group_ActivePage);
+    //
+    FillChar(Mess, SizeOf(Mess), 0);
+    Mess.Msg := LM_Notify;
+    FillChar(NMHdr, SizeOf(NMHdr), 0);
+    NMHdr.Code := TCN_SELCHANGING;
+    NMHdr.hwndFrom := PtrUInt(MUIRegister);
+    NMHdr.idFrom := PGIdx;
+    Mess.NMHdr := @NMHdr;
+    DeliverMessage(MUIRegister.PasObject, Mess);
+    // forbidden to change
+    if Mess.Result <> 0 then
+    begin
+      PGIdx := MUIRegister.FActivePage;
+      MUIRegister.SetAttObj(MUIRegister.FTexts.Obj, [MUIA_Group_ActivePage, MUIRegister.FActivePage]);  
+      Exit;
+    end;    
+    MUIRegister.ActivePage := PGIdx;
+    TCustomTabControl(MUIRegister.Pasobject).PageIndex := PGIdx;
+    FillChar(Mess, SizeOf(Mess), 0);
+    Mess.Msg := LM_Notify;
+    FillChar(NMHdr, SizeOf(NMHdr), 0);
+    NMHdr.Code := TCN_SELCHANGE;
+    NMHdr.hwndFrom := PtrUInt(MUIRegister);
+    NMHdr.idFrom := PGIdx;
+    Mess.NMHdr := @NMHdr;
+    DeliverMessage(MUIRegister.PasObject, Mess);
+    //LCLSendChangedMsg(MUIRegister.PasObject, PGIdx);
   end;
-  FNames[Idx + 1] := nil;
-  }
+end;
+
+
+procedure TMUIRegister.AddChild(APage: TMUIObject);
+var
+  sIdx: Integer;
+  Idx: Integer;
+  i: Integer;
+  MyStr: string;
+  l,t,w,h: Integer;
+  tg: TTagsList;
+  Tab: TCustomTabControl;
+begin
+  inherited;
+  
+  if not ShowTabs and Assigned(FTexts) then
+  begin
+    FTexts.Free;
+    FTexts := nil;
+  end;  
+  
+  if ShowTabs and Assigned(PasObject) and (PasObject is TCustomTabControl) then
+  begin
+    Tab := TCustomTabControl(PasObject);
+  
+    //
+    l := FTexts.Left;
+    t := FTexts.Top;
+    w := FTexts.Width;
+    h := FTexts.Height;
+    
+    FTexts.Free; 
+    for i := 0 to FChilds.Count - 1 do
+    begin
+      if Assigned(FNames[i]) then
+        FreeMem(FNames[i]);
+      MyStr := Tab.Pages[i];
+      FNames[i] := GetMem(Length(FNames) + 1);
+      strings.StrCopy(FNames[i], PChar(MyStr));
+    end;
+    FNames[FChilds.Count + 1] := nil;
+    AddTags(tg, [
+      MUIA_Register_Titles, IPTR(@FNames[0]),
+      MUIA_Register_Frame , False
+      ]);
+    FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
+    FTexts.Top := t;
+    FTexts.Left := l;
+    FTexts.Width := w;
+    FTexts.Height := h;
+    FTexts.Parent := Parent;
+    
+    
+    TabHook.h_Entry := IPTR(@TabIdxFunc);
+    TabHook.h_SubEntry := 0;
+    TabHook.h_Data := Self;
+    
+    DoMethodObj(FTexts.Obj, [IPTR(MUIM_Notify), IPTR(MUIA_Group_ActivePage), IPTR(MUIV_EveryTime),
+      IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@TabHook)]); 
+  end;
 end;
 
 end.

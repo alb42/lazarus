@@ -499,11 +499,18 @@ begin
 end;
 
 function TMUIWidgetSet.RawImage_DescriptionFromDevice(ADC: HDC; out ADesc: TRawImageDescription): Boolean;
+var
+  W, H: Integer;
+  MUICanvas: TMUICanvas absolute ADC;
 begin
+  w := MUICanvas.DrawRect.Right;
+  h := MUICanvas.DrawRect.Bottom;
   {$ifdef VERBOSEAROS}
   writeln('RawImage_DescriptionFromDevice ', HexStr(Pointer(ADC)));
   {$endif}
-  RawImage_QueryDescription([riqfUpdate,riqfRGB], ADesc);
+  ADesc.Width := w;
+  ADesc.Height := h;  
+  RawImage_QueryDescription([riqfRGB], ADesc);
   Result := True;
 end;
 
@@ -530,12 +537,24 @@ begin
 end;
 
 function TMUIWidgetSet.RawImage_FromDevice(out ARawImage: TRawImage; ADC: HDC; const ARect: TRect): Boolean;
+var
+  W, H: Integer;
+  MUICanvas: TMUICanvas absolute ADC;
+  T: AGraphics.TPoint;
 begin
   ARawImage.Init;
+  w := ARect.Right;
+  h := ARect.Bottom;
   {$ifdef VERBOSEAROS}
-  writeln('RawImage_FromDevice ', ARect.Right, ' x ', ARect.Bottom);
+  writeln('RawImage_FromDevice ', w, ' x ', h);
   {$endif}
+  ARawImage.Description.Width := w;
+  ARawImage.Description.Height := h;  
   RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
+  ARawImage.DataSize := w * h * SizeOf(LongWord);
+  ReAllocMem(ARawImage.Data, ARawImage.DataSize);
+  T := MUICanvas.GetOffset;
+  ReadPixelarray(ARawImage.Data, 0, 0, w * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, w, h, RECTFMT_ARGB);
   Result := True;
 end;
 
@@ -558,8 +577,11 @@ begin
     ADesc.LineOrder := riloTopToBottom;
     ADesc.LineEnd := rileDWordBoundary;
     ADesc.BitsPerPixel := 32;
-    ADesc.Width := cardinal(640);
-    ADesc.Height := cardinal(480); 
+    if ADesc.Width = 0 then
+    begin
+      ADesc.Width := cardinal(640);
+      ADesc.Height := cardinal(480); 
+    end;  
     
     if riqfAlpha in AFlags then
       ADesc.Depth := 32;

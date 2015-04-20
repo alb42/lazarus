@@ -97,7 +97,7 @@ function GetCursorPos(var lpPoint: TPoint ): Boolean; override;
 function GetDC(hWnd: HWND): HDC; override;
 {function GetDCOriginRelativeToWindow(PaintDC: HDC; WindowHandle: HWND; var OriginDiff: TPoint): boolean; override;}
 function GetDeviceCaps(DC: HDC; Index: Integer): Integer; override;
-//function GetDeviceSize(DC: HDC; var P: TPoint): Boolean; Override;
+function GetDeviceSize(DC: HDC; var P: TPoint): Boolean; Override;
 function GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer; Override;
 function GetFocus: HWND; override;
 function GetKeyState(nVirtKey: Integer): Smallint; override;
@@ -146,7 +146,7 @@ function Polyline(DC: HDC; Points: PPoint; NumPts: Integer): boolean; override;
 
 function Rectangle(DC: HDC; X1, Y1, X2, Y2: Integer): Boolean; override;
 function RectVisible(dc : hdc; const ARect: TRect) : Boolean; override;
-{function ReleaseCapture : Boolean; override;}
+function ReleaseCapture : Boolean; override;
 function ReleaseDC(hWnd: HWND; DC: HDC): Integer; override;
 function RestoreDC(DC: HDC; SavedDC: Integer): Boolean; override;
 function RoundRect(DC : hDC; X1, Y1, X2, Y2: Integer; RX,RY : Integer): Boolean; override;

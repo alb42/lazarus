@@ -78,7 +78,7 @@ type
     class procedure SetPos(const AWinControl: TWinControl; const ALeft, ATop: Integer); override;
     class procedure SetSize(const AWinControl: TWinControl; const AWidth, AHeight: Integer); override;
     class procedure ShowHide(const AWinControl: TWinControl); override; //TODO: rename to SetVisible(control, visible)
-    //class procedure SetColor(const AWinControl: TWinControl); override;
+    class procedure SetColor(const AWinControl: TWinControl); override;
     //class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
     //class procedure SetText(const AWinControl: TWinControl; const AText: string); override;
 
@@ -334,6 +334,19 @@ begin
   begin
     MuiObject := TMuiObject(AWinControl.Handle);
     MuiObject.Visible := AWinControl.Visible;
+  end;
+end;
+
+class procedure TMuiWSWinControl.SetColor(const AWinControl: TWinControl);
+var
+  MUIObject: TMUIArea;
+begin
+  if not Assigned(AWincontrol) then
+    Exit;
+  if TObject(AWinControl.Handle) is TMUIArea then
+  begin
+    MuiObject := TMUIArea(AWinControl.Handle);
+    MuiObject.Color := AWinControl.Color;
   end;
 end;
 

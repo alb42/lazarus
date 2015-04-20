@@ -226,13 +226,15 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(1, 1, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
-      NewDC.DrawRect := Rect(0,0,1,1);
+      NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.DrawRect := Rect(0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
     if DC <> 0 then
       NewDC.RenderInfo := ADC.RenderInfo;
+    ClipBlit(@(IntuitionBase^.ActiveScreen^.RastPort), 0, 0, NewDC.RastPort, 0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, $00C0);  
+    NewDC.Drawn := True;
     Result := HDC(NewDC);
   end;
   {$ifdef VERBOSEAROS}
@@ -703,6 +705,18 @@ begin
     else
         WriteLn(Self.ClassName,'.GetDeviceCaps Index ',Index,' Desktop');
   end;
+end;
+
+function TMUIWidgetSet.GetDeviceSize(DC: HDC; var P: TPoint): Boolean;
+var
+  ADC: TMUICanvas absolute DC;
+begin
+  Result := False;
+  if Assigned(ADC) then
+  begin
+    P.X := ADC.DrawRect.Right;
+    P.Y := ADC.DrawRect.Bottom;
+  end;  
 end;
 
 function TMUIWidgetSet.GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer;
@@ -1278,6 +1292,11 @@ begin
   writeln('Rect Visible ', ARect.Left, ',', ARect.Right);
   {$endif}
   Result := Boolean(1);
+end;
+
+function TMUIWidgetSet.ReleaseCapture: Boolean;
+begin
+  Result := True;
 end;
 
 function TMUIWidgetSet.ReleaseDC(hWnd: HWND; DC: HDC): Integer;

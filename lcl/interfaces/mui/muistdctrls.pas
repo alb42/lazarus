@@ -58,6 +58,7 @@ type
     procedure SetHeight(AHeight: Integer); override;
     function GetWidth(): Integer; override;
     procedure SetVisible(const AValue: Boolean); override;
+    procedure SetColor(const AValue: TColor); override;
   public
     constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
     destructor Destroy; override;
@@ -958,6 +959,11 @@ begin
   inherited;
   if Assigned(CheckLabel) then
     CheckLabel.Visible := AValue and (Caption <> '');
+end;
+
+procedure TMuiCheckMark.SetColor(const AValue: TColor);
+begin
+  CheckLabel.Color := AValue;
 end;
 
 { TMuiToggleButton }

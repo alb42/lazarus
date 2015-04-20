@@ -252,6 +252,7 @@ type
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
     class procedure SetText(const AWinControl: TWinControl; const AText: String); override;
+    class procedure SetColor(const AWinControl: TWinControl); override;
   end;
 
   { TMUIWSStaticText }
@@ -348,6 +349,7 @@ begin
     Height := AParams.Height;
     PasObject := AWinControl;
     Caption := PChar(AParams.Caption);
+    Color := AWinControl.Color;
   end;
 
   if AWinControl.Parent <> NIL then
@@ -377,6 +379,11 @@ class procedure TMUIWSCustomStaticText.SetText(const AWinControl: TWinControl;
   const AText: String);
 begin
   TMuiArea(AWinControl.Handle).Caption := AText;
+end;
+
+class procedure TMUIWSCustomStaticText.SetColor(const AWinControl: TWinControl);
+begin
+  TMUIArea(AWinControl.Handle).Color := AWinControl.Color;
 end;
 
 { TMUIWSCustomComboBox }
@@ -746,6 +753,7 @@ begin
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;
+    Color := AWinControl.Color;
   end;
 
   if AWinControl.Parent <> NIL then

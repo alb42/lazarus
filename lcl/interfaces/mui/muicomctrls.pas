@@ -4,7 +4,7 @@ interface
 
 uses
   controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition, Types,
-  ComCtrls, LCLMessageGlue, LMessages, LCLType;
+  ComCtrls, LCLMessageGlue, LMessages, LCLType, graphics;
 
 type
 
@@ -47,7 +47,6 @@ type
   TMUIRegister = class(TMUIGroup)
   private
     FActivePage: Integer;
-    FRegister: TMUIArea;
     FTexts: TMUIGroup;
     FRegisterHeight: Integer;
     TabHook: THook;
@@ -64,6 +63,7 @@ type
     procedure SetActivePage(AValue: Integer); override;
     procedure SetVisible(const AValue: boolean); override;
     procedure SetEnabled(const AValue: boolean); override;
+    procedure SetColor(const AValue: TColor); override;
     function RegisterHeight: Integer;
   public
     ShowTabs: Boolean;
@@ -182,10 +182,7 @@ end;
 
 constructor TMUIRegister.Create(AClassName: PChar; var TagList: TTagsList);
 var
-  i: Integer;
-  MyStr: string;
   tg: TTagsList;
-  gt: TTagsList;
 begin
   FActivePage := -1;
   FRegisterHeight := 30;
@@ -195,6 +192,11 @@ begin
   FNames[1] := nil;
   AddTags(tg, [MUIA_Register_Titles, IPTR(@FNames[0])]);
   FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
+  //
+  AddTags(TagList, [
+    MUIA_InnerTop, 0, MUIA_InnerLeft, 0,
+    MUIA_InnerBottom, 4, MUIA_InnerRight, 4,
+    MUIA_Frame, MUIV_Frame_Group]);
   inherited Create(AClassName, GetTagPtr(TagList));
 end;
 
@@ -317,6 +319,13 @@ begin
     Result := FRegisterHeight;
 end;
 
+procedure TMUIRegister.SetColor(const AValue: TColor);
+begin
+  FColor := AValue;
+  if Assigned(FTexts) then
+    FTexts.Color := FColor;
+end;
+
 procedure TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
 var
   MUIRegister: TMUIRegister;
@@ -361,8 +370,6 @@ end;
 
 procedure TMUIRegister.AddChild(APage: TMUIObject);
 var
-  sIdx: Integer;
-  Idx: Integer;
   i: Integer;
   MyStr: string;
   l,t,w,h: Integer;
@@ -399,6 +406,7 @@ begin
     FNames[FChilds.Count + 1] := nil;
     AddTags(tg, [
       MUIA_Register_Titles, IPTR(@FNames[0]),
+      MUIA_Frame, MUIV_Frame_None,
       MUIA_Register_Frame , False
       ]);
     FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
@@ -407,7 +415,7 @@ begin
     FTexts.Width := w;
     FTexts.Height := h;
     FTexts.Parent := Parent;
-    
+    FTexts.Color := FColor;
     
     TabHook.h_Entry := IPTR(@TabIdxFunc);
     TabHook.h_SubEntry := 0;

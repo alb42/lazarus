@@ -30,7 +30,7 @@ uses
   {$endif};
 
 const
-  FONTREPLACEMENTS: array[0..2] of record
+  FONTREPLACEMENTS: array[0..3] of record
     OldName: string;
     NewName: string;
   end =
@@ -42,6 +42,9 @@ const
       NewName: 'Arial';),
 
      (OldName: 'courier';
+      NewName: 'ttcourier';),
+
+     (OldName: 'courier new';
       NewName: 'ttcourier';)
       );
   ALLSTYLES = FSF_ITALIC or FSF_BOLD or FSF_UNDERLINED;
@@ -398,6 +401,15 @@ begin
   TextAttr.ta_YSize := FHeight;
   TextAttr.ta_Flags := FPF_DISKFONT;
   FontHandle := OpenDiskFont(@TextAttr);
+  if FontHandle = nil then
+  begin
+    TextAttr.ta_Name := PChar(SFontName);
+    TextAttr.ta_YSize := FHeight;
+    TextAttr.ta_Flags := FPF_DISKFONT;
+    FontHandle := OpenDiskFont(@TextAttr);
+  end;
+
+
   //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
   //writeln(   ' FontStyle = ', HexStr(Pointer(FontStyle)));
@@ -426,7 +438,7 @@ begin
   FontHandle := nil;
   FFontFace := AFontData.lfFaceName;
   FHeight := abs(AFontData.lfHeight);
-  if FHeight = 0 then
+  if FHeight <= 1 then
     FHeight := 13;
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;

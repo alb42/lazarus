@@ -4,7 +4,7 @@ unit MUIBaseUnit;
 interface
 
 uses
-  Classes, dos, SysUtils, Controls, Contnrs, Types,
+  Classes, dos, SysUtils, Controls, Contnrs, Types, graphics,
   {$ifdef HASAMIGA}
   Exec, AmigaDos, agraphics, Intuition, Utility,Mui, inputevent, KeyMap,
   {$endif}
@@ -132,6 +132,7 @@ type
   private
     FCaption: string;
   protected
+    FColor: TColor;
     function GetChecked: longbool; virtual;
     procedure SetChecked(const AValue: longbool); virtual;
     function GetCaption: string; virtual;
@@ -146,6 +147,7 @@ type
     procedure SetEnabled(const AValue: boolean); override;
     procedure SetHint(const AValue: string); virtual;
     procedure SetTabStop(const AValue: boolean); virtual;
+    procedure SetColor(const AValue: TColor); virtual;
   public
     FBlockChecked: Boolean;
     property Caption: string read GetCaption write SetCaption;
@@ -155,6 +157,7 @@ type
     property Hint: string read GetHint write SetHint;
     property Checked: longbool read GetChecked write SetChecked;
     property TabStop: boolean read GetTabStop write SetTabStop;
+    property Color: TColor read FColor write SetColor;
   end;
 
   TMUIGroup = class(TMUIArea)
@@ -209,6 +212,8 @@ type
 
 procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
 procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+
+function TColorToImageSpec(ACol: TColor): string;
 
 var
   MUIApp: TMuiApplication;
@@ -975,6 +980,39 @@ begin
   else
     Val := 0;  
   SetAttribute([IPTR(MUIA_CycleChain), IPTR(Val)]);
+end;
+
+
+function TColorToImageSpec(ACol: TColor): string;
+var
+  r,g,b: Byte;
+begin
+  if ACol and $FF000000 <> 0 then
+    ACol := Widgetset.GetSysColor((ACol and $1F));
+  r := Red(ACol);
+  g := Green(ACol);
+  b := Blue(ACol);
+  Result := '2:' +
+    IntToHex(r,2) + IntToHex(r,2) + IntToHex(r,2) + IntToHex(r,2) +',' +
+    IntToHex(g,2) + IntToHex(g,2) + IntToHex(g,2) + IntToHex(g,2) +',' +
+    IntToHex(b,2) + IntToHex(b,2) + IntToHex(b,2) + IntToHex(b,2);
+end;
+
+procedure TMUIArea.SetColor(const AValue: TColor);
+var
+  ColSet: string;
+  Col: TColor;
+begin
+  FColor := AValue;
+  if AValue = clNone then
+    exit;
+  if FColor = clDefault then
+    FColor := clBtnFace;
+  if FColor <> clNone then
+  begin
+    ColSet := TColorToImageSpec(FColor);
+    SetAttribute([MUIA_Background, PChar(ColSet)]);
+  end;
 end;
 
 {$PACKRECORDS 4}

@@ -485,9 +485,6 @@ end;
 
 function TMUIWidgetSet.RawImage_DescriptionFromBitmap(ABitmap: HBITMAP; out ADesc: TRawImageDescription): boolean;
 begin
-  //ADesc.Init_BPP32_A8R8G8B8_BIO_TTB(0,0);
-  //ADesc.PaletteColorCount := 0;
-  //RawImage_DescriptionFromDrawable(ADesc, False);
   RawImage_QueryDescription([riqfRGB, riqfAlpha], ADesc);
   ADesc.Width := TMuiBitmap(ABitmap).FWidth;
   ADesc.Height := TMuiBitmap(ABitmap).FHeight;
@@ -503,8 +500,15 @@ var
   W, H: Integer;
   MUICanvas: TMUICanvas absolute ADC;
 begin
-  w := MUICanvas.DrawRect.Right;
-  h := MUICanvas.DrawRect.Bottom;
+  if Assigned(MUICanvas) then
+  begin
+    w := MUICanvas.DrawRect.Right;
+    h := MUICanvas.DrawRect.Bottom;
+  end else
+  begin
+    w := IntuitionBase^.ActiveScreen^.Width;
+    h := IntuitionBase^.ActiveScreen^.Height;
+  end;  
   {$ifdef VERBOSEAROS}
   writeln('RawImage_DescriptionFromDevice ', HexStr(Pointer(ADC)));
   {$endif}

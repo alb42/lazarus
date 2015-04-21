@@ -967,6 +967,7 @@ begin
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;
+    Color := AWinControl.Color;
   end;
   MUIArea.FText := FText;
 

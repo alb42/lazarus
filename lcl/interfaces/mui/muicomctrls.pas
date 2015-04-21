@@ -184,6 +184,7 @@ constructor TMUIRegister.Create(AClassName: PChar; var TagList: TTagsList);
 var
   tg: TTagsList;
 begin
+  FColor := clNone;
   FActivePage := -1;
   FRegisterHeight := 30;
   //writeln('I got it');
@@ -323,7 +324,9 @@ procedure TMUIRegister.SetColor(const AValue: TColor);
 begin
   FColor := AValue;
   if Assigned(FTexts) then
+  begin    
     FTexts.Color := FColor;
+  end;  
 end;
 
 procedure TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;

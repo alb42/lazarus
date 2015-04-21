@@ -229,6 +229,7 @@ begin
     Height := AParams.Height;
     PasObject := AWinControl;
     Caption := PChar(AParams.Caption);
+    Color := AWinControl.Color;
   end;
   if AWinControl.Parent <> NIL then
   begin
@@ -343,7 +344,12 @@ begin
     else
       AddTags(TagList, [MUIA_Gauge_Horiz, LFalse]);
   end;
-  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Text, MUIA_Gauge_InfoText, PChar('')]);
+  AddTags(TagList, [
+    MUIA_Frame, MUIV_Frame_Gauge,
+    MUIA_Font, MUIV_Font_List,
+    MUIA_Gauge_InfoText, PChar('')
+    
+    ]);
   Gauge := TMUIGauge.Create(MUIC_Gauge, GetTagPtr(TagList));
   Gauge.Horiz := Horiz;
   With Gauge do

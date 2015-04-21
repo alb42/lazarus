@@ -1123,13 +1123,16 @@ var
   
   procedure AddToCheck(AX, AY: Integer);
   begin
-    if Checked[AX,AY] then
-      Exit;
-    Inc(Index);
-    if Index > High(ToCheck) then
-      SetLength(ToCheck, Length(ToCheck) + 1000);
-    ToCheck[Index].X := AX;
-    ToCheck[Index].Y := AY;
+    if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
+    begin
+      if Checked[AX,AY] then
+        Exit;
+      Inc(Index);
+      if Index > High(ToCheck) then
+        SetLength(ToCheck, Length(ToCheck) + 1000);
+      ToCheck[Index].X := AX;
+      ToCheck[Index].Y := AY;
+    end;  
   end;
   
   procedure CheckNeighbours(AX, AY: Integer);

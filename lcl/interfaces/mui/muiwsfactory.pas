@@ -244,7 +244,8 @@ end;
 
 function RegisterFontDialog: Boolean; alias : 'WSRegisterFontDialog';
 begin
-  Result := False;
+  RegisterWSComponent(TFontDialog, TMuiWSFontDialog);
+  Result := True;
 end;
 
 // StdCtrls

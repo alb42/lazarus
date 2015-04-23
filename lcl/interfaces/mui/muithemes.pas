@@ -90,7 +90,9 @@ function TMUIThemeServices.GetDetailSize(Details: TThemedElementDetails): TSize;
 //var
 //  AValue: TGValue;
 begin
-  {if (Details.Element = teTreeView) and (Byte(Details.Part) in [TVP_GLYPH, TVP_HOTGLYPH]) then
+  Result := inherited GetDetailSize(Details);
+  (*
+  if (Details.Element = teTreeView) and (Byte(Details.Part) in [TVP_GLYPH, TVP_HOTGLYPH]) then
   begin
     FillChar(AValue{%H-}, SizeOf(AValue), 0);
     g_value_init(@AValue, G_TYPE_INT);
@@ -107,8 +109,8 @@ begin
       gtk_widget_style_get_property(GetStyleWidget(lgsRadioButton),'indicator-size', @AValue);
     Result := Size(AValue.data[0].v_int, AValue.data[0].v_int);
   end else
-    Result := GetBaseDetailsSize(Details);}
-  Result := Size(1,1);
+    Result := GetBaseDetailsSize(Details);
+  Result := Size(1,1);*)
 end;
 
 function TMUIThemeServices.GetStockImage(StockID: LongInt; out Image, Mask: HBitmap): Boolean;
@@ -119,7 +121,7 @@ function TMUIThemeServices.GetStockImage(StockID: LongInt; out Image, Mask: HBit
   IconSet: PGtkIconSet;
   Pixbuf: PGDKPixbuf;}
 begin
-{  case StockID of
+(*  case StockID of
     idButtonOk: StockName := GTK_STOCK_OK;
     idButtonCancel: StockName := GTK_STOCK_CANCEL;
     idButtonYes: StockName := GTK_STOCK_YES;
@@ -187,8 +189,11 @@ begin
   end;
 
   Image := HBitmap({%H-}PtrUInt(GDIObj));
-  Mask := 0;}
-  Result := False;
+  Mask := 0;
+  Image := 0;
+  Mask := 0;
+  Result := False;*)
+  Result := inherited GetStockImage(StockID, Image, Mask);
 end;
 
 function TMUIThemeServices.GetOption(AOption: TThemeOption): Integer;
@@ -198,7 +203,7 @@ function TMUIThemeServices.GetOption(AOption: TThemeOption): Integer;
   Widget: PGtkWidget;
   Signal: guint;}
 begin
-{  case AOption of
+(*  case AOption of
     toShowButtonImages:
       begin
         Widget := GetStyleWidget(lgsButton);
@@ -225,7 +230,7 @@ begin
           g_object_set_data(PGObject(Widget), 'lcl-images-change-callback', {%H-}Pointer(PtrUInt(Signal)))
         end;
       end;
-  else}
+  else*)
     Result := inherited GetOption(AOption);
   //end;
 end;
@@ -233,32 +238,8 @@ end;
 
 procedure TMUIThemeServices.DrawElement(DC: HDC;
   Details: TThemedElementDetails; const R: TRect; ClipRect: PRect);
-var
-  ADC: TMUICanvas absolute DC;
-  r1: TRect;
 begin
-  //inherited DrawElement(DC, Details, R, ClipRect);
-  //writeln(Details.Part, ' ', Details.State);
-  r1 := r;
-  if Details.Part = 1 then
-  begin
-    if Details.State = 1 then
-      Frame3d(DC, r1, 1, bvRaised);
-    if Details.State = 3 then
-      Frame3d(DC, r1, 1, bvLowered);
-  end;      
-      
-{  if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) and
-     (Details.State = TREIS_SELECTED) then
-  begin
-    // lie to cleanlooks theme
-    Widget := GetStyleWidget(lgsTreeView);
-    GTK_WIDGET_SET_FLAGS(Widget, GTK_HAS_FOCUS);
-    GtkDrawElement(DC, Details, R, ClipRect);
-    GTK_WIDGET_UNSET_FLAGS(Widget, GTK_HAS_FOCUS);
-  end
-  else
-    GtkDrawElement(DC, Details, R, ClipRect);}
+  inherited DrawElement(DC, Details, R, ClipRect);
 end;
 
 procedure TMUIThemeServices.DrawText(ACanvas: TPersistent;
@@ -282,7 +263,7 @@ begin
   //if StyleParams.Style <> nil then
   //  with StyleParams do
   //  begin
-      //writeln('write ', s);
+      writeln('write ', s);
       P := PChar(S);
       tmpRect := R;
       MUIWidgetset.DrawText(DC, P, Length(S), tmpRect, Flags);

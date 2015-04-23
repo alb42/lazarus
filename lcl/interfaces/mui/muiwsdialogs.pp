@@ -28,7 +28,7 @@ interface
 
 uses
   // RTL + LCL
-  SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
+  AGraphics, SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
   exec, asl, utility, tagsarray, mui, intuition, MuibaseUnit, MUIformsunit,
   AmigaDos,
   // Widgetset
@@ -128,7 +128,6 @@ class procedure TMuiWSCommonDialog.DestroyHandle(const ACommonDialog: TCommonDia
 begin
   if (ACommonDialog.HandleAllocated) then
     FreeAslRequest(Pointer(ACommonDialog.Handle))
-
 end;
 
 class procedure TMuiWSCommonDialog.ShowModal(const ACommonDialog: TCommonDialog);
@@ -417,8 +416,11 @@ end;
 
 class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
   ): THandle;
+var
+  MuiDialog: PFontRequester;
 begin
-  Result := 0;
+  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE]));
+  Result := THandle(MuiDialog);
 end;
 
 {------------------------------------------------------------------------------
@@ -428,55 +430,78 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMuiWSFontDialog.ShowModal(const ACommonDialog: TCommonDialog);
 var
-  //ReturnFont, CurrentFont: QFontH;
-  ReturnBool: Boolean;
-  Str: WideString;
+  FDialog: TFontDialog absolute ACommonDialog;
+  MuiDialog: PFontRequester;
+  TagsList: TTagsList;
+  PText: string;
+  TitleText: string;
+  FontName: string;
+  Style: LongWord;
 begin
-  {------------------------------------------------------------------------------
-    Code to call the dialog
-   ------------------------------------------------------------------------------}
-  {CurrentFont := TQtFont(TFontDialog(ACommonDialog).Font.Reference.Handle).Widget;
-
-  ReturnFont := QFont_create;
-  try
-    QFontDialog_getFont(ReturnFont, @ReturnBool, CurrentFont,
-      TMuiWSCommonDialog.GetDialogParent(ACommonDialog));
-   
-    QFont_family(ReturnFont, @Str);
-    TFontDialog(ACommonDialog).Font.Name := UTF16ToUTF8(Str);
-   
-    if QFont_pixelSize(ReturnFont) = -1 then
-      TFontDialog(ACommonDialog).Font.Size := QFont_pointSize(ReturnFont)
-    else
-      TFontDialog(ACommonDialog).Font.Height := QFont_pixelSize(ReturnFont);
-      
-    TFontDialog(ACommonDialog).Font.Style := [];
-   
-   if QFont_bold(ReturnFont) then
-     TFontDialog(ACommonDialog).Font.Style := TFontDialog(ACommonDialog).Font.Style + [fsBold];
-   
-   if QFont_italic(ReturnFont) then
-     TFontDialog(ACommonDialog).Font.Style := TFontDialog(ACommonDialog).Font.Style + [fsItalic];
-   
-   if QFont_strikeOut(ReturnFont) then
-     TFontDialog(ACommonDialog).Font.Style := TFontDialog(ACommonDialog).Font.Style + [fsStrikeOut];
-   
-   if QFont_underline(ReturnFont) then
-     TFontDialog(ACommonDialog).Font.Style := TFontDialog(ACommonDialog).Font.Style + [fsUnderline];
-   
-   if QFont_fixedPitch(ReturnFont) then
-     TFontDialog(ACommonDialog).Font.Pitch := fpFixed
-   else
-     TFontDialog(ACommonDialog).Font.Pitch := fpDefault;
-   
-  finally
-    QFont_destroy(ReturnFont);
+  MuiDialog := PFontRequester(FDialog.Handle);  
+  //
+  PText := Trim(FDialog.PreviewText);
+  TitleText := Trim(FDialog.Title);
+  FontName := Trim(FDialog.Font.Name);
+  
+  if PText <> '' then
+    AddTags(TagsList, [ASLFO_SampleText, PChar(PText)]);
+  if TitleText <> '' then
+    AddTags(TagsList, [ASLFO_TitleText, PChar(TitleText)]);  
+  if FDialog.MinFontSize > 0 then
+    AddTags(TagsList, [ASLFO_MinHeight, FDialog.MinFontSize]);    
+  if FDialog.MaxFontSize > 0 then
+    AddTags(TagsList, [ASLFO_MaxHeight, FDialog.MaxFontSize]);
+  
+  // Style Dialog
+  AddTags(TagsList, [ASLFO_DoStyle, not (fdNoStyleSel in FDialog.Options)]);
+  // Fixed Width
+  AddTags(TagsList, [ASLFO_FixedWidthOnly, fdFixedPitchOnly in FDialog.Options]);
+  
+  // Initial Things
+  if FontName <> '' then
+    AddTags(TagsList, [ASLFO_InitialName, PChar(FontName)]);
+  if FDialog.Font.Size > 0 then
+    AddTags(TagsList, [ASLFO_InitialSize, FDialog.Font.Size]);  
+  // Styles
+  Style := FS_NORMAL;
+  if fsBold in FDialog.Font.Style then
+    Style := Style or FSF_BOLD;
+  if fsItalic in FDialog.Font.Style then
+    Style := Style or FSF_ITALIC;
+  if fsUnderline in FDialog.Font.Style then
+    Style := Style or FSF_UNDERLINED;
+  AddTags(TagsList, [ASLFO_InitialStyle, Style]);
+  //
+  AddTags(TagsList, [ASLFO_DoFrontPen, False]);
+  //
+  if MUI_AslRequest(MuiDialog, GetTagPtr(TagsList)) then
+  begin
+    FontName := string(MuiDialog^.fo_Attr.ta_Name);    
+    FDialog.Font.Name := stringreplace(Fontname, '.font', '', [rfIgnoreCase, rfReplaceAll]);
+    if not (fdNoSizeSel in FDialog.Options) then
+      FDialog.Font.Size := MUIDialog^.fo_Attr.ta_YSize;
+    if not (fdNoStyleSel in FDialog.Options) then
+    begin
+      FDialog.Font.Style := [];
+      Style := MUIDialog^.fo_Attr.ta_Style;
+      if (Style and FSF_BOLD) <> 0 then
+        FDialog.Font.Style := FDialog.Font.Style + [fsBold];
+      if (Style and FSF_ITALIC) <> 0 then
+        FDialog.Font.Style := FDialog.Font.Style + [fsItalic];
+      if (Style and FSF_UNDERLINED) <> 0 then
+        FDialog.Font.Style := FDialog.Font.Style + [fsUnderline];    
+    end;
+    if (MuiDialog^.fo_Attr.ta_Flags and FPF_PROPORTIONAL) <> 0 then
+      FDialog.Font.Pitch := fpDefault
+    else  
+      FDialog.Font.Pitch := fpFixed;
+    ACommonDialog.UserChoice := mrOk;
+  end else
+  begin
+    ACommonDialog.UserChoice := mrCancel;
   end;
-
-  if ReturnBool then
-    ACommonDialog.UserChoice := mrOk
-  else
-    ACommonDialog.UserChoice := mrCancel;}
+  
 end;
 
 end.

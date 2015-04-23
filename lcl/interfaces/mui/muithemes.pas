@@ -238,8 +238,23 @@ end;
 
 procedure TMUIThemeServices.DrawElement(DC: HDC;
   Details: TThemedElementDetails; const R: TRect; ClipRect: PRect);
+var
+  r1: TRect;  
 begin
-  inherited DrawElement(DC, Details, R, ClipRect);
+  //writeln('element: ', Details.Element);
+  if Details.Element = teButton then
+  begin
+    r1 := r;  
+    if Details.Part = 1 then
+    begin
+      if Details.State = 1 then
+        Frame3d(DC, r1, 1, bvRaised);
+      if Details.State = 3 then
+        Frame3d(DC, r1, 1, bvLowered);
+    end;
+  end
+  else
+    inherited DrawElement(DC, Details, R, ClipRect);
 end;
 
 procedure TMUIThemeServices.DrawText(ACanvas: TPersistent;
@@ -255,37 +270,18 @@ end;
 procedure TMUIThemeServices.DrawText(DC: HDC; Details: TThemedElementDetails;
   const S: String; R: TRect; Flags, Flags2: Cardinal);
 var
-//  StyleParams: TGtkStyleParams;
   P: PChar;
   tmpRect: TRect;
 begin
-  //StyleParams := GetGtkStyleParams(DC, Details, 0);
-  //if StyleParams.Style <> nil then
-  //  with StyleParams do
-  //  begin
-      writeln('write ', s);
-      P := PChar(S);
-      tmpRect := R;
-      MUIWidgetset.DrawText(DC, P, Length(S), tmpRect, Flags);
-      // TODO: parse flags
-      //gtk_draw_string(Style, Window, State, R.Left + Origin.x, R.Top + Origin.y, P);
-  //  end;
+  P := PChar(S);
+  tmpRect := R;
+  MUIWidgetset.DrawText(DC, P, Length(S), tmpRect, Flags);
 end;
 
 function TMUIThemeServices.ContentRect(DC: HDC;
   Details: TThemedElementDetails; BoundingRect: TRect): TRect;
-//var
-//  StyleParams: TGtkStyleParams;
-begin  
+begin
   Result := BoundingRect;
-  //Result.Bottom := 100;
-  //Result.Right := Result.Right - 5;
-  
-  {StyleParams := GetGtkStyleParams(DC, Details, 0);
-  if StyleParams.Style <> nil then
-    InflateRect(Result,
-      -StyleParams.Style^.xthickness,
-      -StyleParams.Style^.ythickness);}
 end;
 
 function TMUIThemeServices.HasTransparentParts(Details: TThemedElementDetails): Boolean;

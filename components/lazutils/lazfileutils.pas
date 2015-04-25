@@ -669,7 +669,11 @@ end;
 
 function AppendPathDelim(const Path: string): string;
 begin
-  if (Path<>'') and not (Path[length(Path)] in AllowDirectorySeparators) then
+  if (Path<>'') and not (Path[length(Path)] in AllowDirectorySeparators) 
+  {$ifdef HASAMIGA}
+    and not (Path[length(Path)] = DriveSeparator)
+  {$endif}
+  then
     Result:=Path+PathDelim
   else
     Result:=Path;
@@ -1266,4 +1270,3 @@ finalization
 end.
 
 end.
-

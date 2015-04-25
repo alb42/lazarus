@@ -2097,6 +2097,8 @@ procedure TLazPackageGraph.FreeAutoInstallDependencies;
 var
   Dependency: TPkgDependency;
 begin
+  if not Assigned(PackageGraph) then
+    Exit;
   while Assigned(PackageGraph.FirstAutoInstallDependency) do
   begin
     Dependency:=PackageGraph.FirstAutoInstallDependency;

@@ -72,6 +72,7 @@ type
     function GetHeight(): integer; virtual;
     procedure InstallHooks; virtual;
     procedure DoReDraw(); virtual;
+    procedure DoChildRedraw(); virtual;
     //
     procedure BasicInitOnCreate(); virtual;
     procedure SetScrollbarPos;
@@ -398,15 +399,16 @@ end;
 procedure TMUIObject.DoReDraw();
 var
   PS: PPaintStruct;
-  i: integer;
+  
 begin
+  FMUICanvas.InitCanvas;
   if Assigned(PasObject) then
   begin
     new(PS);
     FillChar(PS^, SizeOf(TPaintStruct), 0);
     PS^.hdc := THandle(Pointer(FMuiCanvas));
     PS^.rcPaint := FMuiCanvas.DrawRect;
-    //writeln('Send paintmessage to ', pasobject.classname);
+    //writeln(self.classname, ' Send paintmessage to ', pasobject.classname);
     MUIApp.InsidePaint := True;
     try
       if not MUIDrawing then
@@ -418,12 +420,21 @@ begin
     Dispose(PS);
   end;
   FMUICanvas.DeInitCanvas;
+end;
+
+procedure TMUIObject.DoChildRedraw();
+var
+  i: integer;
+begin
   for i := 0 to FChilds.Count - 1 do
   begin
     if FChilds.Items[i] is TMUIObject then
     begin
       if TMuiObject(FChilds.Items[i]).Visible then
+      begin
+        //writeln(i, '. ', FChilds[i].classname, ' MUI Paint');
         TMuiObject(FChilds[i]).DoMuiDraw;
+      end;  
     end;  
   end;
 end;
@@ -634,7 +645,6 @@ procedure TMUIObject.CreateScrollbars;
 var
   Tags1, Tags2: TTagsList;
 begin
-  //writeln(pasobject.classname, ' create scrollbars');
   AddTags(Tags1, [MUIA_Group_Horiz, False]);
   VScroll := TMUIScrollBar.Create(Tags1);
   VScroll.PasObject := Self.PasObject;
@@ -645,31 +655,26 @@ begin
   HScroll.PasObject := Self.PasObject;
   HScroll.Parent := Self;
   HScroll.Visible := False;
-  if pasobject is TWIncontrol then
+  if pasobject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
+  SetScrollbarPos;    
 end;
 
 procedure TMUIObject.SetScrollbarPos;
 begin
   if Assigned(VScroll) then
   begin
-    if VScroll.Visible then
-    begin
-      VScroll.Width := 15;
-      VScroll.Left := FWidth -  VScroll.Width;
-      VScroll.Top := 0;
-      VScroll.Height := FHeight - 15;
-    end;
+    VScroll.Width := 18;
+    VScroll.Left := FWidth -  VScroll.Width;
+    VScroll.Top := 0;
+    VScroll.Height := FHeight;
   end;
   if Assigned(HScroll) then
   begin
-    if HScroll.Visible then
-    begin
-      HScroll.Height := 15;
-      HScroll.Top := FHeight - HScroll.Height;
-      HScroll.Left := 0;
-      HScroll.Width := FWidth - 15;
-    end;
+    HScroll.Height := 16;
+    HScroll.Top := FHeight - HScroll.Height;
+    HScroll.Left := 0;
+    HScroll.Width := FWidth - 16;
   end;
 end;
 
@@ -1409,7 +1414,7 @@ begin
             if MUIB.MUIDrawing then
               Result := DoSuperMethodA(cl, obj, msg); 
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);  
-            Buffered := (MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);             
+            Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);             
             if MUIB is TMUIWindow then
             begin
               PaintX := Obj_Left(Obj);
@@ -1471,6 +1476,7 @@ begin
           MUI_RemoveClipRegion(ri, clip);
           MUIB.FMUICanvas.RastPort := nil;
         end;
+        MUIB.DoChildRedraw();
       end;
       Result := 0;
     end;

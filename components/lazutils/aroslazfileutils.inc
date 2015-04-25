@@ -32,7 +32,7 @@ var
 
 function GetShellLinkTarget(const Filename: AnsiString): AnsiString;
 begin
-  Result := '';
+  Result := Filename;
 end;
 
 function GetCurrentDirUTF8: String;
@@ -366,7 +366,7 @@ begin
     D := WideChar(64 + DriveNr) + ':';
     if not SetCurrentDirectoryW(@D[1]) then
     begin
-      Dir := Char(64 + DriveNr) + ':\';
+      Dir := Char(64 + DriveNr) + ':';
       SetCurrentDirectoryW(@SavedDir[1]);
       Exit;
     end;
@@ -752,7 +752,9 @@ end;
 
 function FilenameIsAbsolute(const TheFilename: string):boolean;
 begin
-  Result:=FilenameIsWinAbsolute(TheFilename);
+  Result:=Pos(':', TheFileName) > 0;
+  //Result := FilenameIsWinAbsolute(TheFilename);
+  //writeln('is absolute: "'+TheFilename+'"', Result);
 end;
 
 

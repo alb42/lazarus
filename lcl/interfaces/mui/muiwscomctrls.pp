@@ -125,6 +125,10 @@ type
   private
   protected
   public
+  published
+    class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): HWND; override;
+    //
+    class procedure ItemSetText(const ALV: TCustomListView; const AIndex: Integer; const {%H-}AItem: TListItem; const {%H-}ASubIndex: Integer; const {%H-}AText: String); override;
   end;
 
   { TmuiWSListView }
@@ -326,6 +330,39 @@ begin
 
 end;
 
+
+{ TmuiWSCustomListView }
+
+class function TmuiWSCustomListView.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): HWND;
+var
+  ListView: TMUIArea;
+  TagList: TTagsList;
+begin
+  AddTags(TagList, [
+    MUIA_Frame, MUIV_Frame_String    
+    ]);
+  ListView := TMUIArea.Create(MUIC_Area, GetTagPtr(TagList));
+  With ListView do
+  begin
+    Left := AParams.X;
+    Top := AParams.Y;
+    Width := AParams.Width;
+    Height := AParams.Height;
+    PasObject := AWinControl;
+    Caption := PChar(AParams.Caption);
+  end;
+
+  if AWinControl.Parent <> NIL then
+  begin
+    ListView.Parent := TMuiObject(AWinControl.Parent.Handle);
+  end;
+  Result := TLCLIntfHandle(ListView);
+end;
+
+class procedure TmuiWSCustomListView.ItemSetText(const ALV: TCustomListView; const AIndex: Integer; const {%H-}AItem: TListItem; const {%H-}ASubIndex: Integer; const {%H-}AText: String);
+begin
+  writeln('SetText(',AIndex,',',ASubIndex,') = ', AText);
+end;
 
 { TmuiWSProgressBar }
 

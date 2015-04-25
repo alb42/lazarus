@@ -44,7 +44,7 @@ uses
 { $DEFINE ShowTriedUnits}
 { $DEFINE DebugDirCacheFindUnitSource}
 
-{$ifdef Windows}
+{$if defined(Windows) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -1860,4 +1860,3 @@ begin
 end;
 
 end.
-

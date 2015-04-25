@@ -462,6 +462,18 @@ begin
   System.EnterCriticalsection(ACritSec^);
 end;
 
+function TMUIWidgetSet.EnumDisplayMonitors({%H-}hdc: HDC; {%H-}lprcClip: PRect; lpfnEnum: MonitorEnumProc; dwData: LPARAM): LongBool;
+var
+  i: integer;
+begin
+  Result := True;
+  for i := 0 to 0 do
+  begin
+    Result := Result and lpfnEnum(i + 1, 0, nil, dwData);
+    if not Result then break;
+  end;
+end;
+
 {
 function TMUIWidgetSet.ExtSelectClipRGN(dc: hdc; rgn : hrgn; Mode : Longint) : Integer;
 var
@@ -773,6 +785,17 @@ begin
   end;
 end;
 
+function TMUIWidgetSet.GetMonitorInfo(Monitor: HMONITOR; lpmi: PMonitorInfo): Boolean;
+begin
+  Result := False;
+  if (lpmi = nil) or (lpmi^.cbSize < SizeOf(TMonitorInfo)) then
+    Exit;
+  Result := True;
+  lpmi^.rcMonitor := Bounds(0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height);
+  lpmi^.rcWork := lpmi^.rcMonitor;
+  lpmi^.dwFlags := MONITORINFOF_PRIMARY;
+end;
+
 function TMUIWidgetSet.GetProp(Handle: hwnd; Str: PChar): Pointer;
 var
     Widget: TMUIObject absolute Handle;
@@ -931,15 +954,17 @@ var
 begin
   Result := False;
   inherited;
+  Size.cy := 18;
+  Size.cx := Count * 11;
   if Assigned(ADC) then
   begin
-    if Assigned(ADC.RastPort) then
+    //if Assigned(ADC.RastPort) then
     begin
       Size.cx := ADC.TextWidth(Str, Count);
       Size.cy := ADC.TextHeight(Str, Count);
       Result := True;
     end;
-  end;
+  end;  
 end;
 
 function TMUIWidgetSet.GetTextMetrics(DC: HDC; var TM: TTextMetric): Boolean;

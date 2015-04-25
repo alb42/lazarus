@@ -163,7 +163,8 @@ end;
 
 function RegisterCustomListView: Boolean; alias : 'WSRegisterCustomListView';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomListView, TMUIWSCustomListView);
+  Result := True;
 end;
 
 function RegisterCustomProgressBar: Boolean; alias : 'WSRegisterCustomProgressBar';

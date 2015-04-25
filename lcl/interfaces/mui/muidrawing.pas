@@ -1217,6 +1217,11 @@ var
   Col: LongWord;
   Hi: Integer;
 begin
+  {if Assigned(MUIObject) then
+  begin
+    writeln('Text1: ', MUIObject.classname, ' ', Txt);
+  end else
+    writeln('Text2: ', Txt);}
   //writeln('Write Text ', HexStr(Pointer(BKColor)), ' ', HexStr(Pointer(TextColor)));
   if Assigned(RastPort) then
   begin    
@@ -1240,6 +1245,13 @@ begin
   if Assigned(RastPort) then
   begin
     Result := TextLength(RastPort, Txt, Count);
+  end else
+  begin
+    //Result := 1;
+    // problems with ToolButton, removed for now
+    //if Assigned(FFont) and Assigned(FFont.FontHandle) then
+    //  Result := FFont.FontHandle^.tf_XSize * (Count + 1);
+    //writeln('Textwidth ', Txt, '   ', Result);  
   end;
 end;
 
@@ -1252,6 +1264,10 @@ begin
   begin
     TextExtent(RastPort, Txt, Count, @TE);
     Result := TE.te_Height;
+  end else
+  begin    
+    if Assigned(FFont) and Assigned(FFont.FontHandle) then
+      Result := FFont.FontHandle^.tf_YSize;
   end;
 end;
 
@@ -1309,6 +1325,8 @@ begin
 end;
 
 procedure TMUICanvas.InitCanvas;
+var
+  t: TPoint;
 begin  
   if InitDone then
     Exit;  
@@ -1322,6 +1340,11 @@ begin
     OldFont := RastPort^.Font;
     OldDrMd := GetDrMd(RastPort);
     OldStyle := SetSoftStyle(RastPort, 0,0);
+    if Assigned(RenderInfo) and (FClipping.Right - FClipping.Left <> 0) then
+    begin
+      T := GetOffset;
+      FClip := MUI_AddClipping(RenderInfo, T.X + FClipping.Left, T.Y + FClipping.Top, FClipping.Right - FClipping.Left, FClipping.Bottom - FClipping.Top);
+    end;  
   end;
   SetPenToRP;
   SetBrushToRP;
@@ -1329,6 +1352,9 @@ begin
 end;
 
 procedure TMUICanvas.DeInitCanvas;
+var
+  Tags: TTagsList;
+  Col: LongWord;
 begin
   if not InitDone then
     Exit;
@@ -1350,6 +1376,9 @@ begin
     SetFont(RastPort, OldFont);
     SetDrMd(RastPort, OldDrMd);
     SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
+    Col := 0;
+    AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
+    SetRPAttrsA(RastPort, GetTagPtr(Tags));
   end;  
 end;
 

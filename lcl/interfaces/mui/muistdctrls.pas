@@ -990,16 +990,17 @@ end;
 procedure TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiObject;
+  CharCode: Word;
 begin
-  //writeln('editing done');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     if MUIObject is TMUISpinEdit then
     begin
       TMUISpinEdit(MUIObject).CurValue := TMUISpinEdit(MUIObject).CurValue;
-    end;    
-    MuiObject.PasObject.EditingDone;    
+    end;
+    CharCode := VK_RETURN;
+    LCLSendKeyUpEvent(MUIObject.PasObject, CharCode, 0, True, False);  
   end;
 end;
 
@@ -1062,7 +1063,7 @@ begin
   // Edithook does not work currently
   AddTags(Tags, [
     MUIA_Background, MUII_TextBack,
-    MUIA_Font, MUIV_Font_Button,
+    MUIA_Font, MUIV_Font_Normal,
     MUIA_Frame, MUIV_Frame_String
     //,
     //MUIA_String_EditHook, P,
@@ -1090,7 +1091,7 @@ begin
       IPTR(MUIV_Notify_Self),
       2,
       IPTR(MUIM_CallHook), @TextDone
-      ]);
+      ]);    
 end;
 
 destructor TMuiStringEdit.Destroy;

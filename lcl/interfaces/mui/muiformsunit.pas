@@ -153,14 +153,14 @@ begin
       if Win.Sizeable then
       begin
         Miw := 100;
-        Mih := 100;
+        Mih := 20;
         Maw := 10000;
         Mah := 10000;        
         if Assigned(Win.PasObject) then
         begin
           PasWin := TWinControl(Win.PasObject);
           MiW := Max(PasWin.Constraints.MinWidth, 100);
-          MiH := Max(PasWin.Constraints.MinHeight, 100);
+          MiH := Max(PasWin.Constraints.MinHeight, 20);
           if PasWin.Constraints.MaxWidth > 0 then
             MaW := Min(PasWin.Constraints.MaxWidth, 10000);
           if PasWin.Constraints.MaxHeight > 0 then

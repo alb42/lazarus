@@ -4241,10 +4241,10 @@ endif
 .PHONY: ide idepkg bigide starter lazbuilder all clean cleanide purge revisioninc codepage
 revisioninc:
 ifneq ($(USESVN2REVISIONINC),0)
-ifeq ($(wildcard ../tools/svn2revisioninc$(SRCEXEEXT)),)
-	$(MAKE) -C ../tools svn2revisioninc$(SRCEXEEXT) OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) OPT=''
-endif
-	../tools/svn2revisioninc$(SRCEXEEXT) .. revision.inc
+#ifeq ($(wildcard ../tools/svn2revisioninc$(SRCEXEEXT)),)
+#	$(MAKE) -C ../tools svn2revisioninc$(SRCEXEEXT) OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) OPT=''
+#endif
+#	../tools/svn2revisioninc$(SRCEXEEXT) .. revision.inc
 endif
 ide: $(COMPILER_UNITTARGETDIR) revisioninc
 	$(MAKE) --assume-new=lazarus.pp lazarus$(EXEEXT) OPT='$(DEFAULT_IDE_OPTIONS) $(LAZARUS_OPT) $(OPT)'

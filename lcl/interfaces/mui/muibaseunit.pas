@@ -724,10 +724,17 @@ end;
 procedure TMuiApplication.CheckTimer;
 var
   i: Integer;
+  Num: Integer;
 begin
-  for i := 0 to FTimers.Count - 1 do
+  i := 0;
+  Num := FTimers.Count;
+  while i < FTimers.Count do
   begin
     TMUITimer(FTimers.items[i]).CheckTimer;
+    if Num = FTimers.Count then 
+      Inc(i)
+    else
+      Num := FTimers.Count;   
   end;
 end;
 
@@ -789,7 +796,7 @@ end;
 
 procedure TMuiApplication.ProcessMessages;
 begin
-  RedrawList; 
+  RedrawList;
   CheckTimer;
   if IPTR(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then

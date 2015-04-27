@@ -409,7 +409,11 @@ var
 
 implementation
 
-uses gettext;
+uses
+{$ifdef AROS}
+exec, utility, tagsarray,
+{$endif}
+gettext;
 
 const
   {$IFDEF WithOldDebugln}
@@ -867,6 +871,52 @@ begin
   end;
 end;
 
+{$ifdef AROS}
+const
+  DL_Dummy = TAG_USER + $03e00000;
+  DL_ModuleName = DL_Dummy + 1; 
+  DL_SegmentName = DL_Dummy + 2;
+  DL_SymbolName = DL_Dummy + 7;
+
+var
+  DebugBase: Pointer = nil;
+
+function DecodeLocation(addr1: Pointer; tags: PTagItem): Integer; syscall DebugBase 7;
+
+procedure DumpAddr(Addr: Pointer);
+var
+  SymName, ModName, SegName: PChar;
+  Tags: TTagsList;
+  s: String;
+begin
+    
+  if not Assigned(DebugBase) then
+  begin
+    // preventing another exception, while dumping stack trace
+    try
+      DebugLn(BackTraceStrFunc(Addr));
+    except
+      DebugLn(SysBackTraceStr(Addr));
+    end;
+  end else
+  begin
+    AddTags(Tags, [
+      DL_Modulename, @ModName,
+      DL_SegmentName, @SegName,
+      DL_SymbolName, @SymName
+      ]);
+    DecodeLocation(Addr, GetTagPtr(Tags));
+    s := '-unknown-';
+    if not Assigned(ModName) then
+      ModName := @S[1];
+    if not Assigned(SegName) then
+      SegName := @S[1];
+    if not Assigned(SymName) then
+      SymName := @S[1];
+    debugln('$' + HexStr(Addr) + ' ' + ModName + ' ' + SegName + ' ' + SymName);
+  end;
+end;
+{$else}
 procedure DumpAddr(Addr: Pointer);
 begin
   // preventing another exception, while dumping stack trace
@@ -876,6 +926,9 @@ begin
     DebugLn(SysBackTraceStr(Addr));
   end;
 end;
+{$endif}
+
+
 
 procedure DumpExceptionBackTrace;
 var
@@ -3145,6 +3198,9 @@ begin
 end;
 
 initialization
+  {$ifdef AROS}
+  DebugBase := Exec.OpenLibrary('debug.library', 2);
+  {$endif}
   {$IFDEF WithOldDebugln} InitializeDebugOutput; {$ENDIF}
   {$ifdef WinCE}
   // The stabs based back trace function crashes on wince,
@@ -3172,5 +3228,9 @@ finalization
   FinalizeDebugOutput;
   DebugLnNestFreePrefix;
   {$ENDIF}
-
+  {$ifdef AROS}
+  if Assigned(DebugBase) then
+    CloseLibrary(DebugBase);
+  DebugBase := nil;
+  {$endif}
 end.

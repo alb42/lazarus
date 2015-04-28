@@ -16,8 +16,6 @@ var
   GlobalVisInfo: Pointer;
   GlobalScreen: pScreen;
 function GetUniqueNumber:LongInt;
-function Tags(a: array of Const): PTagItem;
-
 
 implementation
 
@@ -28,11 +26,6 @@ function GetUniqueNumber:LongInt;
 begin
   Inc(UNr);
   Result := (UNr);
-end;
-
-function Tags(a: array of Const): PTagItem;
-begin
-  Tags := @a[0];
 end;
 
 initialization

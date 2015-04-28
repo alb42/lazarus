@@ -208,7 +208,6 @@ function TMUIWidgetSet.CreateCompatibleDC(DC: HDC): HDC;
 var
   ADC: TMUICanvas absolute DC;
   NewDC: TMUICanvas;
-  B: TMuiBitmap;
 begin
   {$ifdef VERBOSEAROS}
   writeln('-->CreateCompatibleDC ', HexStr(ADC));
@@ -486,18 +485,14 @@ function TMUIWidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 var
   ADC: TMUICanvas absolute DC;
-  Height, Width: Integer;
 begin
   {$ifdef VERBOSEAROS}
   write('Ext Text out "', str,'" - ', Options, ' - ');
   {$endif}
   if Assigned(ADC) and Assigned(ADC.RastPort) then
   begin
-    
     if Assigned(Rect) and ((Options and ETO_OPAQUE) <> 0) then
     begin
-      Width := Rect^.Right - Rect^.Left;
-      Height := Rect^.Bottom - Rect^.Top;
       ADC.SetBKToRP(True);      
       ADC.FillRect(Rect^.Left, Rect^.Top, Rect^.Right, Rect^.Bottom);
       ADC.SetPenToRP;
@@ -537,9 +532,11 @@ function TMUIWidgetSet.FloodFill(DC: HDC; X: Integer; Y: Integer; Color: TGraphi
 var
   ADC: TMUICanvas absolute DC;
 begin
+  REsult := False;
   if Assigned(ADC) then
   begin
     ADC.FloodFill(X,Y,Color);
+    Result := True;
   end;
 end;
 
@@ -633,8 +630,6 @@ end;
 function TMUIWidgetSet.GetClipBox(DC : hDC; lpRect : PRect) : Longint;
 var
   ADC: TMUICanvas absolute DC; 
-  X, Y : Longint;
-  DCOrigin: Tpoint;
 begin
   // set default values
   Result := SIMPLEREGION;
@@ -680,7 +675,6 @@ end;
 function TMUIWidgetSet.GetDC(hWnd: HWND): HDC;
 var
   PrivateWidget: TMUIObject absolute hWnd;
-  fpForm: PWindow;
   ri: PMUI_RenderInfo;
 begin
   Result := 0;
@@ -746,7 +740,7 @@ end;
 
 function TMUIWidgetSet.GetKeyState(nVirtKey: Integer): Smallint;
 const
-  StateDown: SmallInt = $FF80;
+  StateDown: SmallInt = SmallInt($FF80);
 var
   RShift, LShift, Shift, Control, LAlt, RAlt, Alt, RMeta, LMeta: Boolean;
   LMouse, MMouse, RMouse: Boolean;
@@ -1264,11 +1258,15 @@ function TMUIWidgetSet.Polygon(DC: HDC; Points: PPoint; NumPts: Integer; Winding
 var
   ADC: TMUICanvas absolute DC;
 begin
+  Result := False;
   {$ifdef VERBOSEAROS}
   writeln('Polygon ', IntToStr(NumPoints));
   {$endif}
-  if Assigned(ADC) then
+  if Assigned(ADC) and (NumPts > 0) and Assigned(Points) then
+  begin
     ADC.Polygon(Points, NumPts);
+    Result := True;
+  end;
 end;
 
 function TMUIWidgetSet.Polyline(DC: HDC; Points: PPoint; NumPts: Integer): boolean;
@@ -1281,7 +1279,7 @@ begin
   writeln('Polyline ', IntToStr(NumPoints));
   {$endif}
   Result := False;
-  if Assigned(ADC) then
+  if Assigned(ADC) and Assigned(Points) and (NumPts > 0) then
   begin
     Result := True;
     CurPoint := Points;
@@ -1350,6 +1348,7 @@ end;
 
 function TMUIWidgetSet.RoundRect(DC : hDC; X1, Y1, X2, Y2: Integer; RX,RY : Integer): Boolean;
 begin
+  Result := True;
   Rectangle(DC, x1, y1, x2, y2);
 end;
 
@@ -1579,16 +1578,29 @@ end;
 function TMUIWidgetSet.ShowScrollBar(Handle: HWND; wBar: Integer; bShow: Boolean): Boolean;
 var
   Widget: TMUIObject absolute Handle;
+  ReDo: Boolean;
+  Created: Boolean;
 begin
+  Result := False;
+  ReDo := False;
+  Created := False;
   if Assigned(Widget) then
   begin
+    Result := True;
     if bShow and (not Assigned(Widget.VScroll) or not Assigned(Widget.HScroll)) then
+    begin
       Widget.CreateScrollbars;
+      Created := True;
+    end;  
     if wBar = SB_Vert then
     begin
       if Assigned(Widget.VSCroll) then
       begin
-        Widget.VScroll.Visible := bShow;      
+        if Widget.VScroll.Visible <> bShow then
+        begin
+          Widget.VScroll.Visible := bShow;      
+          ReDo := True;
+        end;
       end;
     end;  
     if wBar = SB_Horz then
@@ -1596,22 +1608,25 @@ begin
       if Assigned(Widget.HScroll) then
       begin
         Widget.HScroll.Visible := bShow;
+        ReDo := True;
       end;  
     end;
-    if Widget.PasObject is TWinControl then
-      TWinControl(Widget.PasObject).InvalidateClientRectCache(True);
+    if (Widget.PasObject is TWinControl) and ReDo and not Created then
+      TWinControl(Widget.PasObject).InvalidateClientRectCache(False);
   end;  
 end;
 
 
 function TMUIWidgetSet.SetCaretPos(X, Y: Integer): Boolean;
 begin
+  Result := False;
 end;
 
 function TMUIWidgetSet.SetCaretPosEx(Handle: HWnd; X, Y: Integer): Boolean;
 var
   Widget: TMUIObject absolute Handle;
 begin
+  Result := False;
   //writeln('SetCarePosEx');
   if Assigned(Widget) then
     MUIApp.AddInvalidatedObject(Widget);  
@@ -1700,7 +1715,7 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
-  Sptr, Dptr: PByte;
+  //Sptr, Dptr: PByte;
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
 begin

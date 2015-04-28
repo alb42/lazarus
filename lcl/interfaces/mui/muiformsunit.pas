@@ -34,15 +34,16 @@ type
     MenuChoosed: THook;
     FTitle: string;
     FShortCut: string;
+  protected
     function GetChecked: Boolean;
     function GetCheckIt: Boolean;
-    function GetEnabled: Boolean;
+    function GetEnabled: Boolean; override;
     function GetMenuItem: TMenuItem;
     function GetShortCut: string;
     function GetTitle: string;
     procedure SetChecked(const AValue: Boolean);
     procedure SetCheckIt(const AValue: Boolean);
-    procedure SetEnabled(const AValue: Boolean);
+    procedure SetEnabled(const AValue: Boolean); override;
     procedure SetShortCut(const AValue: string);
     procedure SetTitle(const AValue: string);
   public
@@ -60,9 +61,10 @@ type
   TMuiMenu = class(TMuiFamily)
   private
     FTitle: string;
-    function GetEnabled: Boolean;
+  protected
+    function GetEnabled: Boolean;  override;
     function GetTitle: string;
-    procedure SetEnabled(const AValue: Boolean);
+    procedure SetEnabled(const AValue: Boolean); override;
     procedure SetTitle(const AValue: string);
   public
     constructor Create(var tags: TTagsList);
@@ -74,9 +76,9 @@ type
   { TMuiMenuStrip }
 
   TMuiMenuStrip = class(TMuiFamily)
-  private
-    function GetEnabled: Boolean;
-    procedure SetEnabled(const AValue: Boolean);
+  protected
+    function GetEnabled: Boolean; override;
+    procedure SetEnabled(const AValue: Boolean); override;
   public
     constructor Create(var tags: TTagsList);
     Destructor Destroy; override;
@@ -214,8 +216,6 @@ begin
 end;
 
 destructor TMuiMenuStrip.Destroy;
-var
-  i: Integer;
 begin
   FObject := nil;
   inherited;
@@ -332,16 +332,15 @@ procedure TMuiMenuItem.SetTitle(const AValue: string);
 begin
   FTitle := AValue;
   if AValue = '-' then
-    SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(NM_BARLABEL), TAG_END])
+    SetAttribute([PtrInt(MUIA_Menuitem_Title), PtrInt(NM_BARLABEL), TAG_END])
   else
-    SetAttribute([LongInt(MUIA_Menuitem_Title), LongInt(PChar(FTitle)), TAG_END]);
+    SetAttribute([PtrInt(MUIA_Menuitem_Title), PChar(FTitle), TAG_END]);
 end;
 
 procedure MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
 var
   MuiObject: TMuiMenuItem;
   TargetObject: TObject;
-  mi: PNewMenu;
 begin
   if TObject(Hook^.h_Data) is TMuiMenuItem then
   begin
@@ -483,10 +482,12 @@ begin
   AltTop := 0;
   AltWidth := IntuitionBase^.ActiveScreen^.Width;
   AltHeight := IntuitionBase^.ActiveScreen^.Height - IntuitionBase^.ActiveScreen^.BarHeight;
-  AddTags(TagList, [MUIA_Window_AltLeftEdge , AltLeft]);
-  AddTags(TagList, [MUIA_Window_AltTopEdge , AltTop]);
-  AddTags(TagList, [MUIA_Window_AltWidth , AltWidth]);  
-  AddTags(TagList, [MUIA_Window_AltHeight , AltHeight]);
+  AddTags(TagList, [
+    PtrInt(MUIA_Window_AltLeftEdge) , AltLeft,
+    PtrInt(MUIA_Window_AltTopEdge) , AltTop,
+    PtrInt(MUIA_Window_AltWidth) , AltWidth,
+    PtrInt(MUIA_Window_AltHeight) , AltHeight
+    ]);
   //
   AddTags(TagList, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj]);
   inherited Create(MUIC_Window, GetTagPtr(TagList));
@@ -532,7 +533,7 @@ begin
     IPTR(MUIM_CallHook), IPTR(@SizeHook)
     ]);
   if MuiApp.MainWin = obj then
-    SetAttribute([MUIA_Window_Activate, True]);  
+    SetAttribute([PtrInt(MUIA_Window_Activate), True]);  
 end;
 
 destructor TMuiWindow.Destroy;
@@ -666,7 +667,7 @@ begin
   FFocusedControl := AControl;
   if Assigned(AControl) then
   begin
-    SetAttribute([MUIA_Window_Activate, True, MUIA_Window_ActiveObject, AControl.FocusObject]);
+    SetAttribute([PtrInt(MUIA_Window_Activate), True, PtrInt(MUIA_Window_ActiveObject), AControl.FocusObject]);
   end;  
 end;
 

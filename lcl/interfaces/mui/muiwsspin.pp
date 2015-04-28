@@ -65,12 +65,12 @@ end;
 
 class function TMUIWSCustomFloatSpinEdit.GetSelStart(const ACustomEdit: TCustomEdit): integer;
 begin
-  //
+  Result := 0;
 end;
 
 class function TMUIWSCustomFloatSpinEdit.GetSelLength(const ACustomEdit: TCustomEdit): integer;
-var
-  AStart, AEnd: Integer;
+//var
+//  AStart, AEnd: Integer;
 begin
   Result := 0;
 end;

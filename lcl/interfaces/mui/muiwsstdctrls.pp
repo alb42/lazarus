@@ -275,11 +275,11 @@ var
   MUIScrollbar: TMUIScrollbar;
   TagList: TTagsList;
 begin
-  AddTags(TagList, [MUIA_Prop_First, 0, MUIA_Prop_Entries, 120, MUIA_Prop_Visible, 20]);
+  AddTags(TagList, [PtrInt(MUIA_Prop_First), 0, PtrInt(MUIA_Prop_Entries), 120, PtrInt(MUIA_Prop_Visible), 20]);
   if TScrollbar(AWinControl).Kind = sbHorizontal then
-    AddTags(TagList, [MUIA_Group_Horiz, True])
+    AddTags(TagList, [PtrInt(MUIA_Group_Horiz), True])
   else
-    AddTags(TagList, [MUIA_Group_Horiz, False]);
+    AddTags(TagList, [PtrInt(MUIA_Group_Horiz), False]);
   MUIScrollbar := TMUIScrollbar.Create(TagList);
   With MUIScrollbar do
   begin
@@ -541,10 +541,10 @@ begin
   if Len = 0 then
     Len := 2048;
   AddTags(Tags, [
-    MUIA_String_Format, MUIAlign,
-    MUIA_String_MaxLen, Len,
-    MUIA_String_Contents, PChar(CEDit.Text),
-    MUIA_String_Secret, CEdit.EchoMode <> emNormal
+    PtrInt(MUIA_String_Format), MUIAlign,
+    PtrInt(MUIA_String_MaxLen), Len,
+    PtrInt(MUIA_String_Contents), PChar(CEDit.Text),
+    PtrInt(MUIA_String_Secret), CEdit.EchoMode <> emNormal
     ]);
   MuiEdit := TMuiStringEdit.Create(Tags);
   With MuiEdit do
@@ -958,7 +958,7 @@ begin
   Cap := AWinControl.Caption;
   FText := System.AllocMem(Length(Cap) + 1);
   Move(cap[1], FText^, Length(cap));
-  AddTags(TagList, [MUIA_Frame, MUIV_Frame_Group, MUIA_FrameTitle, FText]);
+  AddTags(TagList, [PtrInt(MUIA_Frame), MUIV_Frame_Group, PtrInt(MUIA_FrameTitle), FText]);
   MuiArea := TMUIGroupBox.Create(TagList);
   With MuiArea do
   begin

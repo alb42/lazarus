@@ -238,7 +238,7 @@ type
     FMinValue: Integer;
     FMaxValue: Integer;
     FPageSize: Integer;
-    FPosition: Integer;
+    //FPosition: Integer;
     ChangeHook: THook;
     BlockScrollEvent: Boolean;
     function GetHoriz: Boolean;
@@ -311,7 +311,7 @@ end;
 
 procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
 begin
-  SetAttribute([IPTR(MUIA_Group_Horiz), IPTR(AValue)]);
+  SetAttribute([PtrInt(MUIA_Group_Horiz), PtrInt(AValue)]);
 end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
@@ -323,7 +323,7 @@ begin
     Exit;
   Pos := Position;  
   FMaxValue := AValue;
-  SetAttribute([IPTR(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);  
+  SetAttribute([PtrInt(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);  
   Position := Pos;
 end;
 
@@ -336,7 +336,7 @@ begin
   //debugln('set MinValue ' + IntToStr(AValue));
   Pos := Position;
   FMinValue := AValue;
-  SetAttribute([IPTR(MUIA_Prop_Entries), (FMaxValue - AValue) + FPageSize]);
+  SetAttribute([PtrInt(MUIA_Prop_Entries), (FMaxValue - AValue) + FPageSize]);
   Position := Pos;
 end;
 
@@ -349,8 +349,7 @@ begin
   //debugln('set page size ' + IntToStr(AValue));
   Pos := Position;
   FPageSize := AValue;
-  SetAttribute([IPTR(MUIA_Prop_Entries), (FMaxValue - FMinValue) + AValue]);  
-  SetAttribute([IPTR(MUIA_Prop_Visible), AValue]);  
+  SetAttribute([PtrInt(MUIA_Prop_Entries), (FMaxValue - FMinValue) + AValue, PtrInt(MUIA_Prop_Visible), AValue]);  
   Position := Pos;
 end;
 
@@ -359,7 +358,7 @@ begin
   //DebugLn('LCL: set to '+ IntToStr(AValue) + ' Position is ' + IntToStr(Position) + ' MinValue: ' + IntToStr(FMinValue));
   if AValue <> Position then
   begin
-    SetAttribute([IPTR(MUIA_Prop_First), AValue - FMinValue]);
+    SetAttribute([PtrInt(MUIA_Prop_First), AValue - FMinValue]);
   end;  
 end;
 
@@ -689,7 +688,7 @@ begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
   StrObj := MUI_NewObjectA(MUIC_List, GetTagPtr(StrTags)); 
-  AddTags(Tags, [IPTR(MUIA_Listview_List), StrObj]);
+  AddTags(Tags, [PtrInt(MUIA_Listview_List), StrObj]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
   
@@ -702,17 +701,17 @@ begin
   DoubleClickHook.h_Data := Self;
   
   DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_List_Active), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
+    PtrUInt(MUIA_List_Active), PtrUInt(MUIV_EveryTime),
+    PtrUInt(MUIV_Notify_Self),
     2,
-    IPTR(MUIM_CallHook), IPTR(@ListChangeHook)
+    PtrUInt(MUIM_CallHook), PtrUInt(@ListChangeHook)
     ]);
     
   DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_ListView_DoubleClick), IPTR(True),
-    IPTR(MUIV_Notify_Self),
+    PtrUInt(MUIA_ListView_DoubleClick), PtrUInt(True),
+    PtrUInt(MUIV_Notify_Self),
     2,
-    IPTR(MUIM_CallHook), IPTR(@DoubleClickHook)
+    PtrUInt(MUIM_CallHook), PtrUInt(@DoubleClickHook)
     ]);  
 end;
 
@@ -729,7 +728,6 @@ end;
 procedure TMuiListView.TextChanged(Sender: TObject);
 var
   str: String;
-  TagList: TTagsList;
   i: Integer;
 begin
   if Assigned(FStrings) then
@@ -745,8 +743,8 @@ begin
       Move(str[1], Texts[i]^, Length(str));
     end;
     Texts[FStrings.Count] := nil;
-    DoMethodObj(StrObj, [MUIM_List_Insert, IPTR(@(Texts[0])), FStrings.Count, MUIV_List_Insert_Bottom]);
-    DoMethodObj(StrObj, [MUIM_List_Redraw, MUIV_List_Redraw_All]);
+    DoMethodObj(StrObj, [PtrUInt(MUIM_List_Insert), PtrUInt(@(Texts[0])), FStrings.Count, PtrUInt(MUIV_List_Insert_Bottom)]);
+    DoMethodObj(StrObj, [PtrUInt(MUIM_List_Redraw), PtrUInt(MUIV_List_Redraw_All)]);
   end;  
 end;
 
@@ -782,7 +780,7 @@ begin
     Res := MUIV_List_Active_Off
   else
     Res := AValue;
-  AddTags(TagList, [IPTR(MUIA_List_Active), Res, TAG_END]);  
+  AddTags(TagList, [PtrInt(MUIA_List_Active), Res, TAG_END]);  
   SetAttrsA(StrObj, GetTagPtr(TagList));
 end;
 
@@ -851,9 +849,9 @@ begin
   if ObjType = MUIO_Radio then
   begin
     AddTags(TagList2, [
-      IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_Immediate),
-      IPTR(MUIA_ShowSelState), IPTR(False),
-      IPTR(MUIA_Image_Spec), IPTR(MUII_RadioButton)]);
+      PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_Immediate),
+      PtrInt(MUIA_ShowSelState), PtrInt(False),
+      PtrInt(MUIA_Image_Spec), PtrInt(MUII_RadioButton)]);
     inherited Create(MUIC_Image, GetTagPtr(TagList2));
   end else
     inherited Create(ObjType, Params);
@@ -972,16 +970,16 @@ constructor TMuiToggleButton.Create(ObjType: LongInt;
   const Params: array of const);
 begin
   inherited Create(MUIO_Button, Params);
-  SetAttribute([IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_Toggle)]);
+  SetAttribute([PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_Toggle)]);
   CheckHook.h_Entry := IPTR(@CheckFunc);
   CheckHook.h_SubEntry := 0;
   CheckHook.h_Data := Self;
 
   DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Selected), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
+    PtrUInt(MUIA_Selected), PtrUInt(MUIV_EveryTime),
+    PtrUInt(MUIV_Notify_Self),
     2,
-    IPTR(MUIM_CallHook), IPTR(@CheckHook)
+    PtrUInt(MUIM_CallHook), PtrUInt(@CheckHook)
     ]);
 end;
 
@@ -1018,8 +1016,8 @@ begin
 end;
 
 procedure TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
-var
-  MuiObject: TMuiObject;
+//var
+//  MuiObject: TMuiObject;
 begin
   writeln('edit text Event');
   if TObject(Hook^.h_Data) is TMuiObject then
@@ -1048,23 +1046,23 @@ begin
     FreeMem(FText);
     FText := System.AllocMem(Length(AValue) + 1);
     Move(AValue[1], FText^, Length(AValue));
-    SetAttribute([IPTR(MUIA_String_Contents), FText, TAG_END]);
+    SetAttribute([PtrInt(MUIA_String_Contents), FText, TAG_END]);
   end;  
 end;
 
 constructor TMuiStringEdit.Create(var Tags: TTagsList);
-var
-  p: Pointer;
+//var
+//  p: Pointer;
 begin
   EditHook.h_Entry := IPTR(@TextEditFunc);
   EditHook.h_SubEntry := 0;
   EditHook.h_Data := Self;
-  P := @EditHook;
+  //P := @EditHook;
   // Edithook does not work currently
   AddTags(Tags, [
-    MUIA_Background, MUII_TextBack,
-    MUIA_Font, MUIV_Font_Normal,
-    MUIA_Frame, MUIV_Frame_String
+    PtrInt(MUIA_Background), MUII_TextBack,
+    PtrInt(MUIA_Font), MUIV_Font_Button,
+    PtrInt(MUIA_Frame), MUIV_Frame_String
     //,
     //MUIA_String_EditHook, P,
     //MUIA_String_LonelyEditHook, 1
@@ -1078,19 +1076,19 @@ begin
   TextChanged.h_SubEntry := 0;
   TextChanged.h_Data := Self;
   CallHook(PHook(OCLASS(FObject)), FObject,
-      [IPTR(MUIM_Notify), IPTR(MUIA_String_Contents), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self),
+      [PtrInt(MUIM_Notify), PtrInt(MUIA_String_Contents), PtrInt(MUIV_EveryTime),
+      PtrInt(MUIV_Notify_Self),
       2,
-      IPTR(MUIM_CallHook), @TextChanged
+      PtrInt(MUIM_CallHook), @TextChanged
       ]);
   TextDone.h_Entry := IPTR(@TextDoneFunc);
   TextDone.h_SubEntry := 0;
   TextDone.h_Data := Self;
   CallHook(PHook(OCLASS(FObject)), FObject,
-      [IPTR(MUIM_Notify), IPTR(MUIA_String_Acknowledge), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self),
+      [PtrInt(MUIM_Notify), PtrInt(MUIA_String_Acknowledge), PtrInt(MUIV_EveryTime),
+      PtrInt(MUIV_Notify_Self),
       2,
-      IPTR(MUIM_CallHook), @TextDone
+      PtrInt(MUIM_CallHook), @TextDone
       ]);    
 end;
 
@@ -1108,7 +1106,7 @@ end;
 var
   IntegerChars: string = '0123456789-';
   FloatChars: string = '0123456789-.,';  
-
+  NoChars: string = '';
 procedure TMuiStringEdit.SetNumbersOnly(const AValue: Boolean);
 var
   StrTxt: String;
@@ -1119,11 +1117,11 @@ begin
   if FNumbersOnly then
   begin
     StrTxt := GetText;
-    SetAttribute([MUIA_String_Integer, StrToIntDef(StrTxt, 0)]);
-    SetAttribute([MUIA_String_Accept, PChar(IntegerChars)]);
+    SetAttribute([PtrInt(MUIA_String_Integer), StrToIntDef(StrTxt, 0)]);
+    SetAttribute([PtrInt(MUIA_String_Accept), PChar(IntegerChars)]);
   end else
   begin
-    SetAttribute([MUIA_String_Accept, '']);
+    SetAttribute([PtrInt(MUIA_String_Accept), PChar(NoChars)]);
   end;  
 end;
 
@@ -1164,8 +1162,8 @@ begin
     if Assigned(PC) then
     begin
       // we accept , and . :-P but set it to the system set DECIMALSEPARATOR
-      strValue := StringReplace(string(PC), ',', DECIMALSEPARATOR, [rfReplaceAll]);
-      strValue := StringReplace(strValue, '.', DECIMALSEPARATOR, [rfReplaceAll]);
+      strValue := StringReplace(string(PC), ',', FormatSettings.DECIMALSEPARATOR, [rfReplaceAll]);
+      strValue := StringReplace(strValue, '.', FormatSettings.DECIMALSEPARATOR, [rfReplaceAll]);
       Result := StrToFloatDef(string(PC), 0);
       Result := Min(FMaxValue, Max(FMinValue, Result));
     end;  
@@ -1181,8 +1179,8 @@ begin
   StrValue := FloatToStrF(Val, ffFixed, 8, FDecimals);
   FillChar(FText^, Length(StrValue) + 2, 0);
   Move(StrValue[1], FText^, Length(strValue));
-  SetAttObj(Edit, [MUIA_String_Contents, PChar(FText)]);
-  SetAttObj(Edit, [MUIA_String_BufferPos, Length(FText)]);
+  SetAttObj(Edit, [PtrInt(MUIA_String_Contents), PChar(FText)]);
+  SetAttObj(Edit, [PtrInt(MUIA_String_BufferPos), Length(FText)]);
 end;
 
 constructor TMuiSpinEdit.Create(var Tags: TTagsList);
@@ -1200,12 +1198,12 @@ begin
   // BUTTON DOWN  ##################################
   FText := System.AllocMem(100);
   AddTags(BtnUpTags, [
-    IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
-    IPTR(MUIA_ShowSelState), IPTR(True),
+    PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_RelVerify),
+    PtrInt(MUIA_ShowSelState), PtrInt(True),
     //MUIA_Frame, MUIV_Frame_ImageButton,
-    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
-    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,    
-    IPTR(MUIA_Image_Spec), IPTR(MUII_ArrowUp)
+    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
+    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,    
+    PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowUp)
     ]);
   btnUp := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnUpTags));
   
@@ -1213,17 +1211,17 @@ begin
   ButtonUpClick.h_SubEntry := 0;
   ButtonUpClick.h_Data := Self;
   
-  DoMethodObj(btnUp, [IPTR(MUIM_Notify), IPTR(MUIA_Timer), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUpClick)]);  
+  DoMethodObj(btnUp, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_Timer), PtrUInt(MUIV_EveryTime),
+    PtrUInt(MUIV_Notify_Self), 2, PtrUInt(MUIM_CallHook), PtrUInt(@ButtonUpClick)]);  
   
   // BUTTON UP #######################################
   AddTags(BtnDownTags, [
-    IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
-    IPTR(MUIA_ShowSelState), IPTR(True),
+    PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_RelVerify),
+    PtrInt(MUIA_ShowSelState), PtrInt(True),
     //MUIA_Frame, MUIV_Frame_ImageButton,
-    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
-    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
-    IPTR(MUIA_Image_Spec), IPTR(MUII_ArrowDown)
+    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
+    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
+    PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowDown)
     ]);
   btndown := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnDownTags));
   
@@ -1231,43 +1229,43 @@ begin
   ButtonDownClick.h_SubEntry := 0;
   ButtonDownClick.h_Data := Self;
   
-  DoMethodObj(btnDown, [IPTR(MUIM_Notify), IPTR(MUIA_Timer), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDownClick)]);  
+  DoMethodObj(btnDown, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_Timer), PtrUInt(MUIV_EveryTime),
+    PtrUInt(MUIV_Notify_Self), 2, PtrUInt(MUIM_CallHook), PtrUInt(@ButtonDownClick)]);  
   
   // BUTTON GROUP ####################################
   AddTags(BtnGroupTags, [
-    MUIA_Background, MUII_TextBack,
-    MUIA_Group_Child, BtnUp,
-    MUIA_Group_Child, BtnDown,
-    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
-    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
-    MUIA_Group_Spacing, 0,
-    MUIA_Group_Horiz, False
+    PtrInt(MUIA_Background), MUII_TextBack,
+    PtrInt(MUIA_Group_Child), BtnUp,
+    PtrInt(MUIA_Group_Child), BtnDown,
+    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
+    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
+    PtrInt(MUIA_Group_Spacing), 0,
+    PtrInt(MUIA_Group_Horiz), False
     ]);
   
   UpDownPanel := MUI_NewObjectA(MUIC_Group, GetTagPtr(BtnGroupTags));
   //
   // Editor ###########################################
   AddTags(EditTags, [
-    MUIA_String_Format, MUIV_String_Format_Right, 
-    MUIA_Background, MUII_TextBack,
-    MUIA_Frame, MUIV_Frame_String,
-    MUIA_Font, MUIV_Font_Fixed,
-    MUIA_Group_Spacing, 0,
-    MUIA_String_MaxLen, 100,
-    MUIA_String_Accept, PChar(FloatChars)
+    PtrInt(MUIA_String_Format), MUIV_String_Format_Right, 
+    PtrInt(MUIA_Background), MUII_TextBack,
+    PtrInt(MUIA_Frame), MUIV_Frame_String,
+    PtrInt(MUIA_Font), MUIV_Font_Fixed,
+    PtrInt(MUIA_Group_Spacing), 0,
+    PtrInt(MUIA_String_MaxLen), 100,
+    PtrInt(MUIA_String_Accept), PChar(FloatChars)
   ]);
   Edit := MUI_NewObjectA(MUIC_String, GetTagPtr(EditTags));
   //
   // Group ############################################# 
   AddTags(GrpTags, [
-    MUIA_InnerLeft , 0, MUIA_InnerRight , 0,
-    MUIA_InnerTop , 0, MUIA_InnerBottom , 0,
-    MUIA_Group_Spacing, 0,
-    MUIA_Group_Child, Edit,
-    MUIA_Group_Child, UpDownPanel,
-    MUIA_Frame, MUIV_Frame_string,
-    MUIA_Group_Horiz, True
+    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
+    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
+    PtrInt(MUIA_Group_Spacing), 0,
+    PtrInt(MUIA_Group_Child), Edit,
+    PtrInt(MUIA_Group_Child), UpDownPanel,
+    PtrInt(MUIA_Frame), MUIV_Frame_string,
+    PtrInt(MUIA_Group_Horiz), True
     ]); 
   inherited Create(MUIC_Group, GetTagPtr(GrpTags));
   //
@@ -1275,16 +1273,16 @@ begin
   TextChanged.h_Entry := IPTR(@TextChangedFunc);
   TextChanged.h_SubEntry := 0;
   TextChanged.h_Data := Self;
-  DoMethodObj(Edit, [IPTR(MUIM_Notify), IPTR(MUIA_String_Contents), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self), 2,
-      IPTR(MUIM_CallHook), IPTR(@TextChanged)
+  DoMethodObj(Edit, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Contents), PtrUInt(MUIV_EveryTime),
+      PtrUInt(MUIV_Notify_Self), 2,
+      PtrUInt(MUIM_CallHook), PtrUInt(@TextChanged)
       ]);
   TextDone.h_Entry := IPTR(@TextDoneFunc);
   TextDone.h_SubEntry := 0;
   TextDone.h_Data := Self;
-  DoMethodObj(Edit, [IPTR(MUIM_Notify), IPTR(MUIA_String_Acknowledge), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self), 2,
-      IPTR(MUIM_CallHook), IPTR(@TextDone)
+  DoMethodObj(Edit, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Acknowledge), PtrUInt(MUIV_EveryTime),
+      PtrUInt(MUIV_Notify_Self), 2,
+      PtrUInt(MUIM_CallHook), PtrUInt(@TextDone)
       ]);
 end;
 
@@ -1324,11 +1322,11 @@ begin
   if FDecimals = 0 then
   begin
     if AValue <> 0 then
-      SetAttObj(Edit, [MUIA_String_Accept, PChar(FloatChars)]);
+      SetAttObj(Edit, [PtrInt(MUIA_String_Accept), PChar(FloatChars)]);
   end else
   begin
     if AValue = 0 then
-      SetAttObj(Edit, [MUIA_String_Accept, PChar(IntegerChars)]);
+      SetAttObj(Edit, [PtrInt(MUIA_String_Accept), PChar(IntegerChars)]);
   end;
   FDecimals := AValue;
   CurValue := CurValue;  
@@ -1347,8 +1345,8 @@ begin
     Val := 1
   else
     Val := 0;  
-  SetAttObj(Edit, [IPTR(MUIA_CycleChain), IPTR(Val)]);
-  SetAttribute([IPTR(MUIA_CycleChain), 0]);
+  SetAttObj(Edit, [PtrInt(MUIA_CycleChain), Val]);
+  SetAttribute([PtrInt(MUIA_CycleChain), 0]);
 end;
 
 function TMuiSpinEdit.GetFocusObject: PObject_;
@@ -1408,10 +1406,10 @@ procedure TMuiCycle.SetActive(const AValue: LongInt);
 begin
   if FEditable then
   begin
-    SetAttObj(StrObj, [MUIA_String_Contents, PChar(FStrings[AValue])]);
+    SetAttObj(StrObj, [PtrInt(MUIA_String_Contents), PChar(FStrings[AValue])]);
   end else
   begin
-    SetAttribute([IPTR(MUIA_Cycle_Active), AValue, TAG_END]);
+    SetAttribute([PtrInt(MUIA_Cycle_Active), AValue, TAG_END]);
   end;
 end;
 
@@ -1440,7 +1438,7 @@ var
 begin
   if FEditable then
   begin
-    SetAttObj(StrObj, [MUIA_String_Contents, PChar(AText)]);  
+    SetAttObj(StrObj, [PtrInt(MUIA_String_Contents), PChar(AText)]);  
   end else
   begin
     Idx := FStrings.IndexOf(AText);
@@ -1481,22 +1479,22 @@ begin
   if FEditable then
   begin
     AddTags(BtnTags, [
-      IPTR(MUIA_InputMode), IPTR(MUIV_InputMode_RelVerify),
-      IPTR(MUIA_ShowSelState), IPTR(True),
-      IPTR(MUIA_Frame), IPTR(MUIV_Frame_Button),
-      IPTR(MUIA_Image_Spec), IPTR(MUII_PopUp)    
+      PtrInt(MUIA_InputMode), MUIV_InputMode_RelVerify,
+      PtrInt(MUIA_ShowSelState), True,
+      PtrInt(MUIA_Frame), MUIV_Frame_Button,
+      PtrInt(MUIA_Image_Spec), MUII_PopUp 
     ]);
     BtnObj := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnTags));
     
     AddTags(StrTags, [
-      IPTR(MUIA_Frame), IPTR(MUIV_Frame_String)
+      PtrInt(MUIA_Frame), MUIV_Frame_String
     ]);
     StrObj := MUI_NewObjectA(MUIC_String, GetTagPtr(StrTags));
     
     AddTags(ListTags, [
-      MUIA_Popstring_String, StrObj,
-      MUIA_Popstring_Button, BtnObj,
-      MUIA_PopList_Array, IPTR(@(StringPtrs[0]))
+      PtrInt(MUIA_Popstring_String), StrObj,
+      PtrInt(MUIA_Popstring_Button), BtnObj,
+      PtrInt(MUIA_PopList_Array), @(StringPtrs[0])
       ]);
     
     inherited Create(MUIC_PopList, GetTagPtr(ListTags));    
@@ -1505,17 +1503,17 @@ begin
     TextEntered.h_Entry := IPTR(@TextEnteredFunc);
     TextEntered.h_SubEntry := 0;
     TextEntered.h_Data := Self;
-    DoMethodObj(StrObj, [IPTR(MUIM_Notify), IPTR(MUIA_String_Contents), IPTR(MUIV_EveryTime),
-        IPTR(MUIV_Notify_Self), 2,
-        IPTR(MUIM_CallHook), IPTR(@TextEntered)
+    DoMethodObj(StrObj, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Contents), PtrUInt(MUIV_EveryTime),
+        PtrUInt(MUIV_Notify_Self), 2,
+        PtrUInt(MUIM_CallHook), PtrUInt(@TextEntered)
         ]);
 
     ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
     ActiveItemChanged.h_SubEntry := 0;
     ActiveItemChanged.h_Data := Self;    
-    DoMethodObj(StrObj, [IPTR(MUIM_Notify), IPTR(MUIA_String_Acknowledge), IPTR(MUIV_EveryTime),
-        IPTR(MUIV_Notify_Self), 2,
-        IPTR(MUIM_CallHook), IPTR(@ActiveItemChanged)
+    DoMethodObj(StrObj, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Acknowledge), PtrUInt(MUIV_EveryTime),
+        PtrUInt(MUIV_Notify_Self), 2,
+        PtrUInt(MUIM_CallHook), PtrUInt(@ActiveItemChanged)
         ]);
   end else
   begin
@@ -1525,10 +1523,10 @@ begin
     ActiveItemChanged.h_SubEntry := 0;
     ActiveItemChanged.h_Data := Self;
     CallHook(PHook(OCLASS(FObject)), FObject,
-        [IPTR(MUIM_Notify), IPTR(MUIA_Cycle_Active), IPTR(MUIV_EveryTime),
-        IPTR(MUIV_Notify_Self),
+        [PtrInt(MUIM_Notify), PtrInt(MUIA_Cycle_Active), PtrInt(MUIV_EveryTime),
+        PtrInt(MUIV_Notify_Self),
         2,
-        IPTR(MUIM_CallHook), @ActiveItemChanged
+        PtrInt(MUIM_CallHook), @ActiveItemChanged
         ]);
   end;        
   FStrings.OnChange := @ChangedItems;   
@@ -1551,12 +1549,12 @@ begin
   FStrings.FMuiObject := self;
   FTextObj := MUI_NewObjectA(PChar('TextEditor.mcc'), GetTagPtr(Tags));
   scroll := MUI_NewObjectA(MUIC_ScrollBar, NIL);
-  AddTags(CreateTags, [IPTR(MUIA_Group_Horiz), True, IPTR(MUIA_Group_Child), FTextObj, IPTR(MUIA_Group_Child), scroll, TAG_END]);
+  AddTags(CreateTags, [PtrInt(MUIA_Group_Horiz), True, PtrInt(MUIA_Group_Child), FTextObj, PtrInt(MUIA_Group_Child), scroll, TAG_END]);
   inherited Create(MUIC_Group, GetTagPtr(CreateTags));
-  SetAttObj(FTextObj, [IPTR($ad00001a), scroll, TAG_END]);
+  SetAttObj(FTextObj, [PtrInt($ad00001a), scroll, TAG_END]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;
-  SetAttribute([IPTR($ad000002), FText, TAG_END]);
+  SetAttribute([PtrInt($ad000002), FText, TAG_END]);
 end;
 
 Destructor TMuiTextEdit.Destroy;
@@ -1571,12 +1569,12 @@ const
 
 procedure TMuiTextEdit.SetReadOnly(AReadOnly: Boolean);
 begin
-  SetAttribute([IPTR(MUIA_TextEditor_ReadOnly), AReadOnly]);
+  SetAttribute([PtrInt(MUIA_TextEditor_ReadOnly), AReadOnly]);
 end;
 
 function TMuiTextEdit.GetReadOnly: Boolean;
 begin
-  Result := Boolean(GetAttribute(IPTR(MUIA_TextEditor_ReadOnly)));
+  Result := Boolean(GetAttribute(MUIA_TextEditor_ReadOnly));
 end;
 
 { TFlowString }
@@ -1600,7 +1598,7 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     Result := SL.Count;
     SL.EndUpdate;
@@ -1617,11 +1615,11 @@ begin
     //writeln('add: ', s);
     //PC := PChar(#10 + S);
     //CallHookPkt(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [LongInt($ad000026), PC, 2]);
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;
@@ -1632,7 +1630,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000024)]);
+    CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000024)]);
     SL.EndUpdate;
   end;
 end;
@@ -1645,11 +1643,11 @@ begin
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;
@@ -1662,11 +1660,11 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;
@@ -1679,7 +1677,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     Result := SL.strings[Index];
     SL.EndUpdate;
@@ -1695,11 +1693,11 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[LongInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;
@@ -1712,11 +1710,11 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [IPTR($ad000025)]));
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;
@@ -1731,7 +1729,7 @@ begin
     SL.Clear;
     SL.LoadFromFile(FileName);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[IPTR($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
     SL.EndUpdate;
   end;
 end;

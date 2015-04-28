@@ -114,7 +114,7 @@ implementation
  ------------------------------------------------------------------------------}
 class function TMuiWSCommonDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
 begin
-
+  Result := 0;
 end;
 
 {------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ end;
 class procedure TMuiWSCommonDialog.DestroyHandle(const ACommonDialog: TCommonDialog);
 begin
   if (ACommonDialog.HandleAllocated) then
-    FreeAslRequest(Pointer(ACommonDialog.Handle))
+    FreeAslRequest(Pointer(ACommonDialog.Handle));
 end;
 
 class procedure TMuiWSCommonDialog.ShowModal(const ACommonDialog: TCommonDialog);
@@ -163,8 +163,8 @@ var
   TagsList: TTagsList;
   MultiSelect: Boolean;
   i: LongInt;
-  Hook: THook;
-  Win: IPTR;
+  //Hook: THook;
+  //Win: IPTR;
 
   function GetFilename(FDir, FName: string): string;
   begin
@@ -195,39 +195,39 @@ begin
   
   AddTags(TagsList, [
     //ASLFR_Window, Win,    
-    ASLFR_TitleText,	Pchar(ACommonDialog.Title),
-    ASLFR_InitialDrawer, PChar(TFileDialog(ACommonDialog).InitialDir),
-    ASLFR_InitialFile, PChar(TFileDialog(ACommonDialog).FileName)
+    PtrInt(ASLFR_TitleText),	Pchar(ACommonDialog.Title),
+    PtrInt(ASLFR_InitialDrawer), PChar(TFileDialog(ACommonDialog).InitialDir),
+    PtrInt(ASLFR_InitialFile), PChar(TFileDialog(ACommonDialog).FileName)
   ]);
 
   If FileDialog.Filter <> '' then
   begin
     //writeln(FileDialog.Filter);
     AddTags(TagsList, [
-    ASLFR_InitialPattern, PChar(FileDialog.Filter),
-    ASLFR_DoPatterns, True
+      PtrInt(ASLFR_InitialPattern), PChar(FileDialog.Filter),
+      PtrInt(ASLFR_DoPatterns), True
       ]);
   end;
 
   if ACommonDialog is TSaveDialog then
   begin
-    AddTags(TagsList, [ASLFR_DoSaveMode, True]);
+    AddTags(TagsList, [PtrInt(ASLFR_DoSaveMode), True]);
   end else
   begin
     if (ofAllowMultiSelect in TOpenDialog(FileDialog).Options) then
     begin
       MultiSelect:= True;
-      AddTags(TagsList, [ASLFR_DoMultiSelect, True]);
+      AddTags(TagsList, [PtrInt(ASLFR_DoMultiSelect), True]);
     end;
   end;
   if ACommonDialog is TSelectDirectoryDialog then
   begin
-    AddTags(TagsList, [ASLFR_DrawersOnly, True]);
+    AddTags(TagsList, [PtrInt(ASLFR_DrawersOnly), True]);
   end;
   //
-  Hook.h_Entry := IPTR(@IntuiMsgFunc);
-  Hook.h_SubEntry := 0;
-  Hook.h_Data := MuiDialog;
+  //Hook.h_Entry := IPTR(@IntuiMsgFunc);
+  //Hook.h_SubEntry := 0;
+  //Hook.h_Data := MuiDialog;
   //AddTags(TagsList, [ASLFR_UserData, MUIApp, ASLFR_IntuiMsgFunc, @Hook]);//}
   
   //if AslRequestA(MuiDialog, GetTagPtr(TagsList)) then
@@ -248,8 +248,8 @@ begin
 end;
 
 { TMuiWSSelectDirectoryDialog }
-
-{class procedure TMuiWSSelectDirectoryDialog.UpdateProperties(
+(*
+class procedure TMuiWSSelectDirectoryDialog.UpdateProperties(
   const AFileDialog: TSelectDirectoryDialog; QtFileDialog: TQtFileDialog);
 var
   ATitle: WideString;
@@ -267,12 +267,11 @@ begin
   // set kbd shortcuts in case when we are not native dialog.
   QtFileDialog.setShortcuts(False);
   {$endif}
-end; }
+end; *)
 
 class function TMuiWSSelectDirectoryDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
-
 begin
-
+  Result := 1;
 end;
 
 {------------------------------------------------------------------------------
@@ -281,9 +280,7 @@ end;
   Returns: Nothing
  ------------------------------------------------------------------------------}
 class procedure TMuiWSSelectDirectoryDialog.ShowModal(const ACommonDialog: TCommonDialog);
-
 begin
-
 end;
 
 { TMuiWSColorDialog }
@@ -328,9 +325,9 @@ begin
   B := ColLongWord(Blue(ColorDialog.Color));
   //
   AddTags(PalTags, [
-    MUIA_Coloradjust_Red, R,
-    MUIA_Coloradjust_Green, G,
-    MUIA_Coloradjust_Blue, B
+    PtrInt(MUIA_Coloradjust_Red), R,
+    PtrInt(MUIA_Coloradjust_Green), G,
+    PtrInt(MUIA_Coloradjust_Blue), B
   ]);
   Palette := MUI_NewObjectA(MUIC_ColorAdjust, GetTagPtr(PalTags));
 
@@ -338,16 +335,16 @@ begin
   but2 := MUI_MakeObject(MUIO_Button, [PChar('Cancel')]);
   
   AddTags(BGrpTags, [
-    MUIA_Group_Child, but1,
-    MUIA_Group_Child, but2,
-    MUIA_Group_HorizSpacing, 20,
-    MUIA_Group_Horiz, True]);
+    PtrInt(MUIA_Group_Child), but1,
+    PtrInt(MUIA_Group_Child), but2,
+    PtrInt(MUIA_Group_HorizSpacing), 20,
+    PtrInt(MUIA_Group_Horiz), True]);
   BGroup := MUI_NewObjectA(MUIC_Group, GetTagPtr(BGrpTags));
   
   AddTags(GrpTags, [
-    MUIA_Group_Child, Palette,
-    MUIA_Group_Child, BGroup,
-    MUIA_Group_Horiz, False]);
+    PtrInt(MUIA_Group_Child), Palette,
+    PtrInt(MUIA_Group_Child), BGroup,
+    PtrInt(MUIA_Group_Horiz), False]);
   
   Group := MUI_NewObjectA(MUIC_Group, GetTagPtr(GrpTags));
   
@@ -360,32 +357,32 @@ begin
     DefHeight := ColorDialog.Height;
   
   AddTags(WinTags, [
-    MUIA_Window_Title, PChar(ColorDialog.Title),
-    MUIA_Window_RootObject, Group,
-    MUIA_Window_Width, DefWidth,
-    MUIA_Window_Height, DefHeight]);
+    PtrInt(MUIA_Window_Title), PChar(ColorDialog.Title),
+    PtrInt(MUIA_Window_RootObject), Group,
+    PtrInt(MUIA_Window_Width), DefWidth,
+    PtrInt(MUIA_Window_Height), DefHeight]);
   Win := MUI_NewObjectA(MUIC_Window, GetTagPtr(WinTags));  
   
-  AddTags(AppTags, [MUIA_Application_Window, Win]);
+  AddTags(AppTags, [PtrInt(MUIA_Application_Window), Win]);
   LocalApp := MUI_NewObjectA(MUIC_Application, GetTagPtr(AppTags));
   
   CallHook(PHook(OCLASS(Win)), Win,
-    [MUIM_Notify, MUIA_Window_CloseRequest, True,
-    LocalApp, 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), True,
+    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
   
   CallHook(PHook(OCLASS(Win)), but2,
-    [MUIM_Notify, MUIA_Pressed, True,
-    LocalApp, 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), True,
+    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
   
   CallHook(PHook(OCLASS(Win)), but1,
-    [MUIM_Notify, MUIA_Pressed, True,
-    LocalApp, 2, MUIM_Application_ReturnID, 42]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), True,
+    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), 42]);
   
-  SetAttrs(Win, [MUIA_Window_Open, True, TAG_END]);
+  SetAttrs(Win, [PtrInt(MUIA_Window_Open), True, TAG_END]);
   Res := -1; 
   while true  do
   begin
-    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [MUIM_Application_NewInput, @sigs]));
+    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [PtrInt(MUIM_Application_NewInput), @sigs]));
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;
@@ -445,24 +442,24 @@ begin
   FontName := Trim(FDialog.Font.Name);
   
   if PText <> '' then
-    AddTags(TagsList, [ASLFO_SampleText, PChar(PText)]);
+    AddTags(TagsList, [PtrInt(ASLFO_SampleText), PChar(PText)]);
   if TitleText <> '' then
-    AddTags(TagsList, [ASLFO_TitleText, PChar(TitleText)]);  
+    AddTags(TagsList, [PtrInt(ASLFO_TitleText), PChar(TitleText)]);  
   if FDialog.MinFontSize > 0 then
-    AddTags(TagsList, [ASLFO_MinHeight, FDialog.MinFontSize]);    
+    AddTags(TagsList, [PtrInt(ASLFO_MinHeight), FDialog.MinFontSize]);    
   if FDialog.MaxFontSize > 0 then
-    AddTags(TagsList, [ASLFO_MaxHeight, FDialog.MaxFontSize]);
+    AddTags(TagsList, [PtrInt(ASLFO_MaxHeight), FDialog.MaxFontSize]);
   
   // Style Dialog
-  AddTags(TagsList, [ASLFO_DoStyle, not (fdNoStyleSel in FDialog.Options)]);
+  AddTags(TagsList, [PtrInt(ASLFO_DoStyle), not (fdNoStyleSel in FDialog.Options)]);
   // Fixed Width
-  AddTags(TagsList, [ASLFO_FixedWidthOnly, fdFixedPitchOnly in FDialog.Options]);
+  AddTags(TagsList, [PtrInt(ASLFO_FixedWidthOnly), fdFixedPitchOnly in FDialog.Options]);
   
   // Initial Things
   if FontName <> '' then
-    AddTags(TagsList, [ASLFO_InitialName, PChar(FontName)]);
+    AddTags(TagsList, [PtrInt(ASLFO_InitialName), PChar(FontName)]);
   if FDialog.Font.Size > 0 then
-    AddTags(TagsList, [ASLFO_InitialSize, FDialog.Font.Size]);  
+    AddTags(TagsList, [PtrInt(ASLFO_InitialSize), FDialog.Font.Size]);  
   // Styles
   Style := FS_NORMAL;
   if fsBold in FDialog.Font.Style then
@@ -471,9 +468,10 @@ begin
     Style := Style or FSF_ITALIC;
   if fsUnderline in FDialog.Font.Style then
     Style := Style or FSF_UNDERLINED;
-  AddTags(TagsList, [ASLFO_InitialStyle, Style]);
-  //
-  AddTags(TagsList, [ASLFO_DoFrontPen, False]);
+  AddTags(TagsList, [
+    PtrInt(ASLFO_InitialStyle), Style,
+    PtrInt(ASLFO_DoFrontPen), False
+    ]);
   //
   if MUI_AslRequest(MuiDialog, GetTagPtr(TagsList)) then
   begin

@@ -128,6 +128,7 @@ type
   TMUIPenObj = class(TMUIColorObj)
   private
     FWidth: Integer;
+    Style: LongWord;
   public
     constructor Create(const APenData: TLogPen);
   end;
@@ -241,6 +242,7 @@ type
     OldOPen: LongWord;
     OldFont: PTextFont;
     OldDrMd: LongWord;
+    OldPat: Word;
     OldStyle: LongWord;
     InitDone: Boolean;
   public
@@ -503,8 +505,9 @@ constructor TMUIPenObj.Create(const APenData: TLogPen);
 begin
   inherited Create;
   FLCLColor := APenData.lopnColor;
+  Style := APenData.lopnStyle;
   FWidth := APenData.lopnWidth.X;
-  //writeln('pen created: $', HexStr(Pointer(FLCLColor)));
+  //writeln('pen created: $', HexStr(Pointer(FLCLColor)), ' Style ', Style);
 end;
 
 { TMUIColorObj }
@@ -1292,8 +1295,10 @@ begin
   //writeln('-->TCanvas.create ', HexStr(Self));
   Bitmap := nil;
   MUIObject := nil;
-  ABrushData.lbColor := clBtnFace;
+  ABrushData.lbColor := LongWord(clBtnFace);
   APenData.lopnColor := clBlack;
+  APenData.lopnWidth := Point(1,1);
+  APenData.lopnStyle := PS_SOLID;
   AFontData.lfFaceName := 'Arial';
   AFontData.lfHeight := 13;
   FDefaultBrush := TMUIBrushObj.Create(ABrushData);
@@ -1339,7 +1344,8 @@ begin
     OldOPen := GetOutlinePen(RastPort);
     OldFont := RastPort^.Font;
     OldDrMd := GetDrMd(RastPort);
-    OldStyle := SetSoftStyle(RastPort, 0,0);
+    OldPat := RastPort^.LinePtrn;
+    OldStyle := SetSoftStyle(RastPort, 0,0);    
     if Assigned(RenderInfo) and (FClipping.Right - FClipping.Left <> 0) then
     begin
       T := GetOffset;
@@ -1375,6 +1381,8 @@ begin
     SetOutlinePen(RastPort, OldOPen);
     SetFont(RastPort, OldFont);
     SetDrMd(RastPort, OldDrMd);
+    //SetDrPt(RastPort, $FFFF);
+    //RastPort^.LinePtrn := OldPat;
     SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
     Col := 0;
     AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
@@ -1422,11 +1430,26 @@ var
   Col: TColor;
   Tags: TTagsList;
   PenDesc: Integer;
+  //p: Word;
 begin
   if Assigned(RastPort) then
   begin
     if Assigned(FPen) then
     begin
+      {p := $FFFF;
+      case FPen.Style of
+        PS_DOT: p:=1;
+        PS_NULL: p := 0;
+        PS_DASH: p := $FF00;
+        PS_DASHDOT: p := $FF01; 
+        PS_DASHDOTDOT: p := $FF11;
+        PS_USERSTYLE: p:= 1;
+        else
+          p := $FF00;
+          //p := FPen.Style;
+      end;
+      //RastPort^.LinePtrn := p;
+      //SetDrPt(RastPort, p);}
       if FPen.IsSystemColor then
       begin
         Col := FPen.LCLColor;

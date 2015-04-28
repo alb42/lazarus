@@ -159,7 +159,7 @@ begin
     lcApplicationTitle: Result := LCL_CAPABILITY_YES;
     lcApplicationWindow:Result := LCL_CAPABILITY_YES;
     lcFormIcon: Result := LCL_CAPABILITY_NO;
-    lcModalWindow: Result := LCL_CAPABILITY_YES;
+    lcModalWindow: Result := LCL_CAPABILITY_NO;
     lcAntialiasingEnabledByDefault: Result := LCL_CAPABILITY_NO;
     lcLMHelpSupport: Result := LCL_CAPABILITY_NO;
     lcSendsUTF8KeyPress: Result := LCL_CAPABILITY_NO;
@@ -252,11 +252,15 @@ end;
 
 procedure TMUIWidgetSet.AppProcessMessages;
 begin;
+  if GetThreadID <> 0 then
+    DebugLn('Called in a Thread');
   MuiApp.ProcessMessages;
 end;
 
 procedure TMUIWidgetSet.AppWaitMessage;
 begin
+  if GetThreadID <> 0 then
+    DebugLn('Called in a Thread');
   MuiApp.WaitMessages;
 end;
 
@@ -380,12 +384,9 @@ function RawImage_DescriptionFromDrawable(out
   ADesc: TRawImageDescription; ACustomAlpha: Boolean
   ): boolean;
 var
-  Width, Height: integer;
   IsBitmap: Boolean;
 begin
   //writeln('GetDescription from Drawable');
-  Width := 0;
-  Height := 0;
   IsBitMap := False;
 
   ADesc.Init;
@@ -639,7 +640,6 @@ end;
 function TMUIWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;
 var
   Canvas: TMUICanvas;
-  Tags: TTagsList;
 begin
   Canvas := TMUICanvas(CanvasHandle);
   if Assigned(Canvas) then
@@ -651,7 +651,6 @@ end;
 procedure TMUIWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
 var
   Canvas: TMUICanvas;
-  Tags: TTagsList;
 begin
   Canvas := TMUICanvas(CanvasHandle);
   if Assigned(Canvas) then
@@ -734,6 +733,7 @@ begin
   Count := 1;
   GetMem(List, SizeOf(TClipBoardFormat));
   List^ := CLIP_PLAINTEXT;
+  Result := True;
 end;
 
 
@@ -741,8 +741,7 @@ function TMUIWidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType; OnRe
 var
   DataStream: TStringStream;
   Temp: string;
-  c: Char;
-  i,j: Integer;
+  i: Integer;
 begin
   Result := True;
   if (FormatCount = 0) or (OnRequestProc = nil) then
@@ -770,7 +769,7 @@ end;
 
 function TMUIWidgetSet.ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat;
 begin
-  Result := -1;
+  Result := TClipboardFormat(-1);
   if AMimeType = 'text/plain' then
     Result := CLIP_PLAINTEXT;
 end;

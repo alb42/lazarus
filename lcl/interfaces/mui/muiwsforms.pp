@@ -147,30 +147,34 @@ begin
   case TCustomForm(AWincontrol).BorderStyle of
     bsNone: begin
       Sizeable := False;
-      AddTags(TagList, [MUIA_Window_Borderless, True]);
+      AddTags(TagList, [PtrInt(MUIA_Window_Borderless), True]);
     end;
     bsDialog: begin
-      AddTags(TagList, [MUIA_Window_CloseGadget, True, MUIA_Window_SizeRight, False, MUIA_Window_SizeGadget, False]);
+      AddTags(TagList, [
+        PtrInt(MUIA_Window_CloseGadget), True,
+        PtrInt(MUIA_Window_SizeRight), False,
+        PtrInt(MUIA_Window_SizeGadget), False
+        ]);
       Sizeable := False; 
     end;
     bsSingle: begin
-      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
     end;
     bsToolWindow: begin
-      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
       Sizeable := False;
     end;
     bsSizeToolWin: begin
-      AddTags(TagList, [MUIA_Window_SizeRight, False]);
+      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
     end;
   end;
   AddTags(TagList, [
-    MUIA_Window_LeftEdge, AParams.X,
-    MUIA_Window_TopEdge, AParams.Y,
-    MUIA_Window_Width, AParams.Width, 
-    MUIA_Window_Height, AParams.Height
+    PtrInt(MUIA_Window_LeftEdge), AParams.X,
+    PtrInt(MUIA_Window_TopEdge), AParams.Y,
+    PtrInt(MUIA_Window_Width), AParams.Width, 
+    PtrInt(MUIA_Window_Height), AParams.Height
     ]);
-  MuiForm := TMuiWindow.create(TagList);
+  MuiForm := TMuiWindow.Create(TagList);
   MuiForm.Sizeable := Sizeable;
   With Muiform do
   begin

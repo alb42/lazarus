@@ -4,7 +4,7 @@ interface
 
 uses
   controls, muibaseunit, mui, exec, utility, sysutils, strings, tagsarray, Intuition, Types,
-  ComCtrls, LCLMessageGlue, LMessages, LCLType, graphics;
+  ComCtrls, LCLMessageGlue, LMessages, LCLType, graphics, Math;
 
 type
 
@@ -32,6 +32,12 @@ type
     property MinPos: Integer read GetMinPos write SetMinPos;
     property MaxPos: Integer read GetMaxPos write SetMaxPos;
     property ShowText: boolean read GetShowText write SetShowText;
+  end;
+  
+  TMUIBusy = class(TMUIArea)
+  private
+  public
+    constructor Create(AClassName: PChar; Tags: PTagItem); override;
   end;
   
   TMUIGroup = class(TMUIArea)
@@ -64,14 +70,45 @@ type
     procedure SetVisible(const AValue: boolean); override;
     procedure SetEnabled(const AValue: boolean); override;
     procedure SetColor(const AValue: TColor); override;
-    function RegisterHeight: Integer;
+    function GetRegisterHeight: Integer;
+    function GetPagesNum: Integer;
   public
     ShowTabs: Boolean;
     FNames: array[0..100] of PChar;
     constructor Create(AClassName: PChar; var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure AddChild(APage: TMUIObject); override;
+    property RegisterHeight: Integer read GetRegisterHeight;
+    property NumPages: Integer read GetPagesNum;
   end;  
+  
+  TMUINumeric = class(TMUIGroup)
+  protected
+    procedure SetMinValue(AValue: Integer); virtual;
+    procedure SetMaxValue(AValue: Integer); virtual;
+    procedure SetValue(AValue: Integer); virtual;  
+    function GetMinValue: Integer; virtual;
+    function GetMaxValue: Integer; virtual;
+    function GetValue: Integer; virtual;
+  public
+    constructor Create(AClassName: PChar; var TagList: TTagsList); overload; reintroduce; virtual;
+    property MinValue: LongInt read GetMinValue write SetMinValue;
+    property MaxValue: LongInt read GetMaxValue write SetMaxValue;
+    property Value: LongInt read GetValue write SetValue; 
+  end;
+  
+  TMUISlider = class(TMUINumeric)
+  private
+    FHoriz: Boolean;
+  protected
+    procedure SetWidth(AWidth: Integer); override;
+    procedure SetHeight(AHeight: Integer); override;
+    procedure SetHorizontal(AValue: Boolean); virtual;
+    function GetHorizontal: Boolean; virtual;
+  public
+    property Horizontal: Boolean read GetHorizontal write SetHorizontal;
+  end;
+  
 
 
 implementation
@@ -87,7 +124,7 @@ end;
 
 function TMUIGauge.GetMaxPos: Integer;
 begin
-  Result := GetAttribute(IPTR(MUIA_Gauge_Max)) + FMinPos;
+  Result := GetAttribute(MUIA_Gauge_Max) + FMinPos;
 end;
 
 function TMUIGauge.GetMinPos: Integer;
@@ -97,7 +134,7 @@ end;
 
 function TMUIGauge.GetPosition: Integer;
 begin
-  Result := GetAttribute(IPTR(MUIA_Gauge_Current)) + FMinPos;
+  Result := GetAttribute(MUIA_Gauge_Current) + FMinPos;
 end;
 
 function TMUIGauge.GetShowText: boolean;
@@ -110,7 +147,7 @@ begin
   FMaxPos := AValue;
   if FMaxPos - FMinPos > 0 then
   begin
-    SetAttribute([LongInt(MUIA_Gauge_Max), FMaxPos - FMinPos, TAG_END]);
+    SetAttribute([PtrInt(MUIA_Gauge_Max), FMaxPos - FMinPos, TAG_END]);
     if FShowText then
       UpdateText;
   end;
@@ -124,7 +161,7 @@ end;
 
 procedure TMUIGauge.SetPosition(AValue: Integer);
 begin
-  SetAttribute([LongInt(MUIA_Gauge_Current), AValue - FMinPos, TAG_END]);
+  SetAttribute([PtrInt(MUIA_Gauge_Current), AValue - FMinPos, TAG_END]);
   if FShowText then
     UpdateText;
 end;
@@ -148,7 +185,12 @@ begin
     else
       Text := IntToStr(Pos) + ' from ['+IntToStr(FMinPos)+'-'+IntToStr(FMaxPos)+']('+IntToStr(Round(100*(Pos/(FMaxPos-FMinPos))))+'%%)'
   end;
-  SetAttribute([LongInt(MUIA_Gauge_InfoText), PChar(Text)]);
+  SetAttribute([PtrInt(MUIA_Gauge_InfoText), PChar(Text)]);
+end;
+
+constructor TMUIBusy.Create(AClassName: PChar; Tags: PTagItem);
+begin
+  inherited Create(AClassName, Tags);
 end;
 
 { TMUIGroup }
@@ -166,7 +208,7 @@ begin
   begin
     TMUIObject(FChilds[i]).Visible := i = AValue;
   end;
-  SetAttribute([MUIA_Group_ActivePage, AValue]);
+  SetAttribute([PtrInt(MUIA_Group_ActivePage), AValue]);
 end;
 
 procedure TMUIGroup.BasicInitOnCreate();
@@ -181,23 +223,26 @@ end;
 { TMUIRegister }
 
 constructor TMUIRegister.Create(AClassName: PChar; var TagList: TTagsList);
-var
-  tg: TTagsList;
 begin
   FColor := clNone;
   FActivePage := -1;
   FRegisterHeight := 30;
   //writeln('I got it');
-  FNames[0] := GetMem(100);
+  {FNames[0] := GetMem(100);
   StrCopy(FNames[0], ' ');
   FNames[1] := nil;
   AddTags(tg, [MUIA_Register_Titles, IPTR(@FNames[0])]);
-  FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
+  FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));}
+  ShowTabs := False;
+  FTexts := nil;
   //
   AddTags(TagList, [
-    MUIA_InnerTop, 0, MUIA_InnerLeft, 0,
-    MUIA_InnerBottom, 4, MUIA_InnerRight, 4,
-    MUIA_Frame, MUIV_Frame_Group]);
+    PtrInt(MUIA_InnerTop), 0, 
+    PtrInt(MUIA_InnerLeft), 0,
+    PtrInt(MUIA_InnerBottom), 4,
+    PtrInt(MUIA_InnerRight), 4,
+    PtrInt(MUIA_Frame), MUIV_Frame_Group
+    ]);
   inherited Create(AClassName, GetTagPtr(TagList));
 end;
 
@@ -226,13 +271,13 @@ end;
 procedure TMUIRegister.SetLeft(ALeft: Integer);
 begin
   inherited SetLeft(ALeft);
-  if ShowTabs then
+  if ShowTabs and Assigned(FTexts) then
     FTexts.Left := ALeft;
 end;
 
 procedure TMUIRegister.SetTop(ATop: Integer);
 begin
-  if ShowTabs then
+  if ShowTabs and Assigned(FTexts) then
   begin
     inherited SetTop(ATop + RegisterHeight);
     FTexts.Top := ATop;
@@ -245,13 +290,13 @@ end;
 procedure TMUIRegister.SetWidth(AWidth: Integer);
 begin
   inherited SetWidth(AWidth);
-  if ShowTabs then
+  if ShowTabs and Assigned(FTexts) then
     FTexts.Width := AWidth;  
 end;
 
 procedure TMUIRegister.SetHeight(AHeight: Integer);
 begin
-  if ShowTabs then
+  if ShowTabs and Assigned(FTexts) then
   begin
     inherited SetHeight(AHeight - RegisterHeight);
     FTexts.Height := RegisterHeight;
@@ -263,7 +308,7 @@ end;
 
 function TMUIRegister.GetHeight: Integer;
 begin
-  if ShowTabs then  
+  if ShowTabs and Assigned(FTexts) then  
   begin
     Result := FHeight + RegisterHeight;
   end else
@@ -286,12 +331,12 @@ begin
   FActivePage := AValue;
   TCustomTabControl(PasObject).PageIndex := AValue;  
   inherited SetActivePage(AValue);
-  if ShowTabs and Assigned(FTexts.Obj) then
+  if ShowTabs and Assigned(FTexts) and Assigned(FTexts.Obj) then
   begin
     PGIdx := GetAttObj(FTexts.Obj, MUIA_Group_ActivePage);
     if PGIdx <> FActivePage then
     begin
-      SetAttObj(FTexts.Obj, [MUIA_Group_ActivePage, AValue]);
+      SetAttObj(FTexts.Obj, [PtrInt(MUIA_Group_ActivePage), AValue]);
     end;  
     PasObject.Invalidate;
   end;  
@@ -311,13 +356,18 @@ begin
     FTexts.Enabled := AValue;
 end;
 
-function TMUIRegister.RegisterHeight: Integer;
+function TMUIRegister.GetRegisterHeight: Integer;
 begin
   Result := 0;
   if Assigned(FTexts) then
     Result := GetAttObj(FTexts.Obj, MUIA_InnerTop); 
   if Result = 0 then
     Result := FRegisterHeight;
+end;
+
+function TMUIRegister.GetPagesNum: Integer;
+begin
+  Result := FChilds.Count;
 end;
 
 procedure TMUIRegister.SetColor(const AValue: TColor);
@@ -353,7 +403,8 @@ begin
     if Mess.Result <> 0 then
     begin
       PGIdx := MUIRegister.FActivePage;
-      MUIRegister.SetAttObj(MUIRegister.FTexts.Obj, [MUIA_Group_ActivePage, MUIRegister.FActivePage]);  
+      if Assigned(MUIRegister.FTexts) then
+        MUIRegister.SetAttObj(MUIRegister.FTexts.Obj, [PtrInt(MUIA_Group_ActivePage), MUIRegister.FActivePage]);  
       Exit;
     end;    
     MUIRegister.ActivePage := PGIdx;
@@ -390,14 +441,14 @@ begin
   if ShowTabs and Assigned(PasObject) and (PasObject is TCustomTabControl) then
   begin
     Tab := TCustomTabControl(PasObject);
-  
-    //
-    l := FTexts.Left;
-    t := FTexts.Top;
-    w := FTexts.Width;
-    h := FTexts.Height;
-    
-    FTexts.Free; 
+    if Assigned(FTexts) then
+    begin
+      l := FTexts.Left;
+      t := FTexts.Top;
+      w := FTexts.Width;
+      h := FTexts.Height;    
+      FTexts.Free; 
+    end;
     for i := 0 to FChilds.Count - 1 do
     begin
       if Assigned(FNames[i]) then
@@ -408,9 +459,9 @@ begin
     end;
     FNames[FChilds.Count + 1] := nil;
     AddTags(tg, [
-      MUIA_Register_Titles, IPTR(@FNames[0]),
-      MUIA_Frame, MUIV_Frame_None,
-      MUIA_Register_Frame , False
+      PtrInt(MUIA_Register_Titles), @FNames[0],
+      PtrInt(MUIA_Frame), PtrInt(MUIV_Frame_None),
+      PtrInt(MUIA_Register_Frame), False
       ]);
     FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
     FTexts.Top := t;
@@ -428,5 +479,76 @@ begin
       IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@TabHook)]); 
   end;
 end;
+
+{ TMUINumeric }
+
+constructor TMUINumeric.Create(AClassName: PChar; var TagList: TTagsList);
+begin
+  inherited Create(AClassname, GetTagPtr(TagList));
+end;
+
+
+procedure TMUINumeric.SetMinValue(AValue: Integer);
+begin
+  if AValue = MinValue then
+    Exit;
+  SetAttribute([PtrInt(MUIA_Numeric_Min), AValue]);
+end;
+
+procedure TMUINumeric.SetMaxValue(AValue: Integer);
+begin
+  if AValue = MaxValue then
+    Exit;
+  SetAttribute([PtrInt(MUIA_Numeric_Max), AValue]);
+end;
+
+procedure TMUINumeric.SetValue(AValue: Integer);  
+begin
+  if AValue = GetValue then
+    Exit;
+  SetAttribute([PtrInt(MUIA_Numeric_Value), AValue]);
+end;
+
+function TMUINumeric.GetMinValue: Integer;
+begin
+  Result := GetAttribute(MUIA_Numeric_Min);
+end;
+
+function TMUINumeric.GetMaxValue: Integer;
+begin
+  Result := GetAttribute(MUIA_Numeric_Max);
+end;
+
+function TMUINumeric.GetValue: Integer;
+begin
+  Result := GetAttribute(MUIA_Numeric_Value);
+end;
+
+{ TMUISlider }
+
+function TMUISlider.GetHorizontal: Boolean;
+begin
+  Result := FHoriz;
+end;
+
+procedure TMUISlider.SetHorizontal(AValue: Boolean);
+begin
+  FHoriz := AValue;
+end;
+
+procedure TMUISlider.SetWidth(AWidth: Integer);
+begin
+  //if not FHoriz then
+  //  AWidth := 25;
+  inherited SetWidth(AWidth);  
+end;
+
+procedure TMUISlider.SetHeight(AHeight: Integer);
+begin
+  //if FHoriz then
+  //  AHeight := 25;
+  inherited SetHeight(AHeight);  
+end;
+    
 
 end.

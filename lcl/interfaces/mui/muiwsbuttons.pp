@@ -116,7 +116,6 @@ end;
 class procedure TMUIWSBitBtn.SetGlyph(const ABitBtn: TCustomBitBtn; const AValue: TButtonGlyph);
 var
   MuiButton: TMuiBitBtn;
-  Bit: TMUIBitmap;
 begin
   MuiButton := TMuiBitBtn(ABitBtn.Handle);
   if Assigned(MuiButton) then

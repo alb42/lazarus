@@ -645,12 +645,12 @@ procedure TMUIObject.CreateScrollbars;
 var
   Tags1, Tags2: TTagsList;
 begin
-  AddTags(Tags1, [MUIA_Group_Horiz, False]);
+  AddTags(Tags1, [PtrInt(MUIA_Group_Horiz), False]);
   VScroll := TMUIScrollBar.Create(Tags1);
   VScroll.PasObject := Self.PasObject;
   VScroll.Parent := self;
   VScroll.Visible := False;
-  AddTags(Tags2, [MUIA_Group_Horiz, True]);
+  AddTags(Tags2, [PtrInt(MUIA_Group_Horiz), True]);
   HScroll := TMUIScrollBar.Create(Tags2);
   HScroll.PasObject := Self.PasObject;
   HScroll.Parent := Self;
@@ -718,7 +718,7 @@ end;
 
 procedure TMuiApplication.SetIconified(const AValue: boolean);
 begin
-  SetAttribute([IPTR(MUIA_Application_Iconified), IPTR(AValue), IPTR(TAG_END)]);
+  SetAttribute([PtrInt(MUIA_Application_Iconified), PtrInt(AValue), PtrInt(TAG_END)]);
 end;
 
 procedure TMuiApplication.CheckTimer;
@@ -744,11 +744,11 @@ begin
   if FMainWin = nil then
   begin
     FMainWin := Child.obj;
-    SetAttribute([IPTR(MUIA_Application_Window), child.obj, TAG_END]);
+    SetAttribute([PtrInt(MUIA_Application_Window), child.obj, TAG_END]);
     CallHook(PHook(OCLASS(FMainWin)), FMainWin,
-      [IPTR(MUIM_Notify), IPTR(MUIA_Window_CloseRequest), True,
-      longword(FObject), 2, IPTR(MUIM_Application_ReturnID),
-      IPTR(MUIV_Application_ReturnID_Quit)]);
+      [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), True,
+      FObject, 2, PtrInt(MUIM_Application_ReturnID),
+      PtrInt(MUIV_Application_ReturnID_Quit)]);
   end;
 end;
 
@@ -758,7 +758,7 @@ begin
   if Child.obj = FMainWin then
   begin
     FMainWin := nil;
-    SetAttribute([IPTR(MUIA_Application_Window), nil, TAG_END]);
+    SetAttribute([PtrInt(MUIA_Application_Window), nil, TAG_END]);
   end;
 end;
 
@@ -798,7 +798,7 @@ procedure TMuiApplication.ProcessMessages;
 begin
   RedrawList;
   CheckTimer;
-  if IPTR(DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)])) =
+  if PtrInt(DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
   begin    
     //writeln('got terminate1'); // no need to terminate self, LCL will do it for us
@@ -811,7 +811,7 @@ procedure TMuiApplication.WaitMessages;
 begin
   RedrawList;
   CheckTimer;
-  if DoMethod([IPTR(MUIM_Application_NewInput), IPTR(@FSignals)]) =
+  if DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)]) =
     MUIV_Application_ReturnID_Quit then
   begin
     //writeln('got terminate2');
@@ -915,7 +915,7 @@ begin
   if Checked = AValue then
     Exit;
   FBlockChecked := True;
-  SetAttribute([IPTR(MUIA_Selected), IPTR(AValue), TAG_END]);
+  SetAttribute([PtrInt(MUIA_Selected), PtrInt(AValue), TAG_END]);
   FBlockChecked := False;
 end;
 
@@ -952,17 +952,17 @@ end;
 procedure TMuiArea.SetCaption(const AValue: string);
 begin
   FCaption := AValue;
-  SetAttribute([IPTR(MUIA_Text_Contents), IPTR(PChar(FCaption)), TAG_END]);
+  SetAttribute([PtrInt(MUIA_Text_Contents), PChar(FCaption), TAG_END]);
 end;
 
 procedure TMuiArea.SetDragable(const AValue: boolean);
 begin
-  SetAttribute([IPTR(MUIA_Draggable), IPTR(AValue), TAG_END]);
+  SetAttribute([PtrInt(MUIA_Draggable), PtrInt(AValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetDropable(const AValue: boolean);
 begin
-  SetAttribute([IPTR(MUIA_Dropable), IPTR(AValue), TAG_END]);
+  SetAttribute([PtrInt(MUIA_Dropable), PtrInt(AValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetEnabled(const AValue: boolean);
@@ -970,12 +970,12 @@ var
   NValue: longbool;
 begin
   NValue := not AValue;
-  SetAttribute([IPTR(MUIA_Disabled), IPTR(NValue), TAG_END]);
+  SetAttribute([PtrInt(MUIA_Disabled), PtrInt(NValue), TAG_END]);
 end;
 
 procedure TMuiArea.SetHint(const AValue: string);
 begin
-  SetAttribute([IPTR(MUIA_ShortHelp), PChar(AValue), TAG_END]);
+  SetAttribute([PtrInt(MUIA_ShortHelp), PChar(AValue), TAG_END]);
 end;
 
 function TMuiArea.GetTabStop: boolean;
@@ -991,7 +991,7 @@ begin
     Val := 1
   else
     Val := 0;  
-  SetAttribute([IPTR(MUIA_CycleChain), IPTR(Val)]);
+  SetAttribute([PtrInt(MUIA_CycleChain), PtrInt(Val)]);
 end;
 
 
@@ -1013,7 +1013,6 @@ end;
 procedure TMUIArea.SetColor(const AValue: TColor);
 var
   ColSet: string;
-  Col: TColor;
 begin
   FColor := AValue;
   if AValue = clNone then
@@ -1023,7 +1022,7 @@ begin
   if FColor <> clNone then
   begin
     ColSet := TColorToImageSpec(FColor);
-    SetAttribute([MUIA_Background, PChar(ColSet)]);
+    SetAttribute([PtrInt(MUIA_Background), PChar(ColSet)]);
   end;
 end;
 
@@ -1319,23 +1318,15 @@ end;
 
 function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
 var
-  //AskMsg: PMUIP_AskMinMax;
   ri: PMUI_RenderInfo;
   rp: PRastPort;
-  PT: Types.TPoint;
-  //Region: PRegion;
-  //r: TRectangle;
   clip: Pointer;
   MUIB: TMUIObject;
   MUIParent: TMUIObject;
   p: TMUIObject;
-  HIMsg: PMUIP_HandleInput;
   HEMsg: PMUIP_HandleEvent;
   iMsg: PIntuiMessage;
-  //ehN: ^TehNode;
   winObj: PObject_;
-  Depth: Integer;
-  cap: string;
   relX, relY: Integer;
   Buff: array[0..19] of Char;
   Ret: Integer;
@@ -1366,7 +1357,7 @@ begin
         New(MUIB.EHNode);
         FillChar(MUIB.EHNode^, SizeOf(MUIB.EHNode^), 0);
         P := MUIB;
-        MUIB.EHNode^.ehn_Priority := -100;
+        MUIB.EHNode^.ehn_Priority := Byte(-100);
         repeat
           Inc(MUIB.EHNode^.ehn_Priority);
           p := p.Parent;
@@ -1490,7 +1481,7 @@ begin
     MUIM_HANDLEEVENT: begin
       //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
-      if Assigned(MUIB) then
+      if Assigned(MUIB) and Assigned(MUIB.PasObject) and Assigned(MUIB.Parent) then
       begin        
         HEMsg := Pointer(Msg);
         iMsg := HeMsg^.imsg;
@@ -1575,7 +1566,10 @@ begin
                   end;
                 end;
                 // Left Mouse UP
-                SELECTUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                SELECTUP: 
+                begin
+                  LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                end;  
                 // Middle Mouse Down
                 MIDDLEDOWN: begin
                     if not EatEvent then

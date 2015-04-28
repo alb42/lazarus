@@ -148,7 +148,7 @@ end;
 function RegisterStatusBar: Boolean; alias : 'WSRegisterStatusBar';
 begin
   RegisterWSComponent(TStatusBar, TMuiWSStatusBar);
-  Result := False;
+  Result := True;
 end;
 
 function RegisterTabSheet: Boolean; alias : 'WSRegisterTabSheet';
@@ -170,7 +170,7 @@ end;
 function RegisterCustomProgressBar: Boolean; alias : 'WSRegisterCustomProgressBar';
 begin
   RegisterWSComponent(TCustomProgressBar, TMuiWSProgressBar);
-  Result := False;
+  Result := True;
 end;
 
 function RegisterCustomUpDown: Boolean; alias : 'WSRegisterCustomUpDown';
@@ -190,7 +190,8 @@ end;
 
 function RegisterCustomTrackBar: Boolean; alias : 'WSRegisterCustomTrackBar';
 begin
-  Result := False;
+  RegisterWSComponent(TCustomTrackBar, TMUIWSTrackBar);
+  Result := True;
 end;
 
 function RegisterCustomTreeView: Boolean; alias : 'WSRegisterCustomTreeView';

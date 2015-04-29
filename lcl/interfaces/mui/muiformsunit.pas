@@ -31,7 +31,6 @@ type
 
   TMuiMenuItem = class(TMuiFamily)
   private
-    MenuChoosed: THook;
     FTitle: string;
     FShortCut: string;
   protected
@@ -89,9 +88,6 @@ type
 
   TMuiWindow = class(TMUIObject)
   private
-    CloseWinHook: THook;
-    MoveHook: THook;
-    SizeHook: THook;
     FMainMenu: TMuiMenuStrip;
     FSizeable: Boolean;
     FHasMenu: Boolean;
@@ -110,6 +106,7 @@ type
     function GetTop(): Integer; override;
     function GetLeft(): Integer; override;
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
+    procedure InstallHooks; override;
   public    
     constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -337,11 +334,12 @@ begin
     SetAttribute([PtrInt(MUIA_Menuitem_Title), PChar(FTitle), TAG_END]);
 end;
 
-procedure MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiMenuItem;
   TargetObject: TObject;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiMenuItem then
   begin
     MuiObject := TMuiMenuItem(Hook^.h_Data);
@@ -353,15 +351,8 @@ end;
 constructor TMuiMenuItem.Create(var tags: TTagsList);
 begin
   inherited Create(MUIC_MenuItem, GetTagPtr(tags));
-  Par := nil;
-  MenuChoosed.h_Entry := IPTR(@MenuClickedFunc);
-  MenuChoosed.h_SubEntry := IPTR(@MenuClickedFunc);
-  MenuChoosed.h_Data := Self;
-  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Menuitem_Trigger), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self),
-      2,
-      IPTR(MUIM_CallHook), IPTR(@MenuChoosed)
-      ]);      
+  Par := nil;  
+  ConnectHook(MUIA_Menuitem_Trigger, LongWord(MUIV_EveryTime), @MenuClickedFunc);    
 end;
 
 { TMuiFamily }
@@ -493,45 +484,6 @@ begin
   inherited Create(MUIC_Window, GetTagPtr(TagList));
   //
   Self.Parent := MUIApp;
-  CloseWinHook.h_Entry := IPTR(@CloseWinFunc);
-  CloseWinHook.h_SubEntry := 0;
-  CloseWinHook.h_Data := Self;
-  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Window_CloseRequest), LTrue,
-      IPTR(FObject), 2,
-      IPTR(MUIM_CallHook), IPTR(@CloseWinHook)
-      ]);
-  // Move Window      
-  MoveHook.h_Entry := IPTR(@MoveWinFunc);
-  MoveHook.h_SubEntry := 0;
-  MoveHook.h_Data := Self;  
-  DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Window_LeftEdge), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
-    2,
-    IPTR(MUIM_CallHook), IPTR(@MoveHook)
-    ]); 
-  DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Window_TopEdge), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
-    2,
-    IPTR(MUIM_CallHook), IPTR(@MoveHook)
-    ]);
-  // Resize Window  
-  SizeHook.h_Entry := IPTR(@SizeWinFunc);
-  SizeHook.h_SubEntry := 0;
-  SizeHook.h_Data := Self;        
-  DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Window_Width), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
-    2,
-    IPTR(MUIM_CallHook), IPTR(@SizeHook)
-    ]);   
-  DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Window_Height), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
-    2,
-    IPTR(MUIM_CallHook), IPTR(@SizeHook)
-    ]);
   if MuiApp.MainWin = obj then
     SetAttribute([PtrInt(MUIA_Window_Activate), True]);  
 end;
@@ -540,6 +492,18 @@ destructor TMuiWindow.Destroy;
 begin
   FMainMenu.Free;
   inherited Destroy;
+end;
+
+procedure TMuiWindow.InstallHooks;
+begin
+  inherited;
+  ConnectHook(MUIA_Window_CloseRequest, LongWord(LTrue), @CloseWinFunc);
+  // Move Window
+  ConnectHook(MUIA_Window_LeftEdge, LongWord(MUIV_EveryTime), @MoveWinFunc);
+  ConnectHook(MUIA_Window_TopEdge, LongWord(MUIV_EveryTime), @MoveWinFunc);
+  // Resize Window
+  ConnectHook(MUIA_Window_Width, LongWord(MUIV_EveryTime), @SizeWinFunc);
+  ConnectHook(MUIA_Window_Height, LongWord(MUIV_EveryTime), @SizeWinFunc);
 end;
 
 procedure TMuiWindow.GetSizes;

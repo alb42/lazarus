@@ -44,8 +44,6 @@ type
   { TMuiCheckMark }
 
   TMuiCheckMark = class(TMuiArea)
-  private
-    CheckHook: THook;
   protected
     FullWidth: Integer;
     CheckLabel: TMuiText;
@@ -59,6 +57,7 @@ type
     function GetWidth(): Integer; override;
     procedure SetVisible(const AValue: Boolean); override;
     procedure SetColor(const AValue: TColor); override;
+    procedure InstallHooks; override;
   public
     constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
     destructor Destroy; override;
@@ -78,8 +77,8 @@ type
   { TMuiToggleButton }
 
   TMuiToggleButton = class(TMuiArea)
-  private
-    CheckHook: THook;
+  protected
+    procedure InstallHooks; override;
   public
     constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
   end;
@@ -89,14 +88,14 @@ type
   TMuiStringEdit = class(TMuiArea)
   private
     EditHook: THook;
-    TextChanged: THook;
-    TextDone: THook;
     FNumbersOnly: Boolean;
     FText: PChar;
     function GetText: string;
     procedure SetText(const AValue: string);
     function GetNumbersOnly: Boolean;
     procedure SetNumbersOnly(const AValue: Boolean);
+  protected
+    procedure InstallHooks; override;
   public
     constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -108,12 +107,6 @@ type
 
   TMuiSpinEdit = class(TMuiArea)
   private
-    //EventHooks
-    ButtonUpClick: THook;
-    ButtonDownClick: THook;
-    TextChanged: THook;
-    TextDone: THook;
-    //
     FMinValue: Double;
     FMaxValue: Double;
     FDecimals: Integer;
@@ -135,6 +128,7 @@ type
     function GetTabStop: boolean; override;
     procedure SetTabStop(const AValue: boolean); override;
     function GetFocusObject: PObject_; override;
+    procedure InstallHooks; override;
   public
     constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -152,9 +146,7 @@ type
   private
     FEditable: Boolean;
     StrObj: PObject_;
-    BtnObj: PObject_;
-    ActiveItemChanged: THook;
-    TextEntered: THook;    
+    BtnObj: PObject_; 
     FStrings: TMuiStrings;
     StringPtrs: TStringPtrs;
     function GetActive: LongInt;
@@ -162,6 +154,8 @@ type
     function GetText: string;
     procedure SetText(const AText: string);    
     procedure ChangedItems(Sender: TObject);
+  protected
+    procedure InstallHooks; override;
   public
     constructor Create(ACaption: PChar; AStrings: TStrings; AEditable: Boolean); overload; reintroduce; virtual;
     Destructor Destroy; override;
@@ -215,14 +209,14 @@ type
 
   TMuiListView = class(TMuiArea)
   private
-    ListChangeHook: THook;
-    DoubleClickHook: THook;
     StrObj: PObject_;
     Texts: array of PChar;
     FStrings: TStringList;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
     procedure TextChanged(Sender: TObject);
+  protected
+    procedure InstallHooks; override;  
   public
     constructor Create(AStrings:TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -239,7 +233,6 @@ type
     FMaxValue: Integer;
     FPageSize: Integer;
     //FPosition: Integer;
-    ChangeHook: THook;
     BlockScrollEvent: Boolean;
     function GetHoriz: Boolean;
     function GetMaxValue: Integer;
@@ -362,7 +355,7 @@ begin
   end;  
 end;
 
-procedure ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+function ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   Parent, MuiObject: TMuiObject;
   ScrollMsg: TLMVScroll;
@@ -370,6 +363,7 @@ var
 begin
   //debugln('--> Scroll hook');
   //Exit;
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
@@ -419,12 +413,7 @@ end;
 procedure TMUIScrollBar.InstallHooks;
 begin
   inherited InstallHooks;
-  ChangeHook.h_Entry := IPTR(@ChangeScroll);
-  ChangeHook.h_SubEntry := 0;
-  ChangeHook.h_Data := Self;
-
-  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Prop_First), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ChangeHook)]);
+  ConnectHook(MUIA_Prop_First, LongWord(MUIV_EveryTime), @ChangeScroll);
 end;
 
 constructor TMUIScrollBar.Create(var Tags: TTagsList);
@@ -650,11 +639,12 @@ begin
   Result := FCaption;
 end;
 
-procedure ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiListView;
   Idx: Integer;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiListView then
   begin
     MuiObject := TMuiListView(Hook^.h_Data);
@@ -667,10 +657,11 @@ begin
   end;
 end;
 
-procedure DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiListView;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiListView then
   begin
     MuiObject := TMuiListView(Hook^.h_Data);
@@ -691,28 +682,6 @@ begin
   AddTags(Tags, [PtrInt(MUIA_Listview_List), StrObj]);
   inherited Create(MUIC_ListView, GetTagPtr(Tags));
   FStrings.OnChange := @TextChanged;
-  
-  ListChangeHook.h_Entry := IPTR(@ListChangeFunc);
-  ListChangeHook.h_SubEntry := 0;
-  ListChangeHook.h_Data := Self;
-  //
-  DoubleClickHook.h_Entry := IPTR(@DoubleClickFunc);
-  DoubleClickHook.h_SubEntry := 0;
-  DoubleClickHook.h_Data := Self;
-  
-  DoMethod([IPTR(MUIM_Notify),
-    PtrUInt(MUIA_List_Active), PtrUInt(MUIV_EveryTime),
-    PtrUInt(MUIV_Notify_Self),
-    2,
-    PtrUInt(MUIM_CallHook), PtrUInt(@ListChangeHook)
-    ]);
-    
-  DoMethod([IPTR(MUIM_Notify),
-    PtrUInt(MUIA_ListView_DoubleClick), PtrUInt(True),
-    PtrUInt(MUIV_Notify_Self),
-    2,
-    PtrUInt(MUIM_CallHook), PtrUInt(@DoubleClickHook)
-    ]);  
 end;
 
 destructor TMuiListView.Destroy;
@@ -723,6 +692,13 @@ begin
   for i := 0 to High(Texts) do
     System.FreeMem(Texts[i]);
   inherited Destroy;  
+end;
+
+procedure TMuiListView.InstallHooks;
+begin
+  inherited;
+  ConnectHook(MUIA_List_Active, LongWord(MUIV_EveryTime), @ListChangeFunc);
+  ConnectHook(MUIA_ListView_DoubleClick, LongWord(True), @DoubleClickFunc); 
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
@@ -812,11 +788,12 @@ end;
 
 { TMuiCheckMark }
 
-procedure CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiObject;
   SendMessages: Boolean;
 begin
+  Result := 0;
   SendMessages := True;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
@@ -855,17 +832,7 @@ begin
     inherited Create(MUIC_Image, GetTagPtr(TagList2));
   end else
     inherited Create(ObjType, Params);
-  CheckLabel := TMuiText.Create(TagList);
-  CheckHook.h_Entry := IPTR(@CheckFunc);
-  CheckHook.h_SubEntry := 0;
-  CheckHook.h_Data := Self;
-  
-  DoMethod([IPTR(MUIM_Notify),
-    IPTR(MUIA_Selected), IPTR(MUIV_EveryTime),
-    IPTR(MUIV_Notify_Self),
-    2,
-    IPTR(MUIM_CallHook), IPTR(@CheckHook)
-    ]);
+  CheckLabel := TMuiText.Create(TagList); 
 end;
 
 destructor TMuiCheckMark.Destroy;
@@ -873,6 +840,12 @@ begin
   CheckLabel.Free;
   CheckLabel := Nil;
   inherited;  
+end;
+
+procedure TMuiCheckMark.InstallHooks;
+begin
+  inherited;
+  ConnectHook(MUIA_Selected, LongWord(MUIV_EveryTime), @CheckFunc);
 end;
 
 function TMuiCheckMark.GetCaption: string;
@@ -971,25 +944,22 @@ constructor TMuiToggleButton.Create(ObjType: LongInt;
 begin
   inherited Create(MUIO_Button, Params);
   SetAttribute([PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_Toggle)]);
-  CheckHook.h_Entry := IPTR(@CheckFunc);
-  CheckHook.h_SubEntry := 0;
-  CheckHook.h_Data := Self;
+end;
 
-  DoMethod([IPTR(MUIM_Notify),
-    PtrUInt(MUIA_Selected), PtrUInt(MUIV_EveryTime),
-    PtrUInt(MUIV_Notify_Self),
-    2,
-    PtrUInt(MUIM_CallHook), PtrUInt(@CheckHook)
-    ]);
+procedure TMuiToggleButton.InstallHooks;
+begin
+  inherited;
+  ConnectHook(MUIA_Selected, LongWord(MUIV_EveryTime), @CheckFunc);
 end;
 
 { TMuiStringEdit }
 
-procedure TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiObject;
   CharCode: Word;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
@@ -1003,10 +973,11 @@ begin
 end;
 
 
-procedure TextChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function TextChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiObject;
 begin
+  Result := 0;
   //writeln('edit text changed');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
@@ -1015,11 +986,12 @@ begin
   end;
 end;
 
-procedure TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 //var
 //  MuiObject: TMuiObject;
 begin
   writeln('edit text Event');
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     //MuiObject := TMuiObject(Hook^.h_Data);
@@ -1071,31 +1043,20 @@ begin
   //
   FNumbersOnly := False;
   FText := System.AllocMem(2048);
-  // Set Event for Changed Text
-  TextChanged.h_Entry := IPTR(@TextChangedFunc);
-  TextChanged.h_SubEntry := 0;
-  TextChanged.h_Data := Self;
-  CallHook(PHook(OCLASS(FObject)), FObject,
-      [PtrInt(MUIM_Notify), PtrInt(MUIA_String_Contents), PtrInt(MUIV_EveryTime),
-      PtrInt(MUIV_Notify_Self),
-      2,
-      PtrInt(MUIM_CallHook), @TextChanged
-      ]);
-  TextDone.h_Entry := IPTR(@TextDoneFunc);
-  TextDone.h_SubEntry := 0;
-  TextDone.h_Data := Self;
-  CallHook(PHook(OCLASS(FObject)), FObject,
-      [PtrInt(MUIM_Notify), PtrInt(MUIA_String_Acknowledge), PtrInt(MUIV_EveryTime),
-      PtrInt(MUIV_Notify_Self),
-      2,
-      PtrInt(MUIM_CallHook), @TextDone
-      ]);    
+  
 end;
 
 destructor TMuiStringEdit.Destroy;
 begin
   FreeMem(FText);
   inherited;
+end;
+
+procedure TMuiStringEdit.InstallHooks;
+begin
+  inherited;
+  ConnectHook(MUIA_String_Contents, LongWord(MUIV_EveryTime), @TextChangedFunc);
+  ConnectHook(MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc); 
 end;
 
 function TMuiStringEdit.GetNumbersOnly: Boolean;
@@ -1128,10 +1089,11 @@ end;
 
 { TMuiSpinEdit }
 
-procedure BtnDownClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+function BtnDownClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   MuiSpin: TMuiSpinEdit;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiSpinEdit then
   begin
     MuiSpin := TMuiSpinEdit(Hook^.h_Data);
@@ -1139,10 +1101,11 @@ begin
   end;
 end;
 
-procedure BtnUpClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+function BtnUpClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   MuiSpin: TMuiSpinEdit;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiSpinEdit then
   begin
     MuiSpin := TMuiSpinEdit(Hook^.h_Data);
@@ -1206,14 +1169,7 @@ begin
     PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowUp)
     ]);
   btnUp := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnUpTags));
-  
-  ButtonUpClick.h_Entry := IPTR(@BtnUpClickFunc);
-  ButtonUpClick.h_SubEntry := 0;
-  ButtonUpClick.h_Data := Self;
-  
-  DoMethodObj(btnUp, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_Timer), PtrUInt(MUIV_EveryTime),
-    PtrUInt(MUIV_Notify_Self), 2, PtrUInt(MUIM_CallHook), PtrUInt(@ButtonUpClick)]);  
-  
+
   // BUTTON UP #######################################
   AddTags(BtnDownTags, [
     PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_RelVerify),
@@ -1224,13 +1180,6 @@ begin
     PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowDown)
     ]);
   btndown := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnDownTags));
-  
-  ButtonDownClick.h_Entry := IPTR(@BtnDownClickFunc);
-  ButtonDownClick.h_SubEntry := 0;
-  ButtonDownClick.h_Data := Self;
-  
-  DoMethodObj(btnDown, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_Timer), PtrUInt(MUIV_EveryTime),
-    PtrUInt(MUIV_Notify_Self), 2, PtrUInt(MUIM_CallHook), PtrUInt(@ButtonDownClick)]);  
   
   // BUTTON GROUP ####################################
   AddTags(BtnGroupTags, [
@@ -1268,28 +1217,22 @@ begin
     PtrInt(MUIA_Group_Horiz), True
     ]); 
   inherited Create(MUIC_Group, GetTagPtr(GrpTags));
-  //
-  // connect some events
-  TextChanged.h_Entry := IPTR(@TextChangedFunc);
-  TextChanged.h_SubEntry := 0;
-  TextChanged.h_Data := Self;
-  DoMethodObj(Edit, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Contents), PtrUInt(MUIV_EveryTime),
-      PtrUInt(MUIV_Notify_Self), 2,
-      PtrUInt(MUIM_CallHook), PtrUInt(@TextChanged)
-      ]);
-  TextDone.h_Entry := IPTR(@TextDoneFunc);
-  TextDone.h_SubEntry := 0;
-  TextDone.h_Data := Self;
-  DoMethodObj(Edit, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Acknowledge), PtrUInt(MUIV_EveryTime),
-      PtrUInt(MUIV_Notify_Self), 2,
-      PtrUInt(MUIM_CallHook), PtrUInt(@TextDone)
-      ]);
 end;
 
 destructor TMuiSpinEdit.Destroy;
 begin
   System.FreeMem(FText);
   inherited;
+end;
+
+procedure TMuiSpinEdit.InstallHooks;
+begin
+  inherited; 
+  ConnectHookObject(btnUp, MUIA_Timer, LongWord(MUIV_EveryTime), @BtnUpClickFunc);
+  ConnectHookObject(btnDown, MUIA_Timer, LongWord(MUIV_EveryTime), @BtnDownClickFunc);
+  //
+  ConnectHookObject(Edit, MUIA_String_Contents, LongWord(MUIV_EveryTime), @TextChangedFunc);
+  ConnectHookObject(Edit, MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc);        
 end;
 
 procedure TMuiSpinEdit.SetMinValue(const AValue: Double);
@@ -1357,11 +1300,12 @@ end;
 
 { TMuiCycle }
 
-procedure ActiveItemChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function ActiveItemChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiCycle;
   ItemIndex: Integer;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiCycle then
   begin
     MuiObject := TMuiCycle(Hook^.h_Data);
@@ -1370,11 +1314,12 @@ begin
   end;
 end;
 
-procedure TextEnteredFunc(Hook: PHook; Obj: PObject_; Msg:Pointer); cdecl;
+function TextEnteredFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiCycle;
   ItemIndex: Integer;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMuiCycle then
   begin
     MuiObject := TMuiCycle(Hook^.h_Data);
@@ -1498,36 +1443,9 @@ begin
       ]);
     
     inherited Create(MUIC_PopList, GetTagPtr(ListTags));    
-    
-    
-    TextEntered.h_Entry := IPTR(@TextEnteredFunc);
-    TextEntered.h_SubEntry := 0;
-    TextEntered.h_Data := Self;
-    DoMethodObj(StrObj, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Contents), PtrUInt(MUIV_EveryTime),
-        PtrUInt(MUIV_Notify_Self), 2,
-        PtrUInt(MUIM_CallHook), PtrUInt(@TextEntered)
-        ]);
-
-    ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
-    ActiveItemChanged.h_SubEntry := 0;
-    ActiveItemChanged.h_Data := Self;    
-    DoMethodObj(StrObj, [PtrUInt(MUIM_Notify), PtrUInt(MUIA_String_Acknowledge), PtrUInt(MUIV_EveryTime),
-        PtrUInt(MUIV_Notify_Self), 2,
-        PtrUInt(MUIM_CallHook), PtrUInt(@ActiveItemChanged)
-        ]);
   end else
   begin
-    inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);
-    // event for item changed
-    ActiveItemChanged.h_Entry := IPTR(@ActiveItemChangedFunc);
-    ActiveItemChanged.h_SubEntry := 0;
-    ActiveItemChanged.h_Data := Self;
-    CallHook(PHook(OCLASS(FObject)), FObject,
-        [PtrInt(MUIM_Notify), PtrInt(MUIA_Cycle_Active), PtrInt(MUIV_EveryTime),
-        PtrInt(MUIV_Notify_Self),
-        2,
-        PtrInt(MUIM_CallHook), @ActiveItemChanged
-        ]);
+    inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);    
   end;        
   FStrings.OnChange := @ChangedItems;   
 end;
@@ -1536,6 +1454,20 @@ Destructor TMuiCycle.Destroy;
 begin
   inherited;  
   FStrings.Free;
+end;
+
+procedure TMuiCycle.InstallHooks;
+begin
+  inherited;
+  if FEditable then
+  begin
+    ConnectHookObject(StrObj, MUIA_String_Contents, LongWord(MUIV_EveryTime), @TextEnteredFunc);
+    ConnectHookObject(StrObj, MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @ActiveItemChangedFunc);
+  end else
+  begin
+    // event for item changed
+    ConnectHook(MUIA_Cycle_Active, LongWord(MUIV_EveryTime), @ActiveItemChangedFunc);
+  end;
 end;
 
 { TMuiTextEdit }

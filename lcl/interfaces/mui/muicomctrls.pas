@@ -55,7 +55,6 @@ type
     FActivePage: Integer;
     FTexts: TMUIGroup;
     FRegisterHeight: Integer;
-    TabHook: THook;
   protected
     procedure BasicInitOnCreate(); override;
     procedure SetParent(const AValue: TMUIObject); override;
@@ -379,13 +378,14 @@ begin
   end;  
 end;
 
-procedure TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+function TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   MUIRegister: TMUIRegister;
   PGIdx: Integer;
   Mess: TLMNotify;
   NMHdr: tagNMHDR;
 begin
+  Result := 0;
   if TObject(Hook^.h_Data) is TMUIRegister then
   begin
     MUIRegister := TMUIRegister(Hook^.h_Data);
@@ -471,12 +471,7 @@ begin
     FTexts.Parent := Parent;
     FTexts.Color := FColor;
     
-    TabHook.h_Entry := IPTR(@TabIdxFunc);
-    TabHook.h_SubEntry := 0;
-    TabHook.h_Data := Self;
-    
-    DoMethodObj(FTexts.Obj, [IPTR(MUIM_Notify), IPTR(MUIA_Group_ActivePage), IPTR(MUIV_EveryTime),
-      IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@TabHook)]); 
+    ConnectHookObject(FTexts.Obj, MUIA_Group_ActivePage, MUIV_EveryTime, @TabIdxFunc);
   end;
 end;
 

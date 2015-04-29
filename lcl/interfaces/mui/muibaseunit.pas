@@ -8,12 +8,12 @@ uses
   {$ifdef HASAMIGA}
   Exec, AmigaDos, agraphics, Intuition, Utility,Mui, inputevent, KeyMap,
   {$endif}
+  muiglobal,
   Forms, LCLMessageGlue, lcltype, LMessages, interfacebase, muidrawing;
 
 {.$define CHECKOBJECTS} // reports not freed MUIObjects on exit
 
 type
-  TEventFunc = procedure(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
   TMUICaret = class
     Shown: Boolean;
     Left: Integer;
@@ -21,22 +21,18 @@ type
     Width: Integer;
     Height: Integer;
   end;
-  
-  
+    
   { TMUIObject }
 
-  TMUIObject = class(TObject)
+  TMUIObject = class
   private
-    //EventHooks
-    ButtonUp: THook;
-    ButtonDown: THook;
     //Parent
     FParent: TMUIObject;
     // AWinControl lcl-Object
     FPasObject: TControl;
     FOnDraw: TNotifyEvent;
     FMuiCanvas: TMUICanvas;
-    
+    HookList: array of PHook;
   protected
     //Position
     FLeft, FTop, FWidth, FHeight: longint;
@@ -44,6 +40,8 @@ type
     LayoutHook: THook;
 
     FGrpObj: pObject_;
+    procedure ConnectHook(MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
+    procedure ConnectHookObject(Obj: PObject_; MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
     procedure SetAttribute(const Tags: array of const);
     function GetAttribute(tag: longword): longword;
     procedure SetAttObj(obje: pObject_; const Tags: array of const);
@@ -211,9 +209,6 @@ type
     property InsidePaint: Boolean read FInsidePaint write FInsidePaint;
   end;
 
-procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
-procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
-
 function TColorToImageSpec(ACol: TColor): string;
 
 var
@@ -232,20 +227,41 @@ uses
 var
   GroupSuperClass: PIClass;
 
-procedure BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+procedure TMUIObject.ConnectHook(MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
+var
+  Idx: Integer;
+begin
+  Idx := Length(HookList);
+  SetLength(HookList, Idx + 1);
+  New(HookList[Idx]);
+  ConnectHookFunction(MUIField, TriggerValue, FObject, Self, HookList[Idx], HookFunc);
+end;
+
+procedure TMUIObject.ConnectHookObject(Obj: PObject_; MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
+var
+  Idx: Integer;
+begin
+  Idx := Length(HookList);
+  SetLength(HookList, Idx + 1);
+  New(HookList[Idx]);
+  ConnectHookFunction(MUIField, TriggerValue, Obj, Self, HookList[Idx], HookFunc);
+end;
+
+function BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiObject;
 begin
+  Result := 0;
   //writeln('-->btndown');
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
-    LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0, 0, mbLeft, []);
+    Result := LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0, 0, mbLeft, []);
   end;
   //writeln('<--btndown');
 end;
 
-procedure BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer); cdecl;
+function BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
 var
   MuiObject: TMuiObject;
 begin
@@ -254,7 +270,7 @@ begin
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
     LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0, 0, mbLeft, []);
-    LCLSendClickedMsg(TControl(MuiObject.PasObject));
+    Result := LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
   //writeln('<--btnup');
 end;
@@ -550,20 +566,8 @@ end;
 
 procedure TMUIObject.InstallHooks;
 begin
-  ButtonUp.h_Entry := IPTR(@BtnUpFunc);
-  ButtonUp.h_SubEntry := 0;//IPTR(@BtnUpFunc);
-  ButtonUp.h_Data := Self;
-  ButtonDown.h_Entry := IPTR(@BtnDownFunc);
-  ButtonDown.h_SubEntry := 0;//IPTR(@BtnDownFunc);
-  ButtonDown.h_Data := Self;
-
-
-  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(True),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonDown)]);
-  DoMethod([IPTR(MUIM_Notify), IPTR(MUIA_Pressed), IPTR(False),
-    IPTR(MUIV_Notify_Self), 2, IPTR(MUIM_CallHook), IPTR(@ButtonUp)]);
-  //if (self is TMUIArea) and not (self is TMUIScrollbar)then  
-  //  CreateScrollbars;  
+  ConnectHook(MUIA_Pressed, LongWord(True), @BtnDownFunc);
+  ConnectHook(MUIA_Pressed, LongWord(False), @BtnUpFunc);
 end;
 
 procedure TMUIObject.BasicInitOnCreate();
@@ -618,6 +622,8 @@ begin
 end;
 
 destructor TMUIObject.Destroy;
+var
+  i: Integer;
 begin
   {$ifdef CHECKOBJECTS}
   AllItems.Remove(Self);
@@ -637,6 +643,13 @@ begin
   FMUICanvas.Free;    
   if not (self is TMUIApplication) then
     MUIApp.RemInvalidatedObject(Self);
+  for i := 0 to High(HookList) do
+  begin
+    if Assigned(HookList[i]) then
+      Dispose(HookList[i]);
+    HookList[i] := nil;  
+  end;
+  SetLength(HookList, 0);
   inherited Destroy;
   //writeln(self.classname, '<-- muiobject destroy');
 end;

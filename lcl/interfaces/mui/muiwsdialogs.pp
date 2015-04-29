@@ -163,8 +163,6 @@ var
   TagsList: TTagsList;
   MultiSelect: Boolean;
   i: LongInt;
-  //Hook: THook;
-  //Win: IPTR;
 
   function GetFilename(FDir, FName: string): string;
   begin

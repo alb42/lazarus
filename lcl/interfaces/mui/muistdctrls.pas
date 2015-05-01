@@ -968,7 +968,8 @@ begin
       TMUISpinEdit(MUIObject).CurValue := TMUISpinEdit(MUIObject).CurValue;
     end;
     CharCode := VK_RETURN;
-    LCLSendKeyUpEvent(MUIObject.PasObject, CharCode, 0, True, False);  
+    LCLSendKeyDownEvent(MUIObject.PasObject, CharCode, 0, True, False);
+    LCLSendKeyUpEvent(MUIObject.PasObject, CharCode, 0, True, False);    
   end;
 end;
 

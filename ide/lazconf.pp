@@ -150,6 +150,9 @@ var
     {$IFDEF darwin}{$DEFINE WidgetSetDefined}
     lpCarbon;
     {$ENDIF}
+    {$IFDEF HASAMIGA}{$DEFINE WidgetSetDefined}
+    lpMui;
+    {$ENDIF}
     {$IFNDEF WidgetSetDefined}
     lpGtk2;
     {$ENDIF}

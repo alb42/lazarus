@@ -1660,6 +1660,7 @@ begin
   {$IFDEF BuildWidgetSetFPGui}  Result:=lpfpGUI;  {$ENDIF}
   {$IFDEF BuildWidgetSetCarbon} Result:=lpCarbon; {$ENDIF}
   {$IFDEF BuildWidgetSetCocoa}  Result:=lpCocoa;  {$ENDIF}
+  {$IFDEF BuildWidgetSetMui}    Result:=lpMui;    {$ENDIF}
   {$IFDEF BuildWidgetSetNoGui}  Result:=lpNoGUI;  {$ENDIF}
 
   FilterConfigFileContent;

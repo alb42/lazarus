@@ -32,6 +32,7 @@ resourcestring
   sCarbonWidgetSet     = 'Carbon widget set';
   sQTWidgetSet         = 'QT widget set';
   sFpGUIWidgetSet      = 'FpGUI widget set';
+  sMUIWidgetSet      = 'MUI widget set';
   sOtherGUIWidgetSet   = 'Other gui';
   sAllFilesExcutableFilesExeExeDLLDllDll = 'All files (*.*)|*.*|Excutable files (*.exe)|*.exe|DLL (*.dll)|*.dll';
   sAllFilesSharedLibSoSo = 'All files (*)|*|Shared libraries (*.so)|*.so';
@@ -52,6 +53,7 @@ begin
     lpCarbon:Result:=sCarbonWidgetSet;
     lpQT:Result:=sQTWidgetSet;
     lpfpGUI:Result:=sFpGUIWidgetSet;
+    lpMUI:Result:=sMuiWidgetSet;
   else
     Result:=sOtherGUIWidgetSet;
   end;

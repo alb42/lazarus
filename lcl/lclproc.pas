@@ -894,9 +894,9 @@ begin
   begin
     // preventing another exception, while dumping stack trace
     try
-      DebugLn(BackTraceStrFunc(Addr));
+      sysDebugLn(BackTraceStrFunc(Addr));
     except
-      DebugLn(SysBackTraceStr(Addr));
+      sysDebugLn(SysBackTraceStr(Addr));
     end;
   end else
   begin
@@ -913,7 +913,7 @@ begin
       SegName := @S[1];
     if not Assigned(SymName) then
       SymName := @S[1];
-    debugln('$' + HexStr(Addr) + ' ' + ModName + ' ' + SegName + ' ' + SymName);
+    sysdebugln('$' + HexStr(Addr) + ' ' + ModName + ' ' + SegName + ' ' + SymName);
   end;
 end;
 {$else}
@@ -3199,7 +3199,7 @@ end;
 
 initialization
   {$ifdef AROS}
-  DebugBase := Exec.OpenLibrary('debug.library', 2);
+  DebugBase := Exec.OpenLibrary('debug.library', 0);
   {$endif}
   {$IFDEF WithOldDebugln} InitializeDebugOutput; {$ENDIF}
   {$ifdef WinCE}

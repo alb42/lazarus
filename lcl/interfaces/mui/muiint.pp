@@ -103,11 +103,11 @@ type
     function ClipboardGetFormats(ClipboardType: TClipboardType; var Count: integer; var List: PClipboardFormat): boolean; override;
     function ClipboardGetOwnerShip(ClipboardType: TClipboardType; OnRequestProc: TClipboardRequestEvent;  FormatCount: integer; Formats: PClipboardFormat): boolean; override;
     function ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat; override;
-    
+
   public
     constructor Create; override;
     destructor Destroy; override;
-    
+
     // debugging
     procedure DebugOutEvent(Sender: TObject;s: string; var Handled: Boolean);
     procedure DebugOutLNEvent(Sender: TObject;s: string; var Handled: Boolean);
@@ -236,7 +236,7 @@ begin
     Info.Free;
   except
   end;
-  ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));  
+  ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   AddTags(TagList, [
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
@@ -248,19 +248,18 @@ begin
     LongInt(MUIA_Application_Author), PChar(Author)
     ]);
   MUIApp := TMuiApplication.create(GetTagPtr(TagList));
+  ScreenInfo.PixelsPerInchX := 72;
+  ScreenInfo.PixelsPerInchY := 72;
+  ScreenInfo.ColorDepth := 32;
 end;
 
 procedure TMUIWidgetSet.AppProcessMessages;
 begin;
-  if GetThreadID <> 0 then
-    DebugLn('Called in a Thread');
   MuiApp.ProcessMessages;
 end;
 
 procedure TMUIWidgetSet.AppWaitMessage;
 begin
-  if GetThreadID <> 0 then
-    DebugLn('Called in a Thread');
   MuiApp.WaitMessages;
 end;
 
@@ -366,12 +365,12 @@ function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;
 var
   Bit: TMUIBitmap;
-  //Ridx, GIdx, BIdx, AIdx: Byte;  
+  //Ridx, GIdx, BIdx, AIdx: Byte;
 begin
   Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
   //ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
   //writeln('R: ',Ridx, ' G: ', GIdx, ' B: ', BIdx, ' A: ', AIdx);
-  Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize); 
+  Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
   ABitmap := HBITMAP(Bit);
   AMask := 0;
   Result := True;
@@ -489,7 +488,7 @@ begin
   RawImage_QueryDescription([riqfRGB, riqfAlpha], ADesc);
   ADesc.Width := TMuiBitmap(ABitmap).FWidth;
   ADesc.Height := TMuiBitmap(ABitmap).FHeight;
-  
+
   {$ifdef VERBOSEAROS}
   writeln('RawImage_DescriptionFromBitmap ', HexStr(Pointer(ABitmap)));
   {$endif}
@@ -509,12 +508,12 @@ begin
   begin
     w := IntuitionBase^.ActiveScreen^.Width;
     h := IntuitionBase^.ActiveScreen^.Height;
-  end;  
+  end;
   {$ifdef VERBOSEAROS}
   writeln('RawImage_DescriptionFromDevice ', HexStr(Pointer(ADC)));
   {$endif}
   ADesc.Width := w;
-  ADesc.Height := h;  
+  ADesc.Height := h;
   RawImage_QueryDescription([riqfRGB], ADesc);
   Result := True;
 end;
@@ -554,7 +553,7 @@ begin
   writeln('RawImage_FromDevice ', w, ' x ', h);
   {$endif}
   ARawImage.Description.Width := w;
-  ARawImage.Description.Height := h;  
+  ARawImage.Description.Height := h;
   RawImage_QueryDescription([riqfUpdate,riqfRGB], ARawImage.Description);
   ARawImage.DataSize := w * h * SizeOf(LongWord);
   ReAllocMem(ARawImage.Data, ARawImage.DataSize);
@@ -566,14 +565,14 @@ end;
 function TMUIWidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean;
 begin
   //writeln('QueryDescription');
-  //if riqfAlpha in AFlags then 
+  //if riqfAlpha in AFlags then
   begin
     //always return rgba description
     if not (riqfUpdate in AFlags)  then
-    begin      
+    begin
       //writeln('Init ', ADesc.Width);
       ADesc.Init;
-    end;  
+    end;
 
     ADesc.Format := ricfRGBA;
     ADesc.Depth := 32;
@@ -585,9 +584,9 @@ begin
     if ADesc.Width = 0 then
     begin
       ADesc.Width := cardinal(640);
-      ADesc.Height := cardinal(480); 
-    end;  
-    
+      ADesc.Height := cardinal(480);
+    end;
+
     if riqfAlpha in AFlags then
       ADesc.Depth := 32;
     ADesc.AlphaPrec := 8;
@@ -599,7 +598,7 @@ begin
       //ADesc.MaskShift := 0;
       //ADesc.MaskLineEnd := rileByteBoundary;
       //ADesc.MaskBitOrder := riboBitsInOrder;
-    end;  
+    end;
 
     if riqfRGB in AFlags
     then begin
@@ -627,13 +626,13 @@ begin
     }
     AFlags := AFlags - [riqfRGB, riqfAlpha, riqfUpdate];
     if AFlags = [] then Exit(True);
-    
+
     // continue with default
     Include(AFlags, riqfUpdate);
   end;
   //Result := inherited RawImage_QueryDescription(AFlags, ADesc);
   // reduce mem
-  //if Result and (ADesc.Depth = 24) 
+  //if Result and (ADesc.Depth = 24)
   //then ADesc.BitsPerPixel := 24;
 end;
 
@@ -644,7 +643,7 @@ begin
   Canvas := TMUICanvas(CanvasHandle);
   if Assigned(Canvas) then
   begin
-    Result := Canvas.GetPixel(X, Y);  
+    Result := Canvas.GetPixel(X, Y);
   end;
 end;
 
@@ -655,7 +654,7 @@ begin
   Canvas := TMUICanvas(CanvasHandle);
   if Assigned(Canvas) then
   begin
-    Canvas.SetPixel(X, Y, AColor);  
+    Canvas.SetPixel(X, Y, AColor);
   end;
 end;
 
@@ -754,15 +753,15 @@ begin
     For i := 0 to FormatCount - 1 do
     begin
       if Formats[i] <> CLIP_PLAINTEXT then
-        Continue;    
+        Continue;
       OnRequestProc(Formats[i], DataStream);
       if DataStream.Size > 0 then
       begin
-        DataStream.Seek(0, soFromBeginning); 
+        DataStream.Seek(0, soFromBeginning);
         Temp := DataStream.ReadString(DataStream.Size - 1);
         PutTextToClip(0, Temp);
-      end;  
-    end;  
+      end;
+    end;
   end;
 end;
 

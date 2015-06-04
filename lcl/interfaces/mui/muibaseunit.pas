@@ -21,7 +21,7 @@ type
     Width: Integer;
     Height: Integer;
   end;
-    
+
   { TMUIObject }
 
   TMUIObject = class
@@ -119,7 +119,7 @@ type
 
     property OnDraw: TNotifyEvent read FOnDraw write FOnDraw;
   end;
-  
+
   TMUIWinControl = class
     PasObject: TWinControl;
     Parent: TMUIObject;
@@ -177,6 +177,7 @@ type
 
   TMuiApplication = class(TMUIObject)
   private
+    FThreadID: TThreadID;
     FTerminated: boolean;
     FSignals: longword;
     FMainWin: pObject_;
@@ -300,7 +301,7 @@ function TMUIObject.GetParentWindow: TMUIObject;
 begin
   Result := Self;
   while Assigned(Result) and (not (Result is TMUIWindow)) do
-    Result := Result.Parent;  
+    Result := Result.Parent;
 end;
 
 // Object which should get the focus on Set Focus (for combined things)
@@ -356,7 +357,7 @@ procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
   //writeln('setVis ', AValue);
   if not AValue then
-    FirstPaint := True;    
+    FirstPaint := True;
   SetAttribute([longint(MUIA_ShowMe), longint(AValue), TAG_END]);
 end;
 
@@ -394,7 +395,7 @@ end;
 
 function TMUIObject.GetTop(): Integer;
 begin
-  Result := FTop;  
+  Result := FTop;
 end;
 
 function TMUIObject.GetLeft(): Integer;
@@ -415,7 +416,7 @@ end;
 procedure TMUIObject.DoReDraw();
 var
   PS: PPaintStruct;
-  
+
 begin
   FMUICanvas.InitCanvas;
   if Assigned(PasObject) then
@@ -432,7 +433,7 @@ begin
       LCLSendPaintMsg(TControl(PasObject), PS^.hdc, PS);
     finally
       MUIApp.InsidePaint := False;
-    end;  
+    end;
     Dispose(PS);
   end;
   FMUICanvas.DeInitCanvas;
@@ -450,8 +451,8 @@ begin
       begin
         //writeln(i, '. ', FChilds[i].classname, ' MUI Paint');
         TMuiObject(FChilds[i]).DoMuiDraw;
-      end;  
-    end;  
+      end;
+    end;
   end;
 end;
 
@@ -468,9 +469,9 @@ begin
   Result.Bottom := FHeight - GetAttribute(MUIA_InnerBottom);
   if Assigned(VSCroll) and Assigned(VScroll) then
   begin
-    if VScroll.Visible then    
+    if VScroll.Visible then
       Result.Right:= Result.Right - 15;
-    if HScroll.Visible then  
+    if HScroll.Visible then
       Result.Bottom := Result.Bottom - 15;
   end;
 end;
@@ -614,7 +615,7 @@ begin
   inherited Create;
   BasicInitOnCreate();
   //writeln(self.classname, 'create type');
-  FObject := NewObjectA(AClassType, nil, Tags);  
+  FObject := NewObjectA(AClassType, nil, Tags);
   if Assigned(FObject) then
     Pointer(INST_DATA(AClassType, Pointer(FObject))^) := Self;
   InstallHooks;
@@ -637,17 +638,17 @@ begin
   HScroll := nil;
   VScroll := nil;
   //
-  SetParent(nil); 
+  SetParent(nil);
   MUI_DisposeObject(FObject);
   FChilds.Free;
-  FMUICanvas.Free;    
+  FMUICanvas.Free;
   if not (self is TMUIApplication) then
     MUIApp.RemInvalidatedObject(Self);
   for i := 0 to High(HookList) do
   begin
     if Assigned(HookList[i]) then
       Dispose(HookList[i]);
-    HookList[i] := nil;  
+    HookList[i] := nil;
   end;
   SetLength(HookList, 0);
   inherited Destroy;
@@ -670,7 +671,7 @@ begin
   HScroll.Visible := False;
   if pasobject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
-  SetScrollbarPos;    
+  SetScrollbarPos;
 end;
 
 procedure TMUIObject.SetScrollbarPos;
@@ -699,7 +700,7 @@ begin
   if not Assigned(FObject) then
     Exit;
   //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
-  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);    
+  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
   //writeln(self.classname, '  setsize done');
   for i := 0 to FChilds.Count - 1 do
   begin
@@ -744,10 +745,10 @@ begin
   while i < FTimers.Count do
   begin
     TMUITimer(FTimers.items[i]).CheckTimer;
-    if Num = FTimers.Count then 
+    if Num = FTimers.Count then
       Inc(i)
     else
-      Num := FTimers.Count;   
+      Num := FTimers.Count;
   end;
 end;
 
@@ -782,6 +783,7 @@ end;
 constructor TMuiApplication.Create(Tags: PTagItem);
 begin
   inherited Create(MUIC_Application, Tags);
+  FThreadID := GetThreadId;
   FSignals := 0;
   FTimers := TObjectList.Create;
   FTimers.OwnsObjects := True;
@@ -809,11 +811,13 @@ end;
 
 procedure TMuiApplication.ProcessMessages;
 begin
+  if GetThreadId <> FThreadID then
+    Debugln('ProcessMessages called inside a Thread');
   RedrawList;
   CheckTimer;
   if PtrInt(DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)])) =
     MUIV_Application_ReturnID_Quit then
-  begin    
+  begin
     //writeln('got terminate1'); // no need to terminate self, LCL will do it for us
     //Application.Terminate;
     Exit;
@@ -822,6 +826,8 @@ end;
 
 procedure TMuiApplication.WaitMessages;
 begin
+  if GetThreadId <> FThreadID then
+    Debugln('ProcessMessages called inside a Thread');
   RedrawList;
   CheckTimer;
   if DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)]) =
@@ -872,16 +878,16 @@ var
   PObj: TMUIObject;
 begin
   if not Assigned(AObj) then
-    Exit;  
+    Exit;
   PObj := AObj;
   while Assigned(PObj) do
   begin
     Index := FInvalidatedObjects.IndexOf(AObj);
-    if Index >= 0 then 
+    if Index >= 0 then
       Exit;
-    PObj := PObj.Parent;  
-  end;  
-  FInvalidatedObjects.Add(AObj);  
+    PObj := PObj.Parent;
+  end;
+  FInvalidatedObjects.Add(AObj);
 end;
 
 procedure TMuiApplication.RemInvalidatedObject(AObj: TMUIObject);
@@ -891,9 +897,9 @@ begin
   if not Assigned(AObj) then
     Exit;
   Index := FInvalidatedObjects.IndexOf(AObj);
-  if Index < 0 then 
-    Exit;  
-  FInvalidatedObjects.Delete(Index);  
+  if Index < 0 then
+    Exit;
+  FInvalidatedObjects.Delete(Index);
 end;
 
 procedure TMuiApplication.RedrawList;
@@ -1003,7 +1009,7 @@ begin
   if AValue then
     Val := 1
   else
-    Val := 0;  
+    Val := 0;
   SetAttribute([PtrInt(MUIA_CycleChain), PtrInt(Val)]);
 end;
 
@@ -1053,262 +1059,262 @@ type
 function RawKeyToKeycode(RawKey: Byte): Word;
 const
   TranslTable: array[Byte] of Integer = (
-    -1,		// $00  
-    49,		// $01  1
-    50,		// $02  2
-    51,		// $03  3
-    52,		// $04  4
-    53,		// $05  5
-    54,		// $06  6
-    55,		// $07  7
-    56,		// $08  8
-    57,		// $09  9
-    58,		// $0a  0
-    59,			// $0b
-    187,		// $0c  //VK_CLEAR?
-    VK_Return,		// $0d
-    -1,			// $0e
-    VK_NUMPAD0,			// $0f
-    -1,		// $10  
-    -1,		        // $11  
-    -1,		// $12  e
-    -1,		        // $13  
-    -1,			// $14  
-    -1,			// $15  
-    -1,			// $16
-    -1,			// $17  
-    -1,			// $18  
-    -1,			// $19  
-    -1,			// $1a
-    -1,		  // $1b  
-    -1,			// $1c  
-    VK_NUMPAD1,			// $1d  
-    VK_NUMPAD2,			// $1e  
-    VK_NUMPAD3, //keyModeSwitch,	// $1f  
-    -1,		// $20  a
-    -1,//keyPrior,		// $21  
-    -1,		// $22  d
-    -1,                 // $23  
-    -1,		        // $24  
-    -1,		        // $25  
-    -1,		        // $26  
-    -1,		        // $27  
-    -1,		        // $28  
-    VK_Select,		// $29  
-    145,//keyPrintScreen,	// $2a  
-    146, //keyExecute,		// $2b  
-    147, //keyPrintScreen,	// $2c  
-    VK_NUMPAD4,		// $2d  
-    VK_NUMPAD5,		// $2e  
-    VK_NUMPAD6,		// $2f  
-    -1,		// $30  
-    -1,		// $31  
-    -1,		// $32  
-    -1,		// $33  c
-    -1,		// $34  
-    -1,		// $35  b
-    -1,		// $36  
-    -1,		// $37  
-    188,		// $38  
-    190,		// $39  
-    189,			// $3a
-    -1,			// $3b
-    $6c,			// $3c
-    VK_NUMPAD7,			// $3d
-    VK_NUMPAD8,			// $3e
-    VK_NUMPAD9,			// $3f
-    $20,		// $40 
-    VK_BACK,			// $41 
-    VK_TAB, // $42 
-    -1,			// $43 
-    -1,			// $44 
-    -1,			// $45 
-    VK_DELETE,	// $46 
-    VK_INSERT,	// $47
-    VK_PRIOR,		// $48
-    VK_NEXT,	// $49
-    -1,			// $4a
+    -1,     // $00
+    49,     // $01  1
+    50,     // $02  2
+    51,     // $03  3
+    52,     // $04  4
+    53,     // $05  5
+    54,     // $06  6
+    55,     // $07  7
+    56,     // $08  8
+    57,     // $09  9
+    58,     // $0a  0
+    59,         // $0b
+    187,        // $0c  //VK_CLEAR?
+    VK_Return,      // $0d
+    -1,         // $0e
+    VK_NUMPAD0,         // $0f
+    -1,     // $10
+    -1,             // $11
+    -1,     // $12  e
+    -1,             // $13
+    -1,         // $14
+    -1,         // $15
+    -1,         // $16
+    -1,         // $17
+    -1,         // $18
+    -1,         // $19
+    -1,         // $1a
+    -1,       // $1b
+    -1,         // $1c
+    VK_NUMPAD1,         // $1d
+    VK_NUMPAD2,         // $1e
+    VK_NUMPAD3, //keyModeSwitch,    // $1f
+    -1,     // $20  a
+    -1,//keyPrior,      // $21
+    -1,     // $22  d
+    -1,                 // $23
+    -1,             // $24
+    -1,             // $25
+    -1,             // $26
+    -1,             // $27
+    -1,             // $28
+    VK_Select,      // $29
+    145,//keyPrintScreen,   // $2a
+    146, //keyExecute,      // $2b
+    147, //keyPrintScreen,  // $2c
+    VK_NUMPAD4,     // $2d
+    VK_NUMPAD5,     // $2e
+    VK_NUMPAD6,     // $2f
+    -1,     // $30
+    -1,     // $31
+    -1,     // $32
+    -1,     // $33  c
+    -1,     // $34
+    -1,     // $35  b
+    -1,     // $36
+    -1,     // $37
+    188,        // $38
+    190,        // $39
+    189,            // $3a
+    -1,         // $3b
+    $6c,            // $3c
+    VK_NUMPAD7,         // $3d
+    VK_NUMPAD8,         // $3e
+    VK_NUMPAD9,         // $3f
+    $20,        // $40
+    VK_BACK,            // $41
+    VK_TAB, // $42
+    -1,         // $43
+    -1,         // $44
+    -1,         // $45
+    VK_DELETE,  // $46
+    VK_INSERT,  // $47
+    VK_PRIOR,       // $48
+    VK_NEXT,    // $49
+    -1,         // $4a
     VK_F11,             // $4b  'K'
-    VK_Up,		// $4c  'L'
-    VK_Down,		// $4d  'M'
-    VK_Right,		// $4e  'N'
-    VK_Left,		// $4f  'O'
-    VK_F1,		// $50  'P'
-    VK_F2,		// $51  'Q'
-    VK_F3,		// $52  'R'
-    VK_F4,		// $53  'S'
-    VK_F5,		// $54  'T'
-    VK_F6,		// $55  'U'
-    VK_F7,		// $56  'V'
-    VK_F8,		// $57  'W'
-    VK_F9,		// $58  'X'
-    VK_F10,		// $59  'Y'
-    VK_NumLock,		// $5a  'Z'
-    VK_DIVIDE,			// $5b  VK_LWIN
-    VK_MULTIPLY,			// $5c  VK_RWIN
-    VK_SUBTRACT,		// $5d  VK_APPS
-    VK_ADD,			// $5e
-    VK_Pause,		// $5f  VK_SLEEP
-    VK_LShift,		// $60
-    VK_LShift,	        // $61
+    VK_Up,      // $4c  'L'
+    VK_Down,        // $4d  'M'
+    VK_Right,       // $4e  'N'
+    VK_Left,        // $4f  'O'
+    VK_F1,      // $50  'P'
+    VK_F2,      // $51  'Q'
+    VK_F3,      // $52  'R'
+    VK_F4,      // $53  'S'
+    VK_F5,      // $54  'T'
+    VK_F6,      // $55  'U'
+    VK_F7,      // $56  'V'
+    VK_F8,      // $57  'W'
+    VK_F9,      // $58  'X'
+    VK_F10,     // $59  'Y'
+    VK_NumLock,     // $5a  'Z'
+    VK_DIVIDE,          // $5b  VK_LWIN
+    VK_MULTIPLY,            // $5c  VK_RWIN
+    VK_SUBTRACT,        // $5d  VK_APPS
+    VK_ADD,         // $5e
+    VK_Pause,       // $5f  VK_SLEEP
+    VK_LShift,      // $60
+    VK_LShift,          // $61
     VK_CAPITAL,            // $62
-    VK_CONTROL,	        // $63
-    VK_MENU,	        // $64
-    $e6,//VK_RMENU,	        // $65
-    VK_LWIN,	        // $66
-    VK_RWIN, //VK_P7,		// $67
-    -1, //VK_P8,		// $68
-    -1, //VK_P9,		// $69
-    -1, //VK_PAsterisk,	// $6a
-    -1, //VK_PPlus,		// $6b
-    -1, //VK_PSeparator,	// $6c
-    -1, //VK_PMinus,		// $6d
-    -1, //VK_PDecimal,	// $6eL
-    VK_F12,		// $6f
-    VK_Home,		// $70  VK_F1
-    VK_End,		// $71  VK_F2
-    -1,		        // $72  VK_F3
-    -1,		        // $73  VK_F4
-    -1,		        // $74  VK_F5
-    -1,		        // $75  VK_F6
-    -1,		        // $76  VK_F7
-    -1,		        // $77  VK_F8
-    -1,		        // $78  VK_F9
-    -1,		        // $79  VK_F10
-    -1,		        // $7a  VK_F11
-    VK_F12,		// $7b  VK_F12
-    VK_F13,		// $7c  VK_F13
-    VK_F14,		// $7d  VK_F14
-    VK_F15,		// $7e  VK_F15
-    VK_F16,		// $7f  VK_F16
-    VK_F17,		// $80  VK_F17
-    VK_F18,		// $81  VK_F18
-    VK_F19,		// $82  VK_F19
-    VK_F20,		// $83  VK_F20
-    VK_F21,		// $84  VK_F21
-    VK_F22,		// $85  VK_F22
-    VK_F23,		// $86  VK_F23
-    VK_F24,		// $87  VK_F24
-    -1,			// $88
-    -1,			// $89
-    -1,			// $8a
-    -1,			// $8b
-    -1,			// $8c
-    -1,			// $8d
-    -1,			// $8e
-    -1,			// $8f
-    VK_NumLock,		// $90  VK_NUMLOCK
-    VK_Scroll,		// $91  VK_SCROLL
-    -1,			// $92  VK_OEM_NEC_EQUAL
-    -1,			// $93  VK_OEM_FJ_MASSHOU
-    -1,			// $94  VK_OEM_FJ_TOUROKU
-    -1,			// $95  VK_OEM_FJ_LOYA
-    -1,			// $96  VK_OEM_FJ_ROYA
-    -1,			// $97
-    -1,			// $98
-    -1,			// $99
-    -1,			// $9a
-    -1,			// $9b
-    -1,			// $9c
-    -1,			// $9d
-    -1,			// $9e
-    -1,			// $9f
-    -1, //VK_ShiftL,		// $a0  VK_LSHIFT
-    -1, //VK_ShiftR,		// $a1  VK_RSHIFT
-    -1, //VK_CtrlL,		// $a2  VK_LCONTROL
-    -1, //VK_CtrlR,		// $a3  VK_RCONTROL
-    -1,			// $a4  VK_LMENU
-    -1,			// $a5  VK_RMENU
-    -1,			// $a6  VK_BROWSER_BACK
-    -1,			// $a7  VK_BROWSER_FORWARD
-    -1,			// $a8  VK_BROWSER_REFRESH
-    -1,			// $a9  VK_BROWSER_STOP
-    -1,			// $aa  VK_BROWSER_SEARCH
-    -1,			// $ab  VK_BROWSER_FAVORITES
-    -1,			// $ac  VK_BROWSER_HOME
-    -1,			// $ad  VK_VOLUME_MUTE
-    -1,			// $ae  VK_VOLUME_DOWN
-    -1,			// $af  VK_VOLUME_UP
-    -1,			// $b0  VK_MEDIA_NEXT_TRACK
-    -1,			// $b1  VK_MEDIA_PREV_TRACK
-    -1,			// $b2  VK_MEDIA_STOP
-    -1,			// $b3  VK_MEDIA_PLAY_PAUSE
-    -1,			// $b4  VK_LAUNCH_MAIL
-    -1,			// $b5  VK_LAUNCH_MEDIA_SELECT
-    -1,			// $b6  VK_LAUNCH_APP1
-    -1,			// $b7  VK_LAUNCH_APP2
-    -1,			// $b8
-    -1,			// $b9
-    -1, {U Umlaut}	// $ba  VK_OEM_1
-    -1, {+ char}	// $bb  VK_OEM_PLUS
-    -1, {, char}	// $bc  VK_OEM_COMMA
-    -1, {- char}	// $bd  VK_OEM_MINUS
-    -1, {. char}	// $be  VK_OEM_PERIOD
-    -1, {# char}	// $bf  VK_OEM_2
-    -1, {O Umlaut}	// $c0  VK_OEM_3
-    -1,			// $c1
-    -1,			// $c2
-    -1,			// $c3
-    -1,			// $c4
-    -1,			// $c5
-    -1,			// $c6
-    -1,			// $c7
-    -1,			// $c8
-    -1,			// $c9
-    -1,			// $ca
-    -1,			// $cb
-    -1,			// $cc
-    -1,			// $cd
-    -1,			// $ce
-    -1,			// $cf
-    -1,			// $d0
-    -1,			// $d1
-    -1,			// $d2
-    -1,			// $d3
-    -1,			// $d4
-    -1,			// $d5
-    -1,			// $d6
-    -1,			// $d7
-    -1,			// $d8
-    -1,			// $d9
-    -1,			// $da
-    -1,			// $db  VK_OEM_4
-    -1, //VK_DeadCircumflex,	// $dc  VK_OEM_5
-    -1, //VK_DeadAcute,	// $dd  VK_OEM_6
-    -1, {A Umlaut}	// $de  VK_OEM_7
-    -1,    	        // $df  VK_OEM_8
-    -1,			// $e0
-    -1,			// $e1  VK_OEM_AX
-    -1, {< char}	// $e2  VK_OEM_102
-    -1,			// $e3  VK_ICO_HELP
-    -1, //VK_P5,		// $e4  VK_ICO_00
-    -1,			// $e5  VK_PROCESSKEY
-    -1,			// $e6  VK_ICO_CLEAR
-    -1,			// $e7  VK_PACKET
-    -1,			// $e8
-    -1,			// $e9  VK_OEM_RESET
-    -1,			// $ea  VK_OEM_JUMP
-    -1,			// $eb  VK_OEM_PA1
-    -1,			// $ec  VK_OEM_PA2
-    -1,			// $ed  VK_OEM_PA3
-    -1,			// $ee  VK_OEM_WSCTRL
-    -1,			// $ef  VK_OEM_CUSEL
-    -1,			// $f0  VK_OEM_ATTN
-    -1,			// $f1  VK_OEM_FINISH
-    -1,			// $f2  VK_OEM_COPY
-    -1,			// $f3  VK_OEM_AUTO
-    -1,			// $f4  VK_OEM_ENLW
-    -1,			// $f5  VK_OEM_BACKTAB
-    -1,			// $f6  VK_ATTN
-    -1,			// $f7  VK_CRSEL
-    -1,			// $f8  VK_EXSEL
-    -1,			// $f9  VK_EREOF
-    -1,			// $fa  VK_PLAY
-    -1,			// $fb  VK_ZOOM
-    -1,			// $fc  VK_NONAME
-    -1,			// $fd  VK_PA1
-    -1,			// $fe  VK_OEM_CLEAR
-    -1			// $ff
+    VK_CONTROL,         // $63
+    VK_MENU,            // $64
+    $e6,//VK_RMENU,         // $65
+    VK_LWIN,            // $66
+    VK_RWIN, //VK_P7,       // $67
+    -1, //VK_P8,        // $68
+    -1, //VK_P9,        // $69
+    -1, //VK_PAsterisk, // $6a
+    -1, //VK_PPlus,     // $6b
+    -1, //VK_PSeparator,    // $6c
+    -1, //VK_PMinus,        // $6d
+    -1, //VK_PDecimal,  // $6eL
+    VK_F12,     // $6f
+    VK_Home,        // $70  VK_F1
+    VK_End,     // $71  VK_F2
+    -1,             // $72  VK_F3
+    -1,             // $73  VK_F4
+    -1,             // $74  VK_F5
+    -1,             // $75  VK_F6
+    -1,             // $76  VK_F7
+    -1,             // $77  VK_F8
+    -1,             // $78  VK_F9
+    -1,             // $79  VK_F10
+    -1,             // $7a  VK_F11
+    VK_F12,     // $7b  VK_F12
+    VK_F13,     // $7c  VK_F13
+    VK_F14,     // $7d  VK_F14
+    VK_F15,     // $7e  VK_F15
+    VK_F16,     // $7f  VK_F16
+    VK_F17,     // $80  VK_F17
+    VK_F18,     // $81  VK_F18
+    VK_F19,     // $82  VK_F19
+    VK_F20,     // $83  VK_F20
+    VK_F21,     // $84  VK_F21
+    VK_F22,     // $85  VK_F22
+    VK_F23,     // $86  VK_F23
+    VK_F24,     // $87  VK_F24
+    -1,         // $88
+    -1,         // $89
+    -1,         // $8a
+    -1,         // $8b
+    -1,         // $8c
+    -1,         // $8d
+    -1,         // $8e
+    -1,         // $8f
+    VK_NumLock,     // $90  VK_NUMLOCK
+    VK_Scroll,      // $91  VK_SCROLL
+    -1,         // $92  VK_OEM_NEC_EQUAL
+    -1,         // $93  VK_OEM_FJ_MASSHOU
+    -1,         // $94  VK_OEM_FJ_TOUROKU
+    -1,         // $95  VK_OEM_FJ_LOYA
+    -1,         // $96  VK_OEM_FJ_ROYA
+    -1,         // $97
+    -1,         // $98
+    -1,         // $99
+    -1,         // $9a
+    -1,         // $9b
+    -1,         // $9c
+    -1,         // $9d
+    -1,         // $9e
+    -1,         // $9f
+    -1, //VK_ShiftL,        // $a0  VK_LSHIFT
+    -1, //VK_ShiftR,        // $a1  VK_RSHIFT
+    -1, //VK_CtrlL,     // $a2  VK_LCONTROL
+    -1, //VK_CtrlR,     // $a3  VK_RCONTROL
+    -1,         // $a4  VK_LMENU
+    -1,         // $a5  VK_RMENU
+    -1,         // $a6  VK_BROWSER_BACK
+    -1,         // $a7  VK_BROWSER_FORWARD
+    -1,         // $a8  VK_BROWSER_REFRESH
+    -1,         // $a9  VK_BROWSER_STOP
+    -1,         // $aa  VK_BROWSER_SEARCH
+    -1,         // $ab  VK_BROWSER_FAVORITES
+    -1,         // $ac  VK_BROWSER_HOME
+    -1,         // $ad  VK_VOLUME_MUTE
+    -1,         // $ae  VK_VOLUME_DOWN
+    -1,         // $af  VK_VOLUME_UP
+    -1,         // $b0  VK_MEDIA_NEXT_TRACK
+    -1,         // $b1  VK_MEDIA_PREV_TRACK
+    -1,         // $b2  VK_MEDIA_STOP
+    -1,         // $b3  VK_MEDIA_PLAY_PAUSE
+    -1,         // $b4  VK_LAUNCH_MAIL
+    -1,         // $b5  VK_LAUNCH_MEDIA_SELECT
+    -1,         // $b6  VK_LAUNCH_APP1
+    -1,         // $b7  VK_LAUNCH_APP2
+    -1,         // $b8
+    -1,         // $b9
+    -1, {U Umlaut}  // $ba  VK_OEM_1
+    -1, {+ char}    // $bb  VK_OEM_PLUS
+    -1, {, char}    // $bc  VK_OEM_COMMA
+    -1, {- char}    // $bd  VK_OEM_MINUS
+    -1, {. char}    // $be  VK_OEM_PERIOD
+    -1, {# char}    // $bf  VK_OEM_2
+    -1, {O Umlaut}  // $c0  VK_OEM_3
+    -1,         // $c1
+    -1,         // $c2
+    -1,         // $c3
+    -1,         // $c4
+    -1,         // $c5
+    -1,         // $c6
+    -1,         // $c7
+    -1,         // $c8
+    -1,         // $c9
+    -1,         // $ca
+    -1,         // $cb
+    -1,         // $cc
+    -1,         // $cd
+    -1,         // $ce
+    -1,         // $cf
+    -1,         // $d0
+    -1,         // $d1
+    -1,         // $d2
+    -1,         // $d3
+    -1,         // $d4
+    -1,         // $d5
+    -1,         // $d6
+    -1,         // $d7
+    -1,         // $d8
+    -1,         // $d9
+    -1,         // $da
+    -1,         // $db  VK_OEM_4
+    -1, //VK_DeadCircumflex,    // $dc  VK_OEM_5
+    -1, //VK_DeadAcute, // $dd  VK_OEM_6
+    -1, {A Umlaut}  // $de  VK_OEM_7
+    -1,             // $df  VK_OEM_8
+    -1,         // $e0
+    -1,         // $e1  VK_OEM_AX
+    -1, {< char}    // $e2  VK_OEM_102
+    -1,         // $e3  VK_ICO_HELP
+    -1, //VK_P5,        // $e4  VK_ICO_00
+    -1,         // $e5  VK_PROCESSKEY
+    -1,         // $e6  VK_ICO_CLEAR
+    -1,         // $e7  VK_PACKET
+    -1,         // $e8
+    -1,         // $e9  VK_OEM_RESET
+    -1,         // $ea  VK_OEM_JUMP
+    -1,         // $eb  VK_OEM_PA1
+    -1,         // $ec  VK_OEM_PA2
+    -1,         // $ed  VK_OEM_PA3
+    -1,         // $ee  VK_OEM_WSCTRL
+    -1,         // $ef  VK_OEM_CUSEL
+    -1,         // $f0  VK_OEM_ATTN
+    -1,         // $f1  VK_OEM_FINISH
+    -1,         // $f2  VK_OEM_COPY
+    -1,         // $f3  VK_OEM_AUTO
+    -1,         // $f4  VK_OEM_ENLW
+    -1,         // $f5  VK_OEM_BACKTAB
+    -1,         // $f6  VK_ATTN
+    -1,         // $f7  VK_CRSEL
+    -1,         // $f8  VK_EXSEL
+    -1,         // $f9  VK_EREOF
+    -1,         // $fa  VK_PLAY
+    -1,         // $fb  VK_ZOOM
+    -1,         // $fc  VK_NONAME
+    -1,         // $fd  VK_PA1
+    -1,         // $fe  VK_OEM_CLEAR
+    -1          // $ff
   );
 begin
   Result := 0;
@@ -1316,7 +1322,7 @@ begin
     Result := 0
   else
     Result := TranslTable[RawKey];
-  //writeln('tranbslate Key ', RawKey, ' $',IntToHex(RawKey, 2),' -> ', Result);  
+  //writeln('tranbslate Key ', RawKey, ' $',IntToHex(RawKey, 2),' -> ', Result);
 end;
 
 function KeyboardShiftState(State: Word): PtrInt;
@@ -1358,7 +1364,7 @@ var
   EatEvent: Boolean;
   Key: Char;
   i: Integer;
-begin 
+begin
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
@@ -1383,7 +1389,7 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(MUIB.EHNode)]);    
+        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(MUIB.EHNode)]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1401,9 +1407,9 @@ begin
     end;
     MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
-      //writeln(' DRAW');      
+      //writeln(' DRAW');
       if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
-       Exit;      
+       Exit;
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -1412,7 +1418,7 @@ begin
       begin
         MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
         clip := MUI_AddClipping(ri, Obj_Left(obj), Obj_top(Obj),
-            Obj_Width(Obj), Obj_Height(Obj));                
+            Obj_Width(Obj), Obj_Height(Obj));
         try
           if Assigned(MUIB) then
           begin
@@ -1420,12 +1426,12 @@ begin
             begin
               MUIB.FirstPaint := False;
               TWinControl(MUIB.pasobject).InvalidateClientRectCache(True);
-            end;  
+            end;
             //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             if MUIB.MUIDrawing then
-              Result := DoSuperMethodA(cl, obj, msg); 
-            WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);  
-            Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);             
+              Result := DoSuperMethodA(cl, obj, msg);
+            WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
+            Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
             if MUIB is TMUIWindow then
             begin
               PaintX := Obj_Left(Obj);
@@ -1442,13 +1448,13 @@ begin
             if Buffered then
             begin
               if WithScrollbars then
-              begin                              
+              begin
                 if MUIB.VScroll.Visible then
                   PaintW := PaintW - MUIB.VScroll.Width - 1;
                 If MUIB.HScroll.Visible then
-                  PaintH := PaintH - MUIB.HScroll.Height - 1;                  
-                //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas)); 
-              end;  
+                  PaintH := PaintH - MUIB.HScroll.Height - 1;
+                //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
+              end;
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
@@ -1475,13 +1481,13 @@ begin
             end;
             MUIB.FMUICanvas.DeInitCanvas;
             if Buffered and Assigned(MUIB.FMUICanvas.RastPort) then
-            begin              
+            begin
               ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, PaintX, PaintY, PaintW, PaintH, $00C0);
               FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;
-            end;            
-            //writeln('<--Draw ', muib.classname);               
+            end;
+            //writeln('<--Draw ', muib.classname);
           end;
         finally
           MUI_RemoveClipRegion(ri, clip);
@@ -1495,7 +1501,7 @@ begin
       //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) and Assigned(MUIB.PasObject) and Assigned(MUIB.Parent) then
-      begin        
+      begin
         HEMsg := Pointer(Msg);
         iMsg := HeMsg^.imsg;
         ri := MUIRenderInfo(Obj);
@@ -1508,7 +1514,7 @@ begin
           MUIParent := MUIB.GetParentWindow;
           MUIWin := nil;
           if MUIParent is TMuiWindow then
-            MUIWin := MUIParent as TMuiWindow; 
+            MUIWin := MUIParent as TMuiWindow;
           if Assigned(MUIWin) then
           begin
             // if Window has a MainMenu do not catch Right MB
@@ -1527,12 +1533,12 @@ begin
         begin
           Result := MUI_EventHandlerRC_Eat;
           Exit;
-        end;  
+        end;
         for i := 0 to MUIB.FChilds.Count - 1 do
         begin
           if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
             EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
-        end;        
+        end;
         if true then
         begin
           //writeln(MUIB.classname,' obj Event ', Imsg^.MouseX, ' ', Imsg^.MouseY);
@@ -1550,8 +1556,8 @@ begin
                   MUIB.LastClick := -1;
             end;
             IDCMP_MOUSEBUTTONS: begin  // MOUSE BUTTON ###########################################
-              
-              // Check the Mouse Status  
+
+              // Check the Mouse Status
               case iMsg^.Code of
                 SELECTDOWN: begin  // Left Button down
                   if not EatEvent then
@@ -1569,27 +1575,27 @@ begin
                   // Check if it is an Double click < 250 ms and less than 3 move events between
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
-                  begin  
+                  begin
                     LCLSendMouseMultiClickMsg(MUIB.PasObject, RelX, RelY, mbLeft, 2, []);  // its a double click
-                    MUIB.LastClick := -1;                
+                    MUIB.LastClick := -1;
                   end else
                   begin
                     MUIB.NumMoves := 3;            // first click, maybe later as Double Click ;)
-                    MUIB.LastClick := CurTime;  
+                    MUIB.LastClick := CurTime;
                   end;
                 end;
                 // Left Mouse UP
-                SELECTUP: 
+                SELECTUP:
                 begin
                   LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
-                end;  
+                end;
                 // Middle Mouse Down
                 MIDDLEDOWN: begin
                     if not EatEvent then
                       Exit;  // Mouse buttons only send if the mouse is inside the Widget
                     LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
-                  end;  
-                // Middle Mouse Up  
+                  end;
+                // Middle Mouse Up
                 MIDDLEUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
                 // Right Mouse Down;
                 MENUDOWN: begin
@@ -1608,7 +1614,7 @@ begin
                 if not EatEvent then
                   Exit;
                 RelX := Imsg^.MouseX - obj_Left(obj);
-                RelY := Imsg^.MouseY - obj_Top(obj); 
+                RelY := Imsg^.MouseY - obj_Top(obj);
                 // Mouse wheel with Value 120 (from the other interfaces)
                 if iMsg^.Code = $7B then
                   LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, -120, [])
@@ -1619,8 +1625,8 @@ begin
                 // Get the Keyboard Focus (see Mouse Buttons Left Down)
                 if Assigned(MUIWin) then
                   if Assigned(MUIWin.FocusedControl) then
-                    MUIB := MUIWin.FocusedControl;                    
-                // Keyboard events always get eaten -> focussed Control    
+                    MUIB := MUIWin.FocusedControl;
+                // Keyboard events always get eaten -> focussed Control
                 EatEvent := True;
                 // Extrace some data and let MapRawKey do the job
                 KeyUp := (IMsg^.Code and IECODE_UP_PREFIX) <> 0;
@@ -1642,7 +1648,7 @@ begin
                 IsSysKey := KeyData <> 0;
                 //writeln(' send key: $', IntToHex(KeyData,8) );
                 if Ret = 1 then
-                begin 
+                begin
                   CharCode := RawKeyToKeycode(IMsg^.Code);
                   if CharCode = 0 then
                     CharCode := Ord(uppercase(Key)[1]);
@@ -1650,16 +1656,16 @@ begin
                   begin
                     LCLSendKeyUpEvent(MUIB.PasObject, CharCode, KeyData, True, False);
                   end else
-                  begin  
+                  begin
                     //writeln('Down ', Char(CharCode), ' ', Charcode, ' ', Ord(''''));
-                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);  
+                    LCLSendKeyDownEvent(MUIB.PasObject, CharCode, KeyData, True, False);
                     if (IMsg^.Qualifier and (IEQUALIFIER_CONTROL or IEQUALIFIER_LALT) = 0) then
                     begin
-                      CharCode := Ord(Key); 
+                      CharCode := Ord(Key);
                       //writeln('Press ', Char(CharCode), '  ', Key,' ' ,charcode);
                       LCLSendCharEvent(MUIB.PasObject, CharCode, KeyData, True, False, True);
                     end;
-                  end;  
+                  end;
                 end else
                 begin
                   CharCode := RawKeyToKeycode(IMsg^.Code);

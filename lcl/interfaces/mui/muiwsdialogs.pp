@@ -222,7 +222,7 @@ begin
     TagsList.AddTags([ASLFR_DrawersOnly, TagTrue]);
   end;
   //
-  //Hook.h_Entry := IPTR(@IntuiMsgFunc);
+  //Hook.h_Entry := NativeUInt(@IntuiMsgFunc);
   //Hook.h_SubEntry := 0;
   //Hook.h_Data := MuiDialog;
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}

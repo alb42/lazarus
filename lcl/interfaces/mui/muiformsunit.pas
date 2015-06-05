@@ -484,8 +484,8 @@ begin
   if Assigned(FGrpObj) then
     Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
   //
-  LayoutHook.h_Entry := IPTR(@LayoutFunc);
-  LayoutHook.h_SubEntry := IPTR(@LayoutFunc);
+  LayoutHook.h_Entry := NativeUInt(@LayoutFunc);
+  LayoutHook.h_SubEntry := NativeUInt(@LayoutFunc);
   LayoutHook.h_Data := Self;
   //
   AltLeft := 0;

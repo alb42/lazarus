@@ -65,8 +65,8 @@ type
     procedure SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
     function GetAttObj(obje: pObject_; tag: longword): longword;
     // DoMethod(Params = [MethodID, Parameter for Method ...])
-    function DoMethodObj(Obje: pObject_; const Params: array of IPTR): longint;
-    function DoMethod(const Params: array of IPTR): longint;
+    function DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
+    function DoMethod(const Params: array of NativeUInt): longint;
 
     procedure SetParent(const AValue: TMUIObject); virtual;
 
@@ -520,7 +520,7 @@ begin
   Result := Res;
 end;
 
-function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of IPTR): longint;
+function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
 begin
   Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, @(Params[0]));
 end;
@@ -575,7 +575,7 @@ begin
   Result := Res;
 end;
 
-function TMUIObject.DoMethod(const Params: array of IPTR): longint;
+function TMUIObject.DoMethod(const Params: array of NativeUInt): longint;
 begin
   Result := CallHookPkt(PHook(OCLASS(FObject)), FObject, @(Params[0]));
 end;
@@ -840,7 +840,7 @@ end;
 
 function TMuiApplication.NewInput(Signals: PLongword): longword;
 begin
-  Result := DoMethod([IPTR(Signals)]);
+  Result := DoMethod([NativeUInt(Signals)]);
 end;
 
 procedure TMuiApplication.DoMUIDraw;
@@ -1035,7 +1035,7 @@ end;
 
 function TMuiArea.GetTabStop: boolean;
 begin
-  Result := GetAttribute(IPTR(MUIA_CycleChain)) <> 0;
+  Result := GetAttribute(NativeUInt(MUIA_CycleChain)) <> 0;
 end;
 
 procedure TMuiArea.SetTabStop(const AValue: boolean);
@@ -1418,7 +1418,7 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        DoMethod(WinObj,MUIM_Window_AddEventHandler,[IPTR(MUIB.EHNode)]);
+        DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1427,7 +1427,7 @@ begin
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
-        DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[IPTR(MUIB.EHNode)]);
+        DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[NativeUInt(MUIB.EHNode)]);
         Dispose(MUIB.EHNode);
         MUIB.EHNode := nil;
       end;
@@ -1750,7 +1750,7 @@ begin
     DestroyClasses;
     halt(5);
   end;
-  LCLGroupClass^.cl_Dispatcher.h_Entry := IPTR(@Dispatcher);
+  LCLGroupClass^.cl_Dispatcher.h_Entry := NativeUInt(@Dispatcher);
   LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;
   LCLGroupClass^.cl_Dispatcher.h_Data := nil;
 end;

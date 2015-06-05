@@ -732,7 +732,7 @@ var
   Res: LongInt;
 begin
   Result := 0;
-  GetAttr(IPTR(MUIA_List_Active), StrObj, @Res);
+  GetAttr(NativeUInt(MUIA_List_Active), StrObj, @Res);
   if Res = MUIV_List_Active_Off then
     Result := 0
   else
@@ -1288,7 +1288,7 @@ end;
 
 function TMuiSpinEdit.GetTabStop: boolean;
 begin
-  Result := GetAttObj(Edit, IPTR(MUIA_CycleChain)) <> 0;
+  Result := GetAttObj(Edit, NativeUInt(MUIA_CycleChain)) <> 0;
 end;
 
 procedure TMuiSpinEdit.SetTabStop(const AValue: boolean);

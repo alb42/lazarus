@@ -1,3 +1,18 @@
+{
+ *****************************************************************************
+ *                             MUIThemes.pas                                 *
+ *                              --------------                               *
+ *                         Basic MUI Themes support                          *
+ *                                                                           *
+ *****************************************************************************
+
+ *****************************************************************************
+  This file is part of the Lazarus Component Library (LCL)
+
+  See the file COPYING.modifiedLGPL.txt, included in this distribution,
+  for details about the license.
+ *****************************************************************************
+}
 unit MUIThemes;
 
 {$mode objfpc}{$H+}
@@ -239,12 +254,12 @@ end;
 procedure TMUIThemeServices.DrawElement(DC: HDC;
   Details: TThemedElementDetails; const R: TRect; ClipRect: PRect);
 var
-  r1: TRect;  
+  r1: TRect;
 begin
   //writeln('element: ', Details.Element);
   if Details.Element = teButton then
   begin
-    r1 := r;  
+    r1 := r;
     if Details.Part = 1 then
     begin
       if Details.State = 1 then

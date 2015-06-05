@@ -22,7 +22,7 @@ interface
 uses
   // RTL, FCL, LCL
   Classes, SysUtils, types, dos,
-  Graphics, Menus, LCLType
+  Graphics, Menus, LCLType, tagsparamshelper
   // Widgetset
   // aros
   {$ifdef HASAMIGA}
@@ -37,7 +37,7 @@ const
     (
      (OldName: 'default';
       NewName: 'Arial';),
-      
+
      (OldName: 'tahoma';
       NewName: 'Arial';),
 
@@ -81,7 +81,7 @@ type
     MUICanvas: TMUICanvas;
     constructor Create(Width, Height, Depth: Integer);
     destructor Destroy; override;
-    
+
     procedure GetFromCanvas;
   end;
 
@@ -296,7 +296,7 @@ type
 
 implementation
 uses
-  muibaseunit, tagsarray, interfacebase;
+  muibaseunit, interfacebase;
 
 (*
 var
@@ -369,7 +369,7 @@ begin
   begin
     T := MUICanvas.GetOffset;
     ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB);
-  end;  
+  end;
 end;
 
 { TMUIFontObj }
@@ -398,7 +398,7 @@ begin
     TextAttr.ta_Style := TextAttr.ta_Style or FSF_BOLD;
   if FIsUnderlined then
     TextAttr.ta_Style := TextAttr.ta_Style or FSF_UNDERLINED;
-  FontStyle := TextAttr.ta_Style;  
+  FontStyle := TextAttr.ta_Style;
   TextAttr.ta_Name := PChar(FontFile);
   TextAttr.ta_YSize := FHeight;
   TextAttr.ta_Flags := FPF_DISKFONT;
@@ -476,8 +476,8 @@ destructor TMUIFontObj.Destroy;
 begin
   {$ifdef COUNTFONTS}
   Dec(NumFonts);
-  writeln('Destroy font', HexStr(Self),' ', NumFonts); 
-  {$endif} 
+  writeln('Destroy font', HexStr(Self),' ', NumFonts);
+  {$endif}
   CloseFontHandle;
   inherited Destroy;
 end;
@@ -878,7 +878,7 @@ function TmuiBasicRegion.CombineWithRegion(const ARegion: TmuiBasicRegion;
     end else begin
       Intersect:=true;
     end;
-  	if Intersect then begin
+    if Intersect then begin
       TargetRegion.CreateRectRegion(
         classes.Rect(
           Max(r1.Left,r2.Left),
@@ -887,7 +887,7 @@ function TmuiBasicRegion.CombineWithRegion(const ARegion: TmuiBasicRegion;
           Min(r1.Bottom,r2.Bottom)
         )
       );
-   	end else begin
+    end else begin
       TargetRegion.CreateRectRegion(classes.Rect(0,0,0,0));
     end;
   end;
@@ -940,7 +940,7 @@ begin
     //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
     if not SkipPenSetting then
       SetPenToRP();
-    Drawn := True;    
+    Drawn := True;
     T := GetOffset;
     Draw(RastPort, T.X + x, T.Y + y);
     if (Position.X = X) and (FPen.FWidth > 1) then
@@ -995,7 +995,7 @@ begin
       RY := Y2;
       Y2 := Y1;
       Y1 := RY;
-    end;    
+    end;
     if FBrush.FStyle = JAM2 then
     begin
       SetBrushToRP(True);
@@ -1022,7 +1022,7 @@ var
   ElWi, ElHi: Integer; // ellipse height and width
   Rx, RY: Integer; // Radius
   MX, MY: Integer; // center Point
-begin  
+begin
   if Assigned(RastPort) then
   begin
     Drawn := True;
@@ -1060,8 +1060,8 @@ begin
       FreeRaster(Ras, ElWi * 2, ElHi * 2);
     end;
     SetPenToRP();
-    DrawEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);    
-  end;  
+    DrawEllipse(RastPort, T.X + MX, T.Y + MY, RX, RY);
+  end;
 end;
 
 procedure TMUICanvas.Polygon(Points: Types.PPoint; NumPoint: Integer);
@@ -1086,9 +1086,9 @@ begin
     SetBrushToRP(True);
     Ras := AllocRaster(DrawRect.Right, DrawRect.Bottom);
     InitTmpRas(@TRas, ras, DrawRect.Right * DrawRect.Bottom * 3);
-		InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
-		RastPort^.TmpRas := @TRas;
-		RastPort^.AreaInfo := @Ari;
+    InitArea(@ari, @WarBuff[0], AREA_BYTES div 5);
+    RastPort^.TmpRas := @TRas;
+    RastPort^.AreaInfo := @Ari;
     CurPoint := Points;
     AreaMove(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
     for i := 1 to NumPoint - 1 do
@@ -1096,9 +1096,9 @@ begin
       Inc(CurPoint);
       AreaDraw(RastPort, T.X + CurPoint^.X, T.Y + CurPoint^.Y);
     end;
-		AreaEnd(RastPort);
-		RastPort^.TmpRas := nil;
-		RastPort^.AreaInfo := nil;
+    AreaEnd(RastPort);
+    RastPort^.TmpRas := nil;
+    RastPort^.AreaInfo := nil;
     FreeRaster(Ras, DrawRect.Right, DrawRect.Bottom);
   end;
   SetPenToRP();
@@ -1122,8 +1122,8 @@ var
   Checked: array of array of Boolean;
   ToCheck: array of record
     x, y: Integer;
-  end;  
-  
+  end;
+
   procedure AddToCheck(AX, AY: Integer);
   begin
     if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
@@ -1135,9 +1135,9 @@ var
         SetLength(ToCheck, Length(ToCheck) + 1000);
       ToCheck[Index].X := AX;
       ToCheck[Index].Y := AY;
-    end;  
+    end;
   end;
-  
+
   procedure CheckNeighbours(AX, AY: Integer);
   begin
     if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
@@ -1147,14 +1147,14 @@ var
       begin
         if WriteRGBPixel(RastPort, T.X + AX, T.Y + AY, NewCol) = -1 then
           Exit;
-        AddToCheck(AX - 1, AY);          
+        AddToCheck(AX - 1, AY);
         AddToCheck(AX, AY - 1);
         AddToCheck(AX + 1, AY);
-        AddToCheck(AX, AY + 1);        
+        AddToCheck(AX, AY + 1);
       end;
     end;
   end;
-     
+
 begin
   if Assigned(RastPort) then
   begin
@@ -1168,8 +1168,8 @@ begin
       for NY := 0 to Height - 1 do
       begin
         Checked[Nx,Ny] := False;
-      end;    
-    //t2 := GetMsCount;  
+      end;
+    //t2 := GetMsCount;
     NewCol := TColorToMUIColor(Color);
     Col := ReadRGBPixel(RastPort, T.X + X, T.Y + Y);
     if NewCol <> Col then
@@ -1216,7 +1216,7 @@ end;
 
 procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
 var
-  Tags: TTagsList;
+  Tags: TATagList;
   Col: LongWord;
   Hi: Integer;
 begin
@@ -1227,7 +1227,7 @@ begin
     writeln('Text2: ', Txt);}
   //writeln('Write Text ', HexStr(Pointer(BKColor)), ' ', HexStr(Pointer(TextColor)));
   if Assigned(RastPort) then
-  begin    
+  begin
     SetPenToRP;
     //SetFontToRP;
     //SetBrushToRP;
@@ -1235,8 +1235,12 @@ begin
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
     Col := TColorToMUIColor(TextColor);
-    AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
-    SetRPAttrsA(RastPort, GetTagPtr(Tags));
+    Tags.Clear;
+    Tags.AddTags([
+      RPTAG_PenMode, TagFalse,
+      RPTAG_FGColor, NativeUInt(col)
+      ]);
+    SetRPAttrsA(RastPort, Tags);
     GfxText(RastPort, Txt, Count);
     SetPenToRP;
   end;
@@ -1254,7 +1258,7 @@ begin
     // problems with ToolButton, removed for now
     //if Assigned(FFont) and Assigned(FFont.FontHandle) then
     //  Result := FFont.FontHandle^.tf_XSize * (Count + 1);
-    //writeln('Textwidth ', Txt, '   ', Result);  
+    //writeln('Textwidth ', Txt, '   ', Result);
   end;
 end;
 
@@ -1268,7 +1272,7 @@ begin
     TextExtent(RastPort, Txt, Count, @TE);
     Result := TE.te_Height;
   end else
-  begin    
+  begin
     if Assigned(FFont) and Assigned(FFont.FontHandle) then
       Result := FFont.FontHandle^.tf_YSize;
   end;
@@ -1321,7 +1325,7 @@ begin
   begin
     FreeBitmap(RastPort^.Bitmap);
     FreeRastPort(RastPort);
-  end;  
+  end;
   FDefaultBrush.Free;
   FDefaultPen.Free;
   FDefaultFont.Free;
@@ -1332,9 +1336,9 @@ end;
 procedure TMUICanvas.InitCanvas;
 var
   t: TPoint;
-begin  
+begin
   if InitDone then
-    Exit;  
+    Exit;
   //DeInitCanvas;
   InitDone := True;
   if Assigned(RastPort) then
@@ -1345,12 +1349,12 @@ begin
     OldFont := RastPort^.Font;
     OldDrMd := GetDrMd(RastPort);
     OldPat := RastPort^.LinePtrn;
-    OldStyle := SetSoftStyle(RastPort, 0,0);    
+    OldStyle := SetSoftStyle(RastPort, 0,0);
     if Assigned(RenderInfo) and (FClipping.Right - FClipping.Left <> 0) then
     begin
       T := GetOffset;
       FClip := MUI_AddClipping(RenderInfo, T.X + FClipping.Left, T.Y + FClipping.Top, FClipping.Right - FClipping.Left, FClipping.Bottom - FClipping.Top);
-    end;  
+    end;
   end;
   SetPenToRP;
   SetBrushToRP;
@@ -1359,12 +1363,12 @@ end;
 
 procedure TMUICanvas.DeInitCanvas;
 var
-  Tags: TTagsList;
+  Tags: TATagList;
   Col: LongWord;
 begin
   if not InitDone then
     Exit;
-  InitDone := False;  
+  InitDone := False;
   if Assigned(FClip) and Assigned(RenderInfo) then
   begin
     MUI_RemoveClipRegion(RenderInfo, FClip);
@@ -1385,9 +1389,13 @@ begin
     //RastPort^.LinePtrn := OldPat;
     SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
     Col := 0;
-    AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(col), LongInt(TAG_DONE), 0]);
-    SetRPAttrsA(RastPort, GetTagPtr(Tags));
-  end;  
+    Tags.Clear;
+    Tags.AddTags([
+      RPTAG_PenMode, TagFalse,
+      RPTAG_FGColor, NativeUInt(col)
+      ]);
+    SetRPAttrsA(RastPort, Tags);
+  end;
 end;
 
 procedure TMUICanvas.SetFontToRP;
@@ -1396,12 +1404,12 @@ begin
   begin
     if Assigned(FFont) and Assigned(FFont.FontHandle) then
     begin
-      SetFont(RastPort, FFont.FontHandle);   
+      SetFont(RastPort, FFont.FontHandle);
       SetSoftStyle(RastPort, FFont.FontStyle, ALLSTYLES);
     end else
     begin
       SetFont(RastPort, FDefaultFont.FontHandle);
-      SetSoftStyle(RastPort, 0, ALLSTYLES);      
+      SetSoftStyle(RastPort, 0, ALLSTYLES);
     end;
   end;
 end;
@@ -1411,7 +1419,7 @@ var
   T: TPoint;
 begin
   if Assigned(FClip) then
-    MUI_RemoveClipRegion(RenderInfo, FClip); 
+    MUI_RemoveClipRegion(RenderInfo, FClip);
   FClip := nil;
   FClipping.Left := 0;
   FClipping.Top := 0;
@@ -1428,7 +1436,7 @@ end;
 procedure TMUICanvas.SetPenToRP;
 var
   Col: TColor;
-  Tags: TTagsList;
+  Tags: TATagList;
   PenDesc: Integer;
   //p: Word;
 begin
@@ -1441,7 +1449,7 @@ begin
         PS_DOT: p:=1;
         PS_NULL: p := 0;
         PS_DASH: p := $FF00;
-        PS_DASHDOT: p := $FF01; 
+        PS_DASHDOT: p := $FF01;
         PS_DASHDOTDOT: p := $FF11;
         PS_USERSTYLE: p:= 1;
         else
@@ -1459,8 +1467,12 @@ begin
       begin
         //writeln('Set color in RastPort: ', HexStr(Pointer(FPen.Color)));
         Col := FPen.Color;
-        AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
-        SetRPAttrsA(RastPort, GetTagPtr(Tags));
+        Tags.Clear;
+        Tags.AddTags([
+          RPTAG_PenMode, TagFalse,
+          RPTAG_FGColor, NativeUInt(Col)
+          ]);
+        SetRPAttrsA(RastPort, Tags);
       end;
     end;
   end;
@@ -1469,7 +1481,7 @@ end;
 procedure TMUICanvas.SetBrushToRP(AsPen: Boolean = False);
 var
   Col: TColor;
-  Tags: TTagsList;
+  Tags: TATagList;
   PenDesc: Integer;
 begin
   if Assigned(RastPort) then
@@ -1486,17 +1498,24 @@ begin
           SetBMUIPen(PenDesc);
       end else
       begin
+        Tags.Clear;
         Col := FBrush.Color;
         if AsPen then
         begin
-          AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+          Tags.AddTags([
+            RPTAG_PenMode, TagFalse,
+            RPTAG_FGColor, NativeUInt(Col)
+            ]);
           SetDrMd(RastPort, JAM1);
         end else
         begin
-          AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+          Tags.AddTags([
+            RPTAG_PenMode, TagFalse,
+            RPTAG_BGColor, NativeUInt(Col)
+            ]);
           SetDrMd(RastPort, FBrush.Style);
         end;
-        SetRPAttrsA(RastPort, GetTagPtr(Tags));
+        SetRPAttrsA(RastPort, Tags);
       end;
     end;
   end;
@@ -1505,11 +1524,11 @@ end;
 procedure TMUICanvas.SetBKToRP(AsPen: Boolean = False);
 var
   Col: TMUIColor;
-  Tags: TTagsList;
+  Tags: TATagList;
 begin
   //writeln('set BK Color $', HexStr(Pointer(BKColor)));
   if Assigned(RastPort) then
-  begin        
+  begin
     if BKColor = clNone then
     begin
       SetBrushToRP(AsPen);
@@ -1518,14 +1537,21 @@ begin
     begin
       Col := TColorToMUIColor(BKColor);
     end;
+    Tags.Clear;
     if AsPen then
     begin
-      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_FGColor), LongInt(Col), LongInt(TAG_DONE), 0]);      
+      Tags.AddTags([
+        RPTAG_PenMode, TagFalse,
+        RPTAG_FGColor, NativeUInt(Col)
+        ]);
     end else
     begin
-      AddTags(Tags, [LongInt(RPTAG_PenMode), LongInt(False), LongInt(RPTAG_BGColor), LongInt(Col), LongInt(TAG_DONE), 0]);
+      Tags.AddTags([
+        RPTAG_PenMode, TagFalse,
+        RPTAG_BGColor, NativeUInt(Col)
+        ]);
     end;
-    SetRPAttrsA(RastPort, GetTagPtr(Tags));
+    SetRPAttrsA(RastPort, Tags);
   end;
 end;
 
@@ -1564,8 +1590,8 @@ begin
     if Assigned(Bitmap) then
     begin
       if Bitmap.MUICanvas = self then
-        Bitmap.MUICanvas := nil;    
-    end;  
+        Bitmap.MUICanvas := nil;
+    end;
     Bitmap := TMUIBitmap(NewObj);
     if not Assigned(MUIObject) then
     begin
@@ -1573,7 +1599,7 @@ begin
       if Bitmap.MUICanvas = nil then
         Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
-      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);       
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
     end;
@@ -1588,7 +1614,7 @@ begin
 end;
 
 initialization
-  
+
 
 
 finalization

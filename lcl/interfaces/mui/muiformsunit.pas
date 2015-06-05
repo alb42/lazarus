@@ -1,3 +1,18 @@
+{
+ *****************************************************************************
+ *                             MuiFormsUnit.pas                              *
+ *                              --------------                               *
+ *                    MUI Windows and related things                         *
+ *                                                                           *
+ *****************************************************************************
+
+ *****************************************************************************
+  This file is part of the Lazarus Component Library (LCL)
+
+  See the file COPYING.modifiedLGPL.txt, included in this distribution,
+  for details about the license.
+ *****************************************************************************
+}
 unit MuiFormsUnit;
 
 {$mode objfpc}{$H+}
@@ -5,9 +20,12 @@ unit MuiFormsUnit;
 interface
 
 uses
-  Classes, SysUtils, controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
-  Forms, MuiBaseUnit, lclmessageglue, menus, Tagsarray, Math, types, lclType,
-  gadtools, strutils;
+  Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
+  Forms, MuiBaseUnit, LCLMessageGlue, Menus, Math, Types, LCLType,
+  StrUtils, tagsparamshelper;
+
+const
+  NM_Barlabel = 1;
 
 type
 
@@ -46,7 +64,7 @@ type
     procedure SetShortCut(const AValue: string);
     procedure SetTitle(const AValue: string);
   public
-    constructor Create(var tags: TTagsList);
+    constructor Create(const Tags: TATagList); reintroduce overload virtual;
     property Checked: Boolean read GetChecked write SetChecked;
     property CheckIt: Boolean read GetCheckIt write SetCheckIt;
     property Enabled: Boolean read GetEnabled write SetEnabled;
@@ -66,7 +84,7 @@ type
     procedure SetEnabled(const AValue: Boolean); override;
     procedure SetTitle(const AValue: string);
   public
-    constructor Create(var tags: TTagsList);
+    constructor Create(const Tags: TATagList); reintroduce overload virtual;
     destructor Destroy; override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
     property Title: string read GetTitle write SetTitle;
@@ -79,7 +97,7 @@ type
     function GetEnabled: Boolean; override;
     procedure SetEnabled(const AValue: Boolean); override;
   public
-    constructor Create(var tags: TTagsList);
+    constructor Create(const Tags: TATagList);
     Destructor Destroy; override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
@@ -107,8 +125,8 @@ type
     function GetLeft(): Integer; override;
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
     procedure InstallHooks; override;
-  public    
-    constructor Create(var TagList: TTagsList); overload; reintroduce; virtual;
+  public
+    constructor Create(const TagList: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure GetSizes;
     procedure DoMUIDraw(); override;
@@ -119,7 +137,7 @@ type
     property Caption: string read GetCaption write SetCaption;
     property MainMenu: TMuiMenuStrip read FMainMenu;
     property HasMenu: Boolean read FHasMenu write FHasMenu;
-    property Sizeable: Boolean read FSizeable write FSizeable;    
+    property Sizeable: Boolean read FSizeable write FSizeable;
     property FocusedControl: TMUIObject read FFocusedControl write SetFocusedControl;
   end;
 
@@ -129,7 +147,7 @@ type
   private
 
   public
-    constructor Create(var tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const TagList: TATagList); overload; reintroduce; virtual;
   end;
 
 implementation
@@ -154,7 +172,7 @@ begin
         Miw := 100;
         Mih := 20;
         Maw := 10000;
-        Mah := 10000;        
+        Mah := 10000;
         if Assigned(Win.PasObject) then
         begin
           PasWin := TWinControl(Win.PasObject);
@@ -168,7 +186,7 @@ begin
           LMsg^.lm_MinMax.MinHeight := MiH;
           LMsg^.lm_MinMax.MaxWidth :=  MaW;
           LMsg^.lm_MinMax.MaxHeight := MaH;
-        end;  
+        end;
         LMsg^.lm_MinMax.DefWidth := Win.Width;
         LMsg^.lm_MinMax.DefHeight := Win.Height;
       end else
@@ -179,7 +197,7 @@ begin
         LMsg^.lm_MinMax.MaxHeight := Win.Height;
         LMsg^.lm_MinMax.DefWidth := Win.Width;
         LMsg^.lm_MinMax.DefHeight := Win.Height;
-      end;    
+      end;
       TWinControl(Win.PasObject).Realign;
     end;
     MUILM_LAYOUT:
@@ -187,7 +205,7 @@ begin
       Win.GetSizes;
       for i:= 0 to Win.FChilds.Count - 1 do
       begin
-        if Win.FChilds.Items[i] is TMUIObject then 
+        if Win.FChilds.Items[i] is TMUIObject then
           TMuiObject(Win.FChilds.Items[i]).SetOwnSize;
       end;
     end;
@@ -203,12 +221,12 @@ end;
 
 procedure TMuiMenuStrip.SetEnabled(const AValue: Boolean);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_Enabled), AValue, TAG_END]);
+  SetAttribute(MUIA_Menuitem_Enabled, AValue);
 end;
 
-constructor TMuiMenuStrip.Create(var tags: TTagsList);
+constructor TMuiMenuStrip.Create(const Tags: TATagList);
 begin
-  inherited Create(MUIC_MenuStrip, GetTagPtr(tags));
+  inherited Create(MUIC_MenuStrip, Tags);
   Par := nil;
 end;
 
@@ -232,18 +250,18 @@ end;
 
 procedure TMuiMenu.SetEnabled(const AValue: Boolean);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_Enabled), AValue, TAG_END]);
+  SetAttribute(MUIA_Menuitem_Enabled, AValue);
 end;
 
 procedure TMuiMenu.SetTitle(const AValue: string);
 begin
   FTitle := AValue;
-  SetAttribute([LongInt(MUIA_Menuitem_Title), PChar(FTitle), TAG_END]);
+  SetAttribute(MUIA_Menuitem_Title, PChar(FTitle));
 end;
 
-constructor TMuiMenu.Create(var tags: TTagsList);
+constructor TMuiMenu.Create(const Tags: TATagList);
 begin
-  inherited Create(MUIC_Menu, GetTagPtr(tags));
+  inherited Create(MUIC_Menu, tags);
   Par := nil;
 end;
 
@@ -304,18 +322,18 @@ begin
       end;
     end;
   end;
-  SetAttribute([LongInt(MUIA_Menuitem_Checked), ifthen(AValue,1,0), TAG_END]);
+  SetAttribute(MUIA_Menuitem_Checked, AValue);
 end;
 
 procedure TMuiMenuItem.SetCheckIt(const AValue: Boolean);
 begin
-  SetAttribute([LongInt(MUIA_Menuitem_CheckIt), ifthen(AValue,1,0), TAG_END]);
+  SetAttribute(MUIA_Menuitem_CheckIt, AValue);
 end;
 
 procedure TMuiMenuItem.SetEnabled(const AValue: Boolean);
 begin
   //writeln('SetEnabled: ',AValue);
-  SetAttribute([LongInt(MUIA_Menuitem_Enabled), ifthen(AValue,1,0), TAG_END]);
+  SetAttribute(MUIA_Menuitem_Enabled, AValue);
   //writeln('getEnabled: ', GetEnabled);
 end;
 
@@ -329,9 +347,9 @@ procedure TMuiMenuItem.SetTitle(const AValue: string);
 begin
   FTitle := AValue;
   if AValue = '-' then
-    SetAttribute([PtrInt(MUIA_Menuitem_Title), PtrInt(NM_BARLABEL), TAG_END])
+    SetAttribute(MUIA_Menuitem_Title, NativeUInt(NM_BARLABEL))
   else
-    SetAttribute([PtrInt(MUIA_Menuitem_Title), PChar(FTitle), TAG_END]);
+    SetAttribute(MUIA_Menuitem_Title, PChar(FTitle));
 end;
 
 function MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
@@ -348,11 +366,11 @@ begin
   end;
 end;
 
-constructor TMuiMenuItem.Create(var tags: TTagsList);
+constructor TMuiMenuItem.Create(const Tags: TATagList);
 begin
-  inherited Create(MUIC_MenuItem, GetTagPtr(tags));
-  Par := nil;  
-  ConnectHook(MUIA_Menuitem_Trigger, LongWord(MUIV_EveryTime), @MenuClickedFunc);    
+  inherited Create(MUIC_MenuItem, Tags);
+  Par := nil;
+  ConnectHook(MUIA_Menuitem_Trigger, LongWord(MUIV_EveryTime), @MenuClickedFunc);
 end;
 
 { TMuiFamily }
@@ -381,19 +399,19 @@ end;
 procedure TMuiFamily.AddHead(AChild: TMuiFamily);
 begin
   ChildList.Insert(0,AChild);
-  DoMethod([IPTR(MUIM_Family_AddHead), IPTR(AChild.Obj)]);
+  DoMethod([NativeUInt(MUIM_Family_AddHead), NativeUInt(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.AddTail(AChild: TMuiFamily);
 begin
   ChildList.Add(AChild);
-  DoMethod([IPTR(MUIM_Family_AddTail), IPTR(AChild.Obj)]);
+  DoMethod([NativeUInt(MUIM_Family_AddTail), NativeUInt(AChild.Obj)]);
 end;
 
 procedure TMuiFamily.Remove(AChild: TMuiFamily);
 begin
   ChildList.Remove(AChild);
-  DoMethod([IPTR(MUIM_Family_Remove), IPTR(AChild.Obj)]);
+  DoMethod([NativeUInt(MUIM_Family_Remove), NativeUInt(AChild.Obj)]);
 end;
 
 function TMuiFamily.GetList: PMinList;
@@ -435,33 +453,34 @@ begin
     MuiObject := TMuiWindow(Hook^.h_Data);
     if Assigned(MuiObject.PasObject) and (not TMUIWindow(MUIObject).FBlockSize) then
     begin
-      Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL, False);  
+      Result := LCLSendSizeMsg(MuiObject.pasobject, MuiObject.Width, MuiObject.Height, SIZENORMAL, False);
     end;
   end;
 end;
 
-constructor TMuiWindow.Create(var TagList: TTagsList);
+constructor TMuiWindow.Create(const TagList: TATagList);
 var
-  LT: TTagsList;
-  GrpTags: TTagsList;
+  LT: TATagList;
+  GrpTags: TATagList;
   AltLeft, AltTop, AltHeight, AltWidth: Integer;
 begin
   FBlockSize := False;
   FBlockMove := False;
   FFocusedControl := Self;
+  LT.Clear;
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;
   FInMoveEvent := False;
   //FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
-  AddTags(GrpTags, [LongInt(MUIA_Group_LayoutHook), @LayoutHook]);
-  AddTags(GrpTags, [LongInt(MUIA_Frame), MUIV_Frame_None]);
-  AddTags(GrpTags, [
-    LongInt(MUIA_InnerLeft), 1,
-    LongInt(MUIA_InnerTop), 1,
-    LongInt(MUIA_InnerRight), 1,
-    LongInt(MUIA_InnerBottom), 1
+  GrpTags.AddTags([
+    MUIA_Group_LayoutHook, NativeUInt(@LayoutHook),
+    MUIA_Frame, MUIV_Frame_None,
+    MUIA_InnerLeft, 1,
+    MUIA_InnerTop, 1,
+    MUIA_InnerRight, 1,
+    MUIA_InnerBottom, 1
     ]);
-  FGrpObj := NewObjectA(LCLGroupClass, nil, GetTagPtr(GrpTags));
+  FGrpObj := NewObjectA(LCLGroupClass, nil, GrpTags);
   if Assigned(FGrpObj) then
     Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
   //
@@ -473,19 +492,19 @@ begin
   AltTop := 0;
   AltWidth := IntuitionBase^.ActiveScreen^.Width;
   AltHeight := IntuitionBase^.ActiveScreen^.Height - IntuitionBase^.ActiveScreen^.BarHeight;
-  AddTags(TagList, [
-    PtrInt(MUIA_Window_AltLeftEdge) , AltLeft,
-    PtrInt(MUIA_Window_AltTopEdge) , AltTop,
-    PtrInt(MUIA_Window_AltWidth) , AltWidth,
-    PtrInt(MUIA_Window_AltHeight) , AltHeight
+  TagList.AddTags([
+    MUIA_Window_AltLeftEdge , AltLeft,
+    MUIA_Window_AltTopEdge , AltTop,
+    MUIA_Window_AltWidth , AltWidth,
+    MUIA_Window_AltHeight , AltHeight,
+    MUIA_Window_Menustrip, NativeUInt(FMainMenu.Obj),
+    MUIA_Window_RootObject, NativeUInt(FGrpObj)
     ]);
-  //
-  AddTags(TagList, [LongInt(MUIA_Window_Menustrip), FMainMenu.Obj, LongInt(MUIA_Window_RootObject), FGrpObj]);
-  inherited Create(MUIC_Window, GetTagPtr(TagList));
+  inherited Create(MUIC_Window, TagList);
   //
   Self.Parent := MUIApp;
   if MuiApp.MainWin = obj then
-    SetAttribute([PtrInt(MUIA_Window_Activate), True]);  
+    SetAttribute(MUIA_Window_Activate, True);
 end;
 
 destructor TMuiWindow.Destroy;
@@ -519,7 +538,7 @@ begin
   begin
     Width := GetAttribute(MUIA_Window_Width);
     Height := GetAttribute(MUIA_Window_Height);
-  end;  
+  end;
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
 end;
 
@@ -556,7 +575,7 @@ procedure TMuiWindow.SetLeft(ALeft: LongInt);
 begin
   FBlockMove := True;
   inherited;
-  SetAttribute([LongInt(MUIA_Window_LeftEdge), ALeft]);
+  SetAttribute(MUIA_Window_LeftEdge, ALeft);
   FBlockMove := False;
 end;
 
@@ -564,7 +583,7 @@ procedure TMuiWindow.SetTop(ATop: LongInt);
 begin
   FBlockMove := True;
   inherited;
-  SetAttribute([LongInt(MUIA_Window_TopEdge), ATop]);
+  SetAttribute(MUIA_Window_TopEdge, ATop);
   FBlockMove := False;
 end;
 
@@ -593,12 +612,12 @@ var
   PC: PChar;
 begin
   PC := PChar(AValue);
-  SetAttribute([LongInt(MUIA_Window_Title), PC, TAG_END]);
+  SetAttribute(MUIA_Window_Title, PC);
 end;
 
 procedure TMuiWindow.SetVisible(const AValue: Boolean);
 begin
-  SetAttribute([LongInt(MUIA_Window_Open), AValue, TAG_END]);
+  SetAttribute(MUIA_Window_Open, AValue);
 end;
 
 procedure TMuiWindow.AddChild(Child: TMUIObject);
@@ -614,8 +633,8 @@ begin
   if Assigned(FGrpObj) and Assigned(Child) and Assigned(child.obj) then
   begin
     CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_REMMEMBER, Child.obj]);
-  end;  
-  //writeln('<-window remove child');  
+  end;
+  //writeln('<-window remove child');
 end;
 
 procedure TMuiWindow.GetBoundsFromMUI;
@@ -631,15 +650,15 @@ begin
   FFocusedControl := AControl;
   if Assigned(AControl) then
   begin
-    SetAttribute([PtrInt(MUIA_Window_Activate), True, PtrInt(MUIA_Window_ActiveObject), AControl.FocusObject]);
-  end;  
+    SetAttribute([MUIA_Window_Activate, TagTrue, MUIA_Window_ActiveObject, NativeUInt(AControl.FocusObject)]);
+  end;
 end;
 
 { TMuiGroup }
 
-constructor TMuiGroup.Create(var tags: TTagsList);
+constructor TMuiGroup.Create(const TagList: TATagList);
 begin
-  inherited Create(MUIC_Group, GetTagPtr(Tags));
+  inherited Create(MUIC_Group, TagList);
 end;
 
 end.

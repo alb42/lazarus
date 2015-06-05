@@ -1,4 +1,3 @@
-{ $Id: muiwsmenus.pp 29872 2011-03-16 16:53:36Z juha $}
 {
  *****************************************************************************
  *                               MuiWSMenus.pp                                *
@@ -28,7 +27,7 @@ interface
 
 uses
   // Bindings
-  Mui, utility, MuiFormsUnit, tagsarray,
+  Mui, utility, MuiFormsUnit, tagsparamshelper,
   // LCL
   SysUtils, Classes, Types, LCLType, LCLProc, Graphics, Controls, Forms, Menus,
   // Widgetset
@@ -135,7 +134,7 @@ end;
 class function TMuiWSMenuItem.CreateHandle(const AMenuItem: TMenuItem): HMENU;
 var
   Menu: TMuiMenuItem;
-  Tags: TTagsList;
+  Tags: TATagList;
 begin
   //write('->Create MenuItem..', AMenuItem.MenuIndex,' ', AMenuItem.Caption);
   case AMenuItem.MenuIndex of
@@ -149,6 +148,7 @@ begin
         //,LongInt(MUIA_Menuitem_Checked), LongInt(TRUE)
         //,LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE)
       //  ]);
+      Tags.Clear;
       Menu := TMuiMenuItem.Create(Tags);
       Menu.Title := AMenuItem.Caption;
       Menu.CheckIt := AMenuItem.ShowAlwaysCheckable or AMenuItem.RadioItem;
@@ -179,7 +179,7 @@ begin
       Exit;
     TMuiFamily(AMenuItem.Parent.Handle).Remove(MuiMenu);
     MuiMenu.Free;
-  end;  
+  end;
 end;
 
 {------------------------------------------------------------------------------

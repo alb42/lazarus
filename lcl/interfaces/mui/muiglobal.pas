@@ -1,3 +1,18 @@
+{
+ *****************************************************************************
+ *                             MUIglobal.pas                                 *
+ *                              --------------                               *
+ *     Global functions for easier implementation of different Systems       *
+ *                                                                           *
+ *****************************************************************************
+
+ *****************************************************************************
+  This file is part of the Lazarus Component Library (LCL)
+
+  See the file COPYING.modifiedLGPL.txt, included in this distribution,
+  for details about the license.
+ *****************************************************************************
+}
 unit MUIglobal;
 
 {$mode objfpc}{$H+}
@@ -5,14 +20,10 @@ unit MUIglobal;
 interface
 
 uses
-  Classes, SysUtils, exec, intuition, agraphics, gadtools, utility, mui;
+  Classes, SysUtils, exec, intuition, agraphics, utility, mui, tagsparamshelper;
 
 type
   THookFunc = function(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
-
-//var
-//  GlobalVisInfo: Pointer;
-//  GlobalScreen: pScreen;
 
 procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: PObject_; Data: TObject; Hook: PHook; HookFunc: THookFunc);
 
@@ -20,35 +31,22 @@ implementation
 
 procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: PObject_; Data: TObject; Hook: PHook; HookFunc: THookFunc);
 var
-  Params: array of PtrUInt;
+  Para: TAParamList;
 begin
   {$ifdef AROS}
   Hook^.h_Entry := IPTR(HookFunc);
   Hook^.h_SubEntry := 0;
   Hook^.h_Data := Data;
   //
-  SetLength(Params, 7);
-  Params[0] := PtrUInt(MUIM_Notify);
-  Params[1] := PtrUInt(MUIField);
-  Params[2] := PtrUInt(TriggerValue);
-  Params[3] := PtrUInt(MUIV_Notify_Self);
-  Params[4] := 2;
-  Params[5] := PtrUInt(MUIM_CallHook);
-  Params[6] := PtrUInt(Hook);
-  Params[7] := 0;
+  Para.SetParams([
+    MUIM_Notify, MUIField, TriggerValue, MUIV_Notify_Self,
+    2,
+    MUIM_CallHook, NativeUInt(Hook),
+    0]);
   //
-  CallHookPkt(PHook(OCLASS(Obj)), Obj, @(Params[0]));
+  CallHookPkt(PHook(OCLASS(Obj)), Obj, Para);
   {$endif}
 end;
 
-
-initialization
-  {
-  GlobalScreen := LockPubScreen(NIL);
-  GlobalVisInfo := GetVisualInfoA(GlobalScreen, NIL);
-  }
-finalization
-  //FreeVisualInfo(GlobalVisInfo);
-  //UnlockPubScreen(NIL, GlobalScreen);
 end.
 

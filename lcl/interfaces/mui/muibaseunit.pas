@@ -1,14 +1,29 @@
+{
+ *****************************************************************************
+ *                             MUIBaseUnit.pas                               *
+ *                              --------------                               *
+ *                Base MUI objects and application object                    *
+ *                                                                           *
+ *****************************************************************************
+
+ *****************************************************************************
+  This file is part of the Lazarus Component Library (LCL)
+
+  See the file COPYING.modifiedLGPL.txt, included in this distribution,
+  for details about the license.
+ *****************************************************************************
+}
 unit MUIBaseUnit;
 
 {$mode objfpc}{$H+}
 interface
 
 uses
-  Classes, dos, SysUtils, Controls, Contnrs, Types, graphics,
+  Classes, dos, SysUtils, Controls, Contnrs, Types, graphics, Math,
   {$ifdef HASAMIGA}
-  Exec, AmigaDos, agraphics, Intuition, Utility,Mui, inputevent, KeyMap,
+  Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap,
   {$endif}
-  muiglobal,
+  muiglobal, tagsparamshelper,
   Forms, LCLMessageGlue, lcltype, LMessages, interfacebase, muidrawing;
 
 {.$define CHECKOBJECTS} // reports not freed MUIObjects on exit
@@ -42,9 +57,12 @@ type
     FGrpObj: pObject_;
     procedure ConnectHook(MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
     procedure ConnectHookObject(Obj: PObject_; MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
-    procedure SetAttribute(const Tags: array of const);
+    procedure SetAttribute(const Tags: array of NativeUInt); overload;
+    procedure SetAttribute(Tag: LongWord; Data: NativeUInt); overload;
+    procedure SetAttribute(Tag: LongWord; Data: Boolean); overload;
+    procedure SetAttribute(Tag: LongWord; Data: Pointer); overload;
     function GetAttribute(tag: longword): longword;
-    procedure SetAttObj(obje: pObject_; const Tags: array of const);
+    procedure SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
     function GetAttObj(obje: pObject_; tag: longword): longword;
     // DoMethod(Params = [MethodID, Parameter for Method ...])
     function DoMethodObj(Obje: pObject_; const Params: array of IPTR): longint;
@@ -88,14 +106,10 @@ type
     NumMoves: Integer; // max 3 movements before lastclick is deleted;
     VScroll, HScroll: TMUIObject;
     VScrollPos, HScrollPos: Integer;
-    constructor Create(ObjType: longint; const Params: array of const);
-      overload; reintroduce; virtual;
-    constructor Create(AClassName: PChar; Tags: PTagItem); overload;
-      reintroduce; virtual;
-    constructor Create(AClassType: PIClass; Tags: PTagItem); overload;
-      reintroduce; virtual;
+    constructor Create(ObjType: longint; const Params: TAParamList); overload; reintroduce; virtual;
+    constructor Create(AClassName: PChar; const Tags: TATagList); overload; reintroduce; virtual;
+    constructor Create(AClassType: PIClass; const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
-
     procedure SetOwnSize; virtual;
     procedure Redraw; virtual;
     procedure DoMUIDraw; virtual;
@@ -132,8 +146,8 @@ type
     FCaption: string;
   protected
     FColor: TColor;
-    function GetChecked: longbool; virtual;
-    procedure SetChecked(const AValue: longbool); virtual;
+    function GetChecked: Boolean; virtual;
+    procedure SetChecked(const AValue: Boolean); virtual;
     function GetCaption: string; virtual;
     function GetDragable: boolean; virtual;
     function GetDropable: boolean; virtual;
@@ -154,7 +168,7 @@ type
     property Dragable: boolean read GetDragable write SetDragable;
     property Dropable: boolean read GetDropable write SetDropable;
     property Hint: string read GetHint write SetHint;
-    property Checked: longbool read GetChecked write SetChecked;
+    property Checked: Boolean read GetChecked write SetChecked;
     property TabStop: boolean read GetTabStop write SetTabStop;
     property Color: TColor read FColor write SetColor;
   end;
@@ -193,7 +207,7 @@ type
     procedure RemoveChild(Child: TMUIObject); override;
     procedure InstallHooks; override;
   public
-    constructor Create(Tags: PTagItem); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure DoMUIDraw; override;
     function NewInput(Signals: PLongword): longword;
@@ -223,7 +237,7 @@ var
 implementation
 
 uses
-  tagsarray, longarray, muiformsunit, muistdctrls, muiint;
+  muiformsunit, muistdctrls, muiint;
 
 var
   GroupSuperClass: PIClass;
@@ -358,7 +372,7 @@ begin
   //writeln('setVis ', AValue);
   if not AValue then
     FirstPaint := True;
-  SetAttribute([longint(MUIA_ShowMe), longint(AValue), TAG_END]);
+  SetAttribute(MUIA_ShowMe, AValue);
 end;
 
 procedure TMUIObject.SetLeft(ALeft: integer);
@@ -490,15 +504,15 @@ begin
   end;
 end;
 
-procedure TMUIObject.SetAttObj(obje: pObject_; const Tags: array of const);
+procedure TMUIObject.SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
 var
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
-  AddTags(TagList, Tags);
-  SetAttrsA(obje, GetTagPtr(TagList));
+  TagList.AddTags(Tags);
+  SetAttrsA(obje, TagList);
 end;
 
-function TMUIObject.GetAttObj(obje: pObject_; tag: longword): longword;
+function TMUIObject.GetAttObj(obje: pObject_; tag: LongWord): longword;
 var
   Res: longword;
 begin
@@ -518,18 +532,39 @@ end;
 
 procedure TMUIObject.SetEnabled(const AValue: boolean);
 begin
-  if AValue then
-    SetAttribute([longint(MUIA_Disabled), LFalse, TAG_END])
-  else
-    SetAttribute([longint(MUIA_Disabled), LTrue, TAG_END]);
+  SetAttribute(MUIA_Disabled, not AValue);
 end;
 
-procedure TMUIObject.SetAttribute(const Tags: array of const);
+procedure TMUIObject.SetAttribute(const Tags: array of NativeUInt);
 var
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
-  AddTags(TagList, Tags);
-  SetAttrsA(FObject, GetTagPtr(TagList));
+  TagList.AddTags(Tags);
+  SetAttrsA(FObject, TagList);
+end;
+
+procedure TMUIObject.SetAttribute(Tag: LongWord; Data: NativeUInt);
+var
+  Tags: TATagList;
+begin
+  Tags.AddTag(Tag, Data);
+  SetAttrsA(FObject, Tags);
+end;
+
+procedure TMUIObject.SetAttribute(Tag: LongWord; Data: Boolean);
+var
+  TagList: TATagList;
+begin
+  TagList.AddTag(Tag, IfThen(Data, TagTrue, TagFalse));
+  SetAttrsA(FObject, TagList);
+end;
+
+procedure TMUIObject.SetAttribute(Tag: LongWord; Data: Pointer);
+var
+  TagList: TATagList;
+begin
+  TagList.AddTag(Tag, NativeUInt(Data));
+  SetAttrsA(FObject, TagList);
 end;
 
 function TMUIObject.GetAttribute(tag: longword): longword;
@@ -549,9 +584,9 @@ procedure TMUIObject.AddChild(Child: TMUIObject);
 begin
   if Assigned(Child.Obj) then
   begin
-    DoMethod([IPTR(MUIM_Group_InitChange)]);
-    DoMethod([IPTR(OM_ADDMEMBER), IPTR(Child.obj)]);
-    DoMethod([IPTR(MUIM_Group_ExitChange)]);
+    DoMethod([NativeUInt(MUIM_Group_InitChange)]);
+    DoMethod([NativeUInt(OM_ADDMEMBER), NativeUInt(Child.obj)]);
+    DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
   end;
 end;
 
@@ -560,15 +595,15 @@ begin
   if Assigned(Child.obj) then
   begin
     //writeln('Remove Child: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
-    DoMethod([IPTR(OM_REMMEMBER), IPTR(Child.obj)]);
+    DoMethod([NativeUInt(OM_REMMEMBER), NativeUInt(Child.obj)]);
   end;
 end;
 
 
 procedure TMUIObject.InstallHooks;
 begin
-  ConnectHook(MUIA_Pressed, LongWord(True), @BtnDownFunc);
-  ConnectHook(MUIA_Pressed, LongWord(False), @BtnUpFunc);
+  ConnectHook(MUIA_Pressed, TagTrue, @BtnDownFunc);
+  ConnectHook(MUIA_Pressed, TagFalse, @BtnUpFunc);
 end;
 
 procedure TMUIObject.BasicInitOnCreate();
@@ -590,32 +625,33 @@ begin
   FirstPaint := True;
 end;
 
-constructor TMUIObject.Create(ObjType: longint; const Params: array of const);
+constructor TMUIObject.Create(ObjType: LongInt; const Params: TAParamList);
 begin
   inherited Create;
   BasicInitOnCreate;
   //writeln(self.classname, 'create obj ', ObjType);
-  FObject := MUI_MakeObject(ObjType, Params);
+  FObject := MUI_MakeObjectA(ObjType, Params.GetParamPointer);
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
   InstallHooks;
 end;
 
-constructor TMUIObject.Create(AClassName: PChar; Tags: PTagItem);
+constructor TMUIObject.Create(AClassName: PChar; const Tags: TATagList);
 begin
   inherited Create;
   BasicInitOnCreate();
-  //writeln(self.classname, 'create class ', classname);
-  FObject := MUI_NewObjectA(AClassName, Tags);
+  //SysDebugln(self.classname + 'create class ' + AClassName);
+  //Tags.DebugPrint;
+  FObject := MUI_NewObjectA(AClassName, Tags.GetTagPointer);
   InstallHooks;
   //writeln('create class: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
 end;
 
-constructor TMUIObject.Create(AClassType: PIClass; Tags: PTagItem);
+constructor TMUIObject.Create(AClassType: PIClass; const Tags: TATagList);
 begin
   inherited Create;
   BasicInitOnCreate();
   //writeln(self.classname, 'create type');
-  FObject := NewObjectA(AClassType, nil, Tags);
+  FObject := NewObjectA(AClassType, nil, Tags.GetTagPointer);
   if Assigned(FObject) then
     Pointer(INST_DATA(AClassType, Pointer(FObject))^) := Self;
   InstallHooks;
@@ -657,19 +693,22 @@ end;
 
 procedure TMUIObject.CreateScrollbars;
 var
-  Tags1, Tags2: TTagsList;
+  Tags1, Tags2: TATagList;
 begin
-  AddTags(Tags1, [PtrInt(MUIA_Group_Horiz), False]);
+  Tags1.Clear;
+  Tags1.AddTags([MUIA_Group_Horiz, TagFalse]);
   VScroll := TMUIScrollBar.Create(Tags1);
   VScroll.PasObject := Self.PasObject;
   VScroll.Parent := self;
   VScroll.Visible := False;
-  AddTags(Tags2, [PtrInt(MUIA_Group_Horiz), True]);
+  //
+  Tags2.Clear;
+  Tags2.AddTags([MUIA_Group_Horiz, TagTrue]);
   HScroll := TMUIScrollBar.Create(Tags2);
   HScroll.PasObject := Self.PasObject;
   HScroll.Parent := Self;
   HScroll.Visible := False;
-  if pasobject is TWinControl then
+  if PasObject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
   SetScrollbarPos;
 end;
@@ -719,8 +758,8 @@ begin
   begin
     Exit;
   end;
-  DoMethod([IPTR(MUIM_Group_InitChange)]);
-  DoMethod([IPTR(MUIM_Group_ExitChange)]);
+  DoMethod([NativeUInt(MUIM_Group_InitChange)]);
+  DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
 end;
 
 { TMuiApplication }
@@ -732,7 +771,7 @@ end;
 
 procedure TMuiApplication.SetIconified(const AValue: boolean);
 begin
-  SetAttribute([PtrInt(MUIA_Application_Iconified), PtrInt(AValue), PtrInt(TAG_END)]);
+  SetAttribute(MUIA_Application_Iconified, AValue);
 end;
 
 procedure TMuiApplication.CheckTimer;
@@ -758,7 +797,7 @@ begin
   if FMainWin = nil then
   begin
     FMainWin := Child.obj;
-    SetAttribute([PtrInt(MUIA_Application_Window), child.obj, TAG_END]);
+    SetAttribute(MUIA_Application_Window, child.obj);
     CallHook(PHook(OCLASS(FMainWin)), FMainWin,
       [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), True,
       FObject, 2, PtrInt(MUIM_Application_ReturnID),
@@ -772,7 +811,7 @@ begin
   if Child.obj = FMainWin then
   begin
     FMainWin := nil;
-    SetAttribute([PtrInt(MUIA_Application_Window), nil, TAG_END]);
+    SetAttribute(MUIA_Application_Window, nil);
   end;
 end;
 
@@ -780,7 +819,7 @@ procedure TMuiApplication.InstallHooks;
 begin
 end;
 
-constructor TMuiApplication.Create(Tags: PTagItem);
+constructor TMuiApplication.Create(const Tags: TATagList);
 begin
   inherited Create(MUIC_Application, Tags);
   FThreadID := GetThreadId;
@@ -924,17 +963,17 @@ end;
 
 { TMuiArea }
 
-function TMuiArea.GetChecked: longbool;
+function TMuiArea.GetChecked: Boolean;
 begin
   Result := boolean(GetAttribute(MUIA_Selected));
 end;
 
-procedure TMuiArea.SetChecked(const AValue: longbool);
+procedure TMuiArea.SetChecked(const AValue: Boolean);
 begin
   if Checked = AValue then
     Exit;
   FBlockChecked := True;
-  SetAttribute([PtrInt(MUIA_Selected), PtrInt(AValue), TAG_END]);
+  SetAttribute(MUIA_Selected, AValue);
   FBlockChecked := False;
 end;
 
@@ -971,30 +1010,27 @@ end;
 procedure TMuiArea.SetCaption(const AValue: string);
 begin
   FCaption := AValue;
-  SetAttribute([PtrInt(MUIA_Text_Contents), PChar(FCaption), TAG_END]);
+  SetAttribute(MUIA_Text_Contents, PChar(FCaption));
 end;
 
 procedure TMuiArea.SetDragable(const AValue: boolean);
 begin
-  SetAttribute([PtrInt(MUIA_Draggable), PtrInt(AValue), TAG_END]);
+  SetAttribute(MUIA_Draggable, AValue);
 end;
 
 procedure TMuiArea.SetDropable(const AValue: boolean);
 begin
-  SetAttribute([PtrInt(MUIA_Dropable), PtrInt(AValue), TAG_END]);
+  SetAttribute(MUIA_Dropable, AValue);
 end;
 
 procedure TMuiArea.SetEnabled(const AValue: boolean);
-var
-  NValue: longbool;
 begin
-  NValue := not AValue;
-  SetAttribute([PtrInt(MUIA_Disabled), PtrInt(NValue), TAG_END]);
+  SetAttribute(MUIA_Disabled, not AValue);
 end;
 
 procedure TMuiArea.SetHint(const AValue: string);
 begin
-  SetAttribute([PtrInt(MUIA_ShortHelp), PChar(AValue), TAG_END]);
+  SetAttribute(MUIA_ShortHelp, PChar(AValue));
 end;
 
 function TMuiArea.GetTabStop: boolean;
@@ -1003,16 +1039,9 @@ begin
 end;
 
 procedure TMuiArea.SetTabStop(const AValue: boolean);
-var
-  Val: Integer;
 begin
-  if AValue then
-    Val := 1
-  else
-    Val := 0;
-  SetAttribute([PtrInt(MUIA_CycleChain), PtrInt(Val)]);
+  SetAttribute(MUIA_CycleChain, AValue);
 end;
-
 
 function TColorToImageSpec(ACol: TColor): string;
 var
@@ -1041,7 +1070,7 @@ begin
   if FColor <> clNone then
   begin
     ColSet := TColorToImageSpec(FColor);
-    SetAttribute([PtrInt(MUIA_Background), PChar(ColSet)]);
+    SetAttribute(MUIA_Background, PChar(ColSet));
   end;
 end;
 

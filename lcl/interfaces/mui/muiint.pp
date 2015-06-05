@@ -36,9 +36,9 @@ uses
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes, muithemes,
   //AROS
   //Aroswinunit,
-  MUIBaseUnit, MUIFormsUnit, muidrawing,
+  MUIBaseUnit, MUIFormsUnit, muidrawing, tagsparamshelper,
   {$ifdef HASAMIGA}
-  exec, intuition, gadtools, mui, utility, AmigaDos, tagsarray, cybergraphics,
+  exec, intuition, mui, utility, AmigaDos, cybergraphics,
   inputevent, Cliputils, icon,
   {$endif}
   // widgetset
@@ -189,7 +189,7 @@ type
 var
   Info: TVersionInfo;
   i,j: Integer;
-  TagList: TTagsList;
+  TagList: TATagList;
   Dollar: string;
 
   function PV2Str(PV: TVerArray): String;
@@ -238,16 +238,16 @@ begin
   end;
   ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
-  AddTags(TagList, [
+  TagList.AddTags([
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
-    LongInt(MUIA_Application_DiskObject), ThisAppDiskIcon,
-    LongInt(MUIA_Application_Title), PChar(AppTitle),
-    LongInt(MUIA_Application_Version), PChar(FinalVers),
-    LongInt(MUIA_Application_Copyright), PChar(CopyR),
-    LongInt(MUIA_Application_Description), PChar(Comment),
-    LongInt(MUIA_Application_Author), PChar(Author)
+    MUIA_Application_DiskObject, NativeUInt(ThisAppDiskIcon),
+    MUIA_Application_Title, NativeUInt(PChar(AppTitle)),
+    MUIA_Application_Version, NativeUInt(PChar(FinalVers)),
+    MUIA_Application_Copyright, NativeUInt(PChar(CopyR)),
+    MUIA_Application_Description, NativeUInt(PChar(Comment)),
+    MUIA_Application_Author, NativeUInt(PChar(Author))
     ]);
-  MUIApp := TMuiApplication.create(GetTagPtr(TagList));
+  MUIApp := TMuiApplication.Create(TagList);
   ScreenInfo.PixelsPerInchX := 72;
   ScreenInfo.PixelsPerInchY := 72;
   ScreenInfo.ColorDepth := 32;

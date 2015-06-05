@@ -1,8 +1,7 @@
-{ $Id: MUIwsbuttons.pp 5682 2004-07-15 10:43:39Z mattias $}
 {
  *****************************************************************************
  *                              MUIWSButtons.pp                          *
- *                              --------------                               * 
+ *                              --------------                               *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -32,7 +31,7 @@ uses
   Buttons, LCLType, Controls,
   MuiBaseUnit, MuiStdCtrls,
   // Widgetset
-  muidrawing,
+  muidrawing, tagsparamshelper,
   WSButtons, WSLCLClasses;
 
 type
@@ -75,20 +74,21 @@ type
 implementation
 
 uses
-  dos, tagsarray, mui;
+  dos, mui;
 
 
 class function TMUIWSBitBtn.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiButton: TMuiBitBtn;
-  TagList: TTagsList;
+  Tags: TATagList;
 begin
-  AddTags(TagList, [
-      LongInt(MUIA_InputMode), MUIV_InputMode_RelVerify,
-      LongInt(MUIA_ShowSelState), 1,
-      LongInt(MUIA_Frame), MUIV_Frame_Button,
-      LongInt(MUIA_Background), MUII_ButtonBack]);
-  MuiButton := TMuiBitBtn.Create(LCLGroupClass, GetTagPtr(TagList));
+  Tags.AddTags([
+      MUIA_InputMode, MUIV_InputMode_RelVerify,
+      MUIA_ShowSelState, 1,
+      MUIA_Frame, MUIV_Frame_Button,
+      MUIA_Background, MUII_ButtonBack
+      ]);
+  MuiButton := TMuiBitBtn.Create(LCLGroupClass, Tags);
   MuiButton.MUIDrawing := True;
   //Create([PChar(AParams.Caption)]);
   With MuiButton do

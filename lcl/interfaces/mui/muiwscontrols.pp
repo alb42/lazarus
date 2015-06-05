@@ -1,8 +1,7 @@
-{ $Id: muiwscontrols.pp 5319 2004-03-17 20:11:29Z marc $}
 {
  *****************************************************************************
  *                              MuiWSControls.pp                              *
- *                              ---------------                              * 
+ *                              ---------------                              *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -30,7 +29,7 @@ uses
   // FCL
   Classes, sysutils,
   // LCL
-  Controls, LCLType,  Graphics, tagsarray,
+  Controls, LCLType,  Graphics, tagsparamshelper,
   // Widgetset
   MUIBaseUnit, WSControls, WSLCLClasses, Utility, Mui;
 
@@ -140,10 +139,11 @@ class function TMuiWSWinControl.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiPanel: TMuiArea;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   //writeln(AWinControl.classname,' create');
-  MuiPanel := TMuiArea.Create(LCLGroupClass, GetTagPtr(TagList));
+  TagList.Clear;
+  MuiPanel := TMuiArea.Create(LCLGroupClass, TagList);
   With MuiPanel do
   begin
     Left := AParams.X;
@@ -174,7 +174,7 @@ begin
     if AWinControl.Handle <> 0 then
       TMuiObject(AWinControl.Handle).Free;
     AWinControl.Handle := 0;
-  end;  
+  end;
 end;
 
 {------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ begin
   begin
     if MUIApp.InsidePaint then
       MUIApp.AddInvalidatedObject(Widget)
-    else  
+    else
       Widget.DoMUIdraw;
   end;
 end;
@@ -223,7 +223,7 @@ begin
   begin
     PreferredHeight:=20;//AWinControl.Height;
     PreferredWidth:=20;//AWinControl.Width;
-  end;  
+  end;
   //writeln('Prefered Size',PreferredHeight,',',PreferredWidth);
 end;
 
@@ -288,7 +288,7 @@ begin
     MuiObj.Left := ALeft;
     MuiObj.BlockRedraw := False;
     MuiObj.Top := ATop;
-  end;  
+  end;
 end;
 
 {------------------------------------------------------------------------------
@@ -314,7 +314,7 @@ begin
     MuiObj.Width := AWidth;
     MuiObj.BlockRedraw := False;
     MuiObj.Height := AHeight;
-  end;  
+  end;
 end;
 
 {------------------------------------------------------------------------------

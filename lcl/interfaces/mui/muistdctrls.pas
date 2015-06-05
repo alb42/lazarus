@@ -6,18 +6,19 @@ interface
 
 uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
-  tagsarray, muidrawing, buttons, Math, Graphics,
+  muidrawing, buttons, Math, Graphics,
   {$ifdef HASAMIGA}
   cybergraphics, agraphics,
   {$endif}
-  MuiBaseUnit, StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
+  MuiBaseUnit, tagsparamshelper,
+  StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
 
   { TMuiButton }
 type
 
   TMuiButton = class(TMuiArea)
   public
-    constructor Create(const Params : Array Of Const); overload; reintroduce; virtual;
+    constructor Create(const Params: TAParamList); overload; reintroduce; virtual;
   end;
 
   TMuiBitBtn = class(TMuiArea)
@@ -38,7 +39,7 @@ type
 
   TMuiText = class(TMuiArea)
   public
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
   end;
 
   { TMuiCheckMark }
@@ -49,7 +50,7 @@ type
     CheckLabel: TMuiText;
     procedure SetParent(const AValue: TMUIObject); override;
     function GetCaption: string; override;
-    procedure SetCaption(const AValue: string); override;  
+    procedure SetCaption(const AValue: string); override;
     procedure SetLeft(ALeft: Integer); override;
     procedure SetTop(ATop: Integer); override;
     procedure SetWidth(AWidth: Integer); override;
@@ -59,7 +60,7 @@ type
     procedure SetColor(const AValue: TColor); override;
     procedure InstallHooks; override;
   public
-    constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
+    constructor Create(const Params: TAParamList); overload; reintroduce; virtual;
     destructor Destroy; override;
   end;
 
@@ -67,7 +68,7 @@ type
 
   TMuiRadioButton = class(TMuiCheckMark)
   protected
-    procedure SetChecked(const AValue: LongBool); override;
+    procedure SetChecked(const AValue: Boolean); override;
   public
     procedure MakeOneChecked;
     procedure RemoveCheck;
@@ -80,7 +81,7 @@ type
   protected
     procedure InstallHooks; override;
   public
-    constructor Create(ObjType : LongInt; const Params : Array Of Const); override;
+    constructor Create(ObjType: LongInt; const Params: TAParamList); override;
   end;
 
   { TMuiStringEdit }
@@ -97,12 +98,12 @@ type
   protected
     procedure InstallHooks; override;
   public
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
     property Text:string read GetText write SetText;
     property NumbersOnly: Boolean read GetNumbersOnly write SetNumbersOnly;
   end;
-  
+
   { TMuiSpinEdit }
 
   TMuiSpinEdit = class(TMuiArea)
@@ -117,7 +118,7 @@ type
     BtnDown: PObject_;
     UpDownPanel: PObject_;
     Edit: PObject_;
-  protected  
+  protected
     function GetNumValue: Double;
     procedure SetNumValue(const AValue: Double);
     //
@@ -130,7 +131,7 @@ type
     function GetFocusObject: PObject_; override;
     procedure InstallHooks; override;
   public
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
     property CurValue: Double read GetNumValue write SetNumValue;
     property MinValue: Double read FMinValue write SetMinValue;
@@ -138,7 +139,7 @@ type
     property Increment: Double read FIncrement write SetIncrement;
     property Decimals: Integer read FDecimals write SetDecimals;
   end;
-  
+
 
   { TMuiCycle }
 
@@ -146,13 +147,13 @@ type
   private
     FEditable: Boolean;
     StrObj: PObject_;
-    BtnObj: PObject_; 
+    BtnObj: PObject_;
     FStrings: TMuiStrings;
     StringPtrs: TStringPtrs;
     function GetActive: LongInt;
     procedure SetActive(const AValue: LongInt);
     function GetText: string;
-    procedure SetText(const AText: string);    
+    procedure SetText(const AText: string);
     procedure ChangedItems(Sender: TObject);
   protected
     procedure InstallHooks; override;
@@ -198,7 +199,7 @@ type
     procedure SetReadOnly(AReadOnly: Boolean);
     function GetReadOnly: Boolean;
   public
-    constructor Create(AStrings: TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(AStrings: TStrings; const Tags: TATagList); overload; reintroduce; virtual;
     Destructor Destroy; override;
     property Strings: TFlowString read FStrings write FStrings;
     property TextObj: pObject_ read FTextObj write FTextObj;
@@ -216,9 +217,9 @@ type
     procedure SetActive(const AValue: LongInt);
     procedure TextChanged(Sender: TObject);
   protected
-    procedure InstallHooks; override;  
+    procedure InstallHooks; override;
   public
-    constructor Create(AStrings:TStrings; var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(AStrings:TStrings; const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
     procedure SetOwnSize; override;
     property Strings: TStringList read FStrings;
@@ -247,7 +248,7 @@ type
   protected
     procedure InstallHooks; override;
   public
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
 
     property Horizontal: Boolean read GetHoriz write SetHoriz;
     property MinValue: Integer read GetMinValue write SetMinValue;
@@ -255,9 +256,9 @@ type
     property Position: Integer read GetPosition write SetPosition;
     property PageSize: Integer read GetPageSize write SetPageSize;
   end;
-  
+
   {TMUIGroupBox}
-  
+
   TMUIGroupBox = class(TMUIGroup)
   protected
     function GetCaption: string; override;
@@ -265,7 +266,7 @@ type
   public
     FText: PChar;
     function GetClientRect: TRect; override;
-    constructor Create(var Tags: TTagsList); overload; reintroduce; virtual;
+    constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
   end;
 
@@ -304,7 +305,7 @@ end;
 
 procedure TMUIScrollBar.SetHoriz(AValue: Boolean);
 begin
-  SetAttribute([PtrInt(MUIA_Group_Horiz), PtrInt(AValue)]);
+  SetAttribute(MUIA_Group_Horiz, AValue);
 end;
 
 procedure TMUIScrollBar.SetMaxValue(AValue: Integer);
@@ -314,9 +315,9 @@ begin
   //debugln('set MaxValue ' + IntToStr(AValue));
   if (AValue = FMaxValue) or (AValue <= FMinValue) then
     Exit;
-  Pos := Position;  
+  Pos := Position;
   FMaxValue := AValue;
-  SetAttribute([PtrInt(MUIA_Prop_Entries), (AValue - FMinValue) + FPageSize]);  
+  SetAttribute(MUIA_Prop_Entries, (AValue - FMinValue) + FPageSize);
   Position := Pos;
 end;
 
@@ -329,7 +330,7 @@ begin
   //debugln('set MinValue ' + IntToStr(AValue));
   Pos := Position;
   FMinValue := AValue;
-  SetAttribute([PtrInt(MUIA_Prop_Entries), (FMaxValue - AValue) + FPageSize]);
+  SetAttribute(MUIA_Prop_Entries, (FMaxValue - AValue) + FPageSize);
   Position := Pos;
 end;
 
@@ -342,7 +343,8 @@ begin
   //debugln('set page size ' + IntToStr(AValue));
   Pos := Position;
   FPageSize := AValue;
-  SetAttribute([PtrInt(MUIA_Prop_Entries), (FMaxValue - FMinValue) + AValue, PtrInt(MUIA_Prop_Visible), AValue]);  
+  SetAttribute(MUIA_Prop_Entries, (FMaxValue - FMinValue) + AValue);
+  SetAttribute(MUIA_Prop_Visible, AValue);
   Position := Pos;
 end;
 
@@ -351,8 +353,8 @@ begin
   //DebugLn('LCL: set to '+ IntToStr(AValue) + ' Position is ' + IntToStr(Position) + ' MinValue: ' + IntToStr(FMinValue));
   if AValue <> Position then
   begin
-    SetAttribute([PtrInt(MUIA_Prop_First), AValue - FMinValue]);
-  end;  
+    SetAttribute(MUIA_Prop_First, AValue - FMinValue);
+  end;
 end;
 
 function ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
@@ -370,10 +372,10 @@ begin
     if TMUIScrollbar(MUIObject).Horizontal then
       ScrollMsg.Msg := LM_HSCROLL
     else
-      ScrollMsg.Msg := LM_VScroll;  
+      ScrollMsg.Msg := LM_VScroll;
     ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
     ScrollMsg.ScrollBar := PtrUInt(MuiObject);
-    ScrollMsg.ScrollCode := SB_THUMBPOSITION;//SB_ENDSCROLL;   
+    ScrollMsg.ScrollCode := SB_THUMBPOSITION;//SB_ENDSCROLL;
     if MuiObject.PasObject is TScrollbar then
     begin
       if TScrollbar(MuiObject.PasObject).Position <> ScrollMsg.Pos then
@@ -416,19 +418,19 @@ begin
   ConnectHook(MUIA_Prop_First, LongWord(MUIV_EveryTime), @ChangeScroll);
 end;
 
-constructor TMUIScrollBar.Create(var Tags: TTagsList);
+constructor TMUIScrollBar.Create(const Tags: TATagList);
 begin
   FMinValue := 0;
   FMaxValue := 100;
   FPageSize := 10;
   BlockScrollEvent := False;
-  inherited Create(MUIC_Scrollbar, GetTagPtr(Tags));
+  inherited Create(MUIC_Scrollbar, Tags);
 end;
 
 
 { TMuiRadioButton }
 
-procedure TMuiRadioButton.SetChecked(const AValue: LongBool);
+procedure TMuiRadioButton.SetChecked(const AValue: Boolean);
 var
   i: Integer;
   RB: TMUIObject;
@@ -651,7 +653,7 @@ begin
     Idx := MuiObject.Active;
     // LCLSendMouseDownMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     if Idx > 0 then
-      LCLSendChangedMsg(TControl(MuiObject.PasObject), Idx);    
+      LCLSendChangedMsg(TControl(MuiObject.PasObject), Idx);
     //LCLSendMouseUpMsg(TControl(MuiObject.PasObject), 0,0, mbLeft, []);
     LCLSendClickedMsg(TControl(MuiObject.PasObject));
   end;
@@ -672,15 +674,16 @@ end;
 
 { TMuiListView }
 
-constructor TMuiListView.Create(AStrings:TStrings; var Tags: TTagsList);
+constructor TMuiListView.Create(AStrings:TStrings; const Tags: TATagList);
 var
-  StrTags: TTagsList;
+  StrTags: TATagList;
 begin
   FStrings := TStringList.create;
   FStrings.Assign(AStrings);
-  StrObj := MUI_NewObjectA(MUIC_List, GetTagPtr(StrTags)); 
-  AddTags(Tags, [PtrInt(MUIA_Listview_List), StrObj]);
-  inherited Create(MUIC_ListView, GetTagPtr(Tags));
+  StrTags.Clear;
+  StrObj := MUI_NewObjectA(MUIC_List, StrTags);
+  Tags.AddTags([MUIA_Listview_List, PtrUInt(StrObj)]);
+  inherited Create(MUIC_ListView, Tags);
   FStrings.OnChange := @TextChanged;
 end;
 
@@ -691,14 +694,14 @@ begin
   FStrings.Free;
   for i := 0 to High(Texts) do
     System.FreeMem(Texts[i]);
-  inherited Destroy;  
+  inherited Destroy;
 end;
 
 procedure TMuiListView.InstallHooks;
 begin
   inherited;
   ConnectHook(MUIA_List_Active, LongWord(MUIV_EveryTime), @ListChangeFunc);
-  ConnectHook(MUIA_ListView_DoubleClick, LongWord(True), @DoubleClickFunc); 
+  ConnectHook(MUIA_ListView_DoubleClick, LongWord(True), @DoubleClickFunc);
 end;
 
 procedure TMuiListView.TextChanged(Sender: TObject);
@@ -714,14 +717,14 @@ begin
     SetLength(Texts, FStrings.Count + 1);
     for i := 0 to FStrings.Count - 1 do
     begin
-      str := FStrings[i] + #0;      
+      str := FStrings[i] + #0;
       Texts[i] := System.AllocMem(Length(str));
       Move(str[1], Texts[i]^, Length(str));
     end;
     Texts[FStrings.Count] := nil;
     DoMethodObj(StrObj, [PtrUInt(MUIM_List_Insert), PtrUInt(@(Texts[0])), FStrings.Count, PtrUInt(MUIV_List_Insert_Bottom)]);
     DoMethodObj(StrObj, [PtrUInt(MUIM_List_Redraw), PtrUInt(MUIV_List_Redraw_All)]);
-  end;  
+  end;
 end;
 
 function TMuiListView.GetActive: LongInt;
@@ -741,49 +744,51 @@ begin
       if (Res < 0) then
         Result := 0
       else
-        Result := Strings.Count - 1;  
-      SetActive(Result);  
-    end;  
-  end  
+        Result := Strings.Count - 1;
+      SetActive(Result);
+    end;
+  end
 end;
 
 procedure TMuiListView.SetActive(const AValue: LongInt);
 var
   Res: LongInt;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   if AValue = -1 then
     Res := MUIV_List_Active_Off
   else
     Res := AValue;
-  AddTags(TagList, [PtrInt(MUIA_List_Active), Res, TAG_END]);  
-  SetAttrsA(StrObj, GetTagPtr(TagList));
+  TagList.AddTags([
+    MUIA_List_Active, Res
+    ]);
+  SetAttrsA(StrObj, TagList);
 end;
 
 procedure TMuiListView.SetOwnSize;
 begin
   //writeln('Listview set own size: ', FWidth);
   inherited;
-  //MUI_Layout(FObject, FLeft, FTop, FHeight, FHeight, 0);  
+  //MUI_Layout(FObject, FLeft, FTop, FHeight, FHeight, 0);
   //MUI_Layout(StrObj, FLeft, FTop, FWidth, FHeight, 0);
-  
-  //MUI_Layout(StrObj, FLeft, FTop, FWidth, FHeight, 0);  
+
+  //MUI_Layout(StrObj, FLeft, FTop, FWidth, FHeight, 0);
 end;
 
 { TMuiButton }
 
-constructor TMuiButton.Create(const Params: array of const);
+constructor TMuiButton.Create(const Params: TAParamList);
 begin
   inherited Create(MUIO_Button, Params);
 end;
 
 { TMuiText }
 
-constructor TMuiText.Create(var Tags: TTagsList);
+constructor TMuiText.Create(const Tags: TATagList);
 begin
   //AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_BACKGROUND]);
   //AddTags(Tags, [LongInt(MUIA_BACKGROUND), MUII_FILLSHINE]);
-  inherited Create(MUIC_Text, GetTagPtr(Tags));
+  inherited Create(MUIC_Text, Tags);
 end;
 
 { TMuiCheckMark }
@@ -801,45 +806,51 @@ begin
     if MUIObject is TMUIArea then
     begin
       if TMUIArea(MUIObject).FBlockChecked then
-        SendMessages := False;  
+        SendMessages := False;
     end;
     if MuiObject is TMUIRadioButton then
     begin
       if TMUIRadioButton(MUIObject).Checked then
-      begin   
+      begin
         TMUIRadioButton(MUIObject).Checked := True;
       end else
-      begin  
+      begin
         TMUIRadioButton(MUIObject).MakeOneChecked;
       end;
     end;
-    if SendMessages then   
-      LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);    
+    if SendMessages then
+      LCLSendChangedMsg(TControl(MuiObject.PasObject), 0);
   end;
 end;
 
-constructor TMuiCheckMark.Create(ObjType : LongInt; const Params: array of const);
+constructor TMuiCheckMark.Create(const Params: TAParamList);
 var
-  TagList: TTagsList;
-  Taglist2: TTagsList;
+  Tags: TATagList;
+  ObjType: LongInt;
 begin
+  if self is TMUIRadioButton then
+    ObjType := MUIO_Radio
+  else
+    ObjType := MUIO_Checkmark;
   if ObjType = MUIO_Radio then
   begin
-    AddTags(TagList2, [
-      PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_Immediate),
-      PtrInt(MUIA_ShowSelState), PtrInt(False),
-      PtrInt(MUIA_Image_Spec), PtrInt(MUII_RadioButton)]);
-    inherited Create(MUIC_Image, GetTagPtr(TagList2));
+    Tags.AddTags([
+      MUIA_InputMode, MUIV_InputMode_Immediate,
+      MUIA_ShowSelState, TagFalse,
+      MUIA_Image_Spec, MUII_RadioButton
+      ]);
+    inherited Create(MUIC_Image, Tags);
   end else
     inherited Create(ObjType, Params);
-  CheckLabel := TMuiText.Create(TagList); 
+  Tags.Clear;
+  CheckLabel := TMuiText.Create(Tags);
 end;
 
 destructor TMuiCheckMark.Destroy;
 begin
   CheckLabel.Free;
   CheckLabel := Nil;
-  inherited;  
+  inherited;
 end;
 
 procedure TMuiCheckMark.InstallHooks;
@@ -861,7 +872,7 @@ begin
   begin
     CheckLabel.Caption := AValue;
     CheckLabel.Visible := AValue <> '';
-  end;  
+  end;
 end;
 
 procedure TMuiCheckMark.SetParent(const AValue: TMUIObject);
@@ -939,11 +950,10 @@ end;
 
 { TMuiToggleButton }
 
-constructor TMuiToggleButton.Create(ObjType: LongInt;
-  const Params: array of const);
+constructor TMuiToggleButton.Create(ObjType: LongInt; const Params: TAParamList);
 begin
   inherited Create(MUIO_Button, Params);
-  SetAttribute([PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_Toggle)]);
+  SetAttribute(MUIA_InputMode, MUIV_InputMode_Toggle);
 end;
 
 procedure TMuiToggleButton.InstallHooks;
@@ -969,7 +979,7 @@ begin
     end;
     CharCode := VK_RETURN;
     LCLSendKeyDownEvent(MUIObject.PasObject, CharCode, 0, True, False);
-    LCLSendKeyUpEvent(MUIObject.PasObject, CharCode, 0, True, False);    
+    LCLSendKeyUpEvent(MUIObject.PasObject, CharCode, 0, True, False);
   end;
 end;
 
@@ -1006,8 +1016,8 @@ var
 begin
   Result := '';
   if Obj = nil then
-    Exit;   
-  Pc := PChar(GetAttribute(MUIA_String_Contents));     
+    Exit;
+  Pc := PChar(GetAttribute(MUIA_String_Contents));
   if Assigned(PC) then
     Result := string(Pc);
 end;
@@ -1019,32 +1029,32 @@ begin
     FreeMem(FText);
     FText := System.AllocMem(Length(AValue) + 1);
     Move(AValue[1], FText^, Length(AValue));
-    SetAttribute([PtrInt(MUIA_String_Contents), FText, TAG_END]);
-  end;  
+    SetAttribute(MUIA_String_Contents, FText);
+  end;
 end;
 
-constructor TMuiStringEdit.Create(var Tags: TTagsList);
+constructor TMuiStringEdit.Create(const Tags: TATagList);
 //var
 //  p: Pointer;
 begin
-  EditHook.h_Entry := IPTR(@TextEditFunc);
+  EditHook.h_Entry := NativeUInt(@TextEditFunc);
   EditHook.h_SubEntry := 0;
   EditHook.h_Data := Self;
   //P := @EditHook;
   // Edithook does not work currently
-  AddTags(Tags, [
-    PtrInt(MUIA_Background), MUII_TextBack,
-    PtrInt(MUIA_Font), MUIV_Font_Button,
-    PtrInt(MUIA_Frame), MUIV_Frame_String
+  Tags.AddTags([
+    MUIA_Background, MUII_TextBack,
+    MUIA_Font, NativeUInt(MUIV_Font_Button),
+    MUIA_Frame, MUIV_Frame_String
     //,
     //MUIA_String_EditHook, P,
     //MUIA_String_LonelyEditHook, 1
   ]);
-  inherited Create(MUIC_String, GetTagPtr(Tags));
+  inherited Create(MUIC_String, Tags);
   //
   FNumbersOnly := False;
   FText := System.AllocMem(2048);
-  
+
 end;
 
 destructor TMuiStringEdit.Destroy;
@@ -1057,7 +1067,7 @@ procedure TMuiStringEdit.InstallHooks;
 begin
   inherited;
   ConnectHook(MUIA_String_Contents, LongWord(MUIV_EveryTime), @TextChangedFunc);
-  ConnectHook(MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc); 
+  ConnectHook(MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc);
 end;
 
 function TMuiStringEdit.GetNumbersOnly: Boolean;
@@ -1067,7 +1077,7 @@ end;
 
 var
   IntegerChars: string = '0123456789-';
-  FloatChars: string = '0123456789-.,';  
+  FloatChars: string = '0123456789-.,';
   NoChars: string = '';
 procedure TMuiStringEdit.SetNumbersOnly(const AValue: Boolean);
 var
@@ -1079,12 +1089,12 @@ begin
   if FNumbersOnly then
   begin
     StrTxt := GetText;
-    SetAttribute([PtrInt(MUIA_String_Integer), StrToIntDef(StrTxt, 0)]);
-    SetAttribute([PtrInt(MUIA_String_Accept), PChar(IntegerChars)]);
+    SetAttribute(MUIA_String_Integer, StrToIntDef(StrTxt, 0));
+    SetAttribute(MUIA_String_Accept, PChar(IntegerChars));
   end else
   begin
-    SetAttribute([PtrInt(MUIA_String_Accept), PChar(NoChars)]);
-  end;  
+    SetAttribute(MUIA_String_Accept, PChar(NoChars));
+  end;
 end;
 
 
@@ -1130,8 +1140,8 @@ begin
       strValue := StringReplace(strValue, '.', FormatSettings.DECIMALSEPARATOR, [rfReplaceAll]);
       Result := StrToFloatDef(string(PC), 0);
       Result := Min(FMaxValue, Max(FMinValue, Result));
-    end;  
-  end;    
+    end;
+  end;
 end;
 
 procedure TMuiSpinEdit.SetNumValue(const AValue: Double);
@@ -1143,17 +1153,17 @@ begin
   StrValue := FloatToStrF(Val, ffFixed, 8, FDecimals);
   FillChar(FText^, Length(StrValue) + 2, 0);
   Move(StrValue[1], FText^, Length(strValue));
-  SetAttObj(Edit, [PtrInt(MUIA_String_Contents), PChar(FText)]);
-  SetAttObj(Edit, [PtrInt(MUIA_String_BufferPos), Length(FText)]);
+  SetAttObj(Edit, [NativeUInt(MUIA_String_Contents), NativeUInt(PChar(FText))]);
+  SetAttObj(Edit, [NativeUInt(MUIA_String_BufferPos), Length(FText)]);
 end;
 
-constructor TMuiSpinEdit.Create(var Tags: TTagsList);
+constructor TMuiSpinEdit.Create(const Tags: TATagList);
 var
-  GrpTags: TTagsList;
-  BtnUpTags: TTagsList;
-  BtnDownTags: TTagsList; 
-  BtnGroupTags: TTagsList;
-  EditTags: TTagsList;
+  GrpTags: TATagList;
+  BtnUpTags: TATagList;
+  BtnDownTags: TATagList;
+  BtnGroupTags: TATagList;
+  EditTags: TATagList;
 begin
   FIncrement := 1;
   FMinValue := -1e308;
@@ -1161,63 +1171,63 @@ begin
   FDecimals := 2;
   // BUTTON DOWN  ##################################
   FText := System.AllocMem(100);
-  AddTags(BtnUpTags, [
-    PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_RelVerify),
-    PtrInt(MUIA_ShowSelState), PtrInt(True),
+  BtnUpTags.AddTags([
+    MUIA_InputMode, MUIV_InputMode_RelVerify,
+    MUIA_ShowSelState, NativeUInt(True),
     //MUIA_Frame, MUIV_Frame_ImageButton,
-    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
-    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,    
-    PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowUp)
+    MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
+    MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
+    MUIA_Image_Spec, MUII_ArrowUp
     ]);
-  btnUp := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnUpTags));
+  btnUp := MUI_NewObjectA(MUIC_Image, BtnUpTags.GetTagPointer);
 
   // BUTTON UP #######################################
-  AddTags(BtnDownTags, [
-    PtrInt(MUIA_InputMode), PtrInt(MUIV_InputMode_RelVerify),
-    PtrInt(MUIA_ShowSelState), PtrInt(True),
+  BtnDownTags.AddTags([
+    MUIA_InputMode, MUIV_InputMode_RelVerify,
+    MUIA_ShowSelState, NativeUInt(True),
     //MUIA_Frame, MUIV_Frame_ImageButton,
-    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
-    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
-    PtrInt(MUIA_Image_Spec), PtrInt(MUII_ArrowDown)
+    MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
+    MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
+    MUIA_Image_Spec, MUII_ArrowDown
     ]);
-  btndown := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnDownTags));
-  
+  btndown := MUI_NewObjectA(MUIC_Image, BtnDownTags.GetTagPointer);
+
   // BUTTON GROUP ####################################
-  AddTags(BtnGroupTags, [
-    PtrInt(MUIA_Background), MUII_TextBack,
-    PtrInt(MUIA_Group_Child), BtnUp,
-    PtrInt(MUIA_Group_Child), BtnDown,
-    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
-    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
-    PtrInt(MUIA_Group_Spacing), 0,
-    PtrInt(MUIA_Group_Horiz), False
+  BtnGroupTags.AddTags([
+    MUIA_Background, MUII_TextBack,
+    MUIA_Group_Child, NativeUInt(BtnUp),
+    MUIA_Group_Child, NativeUInt(BtnDown),
+    MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
+    MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
+    MUIA_Group_Spacing, 0,
+    MUIA_Group_Horiz, NativeUInt(False)
     ]);
-  
-  UpDownPanel := MUI_NewObjectA(MUIC_Group, GetTagPtr(BtnGroupTags));
+
+  UpDownPanel := MUI_NewObjectA(MUIC_Group, BtnGroupTags.GetTagPointer);
   //
   // Editor ###########################################
-  AddTags(EditTags, [
-    PtrInt(MUIA_String_Format), MUIV_String_Format_Right, 
-    PtrInt(MUIA_Background), MUII_TextBack,
-    PtrInt(MUIA_Frame), MUIV_Frame_String,
-    PtrInt(MUIA_Font), MUIV_Font_Fixed,
-    PtrInt(MUIA_Group_Spacing), 0,
-    PtrInt(MUIA_String_MaxLen), 100,
-    PtrInt(MUIA_String_Accept), PChar(FloatChars)
+  EditTags.AddTags([
+    MUIA_String_Format, MUIV_String_Format_Right,
+    MUIA_Background, MUII_TextBack,
+    MUIA_Frame, MUIV_Frame_String,
+    MUIA_Font, NativeUInt(MUIV_Font_Fixed),
+    MUIA_Group_Spacing, 0,
+    MUIA_String_MaxLen, 100,
+    MUIA_String_Accept, NativeUInt(PChar(FloatChars))
   ]);
-  Edit := MUI_NewObjectA(MUIC_String, GetTagPtr(EditTags));
+  Edit := MUI_NewObjectA(MUIC_String, EditTags.GetTagPointer);
   //
-  // Group ############################################# 
-  AddTags(GrpTags, [
-    PtrInt(MUIA_InnerLeft), 0, PtrInt(MUIA_InnerRight), 0,
-    PtrInt(MUIA_InnerTop), 0, PtrInt(MUIA_InnerBottom), 0,
-    PtrInt(MUIA_Group_Spacing), 0,
-    PtrInt(MUIA_Group_Child), Edit,
-    PtrInt(MUIA_Group_Child), UpDownPanel,
-    PtrInt(MUIA_Frame), MUIV_Frame_string,
-    PtrInt(MUIA_Group_Horiz), True
-    ]); 
-  inherited Create(MUIC_Group, GetTagPtr(GrpTags));
+  // Group #############################################
+  GrpTags.AddTags([
+    MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
+    MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
+    MUIA_Group_Spacing, 0,
+    MUIA_Group_Child, NativeUInt(Edit),
+    MUIA_Group_Child, NativeUInt(UpDownPanel),
+    MUIA_Frame, MUIV_Frame_string,
+    MUIA_Group_Horiz, NativeUInt(True)
+    ]);
+  inherited Create(MUIC_Group, GrpTags);
 end;
 
 destructor TMuiSpinEdit.Destroy;
@@ -1228,12 +1238,12 @@ end;
 
 procedure TMuiSpinEdit.InstallHooks;
 begin
-  inherited; 
+  inherited;
   ConnectHookObject(btnUp, MUIA_Timer, LongWord(MUIV_EveryTime), @BtnUpClickFunc);
   ConnectHookObject(btnDown, MUIA_Timer, LongWord(MUIV_EveryTime), @BtnDownClickFunc);
   //
   ConnectHookObject(Edit, MUIA_String_Contents, LongWord(MUIV_EveryTime), @TextChangedFunc);
-  ConnectHookObject(Edit, MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc);        
+  ConnectHookObject(Edit, MUIA_String_Acknowledge, LongWord(MUIV_EveryTime), @TextDoneFunc);
 end;
 
 procedure TMuiSpinEdit.SetMinValue(const AValue: Double);
@@ -1242,7 +1252,7 @@ begin
     Exit;
   FMinValue := AValue;
   if CurValue < FMinValue then
-    CurValue := FMinValue;  
+    CurValue := FMinValue;
 end;
 
 procedure TMuiSpinEdit.SetMaxValue(const AValue: Double);
@@ -1266,14 +1276,14 @@ begin
   if FDecimals = 0 then
   begin
     if AValue <> 0 then
-      SetAttObj(Edit, [PtrInt(MUIA_String_Accept), PChar(FloatChars)]);
+      SetAttObj(Edit, [MUIA_String_Accept, NativeUInt(PChar(FloatChars))]);
   end else
   begin
     if AValue = 0 then
-      SetAttObj(Edit, [PtrInt(MUIA_String_Accept), PChar(IntegerChars)]);
+      SetAttObj(Edit, [MUIA_String_Accept, NativeUInt(PChar(IntegerChars))]);
   end;
   FDecimals := AValue;
-  CurValue := CurValue;  
+  CurValue := CurValue;
 end;
 
 function TMuiSpinEdit.GetTabStop: boolean;
@@ -1288,9 +1298,9 @@ begin
   if AValue then
     Val := 1
   else
-    Val := 0;  
-  SetAttObj(Edit, [PtrInt(MUIA_CycleChain), Val]);
-  SetAttribute([PtrInt(MUIA_CycleChain), 0]);
+    Val := 0;
+  SetAttObj(Edit, [MUIA_CycleChain, Val]);
+  SetAttribute(MUIA_CycleChain, 0);
 end;
 
 function TMuiSpinEdit.GetFocusObject: PObject_;
@@ -1328,7 +1338,7 @@ begin
     if MuiObject.Editable then
     begin
       if ItemIndex < 0 then
-        Exit;      
+        Exit;
     end;
     LCLSendChangedMsg(MuiObject.PasObject, ItemIndex);
   end;
@@ -1340,22 +1350,22 @@ var
 begin
   if FEditable then
   begin
-    str := PChar(GetAttObj(StrObj, MUIA_String_Contents));    
+    str := PChar(GetAttObj(StrObj, MUIA_String_Contents));
     Result := FStrings.IndexOf(str);
   end else
   begin
     Result := LongInt(GetAttribute(MUIA_Cycle_Active));
-  end;  
+  end;
 end;
 
 procedure TMuiCycle.SetActive(const AValue: LongInt);
 begin
   if FEditable then
   begin
-    SetAttObj(StrObj, [PtrInt(MUIA_String_Contents), PChar(FStrings[AValue])]);
+    SetAttObj(StrObj, [MUIA_String_Contents, NativeUInt(PChar(FStrings[AValue]))]);
   end else
   begin
-    SetAttribute([PtrInt(MUIA_Cycle_Active), AValue, TAG_END]);
+    SetAttribute(MUIA_Cycle_Active, AValue);
   end;
 end;
 
@@ -1367,7 +1377,7 @@ begin
   Result := '';
   if FEditable then
   begin
-    Result := PChar(GetAttObj(StrObj, MUIA_String_Contents));  
+    Result := PChar(GetAttObj(StrObj, MUIA_String_Contents));
   end else
   begin
     Idx := GetActive;
@@ -1384,7 +1394,7 @@ var
 begin
   if FEditable then
   begin
-    SetAttObj(StrObj, [PtrInt(MUIA_String_Contents), PChar(AText)]);  
+    SetAttObj(StrObj, [MUIA_String_Contents, NativeUInt(PChar(AText))]);
   end else
   begin
     Idx := FStrings.IndexOf(AText);
@@ -1405,9 +1415,10 @@ var
   str: string;
   Len: Integer;
   i: LongInt;
-  ListTags: TTagsList;
-  BtnTags: TTagsList;
-  StrTags: TTagsList;
+  ListTags: TATagList;
+  BtnTags: TATagList;
+  StrTags: TATagList;
+  Params: TAParamList;
 begin
   FEditable := AEditable;
   //
@@ -1424,36 +1435,37 @@ begin
   StringPtrs[High(StringPtrs)] := nil;
   if FEditable then
   begin
-    AddTags(BtnTags, [
-      PtrInt(MUIA_InputMode), MUIV_InputMode_RelVerify,
-      PtrInt(MUIA_ShowSelState), True,
-      PtrInt(MUIA_Frame), MUIV_Frame_Button,
-      PtrInt(MUIA_Image_Spec), MUII_PopUp 
+    BtnTags.AddTags([
+      MUIA_InputMode, MUIV_InputMode_RelVerify,
+      MUIA_ShowSelState, TagTrue,
+      MUIA_Frame, MUIV_Frame_Button,
+      MUIA_Image_Spec, MUII_PopUp
     ]);
-    BtnObj := MUI_NewObjectA(MUIC_Image, GetTagPtr(BtnTags));
-    
-    AddTags(StrTags, [
-      PtrInt(MUIA_Frame), MUIV_Frame_String
+    BtnObj := MUI_NewObjectA(MUIC_Image, BtnTags.GetTagPointer);
+
+    StrTags.AddTags([
+      MUIA_Frame, MUIV_Frame_String
     ]);
-    StrObj := MUI_NewObjectA(MUIC_String, GetTagPtr(StrTags));
-    
-    AddTags(ListTags, [
-      PtrInt(MUIA_Popstring_String), StrObj,
-      PtrInt(MUIA_Popstring_Button), BtnObj,
-      PtrInt(MUIA_PopList_Array), @(StringPtrs[0])
+    StrObj := MUI_NewObjectA(MUIC_String, StrTags.GetTagPointer);
+
+    ListTags.AddTags([
+      MUIA_Popstring_String, NativeUInt(StrObj),
+      MUIA_Popstring_Button, NativeUInt(BtnObj),
+      MUIA_PopList_Array, NativeUInt(@(StringPtrs[0]))
       ]);
-    
-    inherited Create(MUIC_PopList, GetTagPtr(ListTags));    
+
+    inherited Create(MUIC_PopList, ListTags);
   end else
   begin
-    inherited Create(MUIO_Cycle, [ACaption, @(StringPtrs[0])]);    
-  end;        
-  FStrings.OnChange := @ChangedItems;   
+    Params.SetParams([NativeUInt(PChar(ACaption)), NativeUInt(@(StringPtrs[0]))]);
+    inherited Create(MUIO_Cycle, Params);
+  end;
+  FStrings.OnChange := @ChangedItems;
 end;
 
 Destructor TMuiCycle.Destroy;
 begin
-  inherited;  
+  inherited;
   FStrings.Free;
 end;
 
@@ -1473,21 +1485,29 @@ end;
 
 { TMuiTextEdit }
 
-constructor TMuiTextEdit.Create(AStrings: TStrings; var Tags: TTagsList);
+constructor TMuiTextEdit.Create(AStrings: TStrings; const Tags: TATagList);
 var
-  scroll: pObject_;
-  CreateTags: TTagsList;
+  Scroll: PObject_;
+  CreateTags: TATagList;
 begin
-  FStrings := TFlowString.create;
-  FStrings.FMuiObject := self;
-  FTextObj := MUI_NewObjectA(PChar('TextEditor.mcc'), GetTagPtr(Tags));
-  scroll := MUI_NewObjectA(MUIC_ScrollBar, NIL);
-  AddTags(CreateTags, [PtrInt(MUIA_Group_Horiz), True, PtrInt(MUIA_Group_Child), FTextObj, PtrInt(MUIA_Group_Child), scroll, TAG_END]);
-  inherited Create(MUIC_Group, GetTagPtr(CreateTags));
-  SetAttObj(FTextObj, [PtrInt($ad00001a), scroll, TAG_END]);
+  FStrings := TFlowString.Create;
+  FStrings.FMuiObject := Self;
+  //
+  FTextObj := MUI_NewObjectA(PChar('TextEditor.mcc'), Tags.GetTagPointer);
+  //
+  Tags.Clear;
+  Scroll := MUI_NewObjectA(MUIC_ScrollBar, Tags.GetTagPointer);
+  //
+  CreateTags.AddTags([
+    MUIA_Group_Horiz, TagTrue,
+    MUIA_Group_Child, NativeUInt(FTextObj),
+    MUIA_Group_Child, NativeUInt(Scroll)
+    ]);
+  inherited Create(MUIC_Group, CreateTags);
+  SetAttObj(FTextObj, [$ad00001a, NativeUInt(scroll)]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;
-  SetAttribute([PtrInt($ad000002), FText, TAG_END]);
+  SetAttribute($ad000002, NativeUInt(FText));
 end;
 
 Destructor TMuiTextEdit.Destroy;
@@ -1502,7 +1522,7 @@ const
 
 procedure TMuiTextEdit.SetReadOnly(AReadOnly: Boolean);
 begin
-  SetAttribute([PtrInt(MUIA_TextEditor_ReadOnly), AReadOnly]);
+  SetAttribute(MUIA_TextEditor_ReadOnly, AReadOnly);
 end;
 
 function TMuiTextEdit.GetReadOnly: Boolean;
@@ -1552,7 +1572,7 @@ begin
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
@@ -1580,7 +1600,7 @@ begin
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
@@ -1597,7 +1617,7 @@ begin
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
@@ -1630,7 +1650,7 @@ begin
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
@@ -1647,7 +1667,7 @@ begin
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
@@ -1662,16 +1682,16 @@ begin
     SL.Clear;
     SL.LoadFromFile(FileName);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[PtrInt($ad000002), PC, TAG_END]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
     SL.EndUpdate;
   end;
 end;
 
 {TMUIGroupBox}
 
-constructor TMUIGroupBox.Create(var Tags: TTagsList);
+constructor TMUIGroupBox.Create(const Tags: TATagList);
 begin
-  inherited Create(LCLGroupClass, GetTagPtr(Tags));
+  inherited Create(LCLGroupClass, Tags);
   MUIDrawing := True;
   FText := nil;
 end;

@@ -1,7 +1,7 @@
 {
  *****************************************************************************
  *                              MuiWSComCtrls.pp                              *
- *                              ---------------                              * 
+ *                              ---------------                              *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -21,7 +21,7 @@ interface
 
 uses
   // Bindings
-  muicomctrls, muibaseunit, muistdctrls,
+  muicomctrls, muibaseunit, muistdctrls, tagsparamshelper,
   dos, exec, math,
   // LCL
   Classes,
@@ -30,8 +30,8 @@ uses
   WSComCtrls, WSLCLClasses;
 
 type
-  
-  
+
+
   { TGtk2WSCustomTabControl }
 
   TMUIWSCustomTabControl = class(TWSCustomTabControl)
@@ -42,7 +42,7 @@ type
     //class function GetDefaultClientRect(const AWinControl: TWinControl; const {%H-}aLeft, {%H-}aTop, aWidth, aHeight: integer; var aClientRect: TRect): boolean; override;
     class procedure AddPage(const ATabControl: TCustomTabControl;
       const AChild: TCustomPage; const AIndex: integer); override;
-    
+
     class procedure SetPageIndex(const ATabControl: TCustomTabControl; const AIndex: integer); override;
 
     class procedure ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean); override;
@@ -50,7 +50,7 @@ type
     class function GetNotebookMinTabWidth(const AWinControl: TWinControl): integer; override;
     class function GetCapabilities: TCTabControlCapabilities; override;
     class procedure GetPreferredSize(const {%H-}AWinControl: TWinControl; var {%H-}PreferredWidth, PreferredHeight: integer; {%H-}WithThemeSpace: Boolean); override;
-    
+
     (*class procedure MovePage(const ATabControl: TCustomTabControl;
       const AChild: TCustomPage; const NewIndex: integer); override;
 
@@ -60,9 +60,9 @@ type
 
     class procedure UpdateProperties(const ATabControl: TCustomTabControl); override;*)
   end;
-  
-  
-  
+
+
+
   { TmuiWSCustomPage }
 
   TmuiWSCustomPage = class(TWSCustomPage)
@@ -211,17 +211,13 @@ type
 
 implementation
 
-uses
-  tagsarray;
-  
-  
 class function TMUIWSCustomTabControl.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): HWND;
 var
   MUIRegister: TMUIRegister;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   //writeln('Create Tabcontrol');
-  //AddTags(TagList, [MUIA_Group_PageMode, True]);
+  TagList.Clear;
   MUIRegister := TMUIRegister.Create(MUIC_Group, TagList);
   With MUIRegister do
   begin
@@ -238,8 +234,8 @@ begin
   begin
     MUIRegister.Parent := TMuiObject(AWinControl.Parent.Handle);
   end;
-  Result := HWND(MUIRegister);  
-end;                                
+  Result := HWND(MUIRegister);
+end;
 
 class procedure TMUIWSCustomTabControl.AddPage(const ATabControl: TCustomTabControl; const AChild: TCustomPage; const AIndex: integer);
 var
@@ -247,7 +243,7 @@ var
   MUIObj: TMUIObject;
 begin
   //Writeln('Add now page ', AChild.Caption, ' ', HexStr(ATabControl));
-  MUIRegister := TMUIRegister(ATabControl.Handle);   
+  MUIRegister := TMUIRegister(ATabControl.Handle);
   MUIObj := TMUIObject(AChild.Handle);
   MUIObj.Parent := MUIRegister;
   //AChild.Parent := ATabControl;
@@ -262,7 +258,7 @@ begin
   if Assigned(MUIRegister) then
   begin
     MuiRegister.ActivePage := AIndex;
-  end;  
+  end;
 end;
 
 class procedure TMUIWSCustomTabControl.ShowTabs(const ATabControl: TCustomTabControl; AShowTabs: boolean);
@@ -294,7 +290,7 @@ begin
   begin
     PreferredHeight := MUIRegister.RegisterHeight;
     PreferredWidth := MUIRegister.NumPages * 50;
-  end; 
+  end;
 end;
 
 { TmuiWSStatusBar }
@@ -302,9 +298,9 @@ end;
 class function  TmuiWSStatusBar.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIText: TMUIText;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
-  AddTags(TagList, [PtrInt(MUIA_Frame), MUIV_Frame_Text]);
+  TagList.AddTags([MUIA_Frame, MUIV_Frame_Text]);
   MUIText := TMUIText.Create(TagList);
   with MUIText do
   begin
@@ -362,12 +358,10 @@ end;
 class function TmuiWSCustomListView.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): HWND;
 var
   ListView: TMUIArea;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
-  AddTags(TagList, [
-    PtrInt(MUIA_Frame), MUIV_Frame_String    
-    ]);
-  ListView := TMUIArea.Create(MUIC_Area, GetTagPtr(TagList));
+  TagList.AddTags([MUIA_Frame, MUIV_Frame_String]);
+  ListView := TMUIArea.Create(MUIC_Area, TagList);
   With ListView do
   begin
     Left := AParams.X;
@@ -395,34 +389,28 @@ end;
 class function TmuiWSProgressBar.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
-  TagList: TTagsList;
+  TagList: TATagList;
   Gauge: TMUIGauge;
   MUIBusy: TMUIBusy;
   Horiz: Boolean;
   AsBusy: Boolean;
 begin
-  AsBusy := False;  
+  AsBusy := False;
   if AWinControl is TProgressBar then
   begin
     AsBusy := TProgressBar(AWinControl).Style = pbstMarquee;
     Horiz := (TProgressBar(AWinControl).Orientation = pbHorizontal) or (TProgressBar(AWinControl).Orientation = pbRightToLeft);
     if not AsBusy then
     begin
-      if Horiz then
-        AddTags(TagList, [PtrInt(MUIA_Gauge_Horiz), LTrue])
-      else
-        AddTags(TagList, [PtrInt(MUIA_Gauge_Horiz), LFalse]);    
+      TagList.AddTags([MUIA_Gauge_Horiz, IfThen(Horiz, TagTrue, TagFalse)]);
     end else
     begin
-      if Horiz then
-        AddTags(TagList, [PtrInt(MUIA_Group_Horiz), LTrue])
-      else
-        AddTags(TagList, [PtrInt(MUIA_Group_Horiz), LFalse]);
-    end;    
+      TagList.AddTags([MUIA_Group_Horiz, IfThen(Horiz, TagTrue, TagFalse)]);
+    end;
   end;
   if AsBusy then
   begin
-    MUIBusy := TMUIBusy.Create('Busy.mcc', GetTagPtr(TagList));
+    MUIBusy := TMUIBusy.Create('Busy.mcc', TagList);
     //MUIBusy.Horiz := Horiz;
     With MUIBusy do
     begin
@@ -439,12 +427,12 @@ begin
     Result := TLCLIntfHandle(MUIBusy);
   end else
   begin
-    AddTags(TagList, [
-      PtrInt(MUIA_Frame), MUIV_Frame_Gauge,
-      PtrInt(MUIA_Font), MUIV_Font_List,
-      PtrInt(MUIA_Gauge_InfoText), PChar('')
+    TagList.AddTags([
+      MUIA_Frame, MUIV_Frame_Gauge,
+      MUIA_Font, NativeUInt(MUIV_Font_List),
+      MUIA_Gauge_InfoText, NativeUInt(PChar(''))
       ]);
-    Gauge := TMUIGauge.Create(MUIC_Gauge, GetTagPtr(TagList));
+    Gauge := TMUIGauge.Create(MUIC_Gauge, TagList);
     Gauge.Horiz := Horiz;
     With Gauge do
     begin
@@ -461,7 +449,7 @@ begin
     end;
     Result := TLCLIntfHandle(Gauge);
   end;
-  
+
 end;
 
 class procedure TmuiWSProgressBar.DestroyHandle(const AWinControl: TWinControl);
@@ -509,19 +497,19 @@ end;
 class function TMUIWSTrackBar.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUISlider: TMUISlider;
-  TagList: TTagsList;
+  TagList: TATagList;
   ATrackBar: TCustomTrackBar absolute AWinControl;
-  H: Boolean;
+  Horiz: Boolean;
 begin
-  h := ATrackBar.Orientation = trHorizontal;
-  AddTags(TagList, [PtrInt(MUIA_Slider_Horiz), ifthen(H, 1, 0)]);
+  Horiz := ATrackBar.Orientation = trHorizontal;
+  TagList.AddTags([MUIA_Slider_Horiz, ifthen(Horiz, TagTrue, TagFalse)]);
   MUISlider := TMUISlider.Create(MUIC_Slider, TagList);
   with MUISlider do
   begin
-    Horizontal := H;
+    Horizontal := Horiz;
     Left := AParams.X;
     Top := AParams.Y;
-    if H  then
+    if Horiz  then
     begin
       Width := AParams.Width;
       Height := 22;
@@ -533,7 +521,7 @@ begin
     PasObject := AWinControl;
     MinValue := ATrackBar.Min;
     MaxValue := ATrackBar.Max;
-    Value := ATrackBar.Position;    
+    Value := ATrackBar.Position;
   end;
   if AWinControl.Parent <> NIL then
   begin
@@ -554,8 +542,8 @@ begin
       MinValue := ATrackBar.Min;
       MaxValue := ATrackBar.Max;
       Value := ATrackBar.Position;
-    end;  
-  end;  
+    end;
+  end;
 end;
 
 class function TMUIWSTrackBar.GetPosition(const ATrackBar: TCustomTrackBar): integer;
@@ -565,7 +553,7 @@ begin
   Result := 0;
   MUISlider := TMUISlider(ATrackBar.Handle);
   if Assigned(MUISlider) then
-    Result := MUISlider.Value;  
+    Result := MUISlider.Value;
 end;
 
 class procedure TMUIWSTrackBar.SetPosition(const ATrackBar: TCustomTrackBar; const NewPosition: integer);
@@ -574,7 +562,7 @@ var
 begin
   MUISlider := TMUISlider(ATrackBar.Handle);
   if Assigned(MUISlider) then
-    MUISlider.Value := NewPosition;  
+    MUISlider.Value := NewPosition;
 end;
 
 class procedure TMUIWSTrackBar.SetOrientation(const ATrackBar: TCustomTrackBar; const {%H-}AOrientation: TTrackBarOrientation);
@@ -588,7 +576,7 @@ begin
   begin
     if MUISlider.Horizontal <> h then
       RecreateWnd(ATrackBar);
-  end;  
+  end;
 end;
 
 

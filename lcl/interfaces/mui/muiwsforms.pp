@@ -1,8 +1,7 @@
-{ $Id: ArosGadwsforms.pp 5319 2004-03-17 20:11:29Z marc $}
 {
  *****************************************************************************
  *                               MUIWSForms.pp                                *
- *                               ------------                                * 
+ *                               ------------                                *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -27,10 +26,10 @@ unit MUIWSForms;
 interface
 
 uses
-  sysutils, Intuition, exec, utility, gadtools,
+  sysutils, Intuition, exec, utility,
   // LCL
   MUIBaseUnit, MuiFormsUnit, Mui, Classes, Forms, LCLType, Controls, Graphics,
-  tagsarray,
+  tagsparamshelper,
   // Widgetset
   WSForms, WSLCLClasses;
 
@@ -75,7 +74,7 @@ type
   protected
   published
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
-    
+
     class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
 
@@ -139,7 +138,7 @@ class function TMUIWSCustomForm.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIForm: TMuiWindow;
-  TagList: TTagsList;
+  TagList: TATagList;
   Sizeable: Boolean;
 begin
   //writeln('--> Create Form');
@@ -147,32 +146,32 @@ begin
   case TCustomForm(AWincontrol).BorderStyle of
     bsNone: begin
       Sizeable := False;
-      AddTags(TagList, [PtrInt(MUIA_Window_Borderless), True]);
+      TagList.AddTags([MUIA_Window_Borderless, TagTrue]);
     end;
     bsDialog: begin
-      AddTags(TagList, [
-        PtrInt(MUIA_Window_CloseGadget), True,
-        PtrInt(MUIA_Window_SizeRight), False,
-        PtrInt(MUIA_Window_SizeGadget), False
+      TagList.AddTags([
+        MUIA_Window_CloseGadget, TagTrue,
+        MUIA_Window_SizeRight, TagFalse,
+        MUIA_Window_SizeGadget, TagFalse
         ]);
-      Sizeable := False; 
+      Sizeable := False;
     end;
     bsSingle: begin
-      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
+      TagList.AddTags([MUIA_Window_SizeRight, TagFalse]);
     end;
     bsToolWindow: begin
-      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
+      TagList.AddTags([MUIA_Window_SizeRight, TagFalse]);
       Sizeable := False;
     end;
     bsSizeToolWin: begin
-      AddTags(TagList, [PtrInt(MUIA_Window_SizeRight), False]);
+      TagList.AddTags([MUIA_Window_SizeRight, TagFalse]);
     end;
   end;
-  AddTags(TagList, [
-    PtrInt(MUIA_Window_LeftEdge), AParams.X,
-    PtrInt(MUIA_Window_TopEdge), AParams.Y,
-    PtrInt(MUIA_Window_Width), AParams.Width, 
-    PtrInt(MUIA_Window_Height), AParams.Height
+  TagList.AddTags([
+    MUIA_Window_LeftEdge, AParams.X,
+    MUIA_Window_TopEdge, AParams.Y,
+    MUIA_Window_Width, AParams.Width,
+    MUIA_Window_Height, AParams.Height
     ]);
   MuiForm := TMuiWindow.Create(TagList);
   MuiForm.Sizeable := Sizeable;
@@ -227,7 +226,7 @@ end;
 class procedure TMUIWSCustomForm.SetFormBorderStyle(const AForm: Forms.TCustomForm;
   const AFormBorderStyle: TFormBorderStyle);
 begin
-  
+
 end;
 
 class procedure TMUIWSCustomForm.SetFont(const AWinControl: TWinControl;
@@ -255,33 +254,33 @@ end;
 
 class procedure TMUIWSCustomForm.SetPos(const AWinControl: TWinControl; const ALeft, ATop: Integer);
 var
-  fpForm: pWindow;
+  AForm: PWindow;
   dX: LongInt;
   dY: LongInt;
 begin
   //writeln('setpos ', Aleft, ATop);
-  fpForm := MUIRenderInfo(TMuiObject(AWinControl.Handle).obj)^.mri_Window;
-  if Assigned(fpForm) then
+  AForm := MUIRenderInfo(TMuiObject(AWinControl.Handle).obj)^.mri_Window;
+  if Assigned(AForm) then
   begin
-    dX := fpForm^.LeftEdge - ALeft;
-    dY := fpForm^.TopEdge - ATop;
-    MoveWindow(fpForm, dX, dY);
+    dX := AForm^.LeftEdge - ALeft;
+    dY := AForm^.TopEdge - ATop;
+    MoveWindow(AForm, dX, dY);
   end;
 end;
 
 class procedure TMUIWSCustomForm.SetSize(const AWinControl: TWinControl; const AWidth, AHeight: Integer);
 var
-  fpForm: pWindow;
+  AForm: PWindow;
   dX: LongInt;
   dY: LongInt;
 begin
   //writeln('setsize ', AWidth, AHeight);
-  fpForm := MUIRenderInfo(TMuiObject(AWinControl.Handle).obj)^.mri_Window;
-  if Assigned(fpForm) then
+  AForm := MUIRenderInfo(TMuiObject(AWinControl.Handle).obj)^.mri_Window;
+  if Assigned(AForm) then
   begin
-    dX := fpForm^.Width - AWidth;
-    dY := fpForm^.Height - AHeight;
-    SizeWindow(fpForm, dX, dY);
+    dX := AForm^.Width - AWidth;
+    dY := AForm^.Height - AHeight;
+    SizeWindow(AForm, dX, dY);
   end;
 end;
 

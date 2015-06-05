@@ -1,8 +1,7 @@
-{ $Id: Muiwsstdctrls.pp 5319 2004-03-17 20:11:29Z marc $}
 {
  *****************************************************************************
- *                              ArosGadWSStdCtrls.pp                              *
- *                              ---------------                              * 
+ *                              MUIWSStdCtrls.pp                             *
+ *                              ---------------                              *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -28,11 +27,11 @@ interface
 
 uses
   // Bindings
-  exec, intuition, agraphics, gadtools, utility, tagsarray, mui,
+  exec, intuition, agraphics, utility, mui,
   // LCL
-  Classes, StdCtrls, Controls, LCLType, sysutils,
+  Classes, StdCtrls, Controls, LCLType, sysutils, Math,
   //
-  MUIBaseUnit, MuiStdCtrls,
+  MUIBaseUnit, MuiStdCtrls, tagsparamshelper,
   // Widgetset
   WSStdCtrls, WSLCLClasses;
 
@@ -200,7 +199,7 @@ type
     class function  CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure DestroyHandle(const AWinControl: TWinControl); override;
-    
+
     class function  RetrieveState(const ACustomCheckBox: TCustomCheckBox): TCheckBoxState; override;
     class procedure SetState(const ACustomCheckBox: TCustomCheckBox; const NewState: TCheckBoxState); override;
     class function  GetText(const AWinControl: TWinControl; var AText: String): Boolean; override;
@@ -273,13 +272,17 @@ uses
 class function TMUIWSScrollBar.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIScrollbar: TMUIScrollbar;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
-  AddTags(TagList, [PtrInt(MUIA_Prop_First), 0, PtrInt(MUIA_Prop_Entries), 120, PtrInt(MUIA_Prop_Visible), 20]);
+  TagList.AddTags([
+    MUIA_Prop_First, 0,
+    MUIA_Prop_Entries, 120,
+    MUIA_Prop_Visible, 20
+    ]);
   if TScrollbar(AWinControl).Kind = sbHorizontal then
-    AddTags(TagList, [PtrInt(MUIA_Group_Horiz), True])
+    TagList.AddTags([MUIA_Group_Horiz, TagTrue])
   else
-    AddTags(TagList, [PtrInt(MUIA_Group_Horiz), False]);
+    TagList.AddTags([MUIA_Group_Horiz, TagFalse]);
   MUIScrollbar := TMUIScrollbar.Create(TagList);
   With MUIScrollbar do
   begin
@@ -336,10 +339,10 @@ class function TMUIWSCustomStaticText.CreateHandle(const AWinControl: TWinContro
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiLabel: TMuiText;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   //writeln('-->Create Label');
-
+  TagList.Clear;
   MuiLabel := TMuiText.Create(TagList);
   With MuiLabel do
   begin
@@ -440,7 +443,7 @@ var
   MaxWidth: Integer;
 begin
   PreferredHeight := 22;
-  PreferredWidth := 50;  
+  PreferredWidth := 50;
   if Assigned(CCN) then
   begin
     MaxWidth := Length(CCN.Text);
@@ -522,7 +525,7 @@ class function TMUIWSCustomEdit.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiEdit: TMuiStringEdit;
-  Tags: TTagsList;
+  Tags: TATagList;
   CEdit: TCustomEdit absolute AWinControl;
   Len: Integer;
   MUIAlign: Integer;
@@ -540,11 +543,11 @@ begin
   Len := CEdit.MaxLength;
   if Len = 0 then
     Len := 2048;
-  AddTags(Tags, [
-    PtrInt(MUIA_String_Format), MUIAlign,
-    PtrInt(MUIA_String_MaxLen), Len,
-    PtrInt(MUIA_String_Contents), PChar(CEDit.Text),
-    PtrInt(MUIA_String_Secret), CEdit.EchoMode <> emNormal
+  Tags.AddTags([
+    MUIA_String_Format, MUIAlign,
+    MUIA_String_MaxLen, Len,
+    MUIA_String_Contents, NativeUInt(PChar(CEDit.Text)),
+    MUIA_String_Secret, IfThen(CEdit.EchoMode <> emNormal, TagTrue, TagFalse)
     ]);
   MuiEdit := TMuiStringEdit.Create(Tags);
   With MuiEdit do
@@ -552,7 +555,7 @@ begin
     Left := AParams.X;
     Top := AParams.Y;
     Width := AParams.Width;
-    Height := AParams.Height;    
+    Height := AParams.Height;
     PasObject := AWinControl;
     Text := CEDit.Text;
     TabStop := AWinControl.TabStop;
@@ -581,7 +584,7 @@ begin
   Result := True;
   if TObject(AWinControl.Handle) is TMuiStringEdit then
     AText := TMuiStringEdit(AWinControl.Handle).Text;
-  //writeln('-->Get Text ', AWinControl.Name, ' "'+AText+'"');  
+  //writeln('-->Get Text ', AWinControl.Name, ' "'+AText+'"');
 end;
 
 class procedure TMUIWSCustomEdit.SetText(const AWinControl: TWinControl;
@@ -596,7 +599,7 @@ class procedure TMUIWSCustomEdit.SetReadOnly(const ACustomEdit: TCustomEdit; New
 begin
   if ACustomEdit is TMemo then
   begin
-    TMuiTextEdit(ACustomEdit.Handle).ReadOnly := NewReadOnly;  
+    TMuiTextEdit(ACustomEdit.Handle).ReadOnly := NewReadOnly;
   end;
 end;
 
@@ -604,7 +607,7 @@ class procedure TMUIWSCustomEdit.SetNumbersOnly(const ACustomEdit: TCustomEdit; 
 begin
   //writeln('set numbers only ', NewNumbersOnly);
   if TObject(ACustomEdit.Handle) is TMuiStringEdit then
-    TMuiStringEdit(ACustomEdit.Handle).NumbersOnly := NewNumbersOnly; 
+    TMuiStringEdit(ACustomEdit.Handle).NumbersOnly := NewNumbersOnly;
 end;
 
 { TMUIWSButton }
@@ -656,10 +659,11 @@ class function TMUIWSButton.CreateHandle(const AWinControl: TWinControl;
 
 var
   MuiButton: TMuiButton;
+  Params: TAParamList;
 begin
   //writeln('-->Create Button');
-
-  MuiButton := TMuiButton.Create([PChar(AParams.Caption)]);
+  Params.SetParams([NativeUInt(PChar(AParams.Caption))]);
+  MuiButton := TMuiButton.Create(Params);
   With MuiButton do
   begin
     Left := AParams.X;
@@ -743,9 +747,11 @@ class function TMUIWSCustomCheckBox.CreateHandle(
   ): TLCLIntfHandle;
 var
   MuiCheckMark : TMuiCheckMark;
+  Params: TAParamList;
 begin
   //writeln('create CheckBox');
-  MuiCheckMark := TMuiCheckMark.Create(MUIO_Checkmark, [PChar(AParams.Caption)]);
+  Params.SetParams([NativeUInt(PChar(AParams.Caption))]);
+  MuiCheckMark := TMuiCheckMark.Create(Params);
   With MuiCheckMark do
   begin
     Left := AParams.X;
@@ -778,9 +784,11 @@ class function TMUIWSRadioButton.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIRadioButton : TMuiRadioButton;
+  Params: TAParamList;
 begin
   //writeln('create CheckBox');
-  MUIRadioButton := TMuiRadioButton.Create(MUIO_Radio, [PChar(AParams.Caption)]);
+  Params.SetParams([NativeUInt(PChar(AParams.Caption))]);
+  MUIRadioButton := TMuiRadioButton.Create(Params);
   With MUIRadioButton do
   begin
     Left := AParams.X;
@@ -808,9 +816,11 @@ end;
 class function TMUIWSToggleBox.CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle;
 var
   MUIToggleButton : TMuiToggleButton;
+  Params: TAParamList;
 begin
   //writeln('create ToggleBox');
-  MUIToggleButton := TMuiToggleButton.Create(MUIO_Button, [PChar(AParams.Caption)]);
+  Params.SetParams([NativeUInt(PChar(AParams.Caption))]);
+  MUIToggleButton := TMuiToggleButton.Create(MUIO_Button, Params);
   With MUIToggleButton do
   begin
     Left := AParams.X;
@@ -840,9 +850,10 @@ class function TMUIWSCustomMemo.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiTEdit: TMuiTextEdit;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   //writeln('-->Create TextEdit NOW');
+  TagList.Clear;
   MuiTEdit := TMuiTextEdit.Create(TCustomMemo(AWinControl).Lines, TagList);
   With MuiTEdit do
   begin
@@ -899,16 +910,17 @@ class function TMUIWSCustomListBox.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
 var
   MuiList: TMuiListView;
-  TagList: TTagsList;
+  TagList: TATagList;
 begin
   //writeln('-->Create ListView');
+  TagList.Clear;
   MuiList := TMuiListView.Create(TCustomListBox(AWinControl).items, TagList);
   With MuiList do
   begin
     Left := AParams.X;
-    Top := AParams.Y;    
+    Top := AParams.Y;
     Width := AParams.Width;
-    Height := AParams.Height;    
+    Height := AParams.Height;
     PasObject := AWinControl;
   end;
 
@@ -951,19 +963,22 @@ class function TMUIWSCustomGroupBox.CreateHandle(
   ): TLCLIntfHandle;
 var
   MuiArea: TMUIGroupBox;
-  TagList: TTagsList;
+  Tags: TATagList;
   FText: PChar;
   cap: String;
 begin
   Cap := AWinControl.Caption;
   FText := System.AllocMem(Length(Cap) + 1);
-  Move(cap[1], FText^, Length(cap));
-  AddTags(TagList, [PtrInt(MUIA_Frame), MUIV_Frame_Group, PtrInt(MUIA_FrameTitle), FText]);
-  MuiArea := TMUIGroupBox.Create(TagList);
+  Move(Cap[1], FText^, Length(cap));
+  Tags.AddTags([
+    MUIA_Frame, MUIV_Frame_Group,
+    MUIA_FrameTitle, NativeUInt(FText)
+    ]);
+  MuiArea := TMUIGroupBox.Create(Tags);
   With MuiArea do
   begin
     Left := AParams.X;
-    Top := AParams.Y;    
+    Top := AParams.Y;
     Width := AParams.Width;
     Height := AParams.Height;
     PasObject := AWinControl;

@@ -1,8 +1,7 @@
-{ $Id$}
 {
  *****************************************************************************
- *                               MUIWSSpin.pp                                * 
- *                               ------------                                * 
+ *                               MUIWSSpin.pp                                *
+ *                               ------------                                *
  *                                                                           *
  *                                                                           *
  *****************************************************************************
@@ -24,7 +23,7 @@ uses
   // RTL
   SysUtils, Math, Classes,
   // AROS
-  Mui, tagsarray,
+  Mui, tagsparamshelper,
   // LCL
   Controls, LCLType, LCLProc, Spin, StdCtrls,
   // Widgetset
@@ -78,8 +77,8 @@ end;
 class function TMUIWSCustomFloatSpinEdit.GetValue(
   const ACustomFloatSpinEdit: TCustomFloatSpinEdit): Double;
 var
-  Edit: TMuiSpinEdit; 
-begin  
+  Edit: TMuiSpinEdit;
+begin
   Result := 0;
   if (ACustomFloatSpinEdit.Handle <> 0) and (TMUIObject(ACustomFloatSpinEdit.Handle) is TMUISpinEdit) then
   begin
@@ -108,7 +107,7 @@ end;
 class procedure TMUIWSCustomFloatSpinEdit.UpdateControl(
   const ACustomFloatSpinEdit: TCustomFloatSpinEdit);
 var
-  Edit: TMuiSpinEdit; 
+  Edit: TMuiSpinEdit;
 begin
   if (ACustomFloatSpinEdit.Handle <> 0) and (TMUIObject(ACustomFloatSpinEdit.Handle) is TMUISpinEdit) then
   begin
@@ -117,7 +116,7 @@ begin
     Edit.MinValue := ACustomFloatSpinEdit.MinValue;
     Edit.MaxValue := ACustomFloatSpinEdit.MaxValue;
     Edit.Increment := ACustomFloatSpinEdit.Increment;
-    Edit.Decimals := ACustomFloatSpinEdit.DecimalPlaces;    
+    Edit.Decimals := ACustomFloatSpinEdit.DecimalPlaces;
   end;
 end;
 
@@ -126,23 +125,24 @@ class function TMUIWSCustomFloatSpinEdit.CreateHandle(
   ): TLCLIntfHandle;
 var
   MuiEdit: TMuiSpinEdit;
-  Tags: TTagsList;
+  Tags: TATagList;
   CEdit: TCustomFloatSpinEdit absolute AWinControl;
 begin
+  Tags.Clear;
   MuiEdit := TMuiSpinEdit.Create(Tags);
   With MuiEdit do
   begin
     Left := AParams.X;
     Top := AParams.Y;
     Width := AParams.Width;
-    Height := AParams.Height;    
+    Height := AParams.Height;
     PasObject := AWinControl;
     TabStop := AWinControl.TabStop;
     Decimals := CEdit.DecimalPlaces;
     CurValue := CEdit.Value;
     MinValue := CEdit.MinValue;
     MaxValue := CEdit.MaxValue;
-    Increment := CEdit.Increment;        
+    Increment := CEdit.Increment;
   end;
 
   if AWinControl.Parent <> NIL then

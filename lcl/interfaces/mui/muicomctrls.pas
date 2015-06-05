@@ -262,6 +262,7 @@ end;
 
 procedure TMUIRegister.SetParent(const AValue: TMUIObject);
 begin
+  //writeln(self.classname + '  ' + self.pasobject.classname +' muiregsiter set parent ', AValue.classname, ' ', AValue.pasobject.classname);
   inherited SetParent(AValue);
   if ShowTabs and Assigned(FTexts) then
     FTexts.Parent := AValue;
@@ -431,13 +432,11 @@ var
   Tab: TCustomTabControl;
 begin
   inherited;
-  
   if not ShowTabs and Assigned(FTexts) then
   begin
     FTexts.Free;
     FTexts := nil;
   end;  
-  
   if ShowTabs and Assigned(PasObject) and (PasObject is TCustomTabControl) then
   begin
     Tab := TCustomTabControl(PasObject);
@@ -449,7 +448,7 @@ begin
       h := FTexts.Height;    
       FTexts.Free; 
     end;
-    for i := 0 to FChilds.Count - 1 do
+    for i := 0 to Tab.Pages.Count - 1 do
     begin
       if Assigned(FNames[i]) then
         FreeMem(FNames[i]);
@@ -462,7 +461,7 @@ begin
       PtrInt(MUIA_Register_Titles), @FNames[0],
       PtrInt(MUIA_Frame), PtrInt(MUIV_Frame_None),
       PtrInt(MUIA_Register_Frame), False
-      ]);
+      ]); 
     FTexts := TMUIGroup.create(MUIC_Register, GetTagPtr(tg));
     FTexts.Top := t;
     FTexts.Left := l;
@@ -470,7 +469,6 @@ begin
     FTexts.Height := h;
     FTexts.Parent := Parent;
     FTexts.Color := FColor;
-    
     ConnectHookObject(FTexts.Obj, MUIA_Group_ActivePage, MUIV_EveryTime, @TabIdxFunc);
   end;
 end;

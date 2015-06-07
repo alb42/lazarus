@@ -355,7 +355,7 @@ implementation
 // to get more detailed error messages consider the os
 {$IFnDEF Windows}
 uses
-{$IFDEF AROS}
+{$IFDEF HASAMIGA}
   dos;
 {$ELSE}
   {$IFDEF Windows}
@@ -1231,7 +1231,7 @@ begin
   Result:='';
   if SearchCase=ctsfcAllCase then
     Base:=FindDiskFilename(Base);
-    
+
   if SearchCase in [ctsfcDefault,ctsfcLoUpCase] then begin
     LowerCaseFilename:=lowercase(ShortFilename);
     UpperCaseFilename:=uppercase(ShortFilename);
@@ -1239,7 +1239,7 @@ begin
     LowerCaseFilename:='';
     UpperCaseFilename:='';
   end;
-  
+
   if FindFirstUTF8(Base+FileMask,faAnyFile,FileInfo)=0 then
   begin
     repeat

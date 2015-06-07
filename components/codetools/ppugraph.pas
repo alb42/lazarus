@@ -30,8 +30,8 @@ unit PPUGraph;
 interface
 
 uses
-  Classes, SysUtils, 
-{$ifndef AROS}
+  Classes, SysUtils,
+{$ifndef HASAMIGA}
   dynlibs,
 {$endif}
   PPUParser, CodeTree, AVL_Tree, FileProcs,
@@ -39,7 +39,7 @@ uses
 
 const
   FPCPPUGroupPrefix = 'fpc_';
-  
+
 type
   TPPUGroup = class;
 
@@ -48,7 +48,7 @@ type
     pmfAutoDisabled
     );
   TPPUMemberFlags = set of TPPUMemberFlag;
-  
+
   { TPPUMember }
 
   TPPUMember = class
@@ -137,7 +137,7 @@ type
     property UnitGraph: TCodeGraph read FUnitGraph;
     property SortedGroups[Index: integer]: TPPUGroup read GetSortedGroups;
   end;
-  
+
 function ComparePPUMembersByUnitName(Member1, Member2: Pointer): integer;
 function CompareNameWithPPUMemberName(NamePChar, Member: Pointer): integer;
 
@@ -222,7 +222,7 @@ begin
   //debugln('Initialization proc: ',InitializationMangledName);
   FinalizationMangledName:=PPU.GetFinalProcName;
   //debugln('Finalization proc: ',FinalizationMangledName);
-  
+
   Result:=true;
 end;
 
@@ -385,7 +385,7 @@ function TPPUGroup.UpdateDependencies: boolean;
     for i:=0 to UsesList.Count-1 do
       AddUnitDependency(Member,UsesList[i]);
   end;
-  
+
   procedure AddDependencies(Main: boolean);
   var
     AVLNode: TAVLTreeNode;
@@ -418,7 +418,7 @@ begin
     GraphNode.Data:=Member;
     AVLNode:=FMembers.FindSuccessor(AVLNode);
   end;
-  
+
   // add primary dependencies
   AddDependencies(true);
   // add secondary dependencies
@@ -480,16 +480,16 @@ var
   RegisterFPLibProcName: String;
 begin
   Result:=true;
-{$ifdef AROS}  
+{$ifdef HASAMIGA}
   LibName:=Name;
 {$else}
   LibName:=Name+'.'+SharedSuffix;
-{$endif}  
+{$endif}
   // needed groups in topological order
   if Groups.GroupGraph.GetGraphNode(KeyNode,false)=nil then
     raise Exception.Create('inconsistency');
-    
-    
+
+
   NeededLibs:='';
   for i:=0 to Groups.FSortedGroups.Count-1 do begin
     Group:=Groups.SortedGroups[i];
@@ -795,7 +795,7 @@ begin
   UpdateTopologicalSortedList;
   // update loader units
   if not UpdateLoaders then exit;
-  
+
   Result:=true;
 end;
 

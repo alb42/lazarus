@@ -13,7 +13,7 @@ function GetTickCount64: QWord;
 implementation
 
 uses
-  {$ifdef AROS}
+  {$ifdef HASAMIGA}
   {$else}
     {$ifdef Windows}
       Windows,
@@ -23,7 +23,7 @@ uses
       Linux,
       {$EndIf}
     {$endif}
-  {$endif}   
+  {$endif}
   Classes;
 
 // ToDo: Move the code to 1 include file per platform

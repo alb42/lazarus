@@ -152,7 +152,7 @@ implementation
 
 // to get more detailed error messages consider the os
 uses
-{$IFDEF AROS}
+{$IFDEF HASAMIGA}
   Exec, dos;
 {$ELSE}
   {$IFDEF Windows}
@@ -165,9 +165,9 @@ uses
 {$ENDIF}
 
 {$I lazfileutils.inc}
-{$IFDEF AROS}
+{$IFDEF HASAMIGA}
   {$I aroslazfileutils.inc}
-{$ELSE}  
+{$ELSE}
 {$IFDEF windows}
   {$I winlazfileutils.inc}
 {$ELSE}
@@ -669,7 +669,7 @@ end;
 
 function AppendPathDelim(const Path: string): string;
 begin
-  if (Path<>'') and not (Path[length(Path)] in AllowDirectorySeparators) 
+  if (Path<>'') and not (Path[length(Path)] in AllowDirectorySeparators)
   {$ifdef HASAMIGA}
     and not (Path[length(Path)] = DriveSeparator)
   {$endif}

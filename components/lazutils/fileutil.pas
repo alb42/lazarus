@@ -33,7 +33,7 @@ interface
 
 uses
   Classes, SysUtils, Masks, LazUTF8, LazFileUtils;
-  
+
 {$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
@@ -107,7 +107,7 @@ type
 
 const
   AllDirectoryEntriesMask = '*';
-  
+
 function GetAllFilesMask: string; inline;
 function GetExeExt: string; inline;
 function SearchFileInPath(const Filename, BasePath, SearchPath,
@@ -283,7 +283,7 @@ function SysErrorMessageUTF8(ErrorCode: Integer): String; inline;
 implementation
 
 uses
-{$IFDEF AROS}
+{$IFDEF HASAMIGA}
   dos;
 {$ELSE}
   {$IFDEF windows}
@@ -294,9 +294,9 @@ uses
 {$ENDIF}
 
 {$I fileutil.inc}
-{$IFDEF AROS}
+{$IFDEF HASAMIGA}
   {$i arosfileutil.inc}
-{$ELSE}  
+{$ELSE}
   {$IFDEF windows}
     {$i winfileutil.inc}
   {$ELSE}

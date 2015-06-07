@@ -396,7 +396,7 @@ begin
   end;
 end;
 
-function TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function TabIdxFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   MUIRegister: TMUIRegister;
   PGIdx: Integer;

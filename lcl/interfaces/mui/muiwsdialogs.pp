@@ -144,11 +144,11 @@ begin
   Result := THandle(FileDialog);
 end;
 
-procedure IntuiMsgFunc(iMsg: PIntuiMessage; Req: PFileRequester); cdecl;
-begin
+//procedure IntuiMsgFunc(iMsg: PIntuiMessage; Req: PFileRequester); cdecl;
+//begin
   //writeln('test');
-  DoMethod(MUIApp.obj, MUIM_Application_CheckRefresh, []);
-end;
+//  DoMethod(MUIApp.obj, MUIM_Application_CheckRefresh, []);
+//end;
 
 {------------------------------------------------------------------------------
   Function: TMuiWSFileDialog.ShowModal

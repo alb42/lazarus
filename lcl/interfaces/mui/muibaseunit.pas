@@ -262,7 +262,7 @@ begin
   ConnectHookFunction(MUIField, TriggerValue, Obj, Self, HookList[Idx], HookFunc);
 end;
 
-function BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function BtnDownFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   MuiObject: TMuiObject;
 begin
@@ -276,7 +276,7 @@ begin
   //writeln('<--btndown');
 end;
 
-function BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function BtnUpFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   MuiObject: TMuiObject;
 begin

@@ -22,7 +22,7 @@ interface
 uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui,
   Forms, MuiBaseUnit, LCLMessageGlue, Menus, Math, Types, LCLType,
-  StrUtils, tagsparamshelper;
+  StrUtils, tagsparamshelper, muiglobal;
 
 const
   NM_Barlabel = 1;
@@ -154,7 +154,7 @@ implementation
 
 { TMuiWindow }
 
-function LayoutFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+function LayoutFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint;
 var
   LMsg: pMUI_LayoutMsg;
   i: LongInt;
@@ -352,7 +352,7 @@ begin
     SetAttribute(MUIA_Menuitem_Title, PChar(FTitle));
 end;
 
-function MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function MenuClickedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiMenuItem;
   TargetObject: TObject;
@@ -419,7 +419,7 @@ begin
   Result := PMinList(GetAttribute(MUIA_Family_List));
 end;
 
-function CloseWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+function CloseWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint;
 var
   MuiObject: TMuiWindow;
 begin
@@ -430,7 +430,7 @@ begin
   end;
 end;
 
-function MoveWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+function MoveWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint;
 var
   MuiObject: TMuiWindow;
 begin
@@ -444,7 +444,7 @@ begin
   end;
 end;
 
-function SizeWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint; cdecl;
+function SizeWinFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint;
 var
   MuiObject: TMuiWindow;
 begin
@@ -472,6 +472,9 @@ begin
   HasMenu := False;
   FInMoveEvent := False;
   //FGrpObj := MUI_NewObject(MUIC_Group,[LongInt(MUIA_Group_LayoutHook), @LayoutHook, TAG_END]);
+  //
+  SetHook(LayoutHook, @LayoutFunc, self);
+  //
   GrpTags.AddTags([
     MUIA_Group_LayoutHook, NativeUInt(@LayoutHook),
     MUIA_Frame, MUIV_Frame_None,
@@ -483,10 +486,6 @@ begin
   FGrpObj := NewObjectA(LCLGroupClass, nil, GrpTags);
   if Assigned(FGrpObj) then
     Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
-  //
-  LayoutHook.h_Entry := NativeUInt(@LayoutFunc);
-  LayoutHook.h_SubEntry := NativeUInt(@LayoutFunc);
-  LayoutHook.h_Data := Self;
   //
   AltLeft := 0;
   AltTop := 0;

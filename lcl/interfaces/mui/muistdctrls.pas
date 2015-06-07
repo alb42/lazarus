@@ -357,7 +357,7 @@ begin
   end;
 end;
 
-function ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function ChangeScroll(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   Parent, MuiObject: TMuiObject;
   ScrollMsg: TLMVScroll;
@@ -641,7 +641,7 @@ begin
   Result := FCaption;
 end;
 
-function ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function ListChangeFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiListView;
   Idx: Integer;
@@ -659,7 +659,7 @@ begin
   end;
 end;
 
-function DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function DoubleClickFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiListView;
 begin
@@ -793,7 +793,7 @@ end;
 
 { TMuiCheckMark }
 
-function CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function CheckFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiObject;
   SendMessages: Boolean;
@@ -964,7 +964,7 @@ end;
 
 { TMuiStringEdit }
 
-function TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function TextDoneFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiObject;
   CharCode: Word;
@@ -984,7 +984,7 @@ begin
 end;
 
 
-function TextChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function TextChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiObject;
 begin
@@ -997,7 +997,7 @@ begin
   end;
 end;
 
-function TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 //var
 //  MuiObject: TMuiObject;
 begin
@@ -1100,7 +1100,7 @@ end;
 
 { TMuiSpinEdit }
 
-function BtnDownClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function BtnDownClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   MuiSpin: TMuiSpinEdit;
 begin
@@ -1112,7 +1112,7 @@ begin
   end;
 end;
 
-function BtnUpClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt; cdecl;
+function BtnUpClickFunc(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   MuiSpin: TMuiSpinEdit;
 begin
@@ -1311,7 +1311,7 @@ end;
 
 { TMuiCycle }
 
-function ActiveItemChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function ActiveItemChangedFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiCycle;
   ItemIndex: Integer;
@@ -1325,7 +1325,7 @@ begin
   end;
 end;
 
-function TextEnteredFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt; cdecl;
+function TextEnteredFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 var
   MuiObject: TMuiCycle;
   ItemIndex: Integer;

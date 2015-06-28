@@ -173,13 +173,13 @@ var
 
 procedure TMUIWidgetSet.DebugOutEvent(Sender: TObject;s: string; var Handled: Boolean);
 begin
-  System.SysDebugln('(LCL:'+Sender.classname+'): '+ s);
+  SysDebugln('(LCL:'+Sender.classname+'): '+ s);
   Handled := True;
 end;
 
 procedure TMUIWidgetSet.DebugOutLNEvent(Sender: TObject;s: string; var Handled: Boolean);
 begin
-  System.SysDebugln('(LCL:'+Sender.classname+'): '+ s);
+  SysDebugln('(LCL:'+Sender.classname+'): '+ s);
   Handled := True;
 end;
 
@@ -194,7 +194,7 @@ var
 
   function PV2Str(PV: TVerArray): String;
    begin
-     Result := Format('%d.%d.%d.%d', [PV[0],PV[1],PV[2],PV[3]])
+     Result := SysUtils.Format('%d.%d.%d.%d', [PV[0],PV[1],PV[2],PV[3]])
    end;
 
 begin

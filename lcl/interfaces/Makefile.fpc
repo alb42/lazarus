@@ -19,6 +19,9 @@ else
 ifeq ($(OS_TARGET),darwin)
 LCL_PLATFORM=carbon
 else
+ifeq ($(OS_TARGET),aros)
+LCL_PLATFORM=mui
+else
 LCL_PLATFORM=gtk2
 endif
 endif

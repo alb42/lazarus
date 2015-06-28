@@ -915,7 +915,7 @@ begin
   begin
     Result := 0;
     DumpStack;
-    DebugLn(Format('ERROR: [TMUIWidgetSet.GetSysColor] Bad Value: %d. Valid Range between 0 and %d', [nIndex, MAX_SYS_COLORS]));
+    DebugLn(SysUtils.Format('ERROR: [TMUIWidgetSet.GetSysColor] Bad Value: %d. Valid Range between 0 and %d', [nIndex, MAX_SYS_COLORS]));
   end
   else
     Result := SysColorMap[nIndex]; 

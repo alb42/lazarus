@@ -858,7 +858,7 @@ begin
   // creates an exception, that gdb catches:
   debugln(rsCreatingGdbCatchableError);
   DumpStack;
-  {$ifndef AROS}
+  {$ifndef HASAMIGA}
   if (length(Msg) div (length(Msg) div 10000))=0 then ;
   {$endif}
 end;

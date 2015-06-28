@@ -31,6 +31,14 @@ type
 
 procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: PObject_; Data: TObject; Hook: PHook; HookFunc: THookFunc);
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
+{$ifndef AROS}
+function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
+{$endif}
+
+{$ifdef Amiga}
+var
+  IntuitionBase: PIntuitionBase;
+{$endif}
 
 implementation
 
@@ -105,5 +113,17 @@ begin
   {$endif}
 end;
 
+{$ifndef AROS}
+function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
+begin
+  Result := CallHookPkt(h, obj, @Params[0]);
+end;
+{$endif}
+
+
+initialization
+{$ifdef Amiga}
+  IntuitionBase := _IntuitionBase;
+{$endif}
 end.
 

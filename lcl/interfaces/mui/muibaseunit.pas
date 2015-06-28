@@ -61,9 +61,9 @@ type
     procedure SetAttribute(Tag: LongWord; Data: NativeUInt); overload;
     procedure SetAttribute(Tag: LongWord; Data: Boolean); overload;
     procedure SetAttribute(Tag: LongWord; Data: Pointer); overload;
-    function GetAttribute(tag: longword): longword;
+    function GetAttribute(Tag: longword): NativeUInt;
     procedure SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
-    function GetAttObj(obje: pObject_; tag: longword): longword;
+    function GetAttObj(obje: pObject_; Tag: longword): NativeUInt;
     // DoMethod(Params = [MethodID, Parameter for Method ...])
     function DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
     function DoMethod(const Params: array of NativeUInt): longint;
@@ -512,11 +512,11 @@ begin
   SetAttrsA(obje, TagList);
 end;
 
-function TMUIObject.GetAttObj(obje: pObject_; tag: LongWord): longword;
+function TMUIObject.GetAttObj(obje: pObject_; tag: LongWord): NativeUInt;
 var
-  Res: longword;
+  Res: NativeUInt;
 begin
-  GetAttr(tag, obje, @Res);
+  GetAttr(tag, obje, Res);
   Result := Res;
 end;
 
@@ -567,11 +567,11 @@ begin
   SetAttrsA(FObject, TagList);
 end;
 
-function TMUIObject.GetAttribute(tag: longword): longword;
+function TMUIObject.GetAttribute(tag: longword): NativeUInt;
 var
-  Res: longword;
+  Res: NativeUInt;
 begin
-  GetAttr(tag, FObject, @Res);
+  GetAttr(tag, FObject, Res);
   Result := Res;
 end;
 
@@ -798,10 +798,10 @@ begin
   begin
     FMainWin := Child.obj;
     SetAttribute(MUIA_Application_Window, child.obj);
-    CallHook(PHook(OCLASS(FMainWin)), FMainWin,
-      [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), True,
-      FObject, 2, PtrInt(MUIM_Application_ReturnID),
-      PtrInt(MUIV_Application_ReturnID_Quit)]);
+    //CallHook(PHook(OCLASS(FMainWin)), FMainWin,
+    //  [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), TagTrue,
+    //  PtrInt(FObject), 2, PtrInt(MUIM_Application_ReturnID),
+    //  PtrInt(MUIV_Application_ReturnID_Quit)]);
   end;
 end;
 
@@ -851,7 +851,7 @@ end;
 procedure TMuiApplication.ProcessMessages;
 begin
   if GetThreadId <> FThreadID then
-    Debugln('ProcessMessages called inside a Thread');
+    SysDebugln('ProcessMessages called inside a Thread');
   RedrawList;
   CheckTimer;
   if PtrInt(DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)])) =
@@ -866,7 +866,7 @@ end;
 procedure TMuiApplication.WaitMessages;
 begin
   if GetThreadId <> FThreadID then
-    Debugln('ProcessMessages called inside a Thread');
+    SysDebugln('ProcessMessages called inside a Thread');
   RedrawList;
   CheckTimer;
   if DoMethod([MUIM_Application_NewInput, PtrUInt(@FSignals)]) =
@@ -1750,9 +1750,11 @@ begin
     DestroyClasses;
     halt(5);
   end;
+  {$ifdef AROS}
   LCLGroupClass^.cl_Dispatcher.h_Entry := NativeUInt(@Dispatcher);
   LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;
   LCLGroupClass^.cl_Dispatcher.h_Data := nil;
+  {$endif}
 end;
 
 {$ifdef CHECKOBJECTS}
@@ -1760,13 +1762,26 @@ procedure NotDestroyed;
 var
   i: Integer;
 begin
-  System.DebugLn('not destroyed : ' + IntToStr(AllItems.Count));
+  SysDebugLn('not destroyed : ' + IntToStr(AllItems.Count));
   for i := 0 to AllItems.Count - 1 do
-    System.Debugln(TMuiObject(AllItems[i]).Classname);
+    SysDebugln(TMuiObject(AllItems[i]).Classname);
+end;
+{$endif}
+
+{$ifdef MorphOS}
+procedure InitMorphOS;
+begin
+  InitMUIMasterLibrary;
+  InitIntuitionLibrary;
+  InitGraphicsLibrary;
+  InitKeymapLibrary;
 end;
 {$endif}
 
 initialization
+  {$ifdef MorphOS}
+  InitMorphOS;
+  {$endif}
   CreateClasses;
   {$ifdef CHECKOBJECTS}
   AllItems := classes.TList.create;

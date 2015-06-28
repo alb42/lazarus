@@ -29,7 +29,7 @@ uses
   // RTL + LCL
   AGraphics, SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
   exec, asl, utility, tagsparamshelper, mui, intuition, MuibaseUnit, MUIformsunit,
-  AmigaDos, Math,
+  AmigaDos, Math, muiglobal, workbench,
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -140,7 +140,7 @@ class function TMuiWSFileDialog.CreateHandle(const ACommonDialog: TCommonDialog)
 var
   FileDialog: PFileRequester;
 begin
-  FileDialog := PFileRequester(AllocAslRequest(ASL_FileRequest, [TAG_DONE]));
+  FileDialog := PFileRequester(AllocFileRequest());
   Result := THandle(FileDialog);
 end;
 
@@ -235,7 +235,7 @@ begin
       FileDialog.Files.Clear;
       for i := 1 to  MuiDialog^.rf_NumArgs do
       begin
-        FileDialog.Files.Add(GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_ArgList^[i].wa_Name)));
+        FileDialog.Files.Add(GetFilename(string(MuiDialog^.rf_Dir), string(PWBArgList(MuiDialog^.rf_ArgList)^[i].wa_Name)));
       end;
     end;
     FileDialog.UserChoice := mrOK;
@@ -294,7 +294,7 @@ var
   but1, but2: PObject_;
   sigs: LongWord;
   Res: Integer;
-  r,g,b: LongWord;
+  r,g,b: NativeUInt;
   DefWidth, DefHeight: Integer;
 begin
   R := ColLongWord(Red(ColorDialog.Color));
@@ -344,23 +344,23 @@ begin
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
   CallHook(PHook(OCLASS(Win)), Win,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), True,
-    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), TagTrue,
+    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
 
   CallHook(PHook(OCLASS(Win)), but2,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), True,
-    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), TagTrue,
+    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
 
   CallHook(PHook(OCLASS(Win)), but1,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), True,
-    LocalApp, 2, PtrInt(MUIM_Application_ReturnID), 42]);
+    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), TagTrue,
+    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);
   SetAttrsA(Win, SetTags);
   Res := -1;
   while true  do
   begin
-    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [PtrInt(MUIM_Application_NewInput), @sigs]));
+    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [PtrInt(MUIM_Application_NewInput), PtrInt(@sigs)]));
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;
@@ -380,9 +380,9 @@ begin
   end;
   MUI_DisposeObject(LocalApp);
 
-  GetAttr(MUIA_Coloradjust_Red, Palette, @R);
-  GetAttr(MUIA_Coloradjust_Green, Palette, @G);
-  GetAttr(MUIA_Coloradjust_Blue, Palette, @B);
+  GetAttr(MUIA_Coloradjust_Red, Palette, R);
+  GetAttr(MUIA_Coloradjust_Green, Palette, G);
+  GetAttr(MUIA_Coloradjust_Blue, Palette, B);
 
   ColorDialog.Color := RGBToColor((R shr 24) and $FF, (G shr 24) and $FF, (B shr 24) and $FF);
 end;

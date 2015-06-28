@@ -10,7 +10,7 @@ uses
   {$ifdef HASAMIGA}
   cybergraphics, agraphics,
   {$endif}
-  MuiBaseUnit, tagsparamshelper,
+  MuiBaseUnit, tagsparamshelper, muiglobal,
   StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
 
   { TMuiButton }
@@ -729,10 +729,10 @@ end;
 
 function TMuiListView.GetActive: LongInt;
 var
-  Res: LongInt;
+  Res: NativeUInt;
 begin
   Result := 0;
-  GetAttr(NativeUInt(MUIA_List_Active), StrObj, @Res);
+  GetAttr(NativeUInt(MUIA_List_Active), StrObj, Res);
   if Res = MUIV_List_Active_Off then
     Result := 0
   else

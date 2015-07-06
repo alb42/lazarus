@@ -25,7 +25,7 @@ uses
   StrUtils, tagsparamshelper, muiglobal;
 
 const
-  NM_Barlabel = 1;
+  NM_Barlabel = -1;
 
 type
 

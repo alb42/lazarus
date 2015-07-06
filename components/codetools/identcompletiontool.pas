@@ -243,6 +243,7 @@ type
     function StartUpAtomBehindIs(const s: string): boolean;
     function CompletePrefix(const OldPrefix: string): string;
     function CalcMemSize: PtrUInt;
+    function CompareIdentListItems(Tree: TAvgLvlTree; Data1, Data2: Pointer): integer;
   public
     property Context: TFindContext read FContext write FContext;
     property ContextFlags: TIdentifierListContextFlags

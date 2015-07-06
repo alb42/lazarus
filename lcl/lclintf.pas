@@ -209,6 +209,9 @@ end;
 // System APIs which have an operating-system specific implementation
 // They should be moved to FPC eventually
 {$I sysenvapis.inc}
+{$ifdef HASAMIGA}
+  {$I sysenvapis_aros.inc}
+{$endif}
 {$ifdef Windows}
   {$I sysenvapis_win.inc}
 {$endif}

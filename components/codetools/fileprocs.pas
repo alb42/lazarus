@@ -47,7 +47,7 @@ type
   TFPCMemStreamSeekType = integer;
   PCharZ = Pointer;
 
-{$if defined(Windows) or defined(darwin)}
+{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -353,10 +353,14 @@ implementation
 // to get more detailed error messages consider the os
 {$IFnDEF Windows}
 uses
-  {$IFDEF darwin}
-  MacOSAll,
+  {$IFDEF HASAMIGA}
+    dos;
+  {$ELSE}
+    {$IFDEF darwin}
+      MacOSAll,
+    {$ENDIF}
+      Unix;
   {$ENDIF}
-  Unix;
 {$ENDIF}
 
 function SimpleFormat(const Fmt: String; const Args: array of const): String;
@@ -2515,5 +2519,4 @@ finalization
   FreeLineInfoCache;
 
 end.
-
 

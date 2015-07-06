@@ -167,6 +167,7 @@ uses
       MacOSAll,
     {$ENDIF}
   {$ENDIF}
+  Unix, BaseUnix;
 {$ENDIF}
 
 {$I lazfileutils.inc}

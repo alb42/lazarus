@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, LCLType, Forms, Controls, Graphics, ComCtrls,
-  Dialogs, Buttons, ExtCtrls, StdCtrls, FileUtil, ButtonPanel,
+  Dialogs, Buttons, ExtCtrls, StdCtrls, LazFileUtils, ButtonPanel,
   BasicCodeTools,
   IDEHelpIntf,
   IDEProcs, InputHistory, LazarusIDEStrConsts, EnvironmentOpts, TransferMacros,
@@ -92,7 +92,7 @@ type
     procedure BuildBrowseWorkDirButtonCLICK(Sender: TObject);
     procedure BuildFileDialogCREATE(Sender: TObject);
     procedure BuildFileDialogKEYDOWN(Sender: TObject; var Key: Word;
-                                     Shift: TShiftState);
+                                     {%H-}Shift: TShiftState);
     procedure BuildMacroSelectionBoxAddMacro(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
     procedure OkButtonClick(Sender: TObject);
@@ -237,7 +237,7 @@ function GetIDEDirectiveFlag(const DirectiveValue,
 // Example: 'FPC+ Make off   BUILD  on  FPC-'
 
   function ReadNextWord(var ReadPos: integer;
-    var WordStart, WordEnd: integer): boolean;
+    out WordStart, WordEnd: integer): boolean;
   begin
     Result:=false;
     // skip space
@@ -493,6 +493,7 @@ var
   MacroCode: string;
   Macro: TTransferMacro;
 begin
+  MacroCode:='';
   Macro:=BuildMacroSelectionBox.GetSelectedMacro(MacroCode);
   if Macro=nil then exit;
   BuildCommandMemo.SelText:=MacroCode;
@@ -514,6 +515,7 @@ var
   MacroCode: string;
   Macro: TTransferMacro;
 begin
+  MacroCode:='';
   Macro:=RunMacroSelectionBox.GetSelectedMacro(MacroCode);
   if Macro=nil then exit;
   RunCommandMemo.SelText:=MacroCode;
@@ -545,7 +547,7 @@ begin
     Parent:=RunPage;
   end;
 
-  GeneralPage.Caption:=dlgFROpts;
+  GeneralPage.Caption:=lisOptions;
   WhenFileIsActiveGroupbox.Caption:=lisBFWhenThisFileIsActiveInSourceEditor;
   OverrideBuildProjectCheckbox.Caption:=
     lisBFOnBuildProjectExecuteTheBuildFileCommandInstead;

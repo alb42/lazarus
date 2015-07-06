@@ -20,12 +20,45 @@ interface
 uses
   SysUtils, Classes, dos, LazUTF8
   {$IFDEF EnableIconvEnc},iconvenc{$ENDIF};
+
+//encoding names
 const
   EncodingUTF8 = 'utf8';
   EncodingAnsi = 'ansi';
   EncodingUTF8BOM = 'utf8bom'; // UTF-8 with byte order mark
   EncodingUCS2LE = 'ucs2le'; // UCS 2 byte little endian
   EncodingUCS2BE = 'ucs2be'; // UCS 2 byte big endian
+
+  EncodingCP1250 = 'cp1250';
+  EncodingCP1251 = 'cp1251';
+  EncodingCP1252 = 'cp1252';
+  EncodingCP1253 = 'cp1253';
+  EncodingCP1254 = 'cp1254';
+  EncodingCP1255 = 'cp1255';
+  EncodingCP1256 = 'cp1256';
+  EncodingCP1257 = 'cp1257';
+  EncodingCP1258 = 'cp1258';
+
+  EncodingCP437 = 'cp437';
+  EncodingCP850 = 'cp850';
+  EncodingCP852 = 'cp852';
+  EncodingCP866 = 'cp866';
+  EncodingCP874 = 'cp874';
+
+  EncodingCP932 = 'cp932';
+  EncodingCP936 = 'cp936';
+  EncodingCP949 = 'cp949';
+  EncodingCP950 = 'cp950';
+
+  EncodingCPMac = 'macintosh';
+  EncodingCPKOI8 = 'koi8';
+
+  EncodingCPIso1 = 'iso88591';
+  EncodingCPIso2 = 'iso88592';
+  EncodingCPIso15 = 'iso885915';
+
+//signatures in ansi
+const
   UTF8BOM = #$EF#$BB#$BF;
   UTF16BEBOM = #$FE#$FF;
   UTF16LEBOM = #$FF#$FE;
@@ -34,6 +67,9 @@ const
 
 function GuessEncoding(const s: string): string;
 
+function ConvertEncodingFromUTF8(const s, ToEncoding: string; out Encoded: boolean): string;
+function ConvertEncodingToUTF8(const s, FromEncoding: string; out Encoded: boolean): string;
+// For UTF8 use the above functions, they save you one parameter
 function ConvertEncoding(const s, FromEncoding, ToEncoding: string): string;
 
 // This routine should obtain the encoding utilized by ansistring in the RTL
@@ -71,6 +107,7 @@ function CP852ToUTF8(const s: string): string;  // DOS central europe
 function CP866ToUTF8(const s: string): string;  // DOS and Windows console's cyrillic
 function CP874ToUTF8(const s: string): string;  // thai
 function KOI8ToUTF8(const s: string): string;  // russian cyrillic
+function MacintoshToUTF8(const s: string): string;  // Macintosh, alias Mac OS Roman
 function SingleByteToUTF8(const s: string;
                           const Table: TCharToUTF8Table): string;
 function UCS2LEToUTF8(const s: string): string; // UCS2-LE 2byte little endian
@@ -97,6 +134,7 @@ function UTF8ToCP874(const s: string): string;  // thai
 function UTF8ToKOI8(const s: string): string;  // russian cyrillic
 function UTF8ToKOI8U(const s: string): string;  // ukrainian cyrillic
 function UTF8ToKOI8RU(const s: string): string;  // belarussian cyrillic
+function UTF8ToMacintosh(const s: string): string;  // Macintosh, alias Mac OS Roman
 function UTF8ToSingleByte(const s: string;
                           const UTF8CharConvFunc: TUnicodeToCharID): string;
 function UTF8ToUCS2LE(const s: string): string; // UCS2-LE 2byte little endian without BOM
@@ -128,8 +166,9 @@ implementation
 uses Windows;
 {$ENDIF}
 
-var EncodingValid: boolean = false;
-    DefaultTextEncoding: string = EncodingAnsi;
+var
+  EncodingValid: boolean = false;
+  DefaultTextEncoding: string = EncodingAnsi;
 
 {$IFNDEF DisableAsianCodePages}
 {$include asiancodepages.inc}
@@ -4888,6 +4927,265 @@ const
     ''                  // #255
   );
 
+  ArrayMacintoshToUTF8: TCharToUTF8Table = (
+    #0,                 // #0
+    #1,                 // #1
+    #2,                 // #2
+    #3,                 // #3
+    #4,                 // #4
+    #5,                 // #5
+    #6,                 // #6
+    #7,                 // #7
+    #8,                 // #8
+    #9,                 // #9
+    #10,                // #10
+    #11,                // #11
+    #12,                // #12
+    #13,                // #13
+    #14,                // #14
+    #15,                // #15
+    #16,                // #16
+    #17,                // #17
+    #18,                // #18
+    #19,                // #19
+    #20,                // #20
+    #21,                // #21
+    #22,                // #22
+    #23,                // #23
+    #24,                // #24
+    #25,                // #25
+    #26,                // #26
+    #27,                // #27
+    #28,                // #28
+    #29,                // #29
+    #30,                // #30
+    #31,                // #31
+    ' ',                // ' '
+    '!',                // '!'
+    '"',                // '"'
+    '#',                // '#'
+    '$',                // '$'
+    '%',                // '%'
+    '&',                // '&'
+    '''',               // ''''
+    '(',                // '('
+    ')',                // ')'
+    '*',                // '*'
+    '+',                // '+'
+    ',',                // ','
+    '-',                // '-'
+    '.',                // '.'
+    '/',                // '/'
+    '0',                // '0'
+    '1',                // '1'
+    '2',                // '2'
+    '3',                // '3'
+    '4',                // '4'
+    '5',                // '5'
+    '6',                // '6'
+    '7',                // '7'
+    '8',                // '8'
+    '9',                // '9'
+    ':',                // ':'
+    ';',                // ';'
+    '<',                // '<'
+    '=',                // '='
+    '>',                // '>'
+    '?',                // '?'
+    '@',                // '@'
+    'A',                // 'A'
+    'B',                // 'B'
+    'C',                // 'C'
+    'D',                // 'D'
+    'E',                // 'E'
+    'F',                // 'F'
+    'G',                // 'G'
+    'H',                // 'H'
+    'I',                // 'I'
+    'J',                // 'J'
+    'K',                // 'K'
+    'L',                // 'L'
+    'M',                // 'M'
+    'N',                // 'N'
+    'O',                // 'O'
+    'P',                // 'P'
+    'Q',                // 'Q'
+    'R',                // 'R'
+    'S',                // 'S'
+    'T',                // 'T'
+    'U',                // 'U'
+    'V',                // 'V'
+    'W',                // 'W'
+    'X',                // 'X'
+    'Y',                // 'Y'
+    'Z',                // 'Z'
+    '[',                // '['
+    '\',                // '\'
+    ']',                // ']'
+    '^',                // '^'
+    '_',                // '_'
+    '`',                // '`'
+    'a',                // 'a'
+    'b',                // 'b'
+    'c',                // 'c'
+    'd',                // 'd'
+    'e',                // 'e'
+    'f',                // 'f'
+    'g',                // 'g'
+    'h',                // 'h'
+    'i',                // 'i'
+    'j',                // 'j'
+    'k',                // 'k'
+    'l',                // 'l'
+    'm',                // 'm'
+    'n',                // 'n'
+    'o',                // 'o'
+    'p',                // 'p'
+    'q',                // 'q'
+    'r',                // 'r'
+    's',                // 's'
+    't',                // 't'
+    'u',                // 'u'
+    'v',                // 'v'
+    'w',                // 'w'
+    'x',                // 'x'
+    'y',                // 'y'
+    'z',                // 'z'
+    '{',                // '{'
+    '|',                // '|'
+    '}',                // '}'
+    '~',                // '~'
+    #127,               // #127
+    #195#132,           // #128
+    #195#133,           // #129
+    #195#135,           // #130
+    #195#137,           // #131
+    #195#145,           // #132
+    #195#150,           // #133
+    #195#156,           // #134
+    #195#161,           // #135
+    #195#160,           // #136
+    #195#162,           // #137
+    #195#164,           // #138
+    #195#163,           // #139
+    #195#165,           // #140
+    #195#167,           // #141
+    #195#169,           // #142
+    #195#168,           // #143
+    #195#170,           // #144
+    #195#171,           // #145
+    #195#173,           // #146
+    #195#172,           // #147
+    #195#174,           // #148
+    #195#175,           // #149
+    #195#177,           // #150
+    #195#179,           // #151
+    #195#178,           // #152
+    #195#180,           // #153
+    #195#182,           // #154
+    #195#181,           // #155
+    #195#186,           // #156
+    #195#185,           // #157
+    #195#187,           // #158
+    #195#188,           // #159
+    #226#128#160,       // #160
+    #194#176,           // #161
+    #194#162,           // #162
+    #194#163,           // #163
+    #194#167,           // #164
+    #226#128#162,       // #165
+    #194#182,           // #166
+    #195#159,           // #167
+    #194#174,           // #168
+    #194#169,           // #169
+    #226#132#162,       // #170
+    #194#180,           // #171
+    #194#168,           // #172
+    #226#137#160,       // #173
+    #195#134,           // #174
+    #195#152,           // #175
+    #226#136#158,       // #176
+    #194#177,           // #177
+    #226#137#164,       // #178
+    #226#137#165,       // #179
+    #194#165,           // #180
+    #194#181,           // #181
+    #226#136#130,       // #182
+    #226#136#145,       // #183
+    #226#136#143,       // #184
+    #207#128,           // #185
+    #226#136#171,       // #186
+    #194#170,           // #187
+    #194#186,           // #188
+    #206#169,           // #189
+    #195#166,           // #190
+    #195#184,           // #191
+    #194#191,           // #192
+    #194#161,           // #193
+    #194#172,           // #194
+    #226#136#154,       // #195
+    #198#146,           // #196
+    #226#137#136,       // #197
+    #206#148,           // #198
+    #194#171,           // #199
+    #194#187,           // #200
+    #226#128#166,       // #201
+    #194#160,           // #202
+    #195#128,           // #203
+    #195#131,           // #204
+    #195#149,           // #205
+    #197#146,           // #206
+    #197#147,           // #207
+    #226#128#147,       // #208
+    #226#128#148,       // #209
+    #226#128#156,       // #210
+    #226#128#157,       // #211
+    #226#128#152,       // #212
+    #226#128#153,       // #213
+    #195#183,           // #214
+    #226#151#138,       // #215
+    #195#191,           // #216
+    #197#184,           // #217
+    #226#129#132,       // #218
+    #226#130#172,       // #219
+    #226#128#185,       // #220
+    #226#128#186,       // #221
+    #239#172#129,       // #222
+    #239#172#130,       // #223
+    #226#128#161,       // #224
+    #194#183,           // #225
+    #226#128#154,       // #226
+    #226#128#158,       // #227
+    #226#128#176,       // #228
+    #195#130,           // #229
+    #195#138,           // #230
+    #195#129,           // #231
+    #195#139,           // #232
+    #195#136,           // #233
+    #195#141,           // #234
+    #195#142,           // #235
+    #195#143,           // #236
+    #195#140,           // #237
+    #195#147,           // #238
+    #195#148,           // #239
+    #238#128#158,       // #240
+    #195#146,           // #241
+    #195#154,           // #242
+    #195#155,           // #243
+    #195#153,           // #244
+    #196#177,           // #245
+    #203#134,           // #246
+    #203#156,           // #247
+    #194#175,           // #248
+    #203#152,           // #249
+    #203#153,           // #250
+    #203#154,           // #251
+    #194#184,           // #252
+    #203#157,           // #253
+    #203#155,           // #254
+    #203#135            // #255
+  );
+
 function UTF8BOMToUTF8(const s: string): string;
 begin
   Result:=copy(s,4,length(s));
@@ -4981,6 +5279,11 @@ end;
 function KOI8ToUTF8(const s: string): string;
 begin
   Result:=SingleByteToUTF8(s,ArrayKOI8ToUTF8);
+end;
+
+function MacintoshToUTF8(const s: string): string;
+begin
+  Result:=SingleByteToUTF8(s,ArrayMacintoshToUTF8);
 end;
 
 function SingleByteToUTF8(const s: string; const Table: TCharToUTF8Table
@@ -5677,6 +5980,16 @@ begin
   251: Result:=150;
   252: Result:=129;
   255: Result:=152;
+  262: Result := 93;
+  263: Result := 125;
+  268: Result := 94;
+  269: Result := 126;
+  272: Result := 92;
+  273: Result := 124;
+  381: Result := 64;
+  382: Result := 96;
+  352: Result := 91;
+  353: Result := 123;
   402: Result:=159;
   915: Result:=226;
   920: Result:=233;
@@ -5792,9 +6105,9 @@ begin
   199: Result:=128;
   200: Result:=212;
   201: Result:=144;
-  202..203: Result:=Unicode--8;
+  202..203: Result:=Unicode+8;
   204: Result:=222;
-  205..207: Result:=Unicode--9;
+  205..207: Result:=Unicode+9;
   208: Result:=209;
   209: Result:=165;
   210: Result:=227;
@@ -5805,7 +6118,7 @@ begin
   215: Result:=158;
   216: Result:=157;
   217: Result:=235;
-  218..219: Result:=Unicode--15;
+  218..219: Result:=Unicode+15;
   220: Result:=154;
   221: Result:=237;
   222: Result:=232;
@@ -5896,7 +6209,7 @@ begin
   199: Result:=128;
   201: Result:=144;
   203: Result:=211;
-  205..206: Result:=Unicode--9;
+  205..206: Result:=Unicode+9;
   211: Result:=224;
   212: Result:=226;
   214: Result:=153;
@@ -6278,6 +6591,124 @@ begin
   end;
 end;
 
+function UnicodeToMacintosh(Unicode: cardinal): integer;
+begin
+  case Unicode of
+  0..127: Result:=Unicode;
+  160: Result:=202;
+  161: Result:=193;
+  162..163: Result:=Unicode;
+  165: Result:=180;
+  167: Result:=164;
+  168: Result:=172;
+  169: Result:=169;
+  170: Result:=187;
+  171: Result:=199;
+  172: Result:=194;
+  174: Result:=168;
+  175: Result:=248;
+  176: Result:=161;
+  177: Result:=177;
+  180: Result:=171;
+  181: Result:=181;
+  182: Result:=166;
+  183: Result:=225;
+  184: Result:=252;
+  186: Result:=188;
+  187: Result:=200;
+  191: Result:=192;
+  192: Result:=203;
+  193: Result:=231;
+  194: Result:=229;
+  195: Result:=204;
+  196..197: Result:=Unicode-68;
+  198: Result:=174;
+  199: Result:=130;
+  200: Result:=233;
+  201: Result:=131;
+  202: Result:=230;
+  203: Result:=232;
+  204: Result:=237;
+  205..207: Result:=Unicode+29;
+  209: Result:=132;
+  210: Result:=241;
+  211..212: Result:=Unicode+27;
+  213: Result:=205;
+  214: Result:=133;
+  216: Result:=175;
+  217: Result:=244;
+  218..219: Result:=Unicode+24;
+  220: Result:=134;
+  223: Result:=167;
+  224: Result:=136;
+  225: Result:=135;
+  226: Result:=137;
+  227: Result:=139;
+  228: Result:=138;
+  229: Result:=140;
+  230: Result:=190;
+  231: Result:=141;
+  232: Result:=143;
+  233: Result:=142;
+  234..235: Result:=Unicode-90;
+  236: Result:=147;
+  237: Result:=146;
+  238..239: Result:=Unicode-90;
+  241: Result:=150;
+  242: Result:=152;
+  243: Result:=151;
+  244: Result:=153;
+  245: Result:=155;
+  246: Result:=154;
+  247: Result:=214;
+  248: Result:=191;
+  249: Result:=157;
+  250: Result:=156;
+  251..252: Result:=Unicode-93;
+  255: Result:=216;
+  305: Result:=245;
+  338..339: Result:=Unicode-132;
+  376: Result:=217;
+  402: Result:=196;
+  710: Result:=246;
+  711: Result:=255;
+  728..730: Result:=Unicode-479;
+  731: Result:=254;
+  732: Result:=247;
+  733: Result:=253;
+  916: Result:=198;
+  937: Result:=189;
+  960: Result:=185;
+  8211..8212: Result:=Unicode-8003;
+  8216..8217: Result:=Unicode-8004;
+  8218: Result:=226;
+  8220..8221: Result:=Unicode-8010;
+  8222: Result:=227;
+  8224: Result:=160;
+  8225: Result:=224;
+  8226: Result:=165;
+  8230: Result:=201;
+  8240: Result:=228;
+  8249..8250: Result:=Unicode-8029;
+  8260: Result:=218;
+  8364: Result:=219;
+  8482: Result:=170;
+  8706: Result:=182;
+  8719: Result:=184;
+  8721: Result:=183;
+  8730: Result:=195;
+  8734: Result:=176;
+  8747: Result:=186;
+  8776: Result:=197;
+  8800: Result:=173;
+  8804..8805: Result:=Unicode-8626;
+  9674: Result:=215;
+  57374: Result:=240;
+  64257..64258: Result:=Unicode-64035;
+  else Result:=-1;
+  end;
+end;
+
 function UTF8ToUTF8BOM(const s: string): string;
 begin
   Result:=UTF8BOM+s;
@@ -6381,6 +6812,11 @@ end;
 function UTF8ToKOI8RU(const s: string): string;
 begin
   Result:=UTF8ToSingleByte(s,@UnicodeToKOI8RU);
+end;
+
+function UTF8ToMacintosh(const s: string): string;
+begin
+  Result:=UTF8ToSingleByte(s,@UnicodeToMacintosh);
 end;
 
 function UTF8ToSingleByte(const s: string;
@@ -6508,32 +6944,37 @@ begin
   List.Add('UTF-8');
   List.Add('UTF-8BOM');
   List.Add('Ansi');
-  List.Add('CP1250');
-  List.Add('CP1251');
-  List.Add('CP1252');
-  List.Add('CP1253');
-  List.Add('CP1254');
-  List.Add('CP1255');
-  List.Add('CP1256');
-  List.Add('CP1257');
-  List.Add('CP1258');
-  List.Add('CP437');
-  List.Add('CP850');
-  List.Add('CP852');
-  List.Add('CP866');
-  List.Add('CP874');
+
+  List.Add(UpperCase(EncodingCP1250));
+  List.Add(UpperCase(EncodingCP1251));
+  List.Add(UpperCase(EncodingCP1252));
+  List.Add(UpperCase(EncodingCP1253));
+  List.Add(UpperCase(EncodingCP1254));
+  List.Add(UpperCase(EncodingCP1255));
+  List.Add(UpperCase(EncodingCP1256));
+  List.Add(UpperCase(EncodingCP1257));
+  List.Add(UpperCase(EncodingCP1258));
+  List.Add(UpperCase(EncodingCP437));
+  List.Add(UpperCase(EncodingCP850));
+  List.Add(UpperCase(EncodingCP852));
+  List.Add(UpperCase(EncodingCP866));
+  List.Add(UpperCase(EncodingCP874));
 
   {$IFNDEF DisableAsianCodePages}
-  // asian
-  List.Add('CP932');
-  List.Add('CP936');
-  List.Add('CP949');
-  List.Add('CP950');
+  List.Add(UpperCase(EncodingCP932));
+  List.Add(UpperCase(EncodingCP936));
+  List.Add(UpperCase(EncodingCP949));
+  List.Add(UpperCase(EncodingCP950));
   {$ENDIF}
 
   List.Add('ISO-8859-1');
   List.Add('ISO-8859-2');
+  List.Add('ISO-8859-15');
+
   List.Add('KOI-8');
+  List.Add('Macintosh');
+
+  // UCS2 are less common, list them last
   List.Add('UCS-2LE');
   List.Add('UCS-2BE');
 end;
@@ -6663,6 +7104,97 @@ begin
   end;
 end;
 
+
+function ConvertEncodingFromUTF8(const s, ToEncoding: string; out Encoded: boolean): string;
+var
+  ATo: string;
+begin
+  Result:= s;
+  Encoded:= true;
+  ATo:= NormalizeEncoding(ToEncoding);
+
+  if ATo=EncodingUTF8BOM then begin Result:=UTF8ToUTF8BOM(s); exit; end;
+  if ATo=EncodingCPIso1 then begin Result:=UTF8ToISO_8859_1(s); exit; end;
+  if ATo=EncodingCPIso15 then begin Result:=UTF8ToISO_8859_15(s); exit; end;
+  if ATo=EncodingCPIso2 then begin Result:=UTF8ToISO_8859_2(s); exit; end;
+  if ATo=EncodingCP1250 then begin Result:=UTF8ToCP1250(s); exit; end;
+  if ATo=EncodingCP1251 then begin Result:=UTF8ToCP1251(s); exit; end;
+  if ATo=EncodingCP1252 then begin Result:=UTF8ToCP1252(s); exit; end;
+  if ATo=EncodingCP1253 then begin Result:=UTF8ToCP1253(s); exit; end;
+  if ATo=EncodingCP1254 then begin Result:=UTF8ToCP1254(s); exit; end;
+  if ATo=EncodingCP1255 then begin Result:=UTF8ToCP1255(s); exit; end;
+  if ATo=EncodingCP1256 then begin Result:=UTF8ToCP1256(s); exit; end;
+  if ATo=EncodingCP1257 then begin Result:=UTF8ToCP1257(s); exit; end;
+  if ATo=EncodingCP1258 then begin Result:=UTF8ToCP1258(s); exit; end;
+  if ATo=EncodingCP437 then begin Result:=UTF8ToCP437(s); exit; end;
+  if ATo=EncodingCP850 then begin Result:=UTF8ToCP850(s); exit; end;
+  if ATo=EncodingCP852 then begin Result:=UTF8ToCP852(s); exit; end;
+  if ATo=EncodingCP866 then begin Result:=UTF8ToCP866(s); exit; end;
+  if ATo=EncodingCP874 then begin Result:=UTF8ToCP874(s); exit; end;
+  {$IFNDEF DisableAsianCodePages}
+  if ATo=EncodingCP936 then begin Result:=UTF8ToCP936(s); exit; end;
+  if ATo=EncodingCP950 then begin Result:=UTF8ToCP950(s); exit; end;
+  if ATo=EncodingCP949 then begin Result:=UTF8ToCP949(s); exit; end;
+  if ATo=EncodingCP932 then begin Result:=UTF8ToCP932(s); exit; end;
+  {$ENDIF}
+  if ATo=EncodingCPKOI8 then begin Result:=UTF8ToKOI8(s); exit; end;
+  if ATo=EncodingCPMac then begin Result:=UTF8ToMacintosh(s); exit; end;
+  if ATo=EncodingUCS2LE then begin Result:=UTF8ToUCS2LE(s); exit; end;
+  if ATo=EncodingUCS2BE then begin Result:=UTF8ToUCS2BE(s); exit; end;
+
+  if (ATo=GetDefaultTextEncoding) and Assigned(ConvertUTF8ToAnsi) then begin
+    Result:=ConvertUTF8ToAnsi(s);
+    exit;
+  end;
+
+  Encoded:= false;
+end;
+
+function ConvertEncodingToUTF8(const s, FromEncoding: string; out Encoded: boolean): string;
+var
+  AFrom: string;
+begin
+  Result:= s;
+  Encoded:= true;
+  AFrom:= NormalizeEncoding(FromEncoding);
+
+  if AFrom=EncodingUTF8BOM then begin Result:=UTF8BOMToUTF8(s); exit; end;
+  if AFrom=EncodingCPIso1 then begin Result:=ISO_8859_1ToUTF8(s); exit; end;
+  if AFrom=EncodingCPIso15 then begin Result:=ISO_8859_15ToUTF8(s); exit; end;
+  if AFrom=EncodingCPIso2 then begin Result:=ISO_8859_2ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1250 then begin Result:=CP1250ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1251 then begin Result:=CP1251ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1252 then begin Result:=CP1252ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1253 then begin Result:=CP1253ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1254 then begin Result:=CP1254ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1255 then begin Result:=CP1255ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1256 then begin Result:=CP1256ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1257 then begin Result:=CP1257ToUTF8(s); exit; end;
+  if AFrom=EncodingCP1258 then begin Result:=CP1258ToUTF8(s); exit; end;
+  if AFrom=EncodingCP437 then begin Result:=CP437ToUTF8(s); exit; end;
+  if AFrom=EncodingCP850 then begin Result:=CP850ToUTF8(s); exit; end;
+  if AFrom=EncodingCP852 then begin Result:=CP852ToUTF8(s); exit; end;
+  if AFrom=EncodingCP866 then begin Result:=CP866ToUTF8(s); exit; end;
+  if AFrom=EncodingCP874 then begin Result:=CP874ToUTF8(s); exit; end;
+  {$IFNDEF DisableAsianCodePages}
+  if AFrom=EncodingCP936 then begin Result:=CP936ToUTF8(s); exit; end;
+  if AFrom=EncodingCP950 then begin Result:=CP950ToUTF8(s); exit; end;
+  if AFrom=EncodingCP949 then begin Result:=CP949ToUTF8(s); exit; end;
+  if AFrom=EncodingCP932 then begin Result:=CP932ToUTF8(s); exit; end;
+  {$ENDIF}
+  if AFrom=EncodingCPKOI8 then begin Result:=KOI8ToUTF8(s); exit; end;
+  if AFrom=EncodingCPMac then begin Result:=MacintoshToUTF8(s); exit; end;
+  if AFrom=EncodingUCS2LE then begin Result:=UCS2LEToUTF8(s); exit; end;
+  if AFrom=EncodingUCS2BE then begin Result:=UCS2BEToUTF8(s); exit; end;
+
+  if (AFrom=GetDefaultTextEncoding) and Assigned(ConvertAnsiToUTF8) then begin
+    Result:=ConvertAnsiToUTF8(s);
+    exit;
+  end;
+
+  Encoded:= false;
+end;
+
 function ConvertEncoding(const s, FromEncoding, ToEncoding: string): string;
 var
   AFrom, ATo, SysEnc : String;
@@ -6673,7 +7205,7 @@ var
 begin
   AFrom:=NormalizeEncoding(FromEncoding);
   ATo:=NormalizeEncoding(ToEncoding);
-  SysEnc:=NormalizeEncoding(GetDefaultTextEncoding);
+  SysEnc:=GetDefaultTextEncoding;
   if AFrom=EncodingAnsi then AFrom:=SysEnc
   else if AFrom='' then AFrom:=EncodingUTF8;
   if ATo=EncodingAnsi then ATo:=SysEnc
@@ -6690,297 +7222,26 @@ begin
   end;
   //DebugLn(['ConvertEncoding ',AFrom,' ',ATo]);
 
-  if (AFrom=EncodingUTF8) then begin
-    if ATo=EncodingUTF8BOM then begin Result:=UTF8ToUTF8BOM(s); exit; end;
-    if ATo='iso88591' then begin Result:=UTF8ToISO_8859_1(s); exit; end;
-    if ATo='iso885915' then begin Result:=UTF8ToISO_8859_15(s); exit; end;
-    if ATo='iso88592' then begin Result:=UTF8ToISO_8859_2(s); exit; end;
-    if ATo='cp1250' then begin Result:=UTF8ToCP1250(s); exit; end;
-    if ATo='cp1251' then begin Result:=UTF8ToCP1251(s); exit; end;
-    if ATo='cp1252' then begin Result:=UTF8ToCP1252(s); exit; end;
-    if ATo='cp1253' then begin Result:=UTF8ToCP1253(s); exit; end;
-    if ATo='cp1254' then begin Result:=UTF8ToCP1254(s); exit; end;
-    if ATo='cp1255' then begin Result:=UTF8ToCP1255(s); exit; end;
-    if ATo='cp1256' then begin Result:=UTF8ToCP1256(s); exit; end;
-    if ATo='cp1257' then begin Result:=UTF8ToCP1257(s); exit; end;
-    if ATo='cp1258' then begin Result:=UTF8ToCP1258(s); exit; end;
-    if ATo='cp437' then begin  Result:=UTF8ToCP437(s);  exit; end;
-    if ATo='cp850' then begin  Result:=UTF8ToCP850(s);  exit; end;
-    if ATo='cp852' then begin  Result:=UTF8ToCP852(s);  exit; end;
-    if ATo='cp866' then begin  Result:=UTF8ToCP866(s);  exit; end;
-    if ATo='cp874' then begin  Result:=UTF8ToCP874(s);  exit; end;
-    {$IFNDEF DisableAsianCodePages}
-    if ATo='cp936' then begin Result := UTF8ToCP936(s); exit; end;
-    if ATo='cp950' then begin Result := UTF8ToCP950(s); exit; end;
-    if ATo='cp949' then begin Result := UTF8ToCP949(s); exit; end;
-    if ATo='cp932' then begin Result := UTF8ToCP932(s); exit; end;
-    {$ENDIF}
-    if ATo='koi8' then begin  Result:=UTF8ToKOI8(s);  exit; end;
-    if ATo=EncodingUCS2LE then begin Result:=UTF8ToUCS2LE(s); exit; end;
-    if ATo=EncodingUCS2BE then begin Result:=UTF8ToUCS2BE(s); exit; end;
-
-    if (ATo=SysEnc) and Assigned(ConvertUTF8ToAnsi) then begin
-      Result:=ConvertUTF8ToAnsi(s);
-      exit;
-    end;
-  end else if ATo=EncodingUTF8 then begin
-    if AFrom=EncodingUTF8BOM then begin Result:=UTF8BOMToUTF8(s); exit; end;
-    if AFrom='iso88591' then begin Result:=ISO_8859_1ToUTF8(s); exit; end;
-    if AFrom='iso885915' then begin Result:=ISO_8859_15ToUTF8(s); exit; end;
-    if AFrom='iso88592' then begin Result:=ISO_8859_2ToUTF8(s); exit; end;
-    if AFrom='cp1250' then begin Result:=CP1250ToUTF8(s); exit; end;
-    if AFrom='cp1251' then begin Result:=CP1251ToUTF8(s); exit; end;
-    if AFrom='cp1252' then begin Result:=CP1252ToUTF8(s); exit; end;
-    if AFrom='cp1253' then begin Result:=CP1253ToUTF8(s); exit; end;
-    if AFrom='cp1254' then begin Result:=CP1254ToUTF8(s); exit; end;
-    if AFrom='cp1255' then begin Result:=CP1255ToUTF8(s); exit; end;
-    if AFrom='cp1256' then begin Result:=CP1256ToUTF8(s); exit; end;
-    if AFrom='cp1257' then begin Result:=CP1257ToUTF8(s); exit; end;
-    if AFrom='cp1258' then begin Result:=CP1258ToUTF8(s); exit; end;
-    if AFrom='cp437' then begin  Result:=CP437ToUTF8(s);  exit; end;
-    if AFrom='cp850' then begin  Result:=CP850ToUTF8(s);  exit; end;
-    if AFrom='cp852' then begin  Result:=CP852ToUTF8(s);  exit; end;
-    if AFrom='cp866' then begin  Result:=CP866ToUTF8(s);  exit; end;
-    if AFrom='cp874' then begin  Result:=CP874ToUTF8(s);  exit; end;
-    {$IFNDEF DisableAsianCodePages}
-    if AFrom='cp936' then begin Result := CP936ToUTF8(s); exit; end;
-    if AFrom='cp950' then begin Result := CP950ToUTF8(s); exit; end;
-    if AFrom='cp949' then begin Result := CP949ToUTF8(s); exit; end;
-    if AFrom='cp932' then begin Result := CP932ToUTF8(s); exit; end;
-    {$ENDIF}
-    if AFrom='koi8' then begin  Result:=KOI8ToUTF8(s);  exit; end;
-    if AFrom=EncodingUCS2LE then begin Result:=UCS2LEToUTF8(s); exit; end;
-    if AFrom=EncodingUCS2BE then begin Result:=UCS2BEToUTF8(s); exit; end;
-
-    if (AFrom=SysEnc) and Assigned(ConvertAnsiToUTF8) then begin
-      Result:=ConvertAnsiToUTF8(s);
-      exit;
-    end;
+  if AFrom=EncodingUTF8 then begin
+    Result:= ConvertEncodingFromUTF8(s, ATo, Encoded);
+    if Encoded then exit;
   end
-  else begin
-    //ATo and AFrom <> EncodingUTF8. Need to do ANSI->UTF8->ANSI.
-    //TempStr := s;
-    Encoded := false;
-
-    //ANSI->UTF8
-    if AFrom='iso88591' then begin
-      Result:=ISO_8859_1ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='iso885915' then begin
-      Result:=ISO_8859_15ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='iso88592' then begin
-      Result:=ISO_8859_2ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1250' then begin
-      Result:=CP1250ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1251' then begin
-      Result:=CP1251ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1252' then begin
-      Result:=CP1252ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1253' then begin
-      Result:=CP1253ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1254' then begin
-      Result:=CP1254ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1255' then begin
-      Result:=CP1255ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1256' then begin
-      Result:=CP1256ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1257' then begin
-      Result:=CP1257ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp1258' then begin
-      Result:=CP1258ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp850' then begin
-      Result:=CP850ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp852' then begin
-      Result:=CP852ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp866' then begin
-      Result:=CP866ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom='cp874' then begin
-      Result:=CP874ToUTF8(s);
-      Encoded := true;
-    end
-    {$IFNDEF DisableAsianCodePages}
-    else if AFrom = 'cp936' then
-    begin
-      Result  := CP936ToUTF8(s);
-      Encoded := True;
-    end
-    else if AFrom = 'cp950' then
-    begin
-      Result  := CP950ToUTF8(s);
-      Encoded := True;
-    end
-    else if AFrom = 'cp949' then
-    begin
-      Result  := CP949ToUTF8(s);
-      Encoded := True;
-    end
-    else if AFrom = 'cp932' then
-    begin
-      Result  := CP932ToUTF8(s);
-      Encoded := True;
-    end
-    {$ENDIF}
-    else if AFrom='koi8' then begin
-      Result:=KOI8ToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom = EncodingUCS2LE then begin
-      Result := UCS2LEToUTF8(s);
-      Encoded := true;
-    end
-    else if AFrom = EncodingUCS2BE then begin
-      Result := UCS2BEToUTF8(s);
-      Encoded := true;
-    end
-    else if (AFrom=SysEnc) and Assigned(ConvertAnsiToUTF8) then begin
-      Result:=ConvertAnsiToUTF8(s);
-      Encoded := true;
-    end;
-
-    if Encoded = true then begin
-      //UTF8->ANSI
-      Encoded := false;
-      if ATo='iso88591' then begin
-        Result:=UTF8ToISO_8859_1(Result);
-        Encoded := true;
-      end
-      else if ATo='iso885915' then begin
-        Result:=UTF8ToISO_8859_15(Result);
-        Encoded := true;
-      end
-      else if ATo='iso88592' then begin
-        Result:=UTF8ToISO_8859_2(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1250' then begin
-        Result:=UTF8ToCP1250(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1251' then begin
-        Result:=UTF8ToCP1251(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1252' then begin
-        Result:=UTF8ToCP1252(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1253' then begin
-        Result:=UTF8ToCP1253(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1254' then begin
-        Result:=UTF8ToCP1254(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1255' then begin
-        Result:=UTF8ToCP1255(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1256' then begin
-        Result:=UTF8ToCP1256(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1257' then begin
-        Result:=UTF8ToCP1257(Result);
-        Encoded := true;
-      end
-      else if ATo='cp1258' then begin
-        Result:=UTF8ToCP1258(Result);
-        Encoded := true;
-      end
-      else if ATo='cp850' then begin
-        Result:=UTF8ToCP850(Result);
-        Encoded := true;
-      end
-      else if ATo='cp852' then begin
-        Result:=UTF8ToCP852(Result);
-        Encoded := true;
-      end
-      else if ATo='cp866' then begin
-        Result:=UTF8ToCP866(Result);
-        Encoded := true;
-      end
-      else if ATo='cp874' then begin
-        Result:=UTF8ToCP874(Result);
-        Encoded := true;
-      end
-      {$IFNDEF DisableAsianCodePages}
-      else if ATo = 'cp936' then
-      begin
-        Result  := UTF8ToCP936(Result);
-        Encoded := True;
-      end
-      else if ATo = 'cp950' then
-      begin
-        Result  := UTF8ToCP950(Result);
-        Encoded := True;
-      end
-      else if ATo = 'cp949' then
-      begin
-        Result  := UTF8ToCP949(Result);
-        Encoded := True;
-      end
-      else if ATo = 'cp932' then
-      begin
-        Result  := UTF8ToCP932(Result);
-        Encoded := True;
-      end
-      {$ENDIF}
-      else if ATo='koi8' then begin
-        Result:=UTF8ToKOI8(Result);
-        Encoded := true;
-      end
-      else if ATo = EncodingUCS2LE then begin
-        Result := UTF8ToUCS2LE(Result);
-        Encoded := true;
-      end
-      else if ATo = EncodingUCS2BE then begin
-        Result := UTF8ToUCS2BE(Result);
-        Encoded := true;
-      end
-      else if (ATo=SysEnc) and Assigned(ConvertUTF8ToAnsi) then begin
-        Result:=ConvertUTF8ToAnsi(Result);
-        Encoded := true;
-      end;
-    end;
-
-    //Exit if encoded successfully.
-    if Encoded = true then begin
-      exit;
-    end;
-
+  else
+  if ATo=EncodingUTF8 then begin
+    Result:= ConvertEncodingToUTF8(s, AFrom, Encoded);
+    if Encoded then exit;
+  end
+  else
+  begin
+    Result:= ConvertEncodingToUTF8(s, AFrom, Encoded);
+    if Encoded then
+      Result:= ConvertEncodingFromUTF8(Result, ATo, Encoded);
+    if Encoded then exit;
   end;
 
+  //cannot encode: return orig str
   Result:=s;
+
   {$ifdef EnableIconvEnc}
   try
     if not IconvLibFound and not InitIconv(Dummy) then

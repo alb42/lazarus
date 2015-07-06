@@ -3,13 +3,16 @@ unit LazSynIMM;
 {$mode objfpc}{$H+}
 
 {off $DEFINE WinIMEDebug}
+{off $DEFINE WinIMEFullDeferOverwrite} // In Full IME do "overwrite selecton" when IME finishes (normally done at start)
+{off $DEFINE WinIMEFullOverwriteSkipUndo} // In Full IME undo "overwrite selecton", if IME cancelled
 
 interface
 
 uses
-  windows, imm, Classes, SysUtils, Controls, LazLoggerBase, LCLType, LazUTF8,
-  Graphics, SynEditMiscClasses, SynTextDrawer, SynEditPointClasses, SynEditMarkupSelection,
-  SynEditMarkup, SynEditTypes, SynEditKeyCmds, LazSynEditText;
+  windows, imm, Classes, SysUtils, Controls, LazLoggerBase, LCLType, LazUTF8, Graphics,
+  SynEditMiscClasses, SynTextDrawer, SynEditPointClasses, SynEditMarkupSelection,
+  SynEditMarkup, SynEditTypes, SynEditKeyCmds, LazSynEditText, SynEditTextBase,
+  SynEditMiscProcs;
 
 {$IFDEF WINCE} {$IF (FPC_FULLVERSION < 20700)}
 function ImmSetCompositionFontA(_himc:HIMC; lplf:LPLOGFONT):BOOL; external ImmDLL name 'ImmSetCompositionFontA';
@@ -23,10 +26,15 @@ type
   LazSynIme = class(TSynEditFriend)
   private
     FInvalidateLinesMethod: TInvalidateLines;
+    FOnIMEEnd: TNotifyEvent;
+    FOnIMEStart: TNotifyEvent;
+    FIMEActive: Boolean;
   protected
     FInCompose: Boolean;
     procedure InvalidateLines(FirstLine, LastLine: integer);
-    procedure StopIme(Success: Boolean);
+    procedure StopIme(Success: Boolean); virtual;
+    procedure DoIMEStarted;
+    procedure DoIMEEnded;
   public
     constructor Create(AOwner: TSynEditBase); reintroduce;
     procedure WMImeRequest(var Msg: TMessage); virtual;
@@ -36,6 +44,8 @@ type
     procedure WMImeEndComposition(var Msg: TMessage); virtual;
     procedure FocusKilled; virtual;
     property InvalidateLinesMethod : TInvalidateLines write FInvalidateLinesMethod;
+    property OnIMEStart: TNotifyEvent read FOnIMEStart write FOnIMEStart;
+    property OnIMEEnd: TNotifyEvent read FOnIMEEnd write FOnIMEEnd;
   end;
 
   { LazSynImeSimple }
@@ -70,9 +80,18 @@ type
 
   LazSynImeFull = class(LazSynIme)
   private
-    FImeBlockSelection, FImeBlockSelection2: TSynEditSelection;
-    FImeMarkupSelection, FImeMarkupSelection2: TSynEditMarkupSelection;
+    FAdjustLeftCharForTargets: Boolean;
+    FLeftPosForTarget, FRightPosForTarget: Integer;
+    FImeBlockSelection, FImeBlockSelection2, FImeBlockSelection3: TSynEditSelection; // TODO: create a custom markup
+    FImeMarkupSelection, FImeMarkupSelection2, FImeMarkupSelection3: TSynEditMarkupSelection;
     FInImeMsg: Boolean;
+    {$IFnDEF WinIMEFullOverwriteSkipUndo}
+    FUndoStamp1, FUndoStamp2: TSynEditUndoGroup;
+    FNeedUndoOnCancel: Boolean;
+    {$ENDIF}
+    {$IFDEF WinIMEFullDeferOverwrite}
+    FHasPersistLock: Boolean;
+    {$ENDIF}
     procedure SetImeTempText(const s: string);
     procedure DoOnCommand(Sender: TObject; AfterProcessing: boolean; var Handled: boolean;
       var Command: TSynEditorCommand; var AChar: TUTF8Char; Data: pointer;
@@ -80,6 +99,9 @@ type
     procedure DoOnMouse(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X,
       Y: Integer);
     procedure DoStatusChanged(Sender: TObject; Changes: TSynStatusChanges);
+    procedure EnsureLeftChar;
+  protected
+    procedure StopIme(Success: Boolean); override;
   public
     constructor Create(AOwner: TSynEditBase);
     destructor Destroy; override;
@@ -89,6 +111,8 @@ type
     procedure WMImeStartComposition(var Msg: TMessage); override;
     procedure WMImeEndComposition(var Msg: TMessage); override;
     procedure FocusKilled; override;
+  public
+    property AdjustLeftCharForTargets: Boolean read FAdjustLeftCharForTargets write FAdjustLeftCharForTargets;
   end;
 
 implementation
@@ -115,6 +139,25 @@ begin
       ImmNotifyIME(imc, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
     ImmReleaseContext(FriendEdit.Handle, imc);
   end;
+  DoIMEEnded;
+end;
+
+procedure LazSynIme.DoIMEStarted;
+begin
+  if FIMEActive then
+    exit;
+  FIMEActive := True;
+  if FOnIMEStart <> nil then
+    FOnIMEStart(FriendEdit);
+end;
+
+procedure LazSynIme.DoIMEEnded;
+begin
+  if not FIMEActive then
+    exit;
+  FIMEActive := False;
+  if FOnIMEEnd <> nil then
+    FOnIMEEnd(FriendEdit);
 end;
 
 constructor LazSynIme.Create(AOwner: TSynEditBase);
@@ -313,9 +356,12 @@ begin
           GetMem(p, ImeCount + 2);
           try
             TCustomSynEdit(FriendEdit).BeginUpdate;
+            if SelectionObj.SelAvail and (not SelectionObj.Persistent) and (eoOverwriteBlock in TCustomSynEdit(FriendEdit).Options2) then
+              SelectionObj.SelText := '';
             ImmGetCompositionStringW(imc, GCS_RESULTSTR, p, ImeCount + 2);
             p[ImeCount] := #0;
             p[ImeCount+1] := #0;
+            FImeBlockSelection.StartLineBytePos := CaretObj.LineBytePos;
             FImeBlockSelection.SelText := UTF16ToUTF8(PWCHAR(p));
             FImeBlockSelection.StartLineBytePos := FImeBlockSelection.EndLineBytePos;
             CaretObj.LineBytePos := FImeBlockSelection.StartLineBytePos;
@@ -347,11 +393,13 @@ begin
   end;
   FInCompose := True;
   FImeBlockSelection.StartLineBytePos := CaretObj.LineBytePos;
+  DoIMEStarted;
 end;
 
 procedure LazSynImeSimple.WMImeEndComposition(var Msg: TMessage);
 begin
   FInCompose := False;
+  DoIMEEnded;
 end;
 
 procedure LazSynImeSimple.FocusKilled;
@@ -380,6 +428,33 @@ begin
   StopIme(True);
 end;
 
+procedure LazSynImeFull.EnsureLeftChar;
+var
+  r: Integer;
+begin
+  if (FLeftPosForTarget < 1) or not FAdjustLeftCharForTargets then
+    exit;
+
+  r := FRightPosForTarget - TCustomSynEdit(FriendEdit).CharsInWindow;
+
+  if (TCustomSynEdit(FriendEdit).LeftChar < r) then
+    TCustomSynEdit(FriendEdit).LeftChar := r;
+
+  if (TCustomSynEdit(FriendEdit).LeftChar > FLeftPosForTarget) then
+    TCustomSynEdit(FriendEdit).LeftChar := FLeftPosForTarget;
+
+end;
+
+procedure LazSynImeFull.StopIme(Success: Boolean);
+begin
+  inherited StopIme(Success);
+  {$IFDEF WinIMEFullDeferOverwrite}
+  if FHasPersistLock then
+    SelectionObj.DecPersistentLock;
+  FHasPersistLock := False;
+  {$ENDIF}
+end;
+
 procedure LazSynImeFull.SetImeTempText(const s: string);
 var
   p1, p2: TPoint;
@@ -404,29 +479,44 @@ end;
 constructor LazSynImeFull.Create(AOwner: TSynEditBase);
 begin
   inherited Create(AOwner);
+  FAdjustLeftCharForTargets := True;
 
   FImeBlockSelection := TSynEditSelection.Create(ViewedTextBuffer, False);
   FImeBlockSelection.InvalidateLinesMethod := @InvalidateLines;
   FImeBlockSelection2 := TSynEditSelection.Create(ViewedTextBuffer, False);
   FImeBlockSelection2.InvalidateLinesMethod := @InvalidateLines;
+  FImeBlockSelection3 := TSynEditSelection.Create(ViewedTextBuffer, False);
+  FImeBlockSelection3.InvalidateLinesMethod := @InvalidateLines;
 
   FImeMarkupSelection  := TSynEditMarkupSelection.Create(FriendEdit, FImeBlockSelection);
   FImeMarkupSelection2 := TSynEditMarkupSelection.Create(FriendEdit, FImeBlockSelection2);
+  FImeMarkupSelection3 := TSynEditMarkupSelection.Create(FriendEdit, FImeBlockSelection3);
 
   TSynEditMarkupManager(MarkupMgr).AddMarkUp(FImeMarkupSelection);
   TSynEditMarkupManager(MarkupMgr).AddMarkUp(FImeMarkupSelection2);
+  TSynEditMarkupManager(MarkupMgr).AddMarkUp(FImeMarkupSelection3);
 
   FImeMarkupSelection.MarkupInfo.Clear;
-  FImeMarkupSelection.MarkupInfo.FramePriority := 999;
+  FImeMarkupSelection.MarkupInfo.FramePriority := MaxInt-1;
   FImeMarkupSelection.MarkupInfo.FrameColor := clDefault;
   FImeMarkupSelection.MarkupInfo.FrameStyle := slsDotted;
-  FImeMarkupSelection.MarkupInfo.FrameEdges := sfeAround;
+  FImeMarkupSelection.MarkupInfo.FrameEdges := sfeBottom;
+
+  // TODO: prevent any other frame in the active IME (as it distracts from IME underlines
+  // this includes left/right frame edges (can not currently be prevented)
+
+  // prevent any underline
+  FImeMarkupSelection.MarkupInfo.StylePriority[fsUnderline] := MaxInt;
+  FImeMarkupSelection.MarkupInfo.Style:= [];
+  FImeMarkupSelection.MarkupInfo.StyleMask:= [fsUnderline];
 
   FImeMarkupSelection2.MarkupInfo.Clear;
-  FImeMarkupSelection2.MarkupInfo.FramePriority := 999+1;
+  FImeMarkupSelection2.MarkupInfo.FramePriority := MaxInt;
   FImeMarkupSelection2.MarkupInfo.FrameColor := clDefault;
   FImeMarkupSelection2.MarkupInfo.FrameStyle := slsSolid;
   FImeMarkupSelection2.MarkupInfo.FrameEdges := sfeBottom;
+
+  FImeMarkupSelection3.MarkupInfo.Assign(TCustomSynEdit(FriendEdit).SelectedColor);
 
   TCustomSynEdit(FriendEdit).RegisterStatusChangedHandler(@DoStatusChanged, [scCaretX, scCaretY, scModified]);
   TCustomSynEdit(FriendEdit).RegisterCommandHandler(@DoOnCommand, nil, [hcfInit]);
@@ -439,9 +529,16 @@ begin
   TCustomSynEdit(FriendEdit).UnregisterBeforeMouseDownHandler(@DoOnMouse);
   TCustomSynEdit(FriendEdit).UnregisterCommandHandler(@DoOnCommand);
   TCustomSynEdit(FriendEdit).UnRegisterStatusChangedHandler(@DoStatusChanged);
+  TSynEditMarkupManager(MarkupMgr).RemoveMarkUp(FImeMarkupSelection);
+  TSynEditMarkupManager(MarkupMgr).RemoveMarkUp(FImeMarkupSelection2);
+  TSynEditMarkupManager(MarkupMgr).RemoveMarkUp(FImeMarkupSelection3);
 
+  FreeAndNil(FImeMarkupSelection);
+  FreeAndNil(FImeMarkupSelection2);
+  FreeAndNil(FImeMarkupSelection3);
   FreeAndNil(FImeBlockSelection);
   FreeAndNil(FImeBlockSelection2);
+  FreeAndNil(FImeBlockSelection3);
   inherited Destroy;
 end;
 
@@ -551,6 +648,10 @@ var
   ImeCount: LongWord;
   x, i: Integer;
   xy: TPoint;
+  grp: Boolean;
+  {$IFDEF WinIMEFullDeferOverwrite}
+  sel, sel2: Boolean;
+  {$ENDIF}
 begin
   {$IFDEF WinIMEDebug}
   s := '';
@@ -558,10 +659,10 @@ begin
   if (Msg.lparam and GCS_COMPREADATTR)<>0 then s := s + 'GCS_COMPREADATTR, ';
   if (Msg.lparam and GCS_COMPREADCLAUSE)<>0 then s := s + 'GCS_COMPREADCLAUSE, ';
   //if (Msg.lparam and GCS_COMPSTR)<>0 then s := s + 'GCS_COMPSTR, ';
-  if (Msg.lparam and GCS_COMPATTR)<>0 then s := s + 'GCS_COMPATTR, ';
-  if (Msg.lparam and GCS_COMPCLAUSE)<>0 then s := s + 'GCS_COMPCLAUSE, ';
+  //if (Msg.lparam and GCS_COMPATTR)<>0 then s := s + 'GCS_COMPATTR, ';
+  //if (Msg.lparam and GCS_COMPCLAUSE)<>0 then s := s + 'GCS_COMPCLAUSE, ';
   //if (Msg.lparam and GCS_CURSORPOS)<>0 then s := s + 'GCS_CURSORPOS, ';
-  //if (Msg.lparam and GCS_DELTASTART)<>0 then s := s + 'GCS_DELTASTART, ';
+  if (Msg.lparam and GCS_DELTASTART)<>0 then s := s + 'GCS_DELTASTART, ';
   if (Msg.lparam and GCS_RESULTREADSTR)<>0 then s := s + 'GCS_RESULTREADSTR, ';
   if (Msg.lparam and GCS_RESULTREADCLAUSE)<>0 then s := s + 'GCS_RESULTREADCLAUSE, ';
   //if (Msg.lparam and GCS_RESULTSTR)<>0 then s := s + 'GCS_RESULTSTR, ';
@@ -571,7 +672,7 @@ begin
   if s <> '' then debugln(['TCustomSynEdit.WMImeComposition ', s]);
   {$ENDIF}
 
-  if ((Msg.LParam and (GCS_RESULTSTR or GCS_COMPSTR or GCS_CURSORPOS or GCS_COMPATTR)) = 0) then
+  if (Msg.LParam and (GCS_RESULTSTR or GCS_COMPSTR or GCS_CURSORPOS or GCS_COMPATTR {or GCS_COMPCLAUSE})) = 0 then
     exit;
 
   imc := 0;
@@ -589,18 +690,36 @@ begin
       if ImeCount > 0 then begin
         GetMem(p, ImeCount + 2);
         try
+          SetImeTempText('');
           CaretObj.LineBytePos := FImeBlockSelection.StartLineBytePos;
+          grp := ViewedTextBuffer.UndoList.GroupUndo;
+          ViewedTextBuffer.UndoList.GroupUndo := True;
           TCustomSynEdit(FriendEdit).BeginUpdate;
+          ViewedTextBuffer.UndoList.CurrentReason := ecImeStr;
+          {$IFDEF WinIMEFullDeferOverwrite}
+          if FHasPersistLock then
+            SelectionObj.DecPersistentLock;
+          FHasPersistLock := False;
+          if SelectionObj.SelAvail and (not SelectionObj.Persistent) and (eoOverwriteBlock in TCustomSynEdit(FriendEdit).Options2)
+          then begin
+            SelectionObj.SelText := '';
+            FImeBlockSelection.StartLineBytePos := SelectionObj.StartLineBytePos;
+          end;
+          {$ENDIF}
+          CaretObj.LineBytePos := FImeBlockSelection.StartLineBytePos;
           ImmGetCompositionStringW(imc, GCS_RESULTSTR, p, ImeCount + 2);
           p[ImeCount] := #0;
           p[ImeCount+1] := #0;
-          SetImeTempText('');
           FImeBlockSelection.SelText := UTF16ToUTF8(PWCHAR(p));
           FImeBlockSelection.StartLineBytePos := FImeBlockSelection.EndLineBytePos;
           CaretObj.LineBytePos := FImeBlockSelection.StartLineBytePos;
+          {$IFnDEF WinIMEFullOverwriteSkipUndo}
+          FNeedUndoOnCancel := False;
+          {$ENDIF}
           Msg.Result := 1;
         finally
           TCustomSynEdit(FriendEdit).EndUpdate;
+          ViewedTextBuffer.UndoList.GroupUndo := grp;
           FreeMem(p, ImeCount + 2);
         end;
       end;
@@ -619,7 +738,15 @@ begin
           ImmGetCompositionStringW(imc, GCS_COMPSTR, p, ImeCount + 2);
           p[ImeCount] := #0;
           p[ImeCount+1] := #0;
+          {$IFDEF WinIMEFullDeferOverwrite}
+          sel := (not SelectionObj.IsBackwardSel) and (CompareCarets(SelectionObj.EndLineBytePos, FImeBlockSelection.StartLineBytePos) = 0);
+          sel2 := SelectionObj.IsBackwardSel and (CompareCarets(SelectionObj.EndLineBytePos, FImeBlockSelection.EndLineBytePos) = 0);
+          {$ENDIF}
           SetImeTempText(UTF16ToUTF8(PWCHAR(p)));
+          {$IFDEF WinIMEFullDeferOverwrite}
+          if sel then SelectionObj.EndLineBytePos := FImeBlockSelection.StartLineBytePos;
+          if sel2 then SelectionObj.EndLineBytePos := FImeBlockSelection.EndLineBytePos;
+          {$ENDIF}
           Msg.Result := 1;
         finally
           FreeMem(p, ImeCount + 2);
@@ -628,6 +755,13 @@ begin
     end;
 
     if ((Msg.LParam and GCS_COMPATTR) <> 0) then begin
+  //ATTR_INPUT               = $00;  // dotted undurline
+  //ATTR_TARGET_CONVERTED    = $01;  // full underline (bold underline / double width line)
+  //ATTR_CONVERTED           = $02;  // light underline (single width line)
+  //ATTR_TARGET_NOTCONVERTED = $03;  // Show as selected ?
+  //ATTR_INPUT_ERROR         = $04;  // ? none
+  //ATTR_FIXEDCONVERTED      = $05;  // ? none
+  //            low confidence => green underline.
       if imc = 0 then
         imc := ImmGetContext(FriendEdit.Handle);
       ImeCount := ImmGetCompositionStringW(imc, GCS_COMPATTR, nil, 0);
@@ -635,32 +769,63 @@ begin
       DebugLn(['***** GCS_COMPATTR  ', dbgHex(ImeCount)]);
       {$ENDIF}
       if ImeCount > 0 then begin
+        FLeftPosForTarget := -1;
+        FRightPosForTarget := -1;
         xy := FImeBlockSelection.StartLineBytePos;
         FImeBlockSelection2.StartLineBytePos := xy;
         FImeBlockSelection2.EndLineBytePos := xy;
+        FImeBlockSelection3.StartLineBytePos := xy;
+        FImeBlockSelection3.EndLineBytePos := xy;
         GetMem(p, ImeCount + 2);
         try
           ImmGetCompositionStringW(imc, GCS_COMPATTR, p, ImeCount + 2);
-          //DebugLn(dbgMemRange(PByte( p), ImeCount));
+          DebugLn(dbgMemRange(PByte( p), ImeCount));
           i := 0;
-          while {%H-}i < ImeCount do begin
+          while longword(i) < ImeCount do begin
             if ord(p[i]) = ATTR_TARGET_CONVERTED then begin
               x := FImeBlockSelection.StartBytePos;
               xy.x := x + CharToByte(x, i);
               FImeBlockSelection2.StartLineBytePos := xy;
+              if (FLeftPosForTarget < 0) or (FLeftPosForTarget > xy.x) then
+                FLeftPosForTarget := xy.x;
               inc(i);
-              while {%H-}i < ImeCount do begin
+              while longword(i) < ImeCount do begin
                 if (ord(p[i]) <> ATTR_TARGET_CONVERTED) or (i = ImeCount-1) then begin
                   if (ord(p[i]) = ATTR_TARGET_CONVERTED) then
                     inc(i);
                   xy.x := x + CharToByte(x, i);
                   FImeBlockSelection2.EndLineBytePos := xy;
+                  if (FRightPosForTarget < 0) or (FRightPosForTarget > xy.x) then
+                    FRightPosForTarget := xy.x;
                   break;
                 end;
                 inc(i);
               end;
-              break;
+              //break;
             end;
+
+            if ord(p[i]) = ATTR_TARGET_NOTCONVERTED then begin
+              x := FImeBlockSelection.StartBytePos;
+              xy.x := x + CharToByte(x, i);
+              if (FLeftPosForTarget < 0) or (FLeftPosForTarget > xy.x) then
+                FLeftPosForTarget := xy.x;
+              FImeBlockSelection3.StartLineBytePos := xy;
+              inc(i);
+              while longword(i) < ImeCount do begin
+                if (ord(p[i]) <> ATTR_TARGET_NOTCONVERTED) or (i = ImeCount-1) then begin
+                  if (ord(p[i]) = ATTR_TARGET_NOTCONVERTED) then
+                    inc(i);
+                  xy.x := x + CharToByte(x, i);
+                  FImeBlockSelection3.EndLineBytePos := xy;
+                  if (FRightPosForTarget < 0) or (FRightPosForTarget > xy.x) then
+                    FRightPosForTarget := xy.x;
+                  break;
+                end;
+                inc(i);
+              end;
+              //break;
+            end;
+
             inc(i);
           end;
 
@@ -668,8 +833,38 @@ begin
         finally
           FreeMem(p, ImeCount + 2);
         end;
+
+        if (FLeftPosForTarget > 0) and FAdjustLeftCharForTargets then begin
+          FLeftPosForTarget := ViewedTextBuffer.LogicalToPhysicalPos
+            (Point(FLeftPosForTarget, FImeBlockSelection.FirstLineBytePos.Y)).x;
+          FRightPosForTarget := ViewedTextBuffer.LogicalToPhysicalPos
+            (Point(FRightPosForTarget, FImeBlockSelection.FirstLineBytePos.Y)).x;
+          EnsureLeftChar;
+        end;
       end;
     end;
+
+    (*
+    if ((Msg.LParam and GCS_COMPCLAUSE) <> 0) then begin
+      // attributes for all chars in any one clause should be the equal.
+      if imc = 0 then
+        imc := ImmGetContext(FriendEdit.Handle);
+      ImeCount := ImmGetCompositionStringW(imc, GCS_COMPCLAUSE, nil, 0);
+      {$IFDEF WinIMEDebug}
+      DebugLn(['***** GCS_COMPCLAUSE ', dbgHex(ImeCount)]);
+      {$ENDIF}
+      if ImeCount > 0 then begin
+        GetMem(p, ImeCount + 2);
+        try
+          ImmGetCompositionStringW(imc, GCS_COMPCLAUSE, p, ImeCount + 2);
+
+DebugLn(dbgMemRange(PByte( p), ImeCount));
+        finally
+          FreeMem(p, ImeCount + 2);
+        end;
+      end;
+    end;
+    *)
 
     if ((Msg.LParam and GCS_CURSORPOS) <> 0) then begin
       if imc = 0 then
@@ -677,13 +872,15 @@ begin
 
       ImeCount := ImmGetCompositionStringW(imc, GCS_CURSORPOS, nil, 0);
       {$IFDEF WinIMEDebug}
-      DebugLn(['--- GCS_CURSORPOS ', dbgs(ImeCount)]);
+      DebugLn(['--- GCS_CURSORPOS ', dbgs(ImeCount), '  FLeftPosForTarget=',FLeftPosForTarget]);
       {$ENDIF}
-      if ImeCount >= 0 then begin
+      if ImeCount >= 0 then begin    // ToDo: Comparison is always True.
         ImeCount := ImeCount and $ffff;
         x := FImeBlockSelection.StartBytePos;
         x := x + CharToByte(x, ImeCount);
         CaretObj.CharPos := ViewedTextBuffer.LogicalToPhysicalPos(Point(x, FImeBlockSelection.StartLinePos)).x;
+        // TODO: this causes full repaints
+        EnsureLeftChar;
       end;
     end;
 
@@ -698,9 +895,37 @@ end;
 procedure LazSynImeFull.WMImeStartComposition(var Msg: TMessage);
 begin
   //debugln(['TCustomSynEdit.WMImeStartComposition ']);
+  {$IFnDEF WinIMEFullDeferOverwrite}
+  if SelectionObj.SelAvail and (not SelectionObj.Persistent) and (eoOverwriteBlock in TCustomSynEdit(FriendEdit).Options2)
+  then begin
+    {$IFnDEF WinIMEFullOverwriteSkipUndo}
+    ViewedTextBuffer.UndoList.ForceGroupEnd;
+    FUndoStamp1 := ViewedTextBuffer.UndoList.PeekItem;
+    {$ENDIF}
+    TCustomSynEdit(FriendEdit).BeginUpdate;
+    ViewedTextBuffer.UndoList.CurrentReason := ecImeStr;
+    SelectionObj.SelText := '';
+    TCustomSynEdit(FriendEdit).EndUpdate;
+  {$IFnDEF WinIMEFullOverwriteSkipUndo}
+    FUndoStamp2 := ViewedTextBuffer.UndoList.PeekItem;
+    FNeedUndoOnCancel := FUndoStamp1 <> FUndoStamp2;
+  end
+  else begin
+    FNeedUndoOnCancel := False
+  {$ENDIF}
+  end;
+  {$ENDIF}
+  {$IFDEF WinIMEFullDeferOverwrite}
+  if not FHasPersistLock then
+    SelectionObj.IncPersistentLock;
+  FHasPersistLock := True;
+  {$ENDIF}
+
+  FImeMarkupSelection3.MarkupInfo.Assign(TCustomSynEdit(FriendEdit).SelectedColor);
   FImeBlockSelection.StartLineBytePos := CaretObj.LineBytePos;
   FInCompose := True;
   Msg.Result := 1;
+  DoIMEStarted;
 end;
 
 procedure LazSynImeFull.WMImeEndComposition(var Msg: TMessage);
@@ -708,10 +933,23 @@ begin
   //debugln(['TCustomSynEdit.WMImeEndComposition ']);
   SetImeTempText('');
   CaretObj.LineBytePos := FImeBlockSelection.LastLineBytePos;
+  {$IFnDEF WinIMEFullDeferOverwrite}
+  {$IFnDEF WinIMEFullOverwriteSkipUndo}
+  if FNeedUndoOnCancel and (ViewedTextBuffer.UndoList.PeekItem = FUndoStamp2) then
+    TCustomSynEdit(FriendEdit).Undo;
+  {$ENDIF}
+  {$ENDIF}
+  {$IFDEF WinIMEFullDeferOverwrite}
+  if FHasPersistLock then
+    SelectionObj.DecPersistentLock;
+  FHasPersistLock := False;
+  {$ENDIF}
+
   FImeBlockSelection.StartLineBytePos := CaretObj.LineBytePos;
   FImeBlockSelection2.StartLineBytePos := CaretObj.LineBytePos;
   FInCompose := False;
   Msg.Result := 1;
+  DoIMEEnded;
 end;
 
 procedure LazSynImeFull.FocusKilled;

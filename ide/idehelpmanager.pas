@@ -37,19 +37,19 @@ uses
   Buttons, StdCtrls, Dialogs, ExtCtrls, FileProcs, Graphics, ButtonPanel,
   LConvEncoding, lazutf8classes,
   // CodeTools
-  BasicCodeTools, CodeToolManager, CodeAtom, CodeCache, CustomCodeTool, CodeTree,
+  BasicCodeTools, CodeToolManager, CodeCache, CustomCodeTool, CodeTree,
   PascalParserTool, FindDeclarationTool,
   // IDEIntf
-  PropEdits, ObjectInspector, FormEditingIntf, ProjectIntf, TextTools,
+  PropEdits, ObjectInspector, ProjectIntf, TextTools,
   IDEDialogs, LazHelpIntf, LazHelpHTML, HelpFPDoc, MacroIntf, IDEWindowIntf,
   IDEMsgIntf, PackageIntf, LazIDEIntf, HelpIntfs, IDEHelpIntf,
   IDEExternToolIntf,
   // IDE
   LazarusIDEStrConsts, TransferMacros, DialogProcs, IDEOptionDefs,
-  ObjInspExt, EnvironmentOpts, AboutFrm, Project, MainBar, etMessagesWnd,
+  ObjInspExt, EnvironmentOpts, AboutFrm, Project, MainBar,
   IDEFPDocFileSearch, PackageDefs, PackageSystem,
   HelpOptions, MainIntf, LazConf, HelpFPCMessages, CodeHelp,
-  IDEContextHelpEdit, IDEWindowHelp, CodeBrowser;
+  IDEWindowHelp, CodeBrowser;
 
 type
 
@@ -60,10 +60,10 @@ type
     FKeywordPrefixNode: THelpNode;
   public
     function GetNodesForKeyword(const HelpKeyword: string;
-                        var ListOfNodes: THelpNodeQueryList; var ErrMsg: string
+                        var ListOfNodes: THelpNodeQueryList; var {%H-}ErrMsg: string
                         ): TShowHelpResult; override;
-    function ShowHelp(Query: THelpQuery; BaseNode, NewNode: THelpNode;
-                      QueryItem: THelpQueryItem;
+    function ShowHelp(Query: THelpQuery; {%H-}BaseNode, {%H-}NewNode: THelpNode;
+                      {%H-}QueryItem: THelpQueryItem;
                       var ErrMsg: string): TShowHelpResult; override;
   end;
 
@@ -76,7 +76,7 @@ type
     fWaitingForAsync: boolean;
     FProviders: TLIHProviders;
     procedure SetProviders(const AValue: TLIHProviders);
-    procedure OpenNextURL(Data: PtrInt); // called via Application.QueueAsyncCall
+    procedure OpenNextURL({%H-}Data: PtrInt); // called via Application.QueueAsyncCall
     procedure OpenFPDoc(Path: string);
   public
     NextURL: string;
@@ -156,8 +156,8 @@ type
 
   TIDEHelpDatabases = class(THelpDatabases)
   public
-    function ShowHelpSelector(Query: THelpQuery; Nodes: THelpNodeQueryList;
-                              var ErrMsg: string;
+    function ShowHelpSelector({%H-}Query: THelpQuery; Nodes: THelpNodeQueryList;
+                              var {%H-}ErrMsg: string;
                               var Selection: THelpNodeQuery
                               ): TShowHelpResult; override;
     function GetBaseDirectoryForBasePathObject(BasePathObject: TObject): string; override;
@@ -214,7 +214,7 @@ type
     procedure ShowHelpForObjectInspector(Sender: TObject); override;
     procedure ShowHelpForIDEControl(Sender: TControl); override;
     function CreateHint(aHintWindow: THintWindow; ScreenPos: TPoint;
-      const BaseURL: string; var TheHint: string; out HintWinRect: TRect): boolean;
+      const {%H-}BaseURL: string; var TheHint: string; out HintWinRect: TRect): boolean;
       override; deprecated 'Use THintWindowManager class instead';
     function GetHintForSourcePosition(const ExpandedFilename: string;
       const CodePos: TPoint; out BaseURL, HTMLHint: string;
@@ -251,7 +251,7 @@ type
     BtnPanel: TButtonPanel;
     NodesGroupBox: TGroupBox;
     NodesListBox: TListBox;
-    procedure HelpSelectorDialogClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure HelpSelectorDialogClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure NodesListBoxDblClick(Sender: TObject);
   private
     FNodes: THelpNodeQueryList;
@@ -362,6 +362,8 @@ begin
   KeywordQuery:=THelpQueryKeyword(Query);
   KeyWord:=copy(KeywordQuery.Keyword,length(FPCKeyWordHelpPrefix)+1,length(KeywordQuery.Keyword));
   debugln(['TSimpleFPCKeywordHelpDatabase.ShowHelp Keyword=',Keyword]);
+  // ToDo: implement me
+  ErrMsg:='';
 end;
 
 function HTMLToCaption(const s: string; MaxLines: integer): string;
@@ -801,6 +803,7 @@ begin
       if ElementName='' then break;
       ContextList.Add(pihcType,ElementName);
     until false;
+    ErrMsg:='TLazIDEHTMLProvider.OpenFPDoc ShowHelpForPascalContexts';
     ShowHelpForPascalContexts(Filename,Point(1,1),PascalHelpContextLists,ErrMsg);
   finally
     if PascalHelpContextLists<>nil then begin
@@ -825,7 +828,7 @@ var
   URLParams: string;
 begin
   Result:=false;
-  SplitURL(NextURL,URLScheme,URLPath,URLParams);
+  SplitURL(URL,URLScheme,URLPath,URLParams);
   if (URLScheme='file') or (URLScheme='lazdoc') or (URLScheme='fpdoc') then
     Result:=true;
 end;
@@ -1619,6 +1622,7 @@ begin
       if FindDeclarationOfOIProperty(AnInspector,nil,Code,Caret,NewTopLine) then
       begin
         if NewTopLine=0 then ;
+        ErrMsg:='TIDEHelpManager.ShowHelpForObjectInspector ShowHelpForSourcePosition';
         ShowHelpForSourcePosition(Code.Filename,Caret,ErrMsg);
       end;
     end else begin

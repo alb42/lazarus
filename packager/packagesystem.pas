@@ -103,6 +103,8 @@ type
                                 var Filename: string) of object;
   TPkgDeleteAmbiguousFiles = function(const Filename: string): TModalResult of object;
   TOnBeforeCompilePackages = function(aPkgList: TFPList): TModalResult of object;
+  TOnCheckInterPkgFiles = function(IDEObject: TObject; PkgList: TFPList;
+    out FilesChanged: boolean): boolean of object;
 
   { TLazPkgGraphBuildItem }
 
@@ -160,6 +162,7 @@ type
     FOnBeforeCompilePackages: TOnBeforeCompilePackages;
     FOnBeginUpdate: TNotifyEvent;
     FOnChangePackageName: TPkgChangeNameEvent;
+    FOnCheckInterPkgFiles: TOnCheckInterPkgFiles;
     FOnDeleteAmbiguousFiles: TPkgDeleteAmbiguousFiles;
     FOnDeletePackage: TPkgDeleteEvent;
     FOnDependencyModified: TDependencyModifiedEvent;
@@ -243,8 +246,8 @@ type
     function FindAutoInstallDependencyPath(ChildPackage: TLazPackage): TFPList;
     function FindAmbiguousUnits(APackage: TLazPackage;
                                 FirstDependency: TPkgDependency;
-                                var File1, File2: TPkgFile;
-                                var ConflictPkg: TLazPackage): boolean;
+                                out File1, File2: TPkgFile;
+                                out ConflictPkg: TLazPackage): boolean;
     function FindFPCConflictUnit(APackage: TLazPackage;
                                 FirstDependency: TPkgDependency;
                                 const Directory: string;
@@ -403,7 +406,10 @@ type
     property QuietRegistration: boolean read FQuietRegistration
                                         write FQuietRegistration;
     property ErrorMsg: string read FErrorMsg write FErrorMsg;
+    property Packages[Index: integer]: TLazPackage read GetPackages; default; // see Count for the number
+    property UpdateLock: integer read FUpdateLock;
 
+    // base packages
     property FCLPackage: TLazPackage read FFCLPackage;
     property LCLBasePackage: TLazPackage read FLCLBasePackage;
     property LCLPackage: TLazPackage read FLCLPackage;
@@ -417,10 +423,13 @@ type
     property LazarusBasePackages: TFPList read FLazarusBasePackages;
     property DefaultPackage: TLazPackage read FDefaultPackage;// fall back package for buggy/obsoleted stuff
 
+    // events
     property OnAddPackage: TPkgAddedEvent read FOnAddPackage write FOnAddPackage;
     property OnBeginUpdate: TNotifyEvent read FOnBeginUpdate write FOnBeginUpdate;
     property OnChangePackageName: TPkgChangeNameEvent read FOnChangePackageName
                                                      write FOnChangePackageName;
+    property OnCheckInterPkgFiles: TOnCheckInterPkgFiles
+                         read FOnCheckInterPkgFiles write FOnCheckInterPkgFiles;
     property OnDependencyModified: TDependencyModifiedEvent
                          read FOnDependencyModified write FOnDependencyModified;
     property OnDeletePackage: TPkgDeleteEvent read FOnDeletePackage
@@ -434,19 +443,19 @@ type
                                                write FOnUninstallPackage;
     property OnBeforeCompilePackages: TOnBeforeCompilePackages read
                         FOnBeforeCompilePackages write FOnBeforeCompilePackages;
-    property Packages[Index: integer]: TLazPackage read GetPackages; default; // see Count for the number
+
+    // set during calling Register procedures
     property RegistrationFile: TPkgFile read FRegistrationFile;
     property RegistrationPackage: TLazPackage read FRegistrationPackage
                                               write SetRegistrationPackage;
     property RegistrationUnitName: string read FRegistrationUnitName;
-    property UpdateLock: integer read FUpdateLock;
   end;
   
 var
   PackageGraph: TLazPackageGraph = nil;
 
 function ExtractFPCParamsForBuildAll(const CompParams: string): string;
-function ExtractSearchPathsFromFPCParams(const CompParams: string;
+function ExtractMakefileCompiledParams(const CompParams: string;
   CreateReduced: boolean = false;
   BaseDir: string = ''; MakeRelative: boolean = false): TStringList;
 function RemoveFPCVerbosityParams(const CompParams: string): string;
@@ -507,7 +516,7 @@ begin
   Result:=UTF8Trim(Result,[]);
 end;
 
-function ExtractSearchPathsFromFPCParams(const CompParams: string;
+function ExtractMakefileCompiledParams(const CompParams: string;
   CreateReduced: boolean; BaseDir: string; MakeRelative: boolean): TStringList;
 var
   AllPaths: TStringList;
@@ -533,39 +542,49 @@ var
 
 begin
   Result:=TStringList.Create;
-  Reduced:=CompParams;
+  Reduced:='';
   AllPaths:=Result;
   EndPos:=1;
-  while ReadNextFPCParameter(Reduced,EndPos,StartPos) do begin
-    if (Reduced[StartPos]='-') and (StartPos<length(Reduced)) then begin
-      case Reduced[StartPos+1] of
+  while ReadNextFPCParameter(CompParams,EndPos,StartPos) do begin
+    if (CompParams[StartPos]='-') and (StartPos<length(CompParams)) then begin
+      case CompParams[StartPos+1] of
       'F':
         // search paths
-        if StartPos<length(Reduced)-1 then begin
-          Path:=copy(Reduced,StartPos+3,EndPos-StartPos-3);
+        if StartPos<length(CompParams)-1 then begin
+          Path:=copy(CompParams,StartPos+3,EndPos-StartPos-3);
           if (Path<>'') and (Path[1] in ['''','"']) then
             Path:=AnsiDequotedStr(Path,Path[1]);
-          case Reduced[StartPos+2] of
-          'u': AddSearchPath('UnitPath');
-          'U': AllPaths.Values['UnitOutputDir']:=Path;
-          'i': AddSearchPath('IncPath');
-          'o': AddSearchPath('ObjectPath');
-          'l': AddSearchPath('LibPath');
-          else continue;
+          case CompParams[StartPos+2] of
+          'u': begin AddSearchPath('UnitPath'); continue; end;
+          'U': begin AllPaths.Values['UnitOutputDir']:=Path; continue; end;
+          'i': begin AddSearchPath('IncPath'); continue; end;
+          'o': begin AddSearchPath('ObjectPath'); continue; end;
+          'l': begin AddSearchPath('LibPath'); continue; end;
           end;
-          DeleteOption;
         end;
       'v':
         // verbosity
-        DeleteOption;
+        continue;
       'i','l':
         // information
-        DeleteOption;
+        continue;
       'B':
         // build clean
-        DeleteOption;
+        continue;
+      'C':
+        if (StartPos+2<=length(CompParams)) and (CompParams[StartPos+2]='g')
+        and TargetNeedsFPCOptionCG(GetCompiledTargetOS,GetCompiledTargetCPU)
+        then begin
+          // the -Cg parameter is added automatically on Linux, but not in the
+          // Makefile.compiled, because that is platform independent.
+          // -> ignore
+          continue;
+        end;
       end;
     end;
+    if Reduced<>'' then
+      Reduced+=' ';
+    Reduced+=copy(CompParams,StartPos,EndPos-StartPos);
   end;
   if BaseDir<>'' then begin
     for i:=0 to AllPaths.Count-1 do begin
@@ -680,6 +699,9 @@ var
   i: Integer;
   Tool: TAbstractExternalTool;
 begin
+  {$IFDEF VerboseCheckInterPkgFiles}
+  debugln(['TLazPkgGraphBuildItem.Clear ',LazPackage.IDAsString]);
+  {$ENDIF}
   for i:=Count-1 downto 0 do begin
     Tool:=Tools[i];
     if Tool.Data is TLazPkgGraphExtToolData then
@@ -691,7 +713,7 @@ end;
 
 function TLazPkgGraphBuildItem.Add(Tool: TAbstractExternalTool): integer;
 begin
-  if Tool=nil then exit;
+  if Tool=nil then exit(-1);
   Tool.Reference(Self,'TLazPkgGraphBuildItem.Add');
   if Tool.Data is TLazPkgGraphExtToolData then
     TLazPkgGraphExtToolData(Tool.Data).BuildItem:=Self;
@@ -758,7 +780,7 @@ begin
     AFilename:=PkgLink.GetEffectiveFilename;
     //debugln(['TLazPackageGraph.OpenDependencyWithPackageLink AFilename=',AFilename,' ',PkgLink.Origin=ploGlobal]);
     if not FileExistsUTF8(AFilename) then begin
-      DebugLn('invalid Package Link: file "'+AFilename+'" does not exist.');
+      DebugLn('Note: (lazarus) Invalid Package Link: file "'+AFilename+'" does not exist.');
       PkgLink.LPKFileDateValid:=false;
       exit(mrCancel);
     end;
@@ -775,13 +797,13 @@ begin
       NewPackage.LPKSource:=Code;
     except
       on E: Exception do begin
-        DebugLn('unable to read file "'+AFilename+'" ',E.Message);
+        DebugLn('Error: (lazarus) unable to read file "'+AFilename+'" ',E.Message);
         Result:=mrCancel;
         exit;
       end;
     end;
     if not NewPackage.MakeSense then begin
-      DebugLn('invalid Package file "'+AFilename+'".');
+      DebugLn('Error: (lazarus) invalid package file "'+AFilename+'".');
       exit(mrCancel);
     end;
     if SysUtils.CompareText(PkgLink.Name,NewPackage.Name)<>0 then exit;
@@ -817,7 +839,7 @@ begin
   if Assigned(IDEMessagesWindow) then
     IDEMessagesWindow.AddCustomMessage(TheUrgency,Msg,Filename)
   else
-    DebugLn(['TLazPackageGraph.AddMessage ',MessageLineUrgencyNames[TheUrgency],' Msg="',Msg,'" Filename="',Filename,'"']);
+    DebugLn([MessageLineUrgencyNames[TheUrgency],': (lazarus) ',Msg,' Filename="',Filename,'"']);
 end;
 
 function TLazPackageGraph.OutputDirectoryIsWritable(APackage: TLazPackage;
@@ -837,7 +859,7 @@ begin
                  [Directory, LineEnding, APackage.IDAsString]),
           mtError,[mbCancel]);
       end;
-      debugln(['TLazPackageGraph.OutputDirectoryIsWritable unable to create directory "',Directory,'"']);
+      debugln(['Error: (lazarus) unable to create package output directory "',Directory,'" of package "',APackage.IDAsString,'"']);
       exit;
     end;
     Result:=true;
@@ -1084,11 +1106,11 @@ begin
   if PkgID.StringToID(TheID) then begin
     APackage:=FindPackageWithIDMask(PkgID);
     if APackage=nil then begin
-      DebugLn('WARNING: TLazPackageGraph.GetPackageFromMacroParameter unknown package id "',TheID,'" PkgID.IDAsString="',PkgID.IDAsString,'"');
+      DebugLn('Warning: (lazarus) unknown macro package id "',TheID,'"');
     end;
   end else begin
     APackage:=nil;
-    DebugLn('WARNING: TLazPackageGraph.GetPackageFromMacroParameter invalid package id "',TheID,'"');
+    DebugLn('Warning: (lazarus) invalid macro package id "',TheID,'"');
   end;
   PkgID.Free;
   Result:=APackage<>nil;
@@ -1263,6 +1285,7 @@ function TLazPackageGraph.FindDependencyRecursively(
   end;
 
 begin
+  if FirstDependency=nil then exit(nil);
   MarkAllPackagesAsNotVisited;
   Result:=Find(FirstDependency);
 end;
@@ -1294,6 +1317,7 @@ function TLazPackageGraph.FindDependencyRecursively(
   end;
 
 begin
+  if FirstDependency=nil then exit(nil);
   MarkAllPackagesAsNotVisited;
   Result:=Find(FirstDependency);
 end;
@@ -1326,6 +1350,7 @@ function TLazPackageGraph.FindConflictRecursively(
   end;
 
 begin
+  if FirstDependency=nil then exit(nil);
   MarkAllPackagesAsNotVisited;
   Result:=Find(FirstDependency);
 end;
@@ -1355,6 +1380,7 @@ function TLazPackageGraph.FindRuntimePkgOnlyRecursively(
   end;
 
 begin
+  if FirstDependency=nil then exit(nil);
   MarkAllPackagesAsNotVisited;
   Result:=Find(FirstDependency);
 end;
@@ -1704,7 +1730,7 @@ begin
   // append message
   if Msg<>'' then
     ErrorMsg:=ErrorMsg+LineEnding+LineEnding+Msg;
-  debugln(['TLazPackageGraph.RegistrationError ',dbgstr(ErrorMsg)]);
+  debugln(['Error: (lazarus) register failed: ',dbgstr(ErrorMsg)]);
 
   if AbortRegistration or QuietRegistration then exit;
 
@@ -1742,7 +1768,7 @@ begin
   if MsgResult<>mrOk then begin
     Data.ErrorMessage:='SavePackageCompiledState failed';
     PkgCompileTool.ErrorMessage:=Data.ErrorMessage;
-    DebugLn(['TLazPackageGraph.OnExtToolBuildStopped SavePackageCompiledState failed: ',APackage.IDAsString]);
+    DebugLn(['Error: (lazarus) failed to write package .compiled file: ',APackage.IDAsString,' File=',aPackage.GetStateFilename]);
     exit;
   end;
   Data.ErrorMessage:=PkgCompileTool.ErrorMessage;
@@ -1755,7 +1781,7 @@ begin
     if MsgResult<>mrOk then begin
       Data.ErrorMessage:='ConvertPackageRSTFiles failed';
       PkgCompileTool.ErrorMessage:=Data.ErrorMessage;
-      DebugLn('TLazPackageGraph.CompilePackage ConvertPackageRSTFiles failed: ',APackage.IDAsString);
+      DebugLn('Error: (lazarus) failed to update .po files: ',APackage.IDAsString);
       IDEMessagesWindow.AddCustomMessage(mluError,
         Format(lisUpdatingPoFilesFailedForPackage, [APackage.IDAsString]));
       exit;
@@ -2552,8 +2578,8 @@ begin
 end;
 
 function TLazPackageGraph.FindAmbiguousUnits(APackage: TLazPackage;
-  FirstDependency: TPkgDependency; var File1, File2: TPkgFile;
-  var ConflictPkg: TLazPackage): boolean;
+  FirstDependency: TPkgDependency; out File1, File2: TPkgFile; out
+  ConflictPkg: TLazPackage): boolean;
 // check if two connected packages have units with the same name
 // Connected means here: a Package1 is directly required by a Package2
 // or: a Package1 and a Package2 are directly required by a Package3
@@ -2797,7 +2823,8 @@ begin
   MarkNeededPackages;
   for i:=FItems.Count-1 downto 0 do
     if not (lpfNeeded in Packages[i].Flags) then begin
-      debugln(['TLazPackageGraph.CloseUnneededPackages Pkg=',Packages[i].Name]);
+      if ConsoleVerbosity>=0 then
+        debugln(['Hint: closing unneeded package "',Packages[i].Name,'"']);
       Delete(i);
     end;
   EndUpdate;
@@ -2972,8 +2999,6 @@ begin
             stats^.CompilerFilename:=StringReplace(stats^.CompilerFilename,'%(','$(',[rfReplaceAll]);
             stats^.Params:=StringReplace(stats^.Params,'%(','$(',[rfReplaceAll]);
           end;
-        end;
-        if stats^.ViaMakefile then begin
           ForcePathDelims(stats^.CompilerFilename);
           ForcePathDelims(stats^.Params);
         end;
@@ -2986,7 +3011,7 @@ begin
     except
       on E: EXMLReadError do begin
         // invalid XML
-        debugln(['TLazPackageGraph.LoadPackageCompiledState syntax error in ',StateFile,' => need clean build.']);
+        debugln(['Warning: (lazarus) package "',APackage.IDAsString,'": syntax error in ',StateFile,' => need clean build.']);
         stats^.Complete:=false;
         stats^.CompilerFilename:='';
         stats^.StateFileName:=StateFile;
@@ -3075,7 +3100,8 @@ begin
         continue;
       end;
       if FileAgeCached(Filename)>StateFileAge then begin
-        debugln(['TLazPackageGraph.CheckCompileNeedDueToFPCUnits global unit "',Filename,'" is newer than state file of ',ID]);
+        if ConsoleVerbosity>=-1 then
+          debugln(['Hint: (lazarus) global unit "',Filename,'" is newer than state file of package ',ID]);
         Note+='Global unit "'+Filename+'" is newer than state file of '+ID+':'+LineEnding
           +'  Unit age='+FileAgeToStr(FileAgeCached(Filename))+LineEnding
           +'  State file age='+FileAgeToStr(StateFileAge)+LineEnding;
@@ -3137,13 +3163,12 @@ begin
           Result:=mrYes;
           o:=RequiredPackage.GetOutputDirType;
           if not RequiredPackage.LastCompile[o].StateFileLoaded then begin
-            DebugLn('TPkgManager.CheckCompileNeedDueToDependencies  Missing state file for ',RequiredPackage.IDAsString,': ',RequiredPackage.GetStateFilename);
+            DebugLn('Hint: (lazarus) Missing state file for ',RequiredPackage.IDAsString,': ',RequiredPackage.GetStateFilename);
             Note+='Package '+RequiredPackage.IDAsString+' has no state file "'+RequiredPackage.GetStateFilename+'".'+LineEnding;
             exit;
           end;
           if StateFileAge<RequiredPackage.LastCompile[o].StateFileDate then begin
-            DebugLn('TPkgManager.CheckCompileNeedDueToDependencies ',
-              ' State file of ',RequiredPackage.IDAsString,' is newer than state file of ',GetOwnerID);
+            DebugLn('Hint: (lazarus) State file of ',RequiredPackage.IDAsString,' is newer than state file of ',GetOwnerID);
             Note+='State file of '+RequiredPackage.IDAsString+' is newer than state file of '+GetOwnerID+LineEnding
               +'  '+RequiredPackage.IDAsString+'='+FileAgeToStr(RequiredPackage.LastCompile[o].StateFileDate)+LineEnding
               +'  '+GetOwnerID+'='+FileAgeToStr(StateFileAge)+LineEnding;
@@ -3158,8 +3183,7 @@ begin
             if FilenameIsAbsolute(OtherStateFile)
             and FileExistsCached(OtherStateFile)
             and (FileAgeCached(OtherStateFile)>StateFileAge) then begin
-              DebugLn('TPkgManager.CheckCompileNeedDueToDependencies ',
-                ' State file of ',RequiredPackage.IDAsString,' "',OtherStateFile,'" (',
+              DebugLn('Hint: (lazarus) State file of ',RequiredPackage.IDAsString,' "',OtherStateFile,'" (',
                   FileAgeToStr(FileAgeCached(OtherStateFile)),')'
                 ,' is newer than state file ',GetOwnerID,'(',FileAgeToStr(StateFileAge),')');
               Note+='State file of used package is newer than state file:'+LineEnding
@@ -3218,7 +3242,7 @@ begin
       // the normal output directory is writable => keep using it
       exit;
     end;
-    debugln(['TLazPackageGraph.CheckIfPackageNeedsCompilation normal output dir is not writable: ',OutputDir]);
+    debugln(['Hint: (lazarus) normal output directory of package ',APackage.IDAsString,' is not writable: "',OutputDir,'"']);
     // the normal output directory is not writable
     // => try the fallback directory
     NewOutputDir:=GetFallbackOutputDir(APackage);
@@ -3254,7 +3278,7 @@ begin
                NeedBuildAllFlag,ConfigChanged,DependenciesChanged,Note);
     if DefResult=mrNo then begin
       // switching back to the not writable output directory requires no compile
-      debugln(['TLazPackageGraph.CheckIfPackageNeedsCompilation switching back to the normal output directory: ',APackage.GetOutputDirectory]);
+      debugln(['Hint: (lazarus) switching back to the normal output directory: "',APackage.GetOutputDirectory,'" Package ',APackage.IDAsString]);
       Note+='Switching back to not writable output directory.'+LineEnding;
       exit(mrNo);
     end;
@@ -3314,7 +3338,7 @@ begin
   if Result<>mrOk then exit; // read error and user aborted
   if not Stats^.StateFileLoaded then begin
     // package was not compiled via Lazarus nor via Makefile/fpmake
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Missing state file for ',APackage.IDAsString,': ',StateFilename);
+    DebugLn('Hint: (lazarus) Missing state file of ',APackage.IDAsString,': ',StateFilename);
     Note+='Missing state file "'+StateFilename+'".'+LineEnding;
     NeedBuildAllFlag:=true;
     ConfigChanged:=true;
@@ -3346,19 +3370,21 @@ begin
   LastParams:=APackage.GetLastCompilerParams(o);
   if Stats^.ViaMakefile then begin
     // the package was compiled via Makefile/fpmake
-    debugln(['TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile Last=',LastParams]);
+    if ConsoleVerbosity>=1 then
+      debugln(['Hint: (lazarus) package ',APackage.IDAsString,' was compiled via "make" with parameters "',LastParams,'"']);
 
     CurPaths:=nil;
     LastPaths:=nil;
     try
-      CurPaths:=ExtractSearchPathsFromFPCParams(CompilerParams,true);
-      LastPaths:=ExtractSearchPathsFromFPCParams(LastParams,true);
+      CurPaths:=ExtractMakefileCompiledParams(CompilerParams,true);
+      LastPaths:=ExtractMakefileCompiledParams(LastParams,true);
+
       //debugln(['TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile CompilerParams="',CompilerParams,'" UnitPaths="',CurPaths.Values['UnitPath'],'"']);
       // compare custom options
       OldValue:=LastPaths.Values['Reduced'];
       NewValue:=CurPaths.Values['Reduced'];
       if NewValue<>OldValue then begin
-        DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler custom params changed for ',APackage.IDAsString);
+        DebugLn('Hint: (lazarus) Compiler custom params changed for ',APackage.IDAsString);
         DebugLn('  Old="',OldValue,'"');
         DebugLn('  Now="',NewValue,'"');
         DebugLn('  State file="',Stats^.StateFileName,'"');
@@ -3373,7 +3399,7 @@ begin
       OldValue:=TrimSearchPath(LastPaths.Values['UnitPath'],APackage.Directory,true);
       NewValue:=TrimSearchPath(CurPaths.Values['UnitPath'],APackage.Directory,true);
       if NewValue<>OldValue then begin
-        DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler unit paths changed for ',APackage.IDAsString);
+        DebugLn('Hint: (lazarus) Compiler unit paths changed for ',APackage.IDAsString);
         DebugLn('  Old="',OldValue,'"');
         DebugLn('  Now="',NewValue,'"');
         DebugLn('  State file="',Stats^.StateFileName,'"');
@@ -3388,7 +3414,7 @@ begin
       OldValue:=TrimSearchPath(LastPaths.Values['IncPath'],APackage.Directory,true);
       NewValue:=TrimSearchPath(CurPaths.Values['IncPath'],APackage.Directory,true);
       if NewValue<>OldValue then begin
-        DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler include paths changed for ',APackage.IDAsString);
+        DebugLn('Hint: (lazarus) Compiler include paths changed for ',APackage.IDAsString);
         DebugLn('  Old="',OldValue,'"');
         DebugLn('  Now="',NewValue,'"');
         DebugLn('  State file="',Stats^.StateFileName,'"');
@@ -3408,7 +3434,7 @@ begin
     ReducedLastParams:=RemoveFPCVerbosityParams(LastParams);
     if ReducedParams<>ReducedLastParams then begin
       // package was compiled by Lazarus
-      DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler params changed for ',APackage.IDAsString);
+      DebugLn('Hint: (lazarus) Compiler params changed for ',APackage.IDAsString);
       DebugLn('  Old="',dbgstr(ReducedLastParams),'"');
       DebugLn('  Now="',dbgstr(ReducedParams),'"');
       DebugLn('  State file="',Stats^.StateFileName,'"');
@@ -3422,7 +3448,7 @@ begin
   end;
   if (not Stats^.ViaMakefile)
   and (CompilerFilename<>Stats^.CompilerFilename) then begin
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler filename changed for ',APackage.IDAsString);
+    DebugLn('Hint: (lazarus) Compiler filename changed for ',APackage.IDAsString);
     DebugLn('  Old="',Stats^.CompilerFilename,'"');
     DebugLn('  Now="',CompilerFilename,'"');
     DebugLn('  State file="',Stats^.StateFileName,'"');
@@ -3433,7 +3459,7 @@ begin
     exit(mrYes);
   end;
   if not FileExistsCached(CompilerFilename) then begin
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler filename not found for ',APackage.IDAsString);
+    DebugLn('Hint: (lazarus) Compiler filename not found for ',APackage.IDAsString);
     DebugLn('  File="',CompilerFilename,'"');
     DebugLn('  State file="',Stats^.StateFileName,'"');
     Note+='Compiler file "'+CompilerFilename+'" not found.'+LineEnding
@@ -3442,7 +3468,7 @@ begin
   end;
   if (not Stats^.ViaMakefile)
   and (FileAgeCached(CompilerFilename)<>Stats^.CompilerFileDate) then begin
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compiler file changed for ',APackage.IDAsString);
+    DebugLn('Hint: (lazarus) Compiler file changed for ',APackage.IDAsString);
     DebugLn('  File="',CompilerFilename,'"');
     DebugLn('  State file="',Stats^.StateFileName,'"');
     Note+='Compiler file "'+CompilerFilename+'" changed:'+LineEnding
@@ -3456,12 +3482,12 @@ begin
   if (SrcFilename<>'') then
   begin
     if not FileExistsCached(SrcFilename) then begin
-      DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  SrcFile missing of ',APackage.IDAsString,': ',SrcFilename);
+      DebugLn('Hint: (lazarus) source file missing of ',APackage.IDAsString,': ',SrcFilename);
       Note+='Source file "'+SrcFilename+'" missing.'+LineEnding;
       exit(mrYes);
     end;
     if StateFileAge<FileAgeCached(SrcFilename) then begin
-      DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  SrcFile outdated of ',APackage.IDAsString,': ',SrcFilename);
+      DebugLn('Hint: (lazarus) source file outdated of ',APackage.IDAsString,': ',SrcFilename);
       Note+='Source file "'+SrcFilename+'" outdated:'+LineEnding
         +'  Source file age='+FileAgeToStr(FileAgeCached(SrcFilename))+LineEnding
         +'  State file="'+Stats^.StateFileName+'"'+LineEnding
@@ -3472,7 +3498,7 @@ begin
     if Stats^.MainPPUExists then begin
       SrcPPUFile:=APackage.GetSrcPPUFilename;
       if not FileExistsCached(SrcPPUFile) then begin
-        DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  main ppu file missing of ',APackage.IDAsString,': ',SrcPPUFile);
+        DebugLn('Hint: (lazarus) main ppu file missing of ',APackage.IDAsString,': ',SrcPPUFile);
         Note+='Main ppu file "'+SrcPPUFile+'" missing.'+LineEnding;
         exit(mrYes);
       end;
@@ -3487,7 +3513,7 @@ begin
   NeedBuildAllFlag:=false;
 
   if not Stats^.Complete then begin
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Compile was incomplete for ',APackage.IDAsString);
+    DebugLn('Hint: (lazarus) Last compile was incomplete for ',APackage.IDAsString);
     DebugLn('  State file="',Stats^.StateFileName,'"');
     Note+='Last compile was incomplete.'+LineEnding
        +'  State file="'+Stats^.StateFileName+'"'+LineEnding;
@@ -3507,7 +3533,7 @@ begin
 
   // check package files
   if StateFileAge<FileAgeCached(APackage.Filename) then begin
-    DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  StateFile older than lpk ',APackage.IDAsString);
+    DebugLn('Hint: (lazarus) State file older than lpk ',APackage.IDAsString);
     DebugLn('  State file="',Stats^.StateFileName,'"');
     Note+='State file older than lpk:'+LineEnding
       +'  State file age='+FileAgeToStr(StateFileAge)+LineEnding
@@ -3521,7 +3547,7 @@ begin
     AFilename:=CurFile.GetFullFilename;
     if FileExistsCached(AFilename)
     and (StateFileAge<FileAgeCached(AFilename)) then begin
-      DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Src has changed ',APackage.IDAsString,' ',CurFile.Filename);
+      DebugLn('Hint: (lazarus) Source file has changed ',APackage.IDAsString,' ',CurFile.Filename);
       DebugLn('  State file="',Stats^.StateFileName,'"');
       Note+='State file older than source "'+AFilename+'"'+LineEnding
         +'  State file age='+FileAgeToStr(StateFileAge)+LineEnding
@@ -3533,7 +3559,7 @@ begin
       LFMFilename:=ChangeFileExt(AFilename,'.lfm');
       if FileExistsCached(LFMFilename)
       and (StateFileAge<FileAgeCached(LFMFilename)) then begin
-        DebugLn('TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  LFM has changed ',APackage.IDAsString,' ',LFMFilename);
+        DebugLn('Hint: (lazarus) LFM has changed ',APackage.IDAsString,' ',LFMFilename);
         DebugLn('  State file="',Stats^.StateFileName,'"');
         Note+='State file older than resource "'+LFMFilename+'"'+LineEnding
           +'  State file age='+FileAgeToStr(StateFileAge)+LineEnding
@@ -3580,14 +3606,12 @@ var
   CurPkg: TLazPackage;
   BuildItem: TLazPkgGraphBuildItem;
   j: Integer;
-  {$IFDEF DisableGroupCompile}
-  Tool: TAbstractExternalTool;
-  {$ENDIF}
   aDependency: TPkgDependency;
   RequiredBuildItem: TLazPkgGraphBuildItem;
   Tool1: TAbstractExternalTool;
   Tool2: TAbstractExternalTool;
   ToolGroup: TExternalToolGroup;
+  FilesChanged: boolean;
 begin
   {$IFDEF VerbosePkgCompile}
   debugln('TLazPackageGraph.CompileRequiredPackages A MinPolicy=',dbgs(Policy),' SkipDesignTimePackages=',SkipDesignTimePackages);
@@ -3622,26 +3646,32 @@ begin
         Include(Flags,pcfOnlyIfNeeded)
       else
         Include(Flags,pcfCleanCompile);
-      BuildItems:=TObjectList.Create(true);
-      for i:=0 to PkgList.Count-1 do begin
-        CurPkg:=TLazPackage(PkgList[i]);
-        {$IFDEF DisableGroupCompile}
-        BuildItem:=nil;
-        {$ELSE}
-        BuildItem:=TLazPkgGraphBuildItem.Create(nil);
-        BuildItem.LazPackage:=CurPkg;
-        BuildItems.Add(BuildItem);
-        {$ENDIF}
-        Result:=CompilePackage(CurPkg,Flags,false,BuildItem);
-        if Result<>mrOk then exit;
+      repeat
+        BuildItems:=TObjectList.Create(true);
+        for i:=0 to PkgList.Count-1 do begin
+          CurPkg:=TLazPackage(PkgList[i]);
+          BuildItem:=TLazPkgGraphBuildItem.Create(nil);
+          BuildItem.LazPackage:=CurPkg;
+          BuildItems.Add(BuildItem);
+          Result:=CompilePackage(CurPkg,Flags,false,BuildItem);
+          if Result<>mrOk then exit;
 
-        if (BuildItem<>nil) and (not (lpfNeedGroupCompile in CurPkg.Flags))
-        then begin
-          // package is up-to-date
-          //debugln(['TLazPackageGraph.CompileRequiredPackages no build needed: pkg=',CurPkg.Name]);
-          BuildItems.Remove(BuildItem);
+          if (BuildItem<>nil) and (not (lpfNeedGroupCompile in CurPkg.Flags))
+          then begin
+            // package is up-to-date
+            //debugln(['TLazPackageGraph.CompileRequiredPackages no build needed: pkg=',CurPkg.Name]);
+            BuildItems.Remove(BuildItem);
+          end;
         end;
-      end;
+
+        if FirstDependency<>nil then
+        begin
+          if not OnCheckInterPkgFiles(FirstDependency.Owner,PkgList,FilesChanged)
+          then exit(mrCancel);
+          if FilesChanged then
+            FreeAndNil(BuildItems);
+        end;
+      until BuildItems<>nil;
 
       // add tool dependencies
       for i:=0 to BuildItems.Count-1 do begin
@@ -3688,27 +3718,12 @@ begin
       if ToolGroup=nil then exit(mrOk);
 
       // execute
-      {$IFDEF DisableGroupCompile}
-      for i:=0 to BuildItems.Count-1 do begin
-        BuildItem:=TLazPkgGraphBuildItem(BuildItems[i]);
-        for j:=0 to BuildItem.Count-1 do begin
-          Tool:=BuildItem[j];
-          if Tool.Terminated then continue;
-          debugln(['TLazPackageGraph.CompileRequiredPackages ',Tool.Title]);
-          Tool.Execute;
-          Tool.WaitForExit;
-          if Tool.ErrorMessage<>'' then
-            exit(mrCancel);
-        end;
-      end;
-      {$ELSE}
       ToolGroup.Execute;
       ToolGroup.WaitForExit;
       if ToolGroup.ErrorMessage<>'' then begin
-        debugln(['TLazPackageGraph.CompileRequiredPackages ERROR="',ToolGroup.ErrorMessage,'"']);
+        debugln(['Error: (lazarus) [TLazPackageGraph.CompileRequiredPackages] "',ToolGroup.ErrorMessage,'"']);
         exit(mrCancel);
       end;
-      {$ENDIF}
     finally
       FreeAndNil(ToolGroup);
       FreeAndNil(BuildItems);
@@ -3765,7 +3780,7 @@ begin
   //DebugLn('TLazPackageGraph.CompilePackage A ',APackage.IDAsString,' Flags=',PkgCompileFlagsToString(Flags));
 
   if APackage.IsVirtual then begin
-    DebugLn(['TLazPackageGraph.CompilePackage failed because virtual: ',APackage.Filename]);
+    DebugLn(['Error: (lazarus) compile failed because virtual: ',APackage.Filename]);
     exit;
   end;
 
@@ -3780,7 +3795,7 @@ begin
       Result:=CompileRequiredPackages(APackage,nil,
                             pcfSkipDesignTimePackages in Flags,CompilePolicy);
       if Result<>mrOk then begin
-        DebugLn(['TLazPackageGraph.CompilePackage CompileRequiredPackages failed: ',APackage.IDAsString]);
+        DebugLn(['Error: (lazarus) Compile required packages failed: ',APackage.IDAsString]);
         exit;
       end;
     end;
@@ -3807,7 +3822,7 @@ begin
         exit;
       end;
       if Result<>mrYes then begin
-        DebugLn(['TLazPackageGraph.CompilePackage CheckIfPackageNeedsCompilation failed: ',APackage.IDAsString]);
+        DebugLn(['Error: (lazarus) [CheckIfPackageNeedsCompilation] failed: ',APackage.IDAsString]);
         exit;
       end;
     end;
@@ -3824,21 +3839,21 @@ begin
 
       Result:=PreparePackageOutputDirectory(APackage,pcfCleanCompile in Flags);
       if Result<>mrOk then begin
-        DebugLn('TLazPackageGraph.CompilePackage PreparePackageOutputDirectory failed: ',APackage.IDAsString);
+        DebugLn('Error: (lazarus) [TLazPackageGraph.CompilePackage] PreparePackageOutputDirectory failed: ',APackage.IDAsString);
         exit;
       end;
 
       // create package main source file
       Result:=SavePackageMainSource(APackage,Flags,ShowAbort);
       if Result<>mrOk then begin
-        DebugLn('TLazPackageGraph.CompilePackage SavePackageMainSource failed: ',APackage.IDAsString);
+        DebugLn('Error: (lazarus) [TLazPackageGraph.CompilePackage] SavePackageMainSource failed: ',APackage.IDAsString);
         exit;
       end;
 
       // check ambiguous units
       Result:=CheckAmbiguousPackageUnits(APackage);
       if Result<>mrOk then begin
-        DebugLn('TLazPackageGraph.CompilePackage CheckAmbiguousPackageUnits failed: ',APackage.IDAsString);
+        DebugLn('Error: (lazarus) [TLazPackageGraph.CompilePackage} CheckAmbiguousPackageUnits failed: ',APackage.IDAsString);
         exit;
       end;
 
@@ -3847,7 +3862,7 @@ begin
       or (APackage.CompilerOptions.CreateMakefileOnBuild)) then begin
         Result:=WriteMakeFile(APackage);
         if Result<>mrOk then begin
-          DebugLn('TLazPackageGraph.CompilePackage DoWriteMakefile failed: ',APackage.IDAsString);
+          DebugLn('Error: (lazarus) [TLazPackageGraph.CompilePackage] DoWriteMakefile failed: ',APackage.IDAsString);
           exit;
         end;
       end;
@@ -3857,7 +3872,7 @@ begin
       or (APackage.CompilerOptions.CreateMakefileOnBuild)) then begin
         Result:=WriteFpmake(APackage);
         if Result<>mrOk then begin
-          DebugLn('TLazPackageGraph.CompilePackage DoWriteFpmakeFile failed: ',APackage.IDAsString);
+          DebugLn('Error: (lazarus) [TLazPackageGraph.CompilePackage] DoWriteFpmakeFile failed: ',APackage.IDAsString);
           exit;
         end;
       end;
@@ -3876,7 +3891,7 @@ begin
           Result:=APackage.CompilerOptions.ExecuteBefore.Execute(WorkingDir,
             ToolTitle,Note);
           if Result<>mrOk then begin
-            DebugLn(['TLazPackageGraph.CompilePackage ExecuteBefore failed: ',APackage.IDAsString]);
+            DebugLn(['Error: (lazarus) [TLazPackageGraph.CompilePackage] ExecuteBefore failed: ',APackage.IDAsString]);
             exit;
           end;
         end;
@@ -3899,7 +3914,7 @@ begin
             EffectiveCompilerParams:='-B';
         end;
 
-        PkgCompileTool:=ExternalToolList.Add(Format(lisPkgMangCompilingPackage, [APackage.IDAsString]));
+        PkgCompileTool:=ExternalToolList.Add(Format(lisPkgMangCompilePackage, [APackage.IDAsString]));
         ExtToolData:=TLazPkgGraphExtToolData.Create(IDEToolCompilePackage,
           APackage.Name,APackage.Filename);
         PkgCompileTool.Data:=ExtToolData;
@@ -3958,7 +3973,7 @@ begin
           Result:=APackage.CompilerOptions.ExecuteAfter.Execute(WorkingDir,
                                        ToolTitle,Note);
           if Result<>mrOk then begin
-            DebugLn(['TLazPackageGraph.CompilePackage ExecuteAfter failed: ',APackage.IDAsString]);
+            DebugLn(['Error: (lazarus) [TLazPackageGraph.CompilePackage] ExecuteAfter failed: ',APackage.IDAsString]);
             // Note: messages window already contains error message
             exit;
           end;
@@ -3989,7 +4004,7 @@ begin
     Result:=ForceDirectoryInteractive(POOutputDirectory,[mbRetry,mbIgnore]);
     if Result<>mrOk then begin
       if Result=mrIgnore then Result:=mrOk;
-      DebugLn(['TLazPackageGraph.ConvertPackageRSTFiles unable to create directory ',POOutputDirectory]);
+      DebugLn(['Note: (lazarus) [TLazPackageGraph.ConvertPackageRSTFiles] unable to create directory ',POOutputDirectory]);
       exit;
     end;
   end;
@@ -3997,13 +4012,13 @@ begin
   // find all .rst files in package output directory
   if not DirectoryIsWritableCached(POOutputDirectory) then begin
     // this package is read only
-    DebugLn(['TLazPackageGraph.ConvertPackageRSTFiles skipping read only directory '+POOutputDirectory]);
+    DebugLn(['Warning: (lazarus) [TLazPackageGraph.ConvertPackageRSTFiles] skipping read only directory '+POOutputDirectory]);
     exit(mrOK);
   end;
 
   PkgOutputDirectory:=AppendPathDelim(APackage.GetOutputDirectory);
   if not ConvertRSTFiles(PkgOutputDirectory,POOutputDirectory) then begin
-    DebugLn(['TLazPackageGraph.ConvertPackageRSTFiles FAILED: PkgOutputDirectory=',PkgOutputDirectory,' RSTOutputDirectory=',POOutputDirectory]);
+    DebugLn(['Error: (lazarus) [TLazPackageGraph.ConvertPackageRSTFiles] unable to update .po files PkgOutputDirectory=',PkgOutputDirectory,' RSTOutputDirectory=',POOutputDirectory]);
     exit(mrCancel);
   end;
   Result:=mrOK;
@@ -4029,7 +4044,8 @@ begin
       // do no write the unit output directory
       // it is not needed because it is the location of the Makefile.compiled
       s:=s+' '+SwitchPathDelims(CreateRelativePath(APackage.GetSrcFilename,APackage.Directory),pdsUnix);
-      //debugln(['TLazPackageGraph.WriteMakefileCompiled IncPath="',IncPath,'" UnitPath="',UnitPath,'" Custom="',OtherOptions,'"']);
+      if ConsoleVerbosity>1 then
+        debugln(['Hint: (lazarus) writing Makefile.compiled IncPath="',IncPath,'" UnitPath="',UnitPath,'" Custom="',OtherOptions,'" Makefile.compiled="',TargetCompiledFile,'"']);
       XMLConfig.SetValue('Params/Value',s);
       if XMLConfig.Modified then begin
         InvalidateFileStateCache;
@@ -4133,7 +4149,7 @@ begin
     // If the package directory is not writable, then the user does not want to
     // custom build
     // => silently skip
-    DebugLn(['TPkgManager.DoWriteMakefile Skipping, because package directory is not writable: ',APackage.Directory]);
+    DebugLn(['Error: (lazarus) Skipping writing Makefile, because package directory is not writable: ',APackage.Directory]);
     Result:=mrOk;
     exit;
   end;
@@ -4180,13 +4196,15 @@ begin
   MainSrcFile:=CreateRelativePath(SrcFilename,APackage.Directory);
   CustomOptions:=ConvertLazarusOptionsToMakefileOptions(CustomOptions);
   OtherOptions:=ConvertLazarusOptionsToMakefileOptions(OtherOptions);
-  debugln(['TLazPackageGraph.WriteMakeFile Custom="',CustomOptions,'" Other="',OtherOptions,'"']);
+  if ConsoleVerbosity>0 then
+    debugln(['Hint: (lazarus) [TLazPackageGraph.WriteMakeFile] Custom="',CustomOptions,'" Other="',OtherOptions,'"']);
   if CustomOptions<>'' then
     if OtherOptions<>'' then
       OtherOptions:=OtherOptions+' '+CustomOptions
     else
       OtherOptions:=CustomOptions;
-  debugln(['TLazPackageGraph.WriteMakeFile Other="',OtherOptions,'"']);
+  if ConsoleVerbosity>0 then
+    debugln(['Hint: (lazarus) [TLazPackageGraph.WriteMakeFile] Other="',OtherOptions,'"']);
 
   // ---- Makefile.compiled ----------------------------------------------------
 
@@ -4284,7 +4302,7 @@ begin
         // the package source is read only => ignore
         exit(mrOk);
       end;
-      debugln(['TLazPackageGraph.WriteMakeFile unable to create file '+MakefileFPCFilename]);
+      debugln(['Error: (lazarus) [TLazPackageGraph.WriteMakeFile] unable to create file '+MakefileFPCFilename]);
       exit(mrCancel);
     end;
   end;
@@ -4402,7 +4420,7 @@ begin
     // If the package directory is not writable, then the user does not want to
     // custom build
     // => silently skip
-    DebugLn(['TPkgManager.DoWriteFpmake Skipping, because package directory is not writable: ',APackage.Directory]);
+    DebugLn(['Note: (lazarus) Skipping writing fpmake.pp, because package directory is not writable: ',APackage.Directory]);
     Result:=mrOk;
     exit;
   end;
@@ -4419,10 +4437,12 @@ begin
                                            coptParsedPlatformIndependent,false);
   CustomOptions:=APackage.CompilerOptions.GetCustomOptions(
                                                  coptParsedPlatformIndependent);
-  debugln('CustomOptions (orig): ',CustomOptions);
+  if ConsoleVerbosity>0 then
+    debugln('Hint: (lazarus) Writing fpmake.pp: CustomOptions (orig): ',CustomOptions);
   OtherOptions:=APackage.CompilerOptions.MakeOptionsString(
                               [ccloDoNotAppendOutFileOption,ccloNoMacroParams]);
-  debugln('OtherOptions (orig): ',OtherOptions);
+  if ConsoleVerbosity>0 then
+    debugln('Hint: (lazarus) Writing fpmake.pp: OtherOptions (orig): ',OtherOptions);
 
   // write compiled file
   Result:=WriteMakefileCompiled(APackage,FPmakeCompiledFilename,UnitPath,
@@ -4435,10 +4455,12 @@ begin
   // remove path delimiter at the end, or else it will fail on windows
   MainSrcFile:=CreateRelativePath(SrcFilename,APackage.Directory);
   CustomOptions:=ConvertLazarusOptionsToFpmakeOptions(CustomOptions);
-  debugln('CustomOptions (fpmake format): ',CustomOptions);
+  if ConsoleVerbosity>0 then
+    debugln('Hint: (lazarus) Writing fpmake.pp: CustomOptions (fpmake format): ',CustomOptions);
 
   OtherOptions:=ConvertLazarusOptionsToFpmakeOptions(OtherOptions);
-  debugln('OtherOptions (fpmake format): ',OtherOptions);
+  if ConsoleVerbosity>0 then
+    debugln('Hint: (lazarus) Writing fpmake.pp: OtherOptions (fpmake format): ',OtherOptions);
 
   e:=LineEnding;
   s:='';
@@ -4529,7 +4551,7 @@ begin
         // the package source is read only => ignore
         exit(mrOk);
       end;
-      debugln(['TLazPackageGraph.WriteFpmake unable to create file '+FpmakeFPCFilename]);
+      debugln(['Error: (lazarus) unable to create fpmake.pp file '+FpmakeFPCFilename]);
       exit(mrCancel);
     end;
   end;
@@ -4552,7 +4574,8 @@ begin
     end;
     exit;
   end;
-  debugln(['TLazPackageGraph.WriteFpmake wrote: ',FpmakeFPCFilename]);
+  if ConsoleVerbosity>0 then
+    debugln(['Hint: (lazarus) wrote fpmake.pp: ',FpmakeFPCFilename]);
 
   Result:=mrOk;
 end;
@@ -4582,14 +4605,14 @@ begin
     // => use the fallback directory
     NewOutputDir:=GetFallbackOutputDir(APackage);
     if (NewOutputDir=OutputDir) or (NewOutputDir='') then begin
-      debugln(['TLazPackageGraph.PreparePackageOutputDirectory failed to create writable directory: ',OutputDir]);
+      debugln(['Error: (lazarus) [TLazPackageGraph.PreparePackageOutputDirectory] failed to create writable directory: ',OutputDir]);
       exit(mrCancel);
     end;
     APackage.CompilerOptions.ParsedOpts.OutputDirectoryOverride:=NewOutputDir;
     OutputDir:=APackage.GetOutputDirectory;
     if not OutputDirectoryIsWritable(APackage,OutputDir,true) then
     begin
-      debugln(['TLazPackageGraph.PreparePackageOutputDirectory failed to create writable directory: ',OutputDir]);
+      debugln(['Error: (lazarus) [TLazPackageGraph.PreparePackageOutputDirectory] failed to create writable directory: ',OutputDir]);
       Result:=mrCancel;
     end;
     DeleteAllFilesInOutputDir:=true;
@@ -4639,7 +4662,7 @@ begin
           for i:=0 to CleanFiles.Count-1 do begin
             OutputFileName:=AppendPathDelim(OutputDir)+CleanFiles[i];
             if ConsoleVerbosity>1 then
-              debugln(['clean up '+APackage.IDAsString+': '+OutputFileName]);
+              debugln(['Hint: (lazarus) cleaning up package output directory of '+APackage.IDAsString+': '+OutputFileName]);
             Result:=DeleteFileInteractive(OutputFileName,[mbIgnore,mbAbort]);
             if Result in [mrCancel,mrAbort] then exit;
           end;
@@ -4654,12 +4677,12 @@ begin
         if not (CurFile.FileType in PkgFileUnitTypes) then continue;
         OutputFileName:=AppendPathDelim(OutputDir)+CurFile.Unit_Name+'.ppu';
         if ConsoleVerbosity>1 then
-          debugln(['clean up '+APackage.IDAsString+': '+OutputFileName]);
+          debugln(['Hint: (lazarus) cleaning up package output directory of '+APackage.IDAsString+': '+OutputFileName]);
         Result:=DeleteFileInteractive(OutputFileName,[mbIgnore,mbAbort]);
         if Result in [mrCancel,mrAbort] then exit;
         OutputFileName:=ChangeFileExt(OutputFileName,'.o');
         if ConsoleVerbosity>1 then
-          debugln(['clean up '+APackage.IDAsString+': '+OutputFileName]);
+          debugln(['Hint: (lazarus) cleaning up package output directory of '+APackage.IDAsString+': '+OutputFileName]);
         Result:=DeleteFileInteractive(OutputFileName,[mbIgnore,mbAbort]);
         if Result in [mrCancel,mrAbort] then exit;
       end;
@@ -4685,7 +4708,8 @@ begin
   Dir:='$(FallbackOutputRoot)'+PathDelim+APackage.Name+PathDelim+Dir;
   GlobalMacroList.SubstituteStr(Dir);
   Dir:=TrimFilename(Dir);
-  debugln(['TLazPackageGraph.GetFallbackOutputDir  ',APackage.Name,': ',Dir]);
+  if ConsoleVerbosity>=0 then
+    debugln(['Hint: (lazarus) Fallback output directory of ',APackage.Name,': ',Dir]);
   Result:=Dir;
 end;
 
@@ -4798,7 +4822,7 @@ begin
   // delete ambiguous files
   Result:=DeleteAmbiguousFiles(SrcFilename);
   if Result=mrAbort then begin
-    DebugLn('TLazPackageGraph.SavePackageMainSource DoDeleteAmbiguousFiles failed');
+    DebugLn('Error: (lazarus) [TLazPackageGraph.SavePackageMainSource} DoDeleteAmbiguousFiles failed');
     exit;
   end;
 
@@ -4909,7 +4933,7 @@ begin
   Result:=LoadCodeBuffer(CodeBuffer,SrcFilename,[lbfQuiet,lbfCheckIfText,
                             lbfUpdateFromDisk,lbfCreateClearOnError],ShowAbort);
   if Result<>mrOk then begin
-    DebugLn('TLazPackageGraph.SavePackageMainSource LoadCodeBuffer ',SrcFilename,' failed');
+    DebugLn('Error: (lazarus) [TLazPackageGraph.SavePackageMainSource] LoadCodeBuffer ',SrcFilename,' failed');
     exit;
   end;
   // ignore comments
@@ -4930,7 +4954,7 @@ begin
   // save source
   Result:=SaveStringToFile(SrcFilename,Src,[],lisPkgMangpackageMainSourceFile);
   if Result<>mrOk then begin
-    DebugLn('TLazPackageGraph.SavePackageMainSource SaveStringToFile ',SrcFilename,' failed');
+    DebugLn('Error: (lazarus) [TLazPackageGraph.SavePackageMainSource] SaveStringToFile ',SrcFilename,' failed');
     exit;
   end;
 
@@ -5155,8 +5179,10 @@ begin
 
   // register custom IDE components
   RegistrationPackage:=DefaultPackage;
+  {$IFDEF CustomIDEComps}
   if IDEComponentPalette<>nil then
     IDEComponentPalette.RegisterCustomIDEComponents(@RegisterCustomIDEComponent);
+  {$ENDIF}
   if DefaultPackage.FileCount=0 then begin
     FreeThenNil(FDefaultPackage);
   end else begin
@@ -5381,7 +5407,7 @@ begin
       end else begin
         // there is already a package with this name, but wrong version open
         // -> unable to load this dependency due to conflict
-        debugln('TLazPackageGraph.OpenDependency:');
+        debugln('Error: (lazarus) [TLazPackageGraph.OpenDependency}:');
         if IsStaticBasePackage(APackage.Name) then
         begin
           debugln(['  LazarusDir="',EnvironmentOptions.GetParsedLazarusDirectory,'"']);
@@ -5447,7 +5473,7 @@ var
       end;
     except
       on E: Exception do begin
-        debugln(['ParseLPK "'+LPKFilename+'": '+E.Message]);
+        debugln(['Error: (lazarus) error reading "'+LPKFilename+'": '+E.Message]);
       end;
     end;
   end;
@@ -5572,7 +5598,7 @@ begin
       CurResult:=IDEQuestionDialog(lisPkgSysPackageFileNotFound,
         Format(lisPkgSysThePackageIsInstalledButNoValidPackageFileWasFound,
                [BrokenPackage.Name, LineEnding]),
-        mtError,[mrOk,mrYesToAll,'Skip these warnings']);
+        mtError, [mrOk, mrYesToAll, lisSkipTheseWarnings]);
       if CurResult=mrYesToAll then
         Quiet:=true;
     end;

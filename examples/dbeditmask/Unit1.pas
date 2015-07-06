@@ -6,19 +6,20 @@ unit Unit1;
 interface
 
 uses
-  LCLIntf, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, DBCtrls, ExtCtrls, DBGrids, DB, dbf, FileUtil, LResources;
+  SysUtils, Forms, StdCtrls, DBCtrls, DBGrids, DB, dbf, LazFileUtils;
 
 type
 
   { TForm1 }
 
   TForm1 = class(TForm)
-    DBEdit2: TDBEdit;
+    DBEdit1: TDBEdit;
+    IntEdit: TDBEdit;
     Dbf1ADATE: TDateField;
     Dbf1AINT: TLargeintField;
     Dbf1ASTR: TStringField;
     Label1: TLabel;
+    Label2: TLabel;
     ShowLongDateCheckBox: TCheckBox;
     DataSource1: TDataSource;
     ClientDataSet1ADate: TDateField;
@@ -27,7 +28,7 @@ type
     Dbf1: TDbf;
     DBGrid1: TDBGrid;
     DBNavigator1: TDBNavigator;
-    DBEdit1: TDBEdit;
+    DateEdit: TDBEdit;
     Label3: TLabel;
     procedure Dbf1ADATESetText(Sender: TField; const aText: string);
     procedure Dbf1AINTGetText(Sender: TField; var aText: string;
@@ -36,7 +37,7 @@ type
     procedure ShowLongDateCheckBoxChange(Sender: TObject);
   private
   public
-    { Public declarations }
+
   end;
 
 var

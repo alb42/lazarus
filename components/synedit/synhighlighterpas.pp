@@ -3761,7 +3761,7 @@ var
 begin
   BlockEnabled := FFoldConfig[ord(ABlockType)].Enabled;
   if (not BlockEnabled) and OnlyEnabled then
-    exit;
+    exit(nil);
   FoldBlock := BlockEnabled and (FFoldConfig[ord(ABlockType)].Modes * [fmFold, fmHide] <> []);
   p := 0;
   if FCatchNodeInfo then begin // exclude subblocks, because they do not increase the foldlevel yet

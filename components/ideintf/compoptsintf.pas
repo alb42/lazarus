@@ -407,11 +407,11 @@ type
     property UseExternalDbgSyms: Boolean read FUseExternalDbgSyms write SetUseExternalDbgSyms; // -Xg
 
     // messages:
-    property ShowErrors: Boolean read fShowErrors write SetShowErrors; // -ve
+    property ShowErrors: Boolean read fShowErrors write SetShowErrors; deprecated; // -ve, you cannot ignore errors
     property ShowWarn: Boolean read fShowWarn write SetShowWarn; // -vw
     property ShowNotes: Boolean read fShowNotes write SetShowNotes; // -vn
     property ShowHints: Boolean read fShowHints write SetShowHints; // -vh
-    property ShowGenInfo: Boolean read fShowGenInfo write SetShowGenInfo; // -vi
+    property ShowGenInfo: Boolean read fShowGenInfo write SetShowGenInfo; deprecated; // -vi, always needed to resolve filenames in fpc messages without path
     property ShowLineNum: Boolean read fShowLineNum write SetShowLineNum; // -vl
     property ShowAll: Boolean read fShowAll write SetShowAll; // -va
     property ShowDebugInfo: Boolean read fShowDebugInfo write SetShowDebugInfo; // -vd
@@ -420,7 +420,7 @@ type
     property ShowCompProc: Boolean read fShowCompProc write SetShowCompProc; // -vp
     property ShowCond: Boolean read fShowCond write SetShowCond; // -vc
     property ShowExecInfo: Boolean read fShowExecInfo write SetShowExecInfo; // -vx
-    property ShowSummary: Boolean read FShowSummary write SetShowSummary;
+    property ShowSummary: Boolean read FShowSummary write SetShowSummary; deprecated; // summary is now always shown (in the header)
     property ShowHintsForUnusedUnitsInMainSrc: Boolean
       read fShowHintsForUnusedUnitsInMainSrc write SetShowHintsForUnusedUnitsInMainSrc;
     property ShowHintsForSenderNotUsed: Boolean

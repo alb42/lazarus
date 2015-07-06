@@ -522,7 +522,7 @@ var
   nSize, BytesCount: DWORD;
   RgnData: PRgnData;
   WindowOrg: Windows.POINT;
-  XFORM: TXFORM;
+  XFRM: TXFORM;
   MirroredPaintRgn: HRGN;
 begin
   // winnt returns in screen coordinates
@@ -549,11 +549,12 @@ begin
     //Method 2 - Create a mirrored region based on the one we have
     nSize := GetRegionData(PaintRegion, 0, nil);
     RgnData := GetMem(nSize);
-    XForm.eDx:=0;   XForm.eDy:=0;
-    XForm.eM11:=-1; XForm.eM12:=0;
-    XForm.eM21:=0;  XForm.eM22:=1;
+    XFRM.eDx:=0;   XFRM.eDy:=0;
+    XFRM.eM11:=-1; XFRM.eM12:=0;
+    XFRM.eM21:=0;  XFRM.eM22:=1;
 
-    MirroredPaintRgn := ExtCreateRegion(@XForm, BytesCount, RgnData^);
+    // ToDo: BytesCount is not initialized.
+    MirroredPaintRgn := ExtCreateRegion(@XFRM, BytesCount, RgnData^);
     Windows.SelectClipRgn(CurDoubleBuffer.DC, MirroredPaintRgn);
     Windows.DeleteObject(MirroredPaintRgn);
     Freemem(RgnData);
@@ -2353,7 +2354,7 @@ begin
 
   case Msg of
     WM_ACTIVATEAPP: DoMsgActivateApp;
-    WM_MOVE:        if DoMsgMove then Exit;
+    WM_MOVE:        if DoMsgMove then Exit(0);
     WM_SIZE:        DoMsgSize;
     BM_SETCHECK:
     begin
@@ -2502,10 +2503,11 @@ begin
 
   if WinProcess then
   begin
-    if (Msg=WM_CHAR) and ((WParam=VK_RETURN) or (WPARAM=VK_ESCAPE)) and
+    if ((Msg=WM_CHAR) and ((WParam=VK_RETURN) or (WPARAM=VK_ESCAPE)) and
        ((lWinControl is TCustomCombobox) or
         ((lWinControl is TCustomEdit) and not (lWinControl is TCustomMemo ))
-       )
+       ))
+       or (Msg=WM_SYSCHAR)      // Windows message processing is postponed
     then
       // this thing will beep, don't call defaultWindowProc
     else
@@ -2541,6 +2543,10 @@ begin
         // winapi too inconsistent about return value
         if (lWinControl <> nil) and (PLMsg^.Result = 0) and CharCodeNotEmpty then
           DeliverMessage(lWinControl, PLMsg^);
+
+        // Windows message processing for WM_SYSCHAR not processed (will get WM_MENUCHAR)
+        if (Msg=WM_SYSCHAR) and (PLMsg^.Result = 0) and CharCodeNotEmpty then
+          PLMsg^.Result := CallDefaultWindowProc(Window, Msg, WParam, LParam);
 
         // handle Ctrl-A for edit controls
         if (PLMsg^.Result = 0) and (Msg = WM_KEYDOWN) and (WParam = Ord('A'))
@@ -2638,6 +2644,7 @@ var
   Owner: TWinControl;
   Control: TControl;
   P: TPoint;
+  LRect: Windows.RECT;
 begin
   case Msg of
     WM_ERASEBKGND:
@@ -2681,6 +2688,16 @@ begin
     begin
       // free our own data associated with window
       DisposeWindowInfo(Window);
+      Result := 0;
+    end;
+    WM_MOVE:
+    begin
+      if (Int16(LoWord(LParam)) <> 0) or (Int16(HiWord(LParam)) <> 0) then
+      begin
+        Parent := Windows.GetParent(Window);
+        Windows.GetClientRect(Parent, LRect);
+        Windows.SetWindowPos(Window, HWND_TOP, 0, 0, LRect.Right, LRect.Bottom, 0);
+      end;
     end;
   else
     if UnicodeEnabledOS
@@ -2754,6 +2771,7 @@ Var
   TimerInfo: PWin32TimerInfo;
   n: Integer;
 begin
+  if Assigned(Application) and Application.Terminated then exit;
   n := FTimerData.Count;
   while (n>0) do begin
     dec(n);

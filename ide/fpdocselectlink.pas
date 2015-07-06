@@ -30,10 +30,9 @@ unit FPDocSelectLink;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, Forms, Controls, Graphics, Dialogs,
-  ExtCtrls, StdCtrls, ButtonPanel, FileUtil, LCLType, AvgLvlTree,
-  Laz2_DOM,
-  PackageIntf, ProjectIntf,
+  Classes, SysUtils, LCLProc, Forms, Controls, Graphics,
+  ExtCtrls, StdCtrls, ButtonPanel, FileUtil, LazFileUtils, LCLType, AvgLvlTree,
+  Laz2_DOM, PackageIntf, ProjectIntf,
   CodeHelp, LazarusIDEStrConsts, PackageSystem, PackageDefs;
 
 type
@@ -99,14 +98,13 @@ type
     TitleLabel: TLabel;
     LinkEdit: TEdit;
     LinkLabel: TLabel;
-    procedure CompletionBoxMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+    procedure CompletionBoxMouseDown(Sender: TObject; {%H-}Button: TMouseButton;
+      {%H-}Shift: TShiftState; {%H-}X, Y: Integer);
     procedure CompletionBoxPaint(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure LinkEditChange(Sender: TObject);
     procedure LinkEditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure LinkEditUTF8KeyPress(Sender: TObject; var UTF8Key: TUTF8Char);
   private
     FStartFPDocFile: TLazFPDocFile;
     fItems: TFPDocLinkCompletionList;
@@ -276,11 +274,6 @@ begin
   end;
 end;
 
-procedure TFPDocLinkEditorDlg.LinkEditUTF8KeyPress(Sender: TObject;
-  var UTF8Key: TUTF8Char);
-begin
-end;
-
 procedure TFPDocLinkEditorDlg.SetSourceFilename(const AValue: string);
 var
   Owners: TFPList;
@@ -447,11 +440,12 @@ begin
         end;
         if (ModuleOwner<>nil) and (ModuleOwner<>StartModuleOwner) then begin
           // different module
-          if ModuleOwner is TLazProject then begin
-            ModuleName:=lowercase(ExtractFileNameOnly(TLazProject(ModuleOwner).ProjectInfoFile));
-          end else if ModuleOwner is TLazPackage then begin
-            ModuleName:=TLazPackage(ModuleOwner).Name;
-          end;
+          if ModuleOwner is TLazProject then
+            ModuleName:=lowercase(ExtractFileNameOnly(TLazProject(ModuleOwner).ProjectInfoFile))
+          else if ModuleOwner is TLazPackage then
+            ModuleName:=TLazPackage(ModuleOwner).Name
+          else
+            ModuleName:='';
           if ModuleName<>'' then
             ElementName:='#'+ModuleName+'.'+ElementName
           else

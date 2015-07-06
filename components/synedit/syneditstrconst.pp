@@ -393,7 +393,8 @@ const
   SYNS_LangSynGenMsgfiles       =  'SynGen Msg files';
   SYNS_LangUnreal               =  'Unreal';
   SYNS_LangTeX                  =  'TeX';
-  SYNS_LangPo                  =  'po language files';
+  SYNS_LangPo                   =  'po language files';
+  SYNS_LangPike                 =  'Pike';
 
 resourcestring
 
@@ -401,6 +402,7 @@ resourcestring
   SYNS_emcStartSelection           = 'Selection';
   SYNS_emcStartColumnSelections    = 'Column Selection';
   SYNS_emcStartLineSelections      = 'Line Selection';
+  SYNS_emcStartLineSelectionsNoneEmpty = 'Line Selection (select immediate)';
   SYNS_emcSelection_opt            = 'Mode,Begin,Continue';
   SYNS_emcSelectWord               = 'Select Word';
   SYNS_emcSelectLine               = 'Select Line';
@@ -410,6 +412,7 @@ resourcestring
   SYNS_emcPasteSelection           = 'Quick Paste Selection';
   SYNS_emcMouseLink                = 'Source Link';
   SYNS_emcMouseLink_opt            = 'Underline,yes, no';
+  SYNS_emcStartDragMove_opt        = '"Caret on up if not dragged",yes,no';
   SYNS_emcContextMenu              = 'Popup Menu';
   SYNS_emcBreakPointToggle         = 'Toggle Breakpoint';
   SYNS_emcCodeFoldCollaps          = 'Fold Code';
@@ -434,6 +437,8 @@ resourcestring
   SYNS_emcContextMenuCaretMove_opt = '"Move caret, when selection exists", Never, "Click outside", Always';
   SYNS_emcWheelScroll_opt          = 'Speed,"System settings",Lines,Pages,"Pages (less one line)"';
 
+  SYNS_emcPluginMultiCaretToggleCaret = 'Toggle extra caret';
+  SYNS_emcPluginMultiCaretSelectionToCarets = 'Set carets at EOL in selected lines';
 implementation
 
 end.

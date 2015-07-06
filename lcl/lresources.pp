@@ -172,6 +172,9 @@ type
     function ReadInt32: LongInt; override;
     function ReadInt64: Int64; override;
     function ReadSet(EnumType: Pointer): Integer; override;
+    {$IF FPC_FULLVERSION >= 30001}
+    procedure ReadSignature; override;
+    {$ENDIF}
     function ReadStr: String; override;
     function ReadString(StringType: TValueType): String; override;
     function ReadWideString: WideString; override;
@@ -269,6 +272,9 @@ type
     procedure BeginCollection; override;{ Ends with the next "EndList" }
     procedure BeginComponent(Component: TComponent; Flags: TFilerFlags;
       ChildPos: Integer); override; { Ends after the second "EndList" }
+    {$IF FPC_FULLVERSION >= 30001}
+    procedure WriteSignature; override;
+    {$ENDIF}
     procedure BeginList; override;
     procedure EndList; override;
     procedure BeginProperty(const PropName: String); override;
@@ -1938,6 +1944,7 @@ function TDelphiReader.ReadString: string;
 var
   L: Integer;
 begin
+  Result := '';
   if NextValue in [dvaWString, dvaUTF8String] then begin
     ReadError('TDelphiReader.ReadString: WideString and UTF8String are not implemented yet');
     //Result := ReadWideString;
@@ -2279,6 +2286,7 @@ procedure LRSObjectBinaryToText(Input, Output: TStream);
           Result := SmallInt(w);
         end;
       vaInt32: Result := ReadLRSInteger(Input);
+      else Result := 0;
     end;
   end;
 
@@ -2536,6 +2544,7 @@ procedure LRSObjectBinaryToText(Input, Output: TStream);
     ObjClassName, ObjName: String;
     ChildPos: LongInt;
   begin
+    ChildPos := 0;
     // Check for FilerFlags
     b := Input.ReadByte;
     if (b and $f0) = $f0 then begin
@@ -2964,6 +2973,7 @@ var
     ObjectName := '';
     ObjectType := parser.TokenString;
     ParserNextToken;
+    ChildPos := 0;
     if parser.Token = ':' then begin
       ParserNextToken;
       parser.CheckToken(toSymbol);
@@ -3541,8 +3551,7 @@ begin
   end;
 end;
 
-function FloatToLFMStr(const Value: extended; Precision, Digits: Integer
-  ): string;
+function FloatToLFMStr(const Value: extended; Precision, Digits: Integer): string;
 var
   P: Integer;
   TooSmall, TooLarge: Boolean;
@@ -3552,7 +3561,11 @@ begin
   If (Precision = -1) or (Precision > 15) then Precision := 15;
 
   TooSmall := (Abs(Value) < 0.00001) and (Value>0.0);
-  if not TooSmall then begin
+  if TooSmall then begin
+    P := 0;
+    TooLarge := False;
+  end
+  else begin
     Str(Value:digits:precision, Result);
     P := Pos('.', Result);
     TooLarge :=(P > Precision + 1) or (Pos('E', Result)<>0);
@@ -4211,6 +4224,12 @@ begin
   end;
 end;
 
+{$IF FPC_FULLVERSION >= 30001}
+procedure TLRSObjectReader.ReadSignature;
+begin
+end;
+{$ENDIF}
+
 function TLRSObjectReader.ReadStr: String;
 var
   b: Byte;
@@ -4493,7 +4512,7 @@ begin
   FBufPos := 0;
 end;
 
-procedure TLRSObjectWriter.Write(const Buffer; Count: LongInt);
+procedure TLRSObjectWriter.Write(const Buffer; Count: Longint);
 var
   Item: PLRSOWStackItem;
 begin
@@ -4738,6 +4757,12 @@ begin
 
   EndHeader;
 end;
+
+{$IF FPC_FULLVERSION >= 30001}
+procedure TLRSObjectWriter.WriteSignature;
+begin
+end;
+{$ENDIF}
 
 procedure TLRSObjectWriter.BeginList;
 begin

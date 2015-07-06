@@ -40,12 +40,12 @@ unit InitialSetupDlgs;
 interface
 
 uses
-  Classes, SysUtils, strutils, contnrs, LCLProc, Forms, Controls, Buttons,
-  Dialogs, FileUtil, Laz2_XMLCfg, lazutf8classes, LazFileUtils, LazFileCache,
+  Classes, SysUtils, LCLProc, Forms, Controls, Buttons,
+  Dialogs, FileUtil, lazutf8classes, LazFileUtils, LazFileCache,
   LazLogger, Graphics, ComCtrls, ExtCtrls, StdCtrls, DefineTemplates,
   CodeToolManager, FileProcs, TransferMacros, MacroDefIntf, GDBMIDebugger,
   DbgIntfDebuggerBase, LazarusIDEStrConsts, LazConf, EnvironmentOpts, IDEProcs,
-  AboutFrm, IDETranslations, InitialSetupProc;
+  AboutFrm, IDETranslations, BaseBuildManager, InitialSetupProc;
   
 type
   TInitialSetupDialog = class;
@@ -508,9 +508,9 @@ begin
     Filename:='gdb'+GetExecutableExt;
     Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
-    Filter:=dlgAllFiles+'|'+GetAllFilesMask;
+    Filter:=dlgFilterAll+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
-      Filter:=lisExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
+      Filter:=dlgFilterExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
     Dlg.Filter:=Filter;
     if not Dlg.Execute then exit;
     Filename:=Dlg.FileName;
@@ -537,9 +537,9 @@ begin
     Filename:='fpc'+GetExecutableExt;
     Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
-    Filter:=dlgAllFiles+'|'+GetAllFilesMask;
+    Filter:=dlgFilterAll+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
-      Filter:=lisExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
+      Filter:=dlgFilterExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
     Dlg.Filter:=Filter;
     if not Dlg.Execute then exit;
     Filename:=Dlg.FileName;
@@ -605,9 +605,9 @@ begin
     Filename:='make'+GetExecutableExt;
     Dlg.Title:=SimpleFormat(lisSelectPathTo, [Filename]);
     Dlg.Options:=Dlg.Options+[ofFileMustExist];
-    Filter:=dlgAllFiles+'|'+GetAllFilesMask;
+    Filter:=dlgFilterAll+'|'+GetAllFilesMask;
     if ExtractFileExt(Filename)<>'' then
-      Filter:=lisExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
+      Filter:=dlgFilterExecutable+'|*'+ExtractFileExt(Filename)+'|'+Filter;
     Dlg.Filter:=Filter;
     if not Dlg.Execute then exit;
     Filename:=Dlg.FileName;
@@ -656,6 +656,7 @@ var
   MsgResult: TModalResult;
 begin
   Node:=FirstErrorNode;
+  s:='';
   if Node=TVNodeLazarus then
     s:=lisWithoutAProperLazarusDirectoryYouWillGetALotOfWarn
   else if Node=TVNodeCompiler then
@@ -964,6 +965,7 @@ var
   Quality: TSDFilenameQuality;
   s: String;
   ImageIndex: Integer;
+  CfgCache: TFPCTargetConfigCache;
 begin
   if csDestroying in ComponentState then exit;
   CurCaption:=CompilerComboBox.Text;
@@ -971,6 +973,13 @@ begin
   if fLastParsedCompiler=EnvironmentOptions.GetParsedCompilerFilename then exit;
   fLastParsedCompiler:=EnvironmentOptions.GetParsedCompilerFilename;
   //debugln(['TInitialSetupDialog.UpdateCompilerNote ',fLastParsedCompiler]);
+
+  // check compiler again
+  CfgCache:=CodeToolBoss.FPCDefinesCache.ConfigCaches.Find(
+                                             fLastParsedCompiler,'','','',true);
+  CfgCache.Update(CodeToolBoss.FPCDefinesCache.TestFilename);
+  BuildBoss.SetBuildTargetIDE;
+
   Quality:=CheckCompilerQuality(fLastParsedCompiler,Note,
                                 CodeToolBoss.FPCDefinesCache.TestFilename);
   if Quality<>sddqInvalid then begin

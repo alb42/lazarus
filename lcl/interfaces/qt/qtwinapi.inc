@@ -1363,18 +1363,18 @@ begin
   else
     WideStr := GetUtf8String(Str);
 
-
+  ClipRect := Rect(0, 0, 0, 0);
   B := QtDC.getClipping;
-  if B and
-    (Flags and DT_NOCLIP = DT_NOCLIP) and
+  if (Flags and DT_NOCLIP = DT_NOCLIP) and
     (Flags and DT_WORDBREAK = DT_WORDBREAK) then
   begin
-    ClipRect := QtDC.getClipRegion.getBoundingRect;
+    if B then
+      ClipRect := QtDC.getClipRegion.getBoundingRect;
     //this is just to get same behaviour as gtk2 and win32
     //IMO, we should change ARect.Left and/or ARect.Top if smaller than
     //clip rect (map to clipRect). Then multiline text is drawn ok.
     //look at issue http://bugs.freepascal.org/view.php?id=17678 . zeljko.
-    if (ARect.Left < ClipRect.Left) or (ARect.Top < ClipRect.Top) then
+    if not B or (B and ((ARect.Left < ClipRect.Left) or (ARect.Top < ClipRect.Top))) then
     begin
       {$note remove ifdef if I'm wrong about DT_WORDBREAK OBSERVATION}
       {$IFDEF QT_DRAWTEXT_MAP_TO_CLIPRECT}
@@ -1414,12 +1414,15 @@ begin
   // also it works only with DT_TOP DT_LEFT. Qt can handle multiline
   // text in this case too.
   Pt := Point(0, 0);
-  if (QtDC.Font.Angle <> 0) and
-    (Flags and DT_VCENTER = 0) and (Flags and DT_CENTER = 0) and
-    (Flags and DT_RIGHT = 0) and (Flags and  DT_BOTTOM = 0) then
+  if (QtDC.Font.Angle <> 0) then
   begin
-    Pt := Point(ARect.Left, ARect.Top);
-    CalculateOffsetWithAngle(QtDC.font.Angle, Pt.X, Pt.Y);
+    if IsRectEmpty(ClipRect) and QtDC.getClipping then
+      ClipRect := QtDC.getClipRegion.getBoundingRect;
+    if EqualRect(ClipRect, ARect) then
+    begin
+      Pt := Point(ARect.Left, ARect.Top);
+      CalculateOffsetWithAngle(QtDC.font.Angle, Pt.X, Pt.Y);
+    end;
   end;
 
   // we cannot fit into rectangle, so use DT_SINGLELINE.See #17329.
@@ -1434,7 +1437,7 @@ begin
     F := DTFlagsToQtFlags(Flags);
   end;
 
-  {$warning HARDCODED WORKAROUND for qt-4.7.1 QPainter bug.}
+  {Workaround for qt-4.7 QPainter bug.It's fixed in qt-4.7.4. DO NOT REMOVE}
   { Bug triggers when we try to paint multiline text which contains 1
    space. eg "Save project\nCtrl+S". In this case QPainter draws
    Save
@@ -2845,7 +2848,12 @@ begin
     Widget := TQtWidget(hWnd);
     Result := Widget.Context;
     if Result = 0 then
-      Result := HDC(QtDefaultContext);
+    begin
+      {issue #28106}
+      Result := HDC(TQtDeviceContext.Create(Widget.Widget, False));
+      {can be destroyed via ReleaseDC()}
+      TQtDeviceContext(Result).UserDC := True;
+    end;
   end else
     Result := HDC(QtScreenContext);
 
@@ -5261,7 +5269,12 @@ begin
 
   Result := 0;
 
-  if IsValidDC(DC) then Exit;
+  if IsValidDC(DC) then
+  begin
+    if TQtDeviceContext(DC).UserDC then
+      TQtDeviceContext(DC).Free;
+    Exit;
+  end;
 
   Result := 1;
 end;

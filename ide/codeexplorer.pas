@@ -131,7 +131,6 @@ type
     procedure CodeExplorerViewCreate(Sender: TObject);
     procedure CodeExplorerViewDestroy(Sender: TObject);
     procedure CodeFilterEditEnter(Sender: TObject);
-    procedure CodeFilterEditExit(Sender: TObject);
     procedure CodeTreeviewDblClick(Sender: TObject);
     procedure CodeTreeviewDeletion(Sender: TObject; Node: TTreeNode);
     procedure CodeTreeviewKeyUp(Sender: TObject; var Key: Word;
@@ -139,14 +138,12 @@ type
     procedure CodeFilterEditChange(Sender: TObject);
     procedure DirectivesFilterEditChange(Sender: TObject);
     procedure DirectivesFilterEditEnter(Sender: TObject);
-    procedure DirectivesFilterEditExit(Sender: TObject);
     procedure DirectivesTreeViewDblClick(Sender: TObject);
     procedure DirectivesTreeViewDeletion(Sender: TObject; Node: TTreeNode);
     procedure DirectivesTreeViewKeyUp(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure IdleTimer1Timer(Sender: TObject);
     procedure JumpToMenuItemClick(Sender: TObject);
-    procedure JumpToImplementationMenuItemClick(Sender: TObject);
     procedure OnCloseIDE(Sender: TObject);
     procedure ShowSrcEditPosMenuItemClick(Sender: TObject);
     procedure MainNotebookPageChanged(Sender: TObject);
@@ -156,7 +153,7 @@ type
     procedure CodeRefreshSpeedButtonClick(Sender: TObject);
     procedure RenameMenuItemClick(Sender: TObject);
     procedure TreePopupmenuPopup(Sender: TObject);
-    procedure OnUserInput(Sender: TObject; Msg: Cardinal);
+    procedure OnUserInput(Sender: TObject; {%H-}Msg: Cardinal);
   private
     fCategoryNodes: array[TCodeExplorerCategory] of TTreeNode;
     FCodeFilename: string;
@@ -182,6 +179,9 @@ type
     fSortCodeTool: TCodeTool;
     FUpdateCount: integer;
     ImgIDClass: Integer;
+    ImgIDClassInterface: Integer;
+    ImgIDRecord: Integer;
+    ImgIDHelper: Integer;
     ImgIDConst: Integer;
     ImgIDSection: Integer;
     ImgIDDefault: integer;
@@ -280,7 +280,6 @@ const
 var
   CodeExplorerView: TCodeExplorerView = nil;
   CEJumpToIDEMenuCommand: TIDEMenuCommand;
-  CEJumpToImplementationIDEMenuCommand: TIDEMenuCommand;
   CEShowSrcEditPosIDEMenuCommand: TIDEMenuCommand;
   CERefreshIDEMenuCommand: TIDEMenuCommand;
   CERenameIDEMenuCommand: TIDEMenuCommand;
@@ -371,8 +370,6 @@ begin
   CodeExplorerMenuRoot:=RegisterIDEMenuRoot(CodeExplorerMenuRootName);
   Path:=CodeExplorerMenuRoot.Name;
   CEJumpToIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Jump to', lisMenuJumpTo);
-  CEJumpToImplementationIDEMenuCommand:=RegisterIDEMenuCommand(Path,
-    'Jump to implementation', lisMenuJumpToImplementation);
   CEShowSrcEditPosIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Show position of source editor',
     lisShowPositionOfSourceEditor);
   CERefreshIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Refresh', dlgUnitDepRefresh);
@@ -470,12 +467,14 @@ begin
 
   CodePage.Caption:=lisCode;
   CodeRefreshSpeedButton.Hint:=dlgUnitDepRefresh;
-  CodeOptionsSpeedButton.Hint:=dlgFROpts;
-  CodeFilterEdit.Text:=lisCEFilter;
+  CodeOptionsSpeedButton.Hint:=lisOptions;
+  CodeFilterEdit.Text:='';
   DirectivesPage.Caption:=lisDirectives;
-  DirectivesFilterEdit.Text:=lisCEFilter;
+  DirectivesFilterEdit.Text:='';
   DirRefreshSpeedButton.Hint:=dlgUnitDepRefresh;
-  DirOptionsSpeedButton.Hint:=dlgFROpts;
+  DirOptionsSpeedButton.Hint:=lisOptions;
+  CodeFilterEdit.TextHint:=lisCEFilter;
+  DirectivesFilterEdit.TextHint:=lisCEFilter;
 
   CodeRefreshSpeedButton.LoadGlyphFromResourceName(HInstance, 'laz_refresh');
   CodeOptionsSpeedButton.LoadGlyphFromResourceName(HInstance, 'menu_environment_options');
@@ -493,6 +492,9 @@ begin
   ImgIDVariable := Imagelist1.AddResourceName(HInstance, 'ce_variable');
   ImgIDConst := Imagelist1.AddResourceName(HInstance, 'ce_const');
   ImgIDClass := Imagelist1.AddResourceName(HInstance, 'ce_class');
+  ImgIDClassInterface := Imagelist1.AddResourceName(HInstance, 'ce_classinterface');
+  ImgIDHelper := Imagelist1.AddResourceName(HInstance, 'ce_helper');
+  ImgIDRecord := Imagelist1.AddResourceName(HInstance, 'ce_record');
   ImgIDProcedure := Imagelist1.AddResourceName(HInstance, 'ce_procedure');
   ImgIDFunction := Imagelist1.AddResourceName(HInstance, 'ce_function');
   ImgIDProperty := Imagelist1.AddResourceName(HInstance, 'ce_property');
@@ -507,7 +509,6 @@ begin
   //CodeExplorerMenuRoot.Items.WriteDebugReport(' ');
 
   CEJumpToIDEMenuCommand.OnClick:=@JumpToMenuItemClick;
-  CEJumpToImplementationIDEMenuCommand.OnClick:=@JumpToImplementationMenuItemClick;
   CEShowSrcEditPosIDEMenuCommand.OnClick:=@ShowSrcEditPosMenuItemClick;
   CERefreshIDEMenuCommand.OnClick:=@RefreshMenuItemClick;
   CERenameIDEMenuCommand.OnClick:=@RenameMenuItemClick;
@@ -530,16 +531,7 @@ end;
 
 procedure TCodeExplorerView.CodeFilterEditEnter(Sender: TObject);
 begin
-  if CodeFilterEdit.Text = lisCEFilter then
-    CodeFilterEdit.Text:=''
-  else
-    CodeFilterEdit.SelectAll;
-end;
-
-procedure TCodeExplorerView.CodeFilterEditExit(Sender: TObject);
-begin
-  if CodeFilterEdit.Text='' then
-    CodeFilterEdit.Text:=lisCEFilter;
+  CodeFilterEdit.SelectAll;
 end;
 
 procedure TCodeExplorerView.CodeTreeviewDblClick(Sender: TObject);
@@ -575,16 +567,7 @@ end;
 
 procedure TCodeExplorerView.DirectivesFilterEditEnter(Sender: TObject);
 begin
-  if DirectivesFilterEdit.Text = lisCEFilter then
-    DirectivesFilterEdit.Text:=''
-  else
-    DirectivesFilterEdit.SelectAll;
-end;
-
-procedure TCodeExplorerView.DirectivesFilterEditExit(Sender: TObject);
-begin
-  if DirectivesFilterEdit.Text='' then
-    DirectivesFilterEdit.Text:=lisCEFilter;
+  DirectivesFilterEdit.SelectAll;
 end;
 
 procedure TCodeExplorerView.DirectivesTreeViewDblClick(Sender: TObject);
@@ -625,11 +608,6 @@ end;
 procedure TCodeExplorerView.JumpToMenuItemClick(Sender: TObject);
 begin
   JumpToSelection(false);
-end;
-
-procedure TCodeExplorerView.JumpToImplementationMenuItemClick(Sender: TObject);
-begin
-  JumpToSelection(true);
 end;
 
 procedure TCodeExplorerView.OnCloseIDE(Sender: TObject);
@@ -696,10 +674,8 @@ var
   CurItem: TTreeNode;
   CanRename: boolean;
   CurNode: TViewNodeData;
-  HasImplementation: Boolean;
 begin
   CanRename:=false;
-  HasImplementation:=false;
   CurTreeView:=GetCurrentTreeView;
   if CurTreeView<>nil then begin
     if tvoAllowMultiselect in CurTreeView.Options then
@@ -718,13 +694,9 @@ begin
           ;
         end;
       end;
-      if (CurNode.ImplementationNode<>nil)
-      and (CurNode.ImplementationNode.StartPos>0) then
-        HasImplementation:=true;
     end;
   end;
   CERenameIDEMenuCommand.Visible:=CanRename;
-  CEJumpToImplementationIDEMenuCommand.Visible:=HasImplementation;
   //DebugLn(['TCodeExplorerView.TreePopupmenuPopup ',CERenameIDEMenuCommand.Visible]);
 end;
 
@@ -736,6 +708,8 @@ end;
 
 function TCodeExplorerView.GetCodeNodeDescription(ACodeTool: TCodeTool;
   CodeNode: TCodeTreeNode): string;
+var
+  ClassIdentNode, HelperForNode, InhNode: TCodeTreeNode;
 begin
   Result:='?';
 
@@ -760,8 +734,26 @@ begin
     ctnResStrSection:
       Result:='Resourcestring';
 
-    ctnTypeDefinition,ctnVarDefinition,ctnConstDefinition,ctnUseUnit:
+    ctnVarDefinition,ctnConstDefinition,ctnUseUnit:
       Result:=ACodeTool.ExtractIdentifier(CodeNode.StartPos);
+
+    ctnTypeDefinition:
+      begin
+        Result:=ACodeTool.ExtractIdentifier(CodeNode.StartPos);
+        ClassIdentNode := CodeNode.FirstChild;
+        if Assigned(ClassIdentNode) then
+        begin
+          if ClassIdentNode.Desc in [ctnClassHelper, ctnRecordHelper, ctnTypeHelper] then
+            HelperForNode := ACodeTool.FindHelperForNode(ClassIdentNode)
+          else
+            HelperForNode := nil;
+          InhNode:=ACodeTool.FindInheritanceNode(ClassIdentNode);
+          if InhNode<>nil then
+            Result:=Result+ACodeTool.ExtractNode(InhNode,[]);
+          if HelperForNode<>nil then
+            Result:=Result+' '+ACodeTool.ExtractNode(HelperForNode,[]);
+        end;
+      end;
 
     ctnGenericType:
       Result:=ACodeTool.ExtractDefinitionName(CodeNode);
@@ -813,7 +805,6 @@ end;
 function TCodeExplorerView.GetCodeFilter: string;
 begin
   Result:=CodeFilterEdit.Text;
-  if Result=lisCEFilter then Result:='';
 end;
 
 function TCodeExplorerView.GetCurrentPage: TCodeExplorerPage;
@@ -829,7 +820,6 @@ end;
 function TCodeExplorerView.GetDirectivesFilter: string;
 begin
   Result:=DirectivesFilterEdit.Text;
-  if Result=lisCEFilter then Result:='';
 end;
 
 function TCodeExplorerView.GetCodeNodeImage(Tool: TFindDeclarationTool;
@@ -845,9 +835,19 @@ begin
     ctnTypeSection:                   Result:=ImgIDSection;
     ctnTypeDefinition:
       begin
-        if (CodeNode.FirstChild <> nil)
-        and (CodeNode.FirstChild.Desc in AllClasses) then
-          Result := ImgIDClass
+        if (CodeNode.FirstChild <> nil) then
+          case CodeNode.FirstChild.Desc of
+            ctnClassInterface,ctnDispinterface,ctnObjCProtocol:
+              Result := ImgIDClassInterface;
+            ctnClass,ctnObjCClass,ctnObjCCategory,ctnCPPClass:
+              Result := ImgIDClass;
+            ctnObject,ctnRecordType:
+              Result := ImgIDRecord;
+            ctnClassHelper,ctnRecordHelper,ctnTypeHelper:
+              Result := ImgIDHelper;
+          else
+            Result := ImgIDType;
+          end
         else
           Result := ImgIDType;
       end;
@@ -855,9 +855,14 @@ begin
     ctnVarDefinition:                 Result:=ImgIDVariable;
     ctnConstSection,ctnResStrSection: Result:=ImgIDSection;
     ctnConstDefinition:               Result:=ImgIDConst;
-    ctnClass,ctnClassInterface,ctnObject,
-    ctnObjCClass,ctnObjCProtocol,ctnObjCCategory,ctnCPPClass:
+    ctnClassInterface,ctnDispinterface,ctnObjCProtocol:
+      Result := ImgIDClassInterface;
+    ctnClass,ctnObject,
+    ctnObjCClass,ctnObjCCategory,ctnCPPClass:
                                       Result:=ImgIDClass;
+    ctnRecordType:                    Result:=ImgIDRecord;
+    ctnClassHelper,ctnRecordHelper,ctnTypeHelper:
+                                      Result:=ImgIDHelper;
     ctnProcedure:                     if Tool.NodeIsFunction(CodeNode) then
                                         Result:=ImgIDFunction
                                       else
@@ -941,8 +946,10 @@ begin
     if CodeNode.Desc=ctnEnumerationType then
       ShowNode:=false;
 
-    // don't show special nodes
-    if CodeNode.Desc in [ctnEndPoint] then
+    // don't show end node and class modification nodes
+    if CodeNode.Desc in [ctnEndPoint,ctnClassInheritance,ctnHelperFor,
+                         ctnClassAbstract,ctnClassExternal,ctnClassSealed]
+    then
       ShowNode:=false;
       
     // don't show class visibility section nodes

@@ -74,7 +74,7 @@ begin
   if Assigned(FControl) and FControl.AutoSize then begin
     FControl.GetPreferredSize(w, h);
     if FCoolBar.Vertical then w := h;
-    inc(w, CalcControlLeft+cHorSpacing+cDivider);
+    inc(w, CalcControlLeft+FCoolBar.HorizontalSpacing+cDivider);
     Width := Math.max(FMinWidth, w);
   end;
 end;
@@ -82,19 +82,19 @@ end;
 function TCoolBand.CalcControlLeft: Integer;
 var aImageSize, xHelp: Integer;
 begin
-  Result := cGrabIndent+FCoolBar.GrabWidth+cHorSpacing;
+  Result := cGrabIndent+FCoolBar.GrabWidth+FCoolBar.HorizontalSpacing;
   xHelp := Result;
   if (Text <> '') and FCoolBar.ShowText then
-    inc(Result, FTextWidth+cHorSpacing);
+    inc(Result, FTextWidth+FCoolBar.HorizontalSpacing);
   if Assigned(FCoolBar.Images) then begin
     if not FCoolBar.Vertical then
       aImageSize := FCoolBar.Images.Width
     else
       aImageSize := FCoolBar.Images.Height;
     if ImageIndex >= 0 then
-      inc(Result, aImageSize+cHorSpacing);
+      inc(Result, aImageSize+FCoolBar.HorizontalSpacing);
   end;
-  if Result = xHelp then inc(Result, cHorSpacing);
+  if Result = xHelp then inc(Result, FCoolBar.HorizontalSpacing);
 end;
 
 function TCoolBand.CalcPreferredHeight: Integer;
@@ -102,24 +102,24 @@ begin
   Result := FMinHeight;
   if not FCoolBar.Vertical then begin
     if Assigned(FControl) then
-      Result := max(Result, FControl.Height+2*cVertSpacing);
+      Result := max(Result, FControl.Height+2*FCoolBar.VerticalSpacing);
     if Assigned(FCoolBar.Images) and (ImageIndex >= 0) then
-      Result := max(Result, FCoolBar.Images.Height+2*cVertSpacing);
+      Result := max(Result, FCoolBar.Images.Height+2*FCoolBar.VerticalSpacing);
   end else begin
     if Assigned(FControl) then
-      Result := max(Result, FControl.Width+2*cVertSpacing);
+      Result := max(Result, FControl.Width+2*FCoolBar.VerticalSpacing);
     if Assigned(FCoolBar.Images) and (ImageIndex >= 0) then
-      Result := max(Result, FCoolBar.Images.Width+2*cVertSpacing);
+      Result := max(Result, FCoolBar.Images.Width+2*FCoolBar.VerticalSpacing);
   end;
   if FCoolBar.FShowText then
-    Result := max(Result, FCoolBar.FTextHeight+2*cVertSpacing);
+    Result := max(Result, FCoolBar.FTextHeight+2*FCoolBar.VerticalSpacing);
   //DebugLn('CalcPreferredHeight ', CalcPreferredHeightHor);
 end;
 
 function TCoolBand.CalcPreferredWidth: Integer;
 begin
   Result := CalcControlLeft;
-  if Assigned(Control) then inc(Result, Control.Width+cHorSpacing);
+  if Assigned(Control) then inc(Result, Control.Width+FCoolBar.HorizontalSpacing);
   inc(Result, cDivider);
   Result := max(FMinWidth, Result);
 end;
@@ -357,9 +357,11 @@ begin
   FBorderWidth := 2;
   FGrabStyle := cDefGrabStyle;
   FGrabWidth := cDefGrabWidth;
+  FHorizontalSpacing := cDefHorSpacing;
   FImageChangeLink := TChangeLink.Create;
   FImageChangeLink.OnChange := @BitmapOrImageListChange;
   FShowText := True;
+  FVerticalSpacing := cDefVertSpacing;
 end;
 
 destructor TCustomCoolBar.Destroy;
@@ -430,6 +432,14 @@ begin
   Invalidate;
 end;
 
+procedure TCustomCoolBar.SetHorizontalSpacing(AValue: Integer);
+begin
+  if FHorizontalSpacing=AValue then Exit;
+  FHorizontalSpacing:=AValue;
+  CalculateAndAlign;
+  Invalidate;
+end;
+
 procedure TCustomCoolBar.SetImages(AValue: TCustomImageList);
 begin
   if Assigned(FImages) then
@@ -461,6 +471,14 @@ begin
   Invalidate;
 end;
 
+procedure TCustomCoolBar.SetVerticalSpacing(AValue: Integer);
+begin
+  if FVerticalSpacing=AValue then Exit;
+  FVerticalSpacing:=AValue;
+  CalculateAndAlign;
+  Invalidate;
+end;
+
 procedure TCustomCoolBar.AlignControls(AControl: TControl; var RemainingClientRect: TRect);
 var aAnchor: TAnchorKind;
     i: Integer;
@@ -478,12 +496,10 @@ begin
       Bands[i].FControl.Anchors := [akTop, aAnchor];
       if not Vertical then begin
         Bands[i].FControl.AnchorParallel(aAnchor, Bands[i].FControlLeft, Self);
-        //if Bands[i].FControl.Top <> (Bands[i].FControlTop+FBorderTop) then
-          Bands[i].FControl.AnchorParallel(akTop, Bands[i].FControlTop, Self);
+        Bands[i].FControl.AnchorParallel(akTop, Bands[i].FControlTop, Self);
       end else begin
         Bands[i].FControl.AnchorParallel(akTop, Bands[i].FControlLeft, Self);
-        //if Bands[i].FControl.Left <> (Bands[i].FControlTop+FBorderLeft) then
-          Bands[i].FControl.AnchorParallel(aAnchor, Bands[i].FControlTop, Self);
+        Bands[i].FControl.AnchorParallel(aAnchor, Bands[i].FControlTop, Self);
       end;
     end;
   inherited AlignControls(AControl, RemainingClientRect);
@@ -537,8 +553,10 @@ begin
   aStartIndex := 0;
   //set all Bands in row to uniform height
   aRowEnd := True;
+  aLeft := aBorderLeft;
   for i := 0 to aCountM1 do begin
-    if aRowEnd or FVisiBands[i].Break then aLeft := aBorderLeft;
+    if aRowEnd or FVisiBands[i].Break then
+      aLeft := aBorderLeft;
     aBandHeight := Max(aBandHeight, FVisiBands[i].CalcPreferredHeight);
     aRowEnd := (i = aCountM1);
     inc(aLeft, FVisiBands[i].Width);
@@ -564,7 +582,8 @@ begin
   aRowEnd := True;
   include(FWinControlFlags, wcfAligningControls);
   for i := 0 to aCountM1 do begin
-    if aRowEnd or FVisiBands[i].Break then aLeft := aBorderLeft;
+    if aRowEnd or FVisiBands[i].Break then
+      aLeft := aBorderLeft;
     if not FRightToLeft or Vertical then
       FVisiBands[i].FLeft := aLeft
     else
@@ -576,7 +595,7 @@ begin
       FVisiBands[i].FTop := Width-aTop-FVisiBands[i].Height;
     if Assigned(FVisiBands[i].Control) then begin
       x := FVisiBands[i].CalcControlLeft;
-      aWidth := FVisiBands[i].Width-x-TCoolBand.cHorSpacing-TCoolBand.cDivider;
+      aWidth := FVisiBands[i].Width-x-HorizontalSpacing-TCoolBand.cDivider;
       if not FRightToLeft then begin
         inc(x, aLeft);
         if not Vertical then
@@ -586,7 +605,7 @@ begin
         FVisiBands[i].FControlLeft := x-aBorderLeft;
       end else begin
         if not Vertical then begin
-          x := FVisiBands[i].FLeft+TCoolBand.cDivider+TCoolBand.cHorSpacing;
+          x := FVisiBands[i].FLeft+TCoolBand.cDivider+HorizontalSpacing;
           FVisiBands[i].Control.Left := x;
           FVisiBands[i].FControlLeft := Width-x-Bands[i].FControl.Width-aBorderLeft;
         end else begin
@@ -683,7 +702,7 @@ begin
   FLockCursor := True;
   if ABand then begin
     if not AGrabber then
-      Cursor := crDrag
+      Cursor := crDefault
     else
       if not Vertical then
         Cursor := crHSplit
@@ -824,6 +843,11 @@ var aBand: Integer;
     aGrabber: Boolean;
 begin
   inherited MouseDown(Button, Shift, X, Y);
+  if Button = mbRight then
+  begin
+    Cursor := crDefault;
+    Exit;
+  end;
   MouseToBandPos(X, Y, aBand, aGrabber);
   FDraggedBandIndex := aBand;
   if (aBand >= 0) and (length(FVisiBands) > 1) then begin  //hit any Band
@@ -874,6 +898,9 @@ begin
         end else
           FVisiBands[FDraggedBandIndex-1].Width :=
             Y-FDragInitPos-FVisiBands[FDraggedBandIndex-1].FLeft
+      end;
+      dbMove: begin
+        Cursor := crDrag;
       end;
     end;
   end;
@@ -989,6 +1016,9 @@ begin
         Invalidate;
       end;
     end;
+    Cursor := crDefault;
+    if Assigned(FOnChange) then
+      FOnChange(Self);
   end;
   FDragBand := dbNone;
 end;
@@ -1136,8 +1166,8 @@ begin
   end;
   aCountM1 := length(FVisiBands)-1;
   if aCountM1 >= 0 then begin
-    if FBandBorderStyle = bsSingle then
-      aRaisedBevel := ((EdgeInner = esLowered) and (EdgeOuter = esRaised));
+    aRaisedBevel := (FBandBorderStyle = bsSingle) and
+                    (EdgeInner = esLowered) and (EdgeOuter = esRaised);
     aRowEnd := False;
     aGrabStyle := GrabStyle;
     if Vertical then
@@ -1195,9 +1225,9 @@ begin
       else
         PaintGrabber(Rect(aTop+2, x, aTop+FVisiBands[i].FHeight-3, x+GrabWidth-1));
       if not FRightToLeft or Vertical then
-        x := x+GrabWidth+TCoolBand.cHorSpacing
+        x := x+GrabWidth+HorizontalSpacing
       else
-        x := x-TCoolBand.cHorSpacing;
+        x := x-HorizontalSpacing;
       //paint Image
       if Assigned(FImages) and (FVisiBands[i].ImageIndex >= 0) then begin
         if FRightToLeft and not Vertical then dec(x, FImages.Width);
@@ -1210,9 +1240,9 @@ begin
             Point(aTop+(FVisiBands[i].FHeight-FImages.Width) div 2, x),
             FImages, FVisiBands[i].ImageIndex);
         if not FRightToLeft or Vertical then
-          inc(x, FImages.Width+TCoolBand.cHorSpacing)
+          inc(x, FImages.Width+HorizontalSpacing)
         else
-          dec(x, TCoolBand.cHorSpacing);
+          dec(x, HorizontalSpacing);
       end;
       //paint Text
       if FShowText then begin

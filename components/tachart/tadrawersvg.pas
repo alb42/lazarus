@@ -384,7 +384,10 @@ end;
 
 procedure TSVGDrawer.SetBrush(ABrush: TFPCustomBrush);
 begin
-  FBrushColor := FPColorOrMono(ABrush.FPColor);
+  if ABrush is TBrush then
+    FBrushColor := FChartColorToFPColorFunc(ColorOrMono(TBrush(ABrush).Color))
+  else
+    FBrushColor := FPColorOrMono(ABrush.FPColor);
   FBrushStyle := ABrush.Style;
 end;
 
@@ -424,7 +427,10 @@ end;
 
 procedure TSVGDrawer.SetPen(APen: TFPCustomPen);
 begin
-  FPen.FPColor := FPColorOrMono(APen.FPColor);
+  if APen is TPen then
+    FPen.FPColor := FChartColorToFPColorFunc(ColorOrMono(TPen(APen).Color))
+  else
+    FPen.FPColor := FPColorOrMono(APen.FPColor);
   FPen.Style := APen.Style;
   FPen.Width := APen.Width;
 end;

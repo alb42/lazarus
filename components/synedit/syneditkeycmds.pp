@@ -149,8 +149,8 @@ const
   ecColSelEditorBottom = ecEditorBottom + ecColumnSelection;
   ecColSelLineTextStart= ecLineTextStart + ecColumnSelection;
 
-  ecSelColCmdRangeStart = ecLeft + ecColumnSelection;
-  ecSelColCmdRangeEnd   = ecLeft + ecColumnSelection + 48; // 1 less for ecSelectAll
+  ecSelColCmdRangeStart = ecColumnSelection;
+  ecSelColCmdRangeEnd   = ecColumnSelection + 48; // 1 less for ecSelectAll
 
 
   ecSelectAll       = 199;  // Select entire contents of editor, cursor to end
@@ -277,6 +277,7 @@ const
   ecPluginFirstCompletion = 19000;
   ecPluginFirstSyncro     = 19010;
   ecPluginFirstTemplEdit  = 19030;
+  ecPluginFirstMultiCaret = 19050;
 
   ecPluginFirst = 20000;
 
@@ -1253,6 +1254,7 @@ initialization
 finalization
   ExtraIdentToIntFn := nil;
   ExtraIntToIdentFn := nil;
+  ExtraGetEditorCommandValues := nil;
 
 end.
 

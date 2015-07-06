@@ -33,8 +33,8 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, AVL_Tree, Forms, Controls, Graphics,
-  Dialogs, ExtCtrls, Buttons, StdCtrls,
-  BasicCodeTools, CodeTree, CodeAtom, CodeCache, CodeToolManager,
+  Dialogs, ExtCtrls, Buttons, StdCtrls, ButtonPanel,
+  BasicCodeTools, CodeTree, CodeCache, CodeToolManager,
   ExtractProcTool,
   IDEHelpIntf, IDEDialogs,
   LazarusIDEStrConsts, IDEProcs, MiscOptions;
@@ -44,6 +44,7 @@ type
   { TExtractProcDialog }
 
   TExtractProcDialog = class(TForm)
+    ButtonPanel: TButtonPanel;
     FuncVariableComboBox: TComboBox;
     CreateFunctionCheckBox: TCheckBox;
     FunctionGroupBox: TGroupBox;
@@ -52,16 +53,12 @@ type
     MissingIdentifiersGroupBox: TGroupBox;
     NameEdit: TEdit;
     NameGroupbox: TGroupBox;
-    OkButton: TBitBtn;
-    CancelButton: TBitBtn;
-    HelpButton: TBitBtn;
-    BtnPanel: TPanel;
     TypeRadiogroup: TRadioGroup;
     procedure CreateFunctionCheckBoxChange(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
     procedure ExtractProcDialogCreate(Sender: TObject);
     procedure ExtractProcDialogClose(Sender: TObject;
-      var CloseAction: TCloseAction);
+      var {%H-}CloseAction: TCloseAction);
     procedure OkButtonClick(Sender: TObject);
   private
     FMethodPossible: boolean;
@@ -88,17 +85,16 @@ type
 
 function ShowExtractProcDialog(Code: TCodeBuffer;
   const BlockBegin, BlockEnd: TPoint;
-  var NewSource: TCodeBuffer;
-  var NewX, NewY, NewTopLine: integer): TModalResult;
+  out NewSource: TCodeBuffer;
+  out NewX, NewY, NewTopLine: integer): TModalResult;
 
 implementation
 
 {$R *.lfm}
 
-function ShowExtractProcDialog(Code: TCodeBuffer;
-  const BlockBegin, BlockEnd: TPoint;
-  var NewSource: TCodeBuffer;
-  var NewX, NewY, NewTopLine: integer): TModalresult;
+function ShowExtractProcDialog(Code: TCodeBuffer; const BlockBegin,
+  BlockEnd: TPoint; out NewSource: TCodeBuffer; out NewX, NewY,
+  NewTopLine: integer): TModalResult;
 var
   ExtractProcDialog: TExtractProcDialog;
   MethodPossible: Boolean;
@@ -112,6 +108,10 @@ var
   SubProcPossible: boolean;
 begin
   Result:=mrCancel;
+  NewSource:=nil;
+  NewX:=0;
+  NewY:=0;
+  NewTopLine:=0;
   if CompareCaret(BlockBegin,BlockEnd)<=0 then begin
     IDEMessageDialog(lisNoCodeSelected,
       lisPleaseSelectSomeCodeToExtractANewProcedureMethod,
@@ -185,7 +185,7 @@ begin
   CreateFunctionCheckBox.Caption:=lisCreateFunction;
   FuncVariableLabel.Caption:=lisResult2;
   
-  OkButton.Caption:=lisExtract;
+  ButtonPanel.OkButton.Caption:=lisExtract;
 end;
 
 procedure TExtractProcDialog.HelpButtonClick(Sender: TObject);

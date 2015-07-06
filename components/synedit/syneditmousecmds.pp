@@ -35,8 +35,8 @@ unit SynEditMouseCmds;
 interface
 
 uses
-  LazSynEditMouseCmdsTypes, Classes, Controls, SysUtils, SynEditStrConst, SynEditPointClasses, Dialogs,
-  LCLProc, Menus;
+  LazSynEditMouseCmdsTypes, Classes, Controls, SysUtils, SynEditStrConst, SynEditPointClasses,
+  SynEditKeyCmds, Dialogs, LCLProc, Menus;
 
 type
 
@@ -56,9 +56,19 @@ type
   TSynMouseButton = LazSynEditMouseCmdsTypes.TSynMouseButton;
   TSynMAClickCount = (ccSingle, ccDouble, ccTriple, ccQuad, ccAny);
   TSynMAClickDir = (cdUp, cdDown);
+  TSynMAUpRestriction = ( // Restrict cdUp
+    crLastDownPos,                     // check if the lasth MouseDown had same Pos (as in would have triggered the same command)
+    crLastDownPosSameLine,             // check if the last dow
+    crLastDownPosSearchAll,            // allow to find downclick at lower priority or parent list
+    crLastDownButton, crLastDownShift, // check if the lasth MouseDown had same Button / Shift
+    crAllowFallback  // If action is restricted, continue search for up action in (fallback, or parent list)
+  );
+  TSynMAUpRestrictions = set of TSynMAUpRestriction;
   ESynMouseCmdError = class(Exception);
 
 const
+  crRestrictAll = [crLastDownPos, crLastDownPosSameLine, crLastDownButton, crLastDownShift];
+
   mbXLeft      =  LazSynEditMouseCmdsTypes.mbLeft;
   mbXRight     =  LazSynEditMouseCmdsTypes.mbRight;
   mbXMiddle    =  LazSynEditMouseCmdsTypes.mbMiddle;
@@ -100,6 +110,7 @@ type
 
   TSynEditMouseAction = class(TCollectionItem)
   private
+    FButtonUpRestrictions: TSynMAUpRestrictions;
     FClickDir: TSynMAClickDir;
     FIgnoreUpClick: Boolean;
     FOption: TSynEditorMouseCommandOpt;
@@ -111,6 +122,7 @@ type
     FCommand: TSynEditorMouseCommand;
     FMoveCaret: Boolean;
     procedure SetButton(const AValue: TSynMouseButton);
+    procedure SetButtonUpRestrictions(AValue: TSynMAUpRestrictions);
     procedure SetClickCount(const AValue: TSynMAClickCount);
     procedure SetClickDir(AValue: TSynMAClickDir);
     procedure SetCommand(const AValue: TSynEditorMouseCommand);
@@ -138,11 +150,14 @@ type
     property Button: TSynMouseButton read FButton write SetButton               default mbXLeft;
     property ClickCount: TSynMAClickCount read FClickCount write SetClickCount  default ccSingle;
     property ClickDir: TSynMAClickDir read FClickDir write SetClickDir          default cdUp;
+    property ButtonUpRestrictions: TSynMAUpRestrictions
+             read FButtonUpRestrictions write SetButtonUpRestrictions           default [];
     property Command: TSynEditorMouseCommand read FCommand write SetCommand;
     property MoveCaret: Boolean read FMoveCaret write SetMoveCaret              default False;
     property IgnoreUpClick: Boolean read FIgnoreUpClick write SetIgnoreUpClick  default False; // only for mouse down
     property Option: TSynEditorMouseCommandOpt read FOption write SetOption     default 0;
     property Option2: Integer read FOption2 write SetOption2                    default 0;
+    // Priority: 0 = highest / MaxInt = lowest
     property Priority: TSynEditorMouseCommandOpt read FPriority write SetPriority default 0;
   end;
 
@@ -177,7 +192,16 @@ type
              const AOpt: TSynEditorMouseCommandOpt = 0;
              const APrior: Integer = 0;
              const AOpt2: integer = 0;
-             const AIgnoreUpClick: Boolean = False);
+             const AIgnoreUpClick: Boolean = False); overload;
+    procedure AddCommand(const ACmd: TSynEditorMouseCommand;
+             const AMoveCaret: Boolean;
+             const AButton: TSynMouseButton; const AClickCount: TSynMAClickCount;
+             const ADir: TSynMAClickDir; const AnUpRestrict: TSynMAUpRestrictions;
+             const AShift, AShiftMask: TShiftState;
+             const AOpt: TSynEditorMouseCommandOpt = 0;
+             const APrior: Integer = 0;
+             const AOpt2: integer = 0;
+             const AIgnoreUpClick: Boolean = False); overload;
   public
     property Items[Index: Integer]: TSynEditMouseAction read GetItem
       write SetItem; default;
@@ -239,6 +263,7 @@ const
   emcStartSelections          =  TSynEditorMouseCommand(1);    // Start BlockSelection (Default Left Mouse Btn)
   emcStartColumnSelections    =  TSynEditorMouseCommand(3);    // Column BlockSelection (Default Alt - Left Mouse Btn)
   emcStartLineSelections      =  TSynEditorMouseCommand(4);    // Line BlockSelection (Default Alt - Left Mouse Btn)
+  emcStartLineSelectionsNoneEmpty =  TSynEditorMouseCommand(5);    // Line BlockSelection (Default Alt - Left Mouse Btn)
 
   emcSelectWord               =  TSynEditorMouseCommand(6);
   emcSelectLine               =  TSynEditorMouseCommand(7);
@@ -289,6 +314,9 @@ const
   emcoMouseLinkShow           =  TSynEditorMouseCommandOpt(0);
   emcoMouseLinkHide           =  TSynEditorMouseCommandOpt(1);
 
+  emcoNotDragedSetCaretOnUp   = TSynEditorMouseCommandOpt(0);
+  emcoNotDragedNoCaretOnUp    = TSynEditorMouseCommandOpt(1);
+
   emcoCodeFoldCollapsOne      = TSynEditorMouseCommandOpt(0);
   emcoCodeFoldCollapsAll      = TSynEditorMouseCommandOpt(1);
   emcoCodeFoldCollapsAtCaret  = TSynEditorMouseCommandOpt(2);
@@ -306,6 +334,9 @@ const
   emcoWheelScrollPages          = TSynEditorMouseCommandOpt(2); // Opt2 > 0 ==> percentage
   emcoWheelScrollPagesLessOne   = TSynEditorMouseCommandOpt(3); // Opt2 > 0 ==> percentage
 
+type
+  TMouseCmdNameAndOptProcs = function(emc: TSynEditorMouseCommand): String;
+
 // Plugins don't know of other plugins, so they need to map the codes
 // Plugins all start at ecPluginFirst (overlapping)
 // If ask by SynEdit they add an offset
@@ -316,8 +347,14 @@ function AllocatePluginMouseRange(Count: Integer; OffsetOnly: Boolean = False): 
 function MouseCommandName(emc: TSynEditorMouseCommand): String;
 function MouseCommandConfigName(emc: TSynEditorMouseCommand): String;
 
-function SynMouseCmdToIdent(SynMouseCmd: Longint; out Ident: String): Boolean;
-function IdentToSynMouseCmd(const Ident: string; out SynMouseCmd: Longint): Boolean;
+function SynMouseCmdToIdent(SynMouseCmd: Longint; var Ident: String): Boolean;
+function IdentToSynMouseCmd(const Ident: string; var SynMouseCmd: Longint): Boolean;
+procedure GetEditorMouseCommandValues(Proc: TGetStrProc);
+
+procedure RegisterMouseCmdIdentProcs(IdentToIntFn: TIdentToInt; IntToIdentFn: TIntToIdent);
+procedure RegisterExtraGetEditorMouseCommandValues(AProc: TGetEditorCommandValuesProc);
+
+procedure RegisterMouseCmdNameAndOptProcs(ANamesProc: TMouseCmdNameAndOptProcs; AOptProc: TMouseCmdNameAndOptProcs = nil);
 
 const
   SYNEDIT_LINK_MODIFIER = {$IFDEF LCLcarbon}ssMeta{$ELSE}ssCtrl{$ENDIF};
@@ -325,29 +362,30 @@ const
 implementation
 
 const
-  SynMouseCommandNames: array [0..27] of TIdentMapEntry = (
-    (Value: emcNone; Name: 'emcNone'),
-    (Value: emcStartSelections; Name: 'emcStartSelections'),
+  SynMouseCommandNames: array [0..28] of TIdentMapEntry = (
+    (Value: emcNone;                  Name: 'emcNone'),
+    (Value: emcStartSelections;       Name: 'emcStartSelections'),
     (Value: emcStartColumnSelections; Name: 'emcStartColumnSelections'),
-    (Value: emcStartLineSelections; Name: 'emcStartLineSelections'),
+    (Value: emcStartLineSelections;   Name: 'emcStartLineSelections'),
+    (Value: emcStartLineSelectionsNoneEmpty;   Name: 'emcStartLineSelectionsNoneEmpty'),
 
-    (Value: emcSelectWord; Name: 'emcSelectWord'),
-    (Value: emcSelectLine; Name: 'emcSelectLine'),
-    (Value: emcSelectPara; Name: 'emcSelectPara'),
+    (Value: emcSelectWord;            Name: 'emcSelectWord'),
+    (Value: emcSelectLine;            Name: 'emcSelectLine'),
+    (Value: emcSelectPara;            Name: 'emcSelectPara'),
 
-    (Value: emcStartDragMove;  Name: 'emcStartDragMove'),
-    (Value: emcPasteSelection; Name: 'emcPasteSelection'),
-    (Value: emcMouseLink;      Name: 'emcMouseLink'),
+    (Value: emcStartDragMove;         Name: 'emcStartDragMove'),
+    (Value: emcPasteSelection;        Name: 'emcPasteSelection'),
+    (Value: emcMouseLink;             Name: 'emcMouseLink'),
 
-    (Value: emcContextMenu;    Name: 'emcContextMenu'),
+    (Value: emcContextMenu;           Name: 'emcContextMenu'),
 
-    (Value: emcOnMainGutterClick;   Name: 'emcOnMainGutterClick'),
+    (Value: emcOnMainGutterClick;     Name: 'emcOnMainGutterClick'),
 
-    (Value: emcCodeFoldCollaps;     Name: 'emcCodeFoldCollaps'),
-    (Value: emcCodeFoldExpand;      Name: 'emcCodeFoldExpand'),
-    (Value: emcCodeFoldContextMenu; Name: 'emcCodeFoldContextMenu'),
+    (Value: emcCodeFoldCollaps;       Name: 'emcCodeFoldCollaps'),
+    (Value: emcCodeFoldExpand;        Name: 'emcCodeFoldExpand'),
+    (Value: emcCodeFoldContextMenu;   Name: 'emcCodeFoldContextMenu'),
 
-    (Value: emcSynEditCommand;  Name: 'emcSynEditCommand'),
+    (Value: emcSynEditCommand;        Name: 'emcSynEditCommand'),
 
     (Value: emcWheelScrollDown;       Name: 'emcWheelScrollDown'),
     (Value: emcWheelScrollUp;         Name: 'emcWheelScrollUp'),
@@ -356,15 +394,22 @@ const
     (Value: emcWheelHorizScrollDown;  Name: 'emcWheelHorizScrollDown'),
     (Value: emcWheelHorizScrollUp;    Name: 'emcWheelHorizScrollUp'),
 
-    (Value: emcWheelZoomOut;     Name: 'emcWheelZoomOut'),
-    (Value: emcWheelZoomIn;      Name: 'emcWheelZoomIn'),
-    (Value: emcWheelZoomNorm;    Name: 'emcWheelZoomNorm'),
+    (Value: emcWheelZoomOut;          Name: 'emcWheelZoomOut'),
+    (Value: emcWheelZoomIn;           Name: 'emcWheelZoomIn'),
+    (Value: emcWheelZoomNorm;         Name: 'emcWheelZoomNorm'),
 
-    (Value: emcStartSelectTokens;  Name: 'emcStartSelectTokens'),
-    (Value: emcStartSelectWords;   Name: 'emcStartSelectWords'),
-    (Value: emcStartSelectLines;   Name: 'emcStartSelectLines')
+    (Value: emcStartSelectTokens;     Name: 'emcStartSelectTokens'),
+    (Value: emcStartSelectWords;      Name: 'emcStartSelectWords'),
+    (Value: emcStartSelectLines;      Name: 'emcStartSelectLines')
 
   );
+
+var
+  ExtraIdentToIntFn: Array of TIdentToInt = nil;
+  ExtraIntToIdentFn: Array of TIntToIdent = nil;
+  ExtraGetEditorCommandValues: Array of TGetEditorCommandValuesProc = nil;
+  ExtraMouseCmdNameFn: Array of TMouseCmdNameAndOptProcs = nil;
+  ExtraMouseCmdOptFn: Array of TMouseCmdNameAndOptProcs = nil;
 
 function AllocatePluginMouseRange(Count: Integer; OffsetOnly: Boolean = False): integer;
 const
@@ -377,12 +422,15 @@ begin
 end;
 
 function MouseCommandName(emc: TSynEditorMouseCommand): String;
+var
+  i: Integer;
 begin
   case emc of
     emcNone:                  Result := SYNS_emcNone;
     emcStartSelections:       Result := SYNS_emcStartSelection;
     emcStartColumnSelections: Result := SYNS_emcStartColumnSelections;
     emcStartLineSelections:   Result := SYNS_emcStartLineSelections;
+    emcStartLineSelectionsNoneEmpty: Result := SYNS_emcStartLineSelectionsNoneEmpty;
     emcSelectWord:            Result := SYNS_emcSelectWord;
     emcSelectLine:            Result := SYNS_emcSelectLine;
     emcSelectPara:            Result := SYNS_emcSelectPara;
@@ -414,37 +462,118 @@ begin
     emcStartSelectWords:      Result := SYNS_emcStartSelectWords;
     emcStartSelectLines:      Result := SYNS_emcStartSelectLines;
 
-    else Result := ''
+    else begin
+      Result := '';
+      i := 0;
+      while (i < length(ExtraMouseCmdNameFn)) and (Result = '') do begin
+        Result := ExtraMouseCmdNameFn[i](emc);
+        inc(i);
+      end;
+    end;
   end;
 end;
 
 function MouseCommandConfigName(emc: TSynEditorMouseCommand): String;
+var
+  i: Integer;
 begin
   case emc of
     emcStartSelections,
     emcStartColumnSelections,
-    emcStartLineSelections:   Result := SYNS_emcSelection_opt;
+    emcStartLineSelections,
+    emcStartLineSelectionsNoneEmpty:   Result := SYNS_emcSelection_opt;
     emcSelectLine:            Result := SYNS_emcSelectLine_opt;
     emcMouseLink:             Result := SYNS_emcMouseLink_opt;
+    emcStartDragMove:         Result := SYNS_emcStartDragMove_opt;
     emcCodeFoldCollaps:       Result := SYNS_emcCodeFoldCollaps_opt;
     emcCodeFoldExpand:        Result := SYNS_emcCodeFoldExpand_opt;
     emcContextMenu:           Result := SYNS_emcContextMenuCaretMove_opt;
     emcWheelScrollDown..emcWheelVertScrollUp:
                               Result := SYNS_emcWheelScroll_opt;
-    else                      Result := ''
+    else begin
+      Result := '';
+      i := 0;
+      while (i < length(ExtraMouseCmdOptFn)) and (Result = '') do begin
+        Result := ExtraMouseCmdOptFn[i](emc);
+        inc(i);
+      end;
+    end;
   end;
 end;
 
-function SynMouseCmdToIdent(SynMouseCmd: Longint; out Ident: String): Boolean;
+function SynMouseCmdToIdent(SynMouseCmd: Longint; var Ident: String): Boolean;
+var
+  i: Integer;
 begin
   Ident := '';
   Result := IntToIdent(SynMouseCmd, Ident, SynMouseCommandNames);
+  i := 0;
+  while (i < length(ExtraIntToIdentFn)) and (not Result) do begin
+    Result := ExtraIntToIdentFn[i](SynMouseCmd, Ident);
+    inc(i);
+  end;
 end;
 
-function IdentToSynMouseCmd(const Ident: string; out SynMouseCmd: Longint): Boolean;
+function IdentToSynMouseCmd(const Ident: string; var SynMouseCmd: Longint): Boolean;
+var
+  i: Integer;
 begin
   SynMouseCmd := 0;
   Result := IdentToInt(Ident, SynMouseCmd, SynMouseCommandNames);
+  i := 0;
+  while (i < length(ExtraIdentToIntFn)) and (not Result) do begin
+    Result := ExtraIdentToIntFn[i](Ident, SynMouseCmd);
+    inc(i);
+  end;
+end;
+
+procedure GetEditorMouseCommandValues(Proc: TGetStrProc);
+var
+  i: Integer;
+begin
+  for i := Low(SynMouseCommandNames) to High(SynMouseCommandNames) do
+    Proc(SynMouseCommandNames[I].Name);
+  i := 0;
+  while (i < length(ExtraGetEditorCommandValues)) do begin
+    ExtraGetEditorCommandValues[i](Proc);
+    inc(i);
+  end;
+end;
+
+procedure RegisterMouseCmdIdentProcs(IdentToIntFn: TIdentToInt; IntToIdentFn: TIntToIdent);
+var
+  i: Integer;
+begin
+  i := length(ExtraIdentToIntFn);
+  SetLength(ExtraIdentToIntFn, i + 1);
+  ExtraIdentToIntFn[i] := IdentToIntFn;
+  i := length(ExtraIntToIdentFn);
+  SetLength(ExtraIntToIdentFn, i + 1);
+  ExtraIntToIdentFn[i] := IntToIdentFn;
+end;
+
+procedure RegisterExtraGetEditorMouseCommandValues(AProc: TGetEditorCommandValuesProc);
+var
+  i: Integer;
+begin
+  i := length(ExtraGetEditorCommandValues);
+  SetLength(ExtraGetEditorCommandValues, i + 1);
+  ExtraGetEditorCommandValues[i] := AProc;
+end;
+
+procedure RegisterMouseCmdNameAndOptProcs(ANamesProc: TMouseCmdNameAndOptProcs;
+  AOptProc: TMouseCmdNameAndOptProcs);
+var
+  i: Integer;
+begin
+  i := length(ExtraMouseCmdNameFn);
+  SetLength(ExtraMouseCmdNameFn, i + 1);
+  ExtraMouseCmdNameFn[i] := ANamesProc;
+  if AOptProc = nil then
+    exit;
+  i := length(ExtraMouseCmdOptFn);
+  SetLength(ExtraMouseCmdOptFn, i + 1);
+  ExtraMouseCmdOptFn[i] := AOptProc;
 end;
 
 { TSynEditMouseInternalActions }
@@ -525,6 +654,14 @@ begin
 
   if FButton in [mbXWheelUp, mbXWheelDown] then
     ClickDir := cdDown;
+end;
+
+procedure TSynEditMouseAction.SetButtonUpRestrictions(AValue: TSynMAUpRestrictions);
+begin
+  if FButtonUpRestrictions = AValue then Exit;
+  FButtonUpRestrictions := AValue;
+  if Collection <> nil then
+    TSynEditMouseActions(Collection).AssertNoConflict(self);
 end;
 
 procedure TSynEditMouseAction.SetClickCount(const AValue: TSynMAClickCount);
@@ -621,6 +758,7 @@ begin
     FCommand    := TSynEditMouseAction(Source).Command;
     FClickCount := TSynEditMouseAction(Source).ClickCount;
     FClickDir   := TSynEditMouseAction(Source).ClickDir;
+    FButtonUpRestrictions := TSynEditMouseAction(Source).ButtonUpRestrictions;
     FButton     := TSynEditMouseAction(Source).Button;
     FShift      := TSynEditMouseAction(Source).Shift;
     FShiftMask  := TSynEditMouseAction(Source).ShiftMask;
@@ -690,6 +828,7 @@ begin
   Result := (Other.Button     = self.Button)
         and (Other.ClickCount = self.ClickCount)
         and (Other.ClickDir   = self.ClickDir)
+        and (Other.ButtonUpRestrictions   = self.ButtonUpRestrictions)
         and (Other.Shift      = self.Shift)
         and (Other.ShiftMask  = self.ShiftMask)
         and (Other.Priority   = self.Priority)
@@ -846,6 +985,17 @@ procedure TSynEditMouseActions.AddCommand(const ACmd: TSynEditorMouseCommand;
   const AClickCount: TSynMAClickCount; const ADir: TSynMAClickDir;
   const AShift, AShiftMask: TShiftState; const AOpt: TSynEditorMouseCommandOpt = 0;
   const APrior: Integer = 0; const AOpt2: integer = 0; const AIgnoreUpClick: Boolean = False);
+begin
+  AddCommand(ACmd, AMoveCaret, AButton, AClickCount, ADir, [], AShift, AShiftMask, AOpt, APrior,
+    AOpt2, AIgnoreUpClick);
+end;
+
+procedure TSynEditMouseActions.AddCommand(const ACmd: TSynEditorMouseCommand;
+  const AMoveCaret: Boolean; const AButton: TSynMouseButton;
+  const AClickCount: TSynMAClickCount; const ADir: TSynMAClickDir;
+  const AnUpRestrict: TSynMAUpRestrictions; const AShift, AShiftMask: TShiftState;
+  const AOpt: TSynEditorMouseCommandOpt; const APrior: Integer; const AOpt2: integer;
+  const AIgnoreUpClick: Boolean);
 var
   new: TSynEditMouseAction;
 begin
@@ -858,6 +1008,7 @@ begin
       Button := AButton;
       ClickCount := AClickCount;
       ClickDir := ADir;
+      ButtonUpRestrictions := AnUpRestrict;
       Shift := AShift;
       ShiftMask := AShiftMask;
       Option := AOpt;
@@ -928,7 +1079,14 @@ begin
 end;
 
 initialization
-  RegisterIntegerConsts(TypeInfo(TSynEditorMouseCommand), TIdentToInt(@IdentToSynMouseCmd), TIntToIdent(@SynMouseCmdToIdent));
+  RegisterIntegerConsts(TypeInfo(TSynEditorMouseCommand), @IdentToSynMouseCmd, @SynMouseCmdToIdent);
+
+finalization
+  ExtraIdentToIntFn := nil;
+  ExtraIntToIdentFn := nil;
+  ExtraGetEditorCommandValues := nil;
+  ExtraMouseCmdNameFn := nil;
+  ExtraMouseCmdOptFn := nil;
 
 end.
 

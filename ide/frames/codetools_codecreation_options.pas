@@ -46,7 +46,7 @@ type
   private
   public
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -68,7 +68,7 @@ begin
     InitIDEFileDialog(OpenDialog);
     OpenDialog.Title:=lisChooseAFileWithCodeToolsTemplates;
     OpenDialog.Options:=OpenDialog.Options+[ofFileMustExist];
-    OpenDialog.Filter:=lisCodetoolsTemplateFile+' (*.xml)|*.xml|'+dlgAllFiles+
+    OpenDialog.Filter:=dlgFilterCodetoolsTemplateFile+' (*.xml)|*.xml|'+dlgFilterAll+
       '|'+GetAllFilesMask;
     if OpenDialog.Execute then
       TemplateFileEdit.Text:=OpenDialog.FileName;

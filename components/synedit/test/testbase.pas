@@ -103,6 +103,7 @@ type
     procedure TearDown; override;
   public
     procedure TestIsCaret(Name: String; X, Y: Integer); // logical caret
+    procedure TestIsCaret(Name: String; X, Y, Offs: Integer); // logical caret
     procedure TestIsCaretPhys(Name: String; X, Y: Integer);
     procedure TestIsCaretAndSel(Name: String; LogX1, LogY1, LogX2, LogY2: Integer); // logical caret
     procedure TestIsCaretAndSelBackward(Name: String; LogX1, LogY1, LogX2, LogY2: Integer); // logical caret
@@ -121,6 +122,13 @@ type
     procedure TestIsFullText(Name: String; Lines: Array of String);
     procedure TestIsFullText(Name: String; Lines: Array of String; Repl: Array of const);
 
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y: Integer; Text: String); // logical caret
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y: Integer; Lines: Array of String); // logical caret
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y: Integer; Lines: Array of String; Repl: Array of const); // logical caret
+
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer; Text: String); // logical caret
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer; Lines: Array of String); // logical caret
+    procedure TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer; Lines: Array of String; Repl: Array of const); // logical caret
   end;
 
   function MyDbg(t: String): String;
@@ -269,6 +277,16 @@ begin
              Format('X/Y=(%d, %d)', [SynEdit.LogicalCaretXY.X, SynEdit.LogicalCaretXY.Y]));
 end;
 
+procedure TTestBase.TestIsCaret(Name: String; X, Y, Offs: Integer);
+begin
+  if (SynEdit.LogicalCaretXY.X <> X) or (SynEdit.LogicalCaretXY.Y <> Y) or
+     (SynEdit.CaretObj.BytePosOffset <> Offs)
+  then
+    TestFail(Name, 'IsCaret',
+             Format('X/Y=(%d, %d, %d)', [X, Y, Offs]),
+             Format('X/Y=(%d, %d, %d)', [SynEdit.LogicalCaretXY.X, SynEdit.LogicalCaretXY.Y, SynEdit.CaretObj.BytePosOffset]));
+end;
+
 procedure TTestBase.TestIsCaretPhys(Name: String; X, Y: Integer);
 begin
   if (SynEdit.CaretXY.X <> X) or (SynEdit.CaretXY.Y <> Y) then
@@ -398,6 +416,46 @@ procedure TTestBase.TestIsFullText(Name: String; Lines: array of String;
   Repl: array of const);
 begin
   TestIsFullText(Name, LinesToText(LinesReplace(Lines, Repl)));
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y: Integer; Text: String);
+begin
+  TestIsCaret(Name, X, Y);
+  TestIsFullText(Name, Text);
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y: Integer;
+  Lines: array of String);
+begin
+  TestIsCaret(Name, X, Y);
+  TestIsFullText(Name, Lines);
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y: Integer;
+  Lines: array of String; Repl: array of const);
+begin
+  TestIsCaret(Name, X, Y);
+  TestIsFullText(Name, Lines, Repl);
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer; Text: String);
+begin
+  TestIsCaret(Name, X, Y, Offs);
+  TestIsFullText(Name, Text);
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer;
+  Lines: array of String);
+begin
+  TestIsCaret(Name, X, Y, Offs);
+  TestIsFullText(Name, Lines);
+end;
+
+procedure TTestBase.TestIsCaretLogAndFullText(Name: String; X, Y, Offs: Integer;
+  Lines: array of String; Repl: array of const);
+begin
+  TestIsCaret(Name, X, Y, Offs);
+  TestIsFullText(Name, Lines, Repl);
 end;
 
 procedure TTestBase.TestFail(Name, Func, Expect, Got: String; Result: Boolean = False);

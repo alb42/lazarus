@@ -79,7 +79,7 @@ type
 
   IQtEdit = interface
     ['{035CA259-4442-4E82-9E70-96A114DD3BC6}']
-    function getCursorPosition: Integer;
+    function getCursorPosition: TPoint;
     function getMaxLength: Integer;
     function getSelectionStart: Integer;
     function getSelectionLength: Integer;
@@ -184,6 +184,8 @@ type
     function DeliverMessage(var Msg; const AIsInputEvent: Boolean = False): LRESULT; virtual;
     function EventFilter(Sender: QObjectH; Event: QEventH): Boolean; cdecl; override;
     function getAcceptDropFiles: Boolean; virtual;
+    {precise measure of text with widget''s current font when canvas.handle isn''t available}
+    function measureText(AText: WideString; AFlags: cardinal): TRect;
     procedure SetNoMousePropagation(Sender: QWidgetH; const ANoMousePropagation: Boolean); virtual;
     procedure SetLCLFont(AFont: TQtFont);
     procedure SlotShow(vShow: Boolean); cdecl;
@@ -810,7 +812,7 @@ type
     function CreateWidget(const AParams: TCreateParams):QWidgetH; override;
   public
     function getAlignment: QtAlignment;
-    function getCursorPosition: Integer;
+    function getCursorPosition: TPoint;
     function getMaxLength: Integer;
     function getSelectedText: WideString;
     function getSelectionStart: Integer;
@@ -866,7 +868,7 @@ type
     procedure ClearText;
     function getAlignment: QtAlignment;
     function getBlockCount: Integer;
-    function getCursorPosition: Integer;
+    function getCursorPosition: TPoint;
     function getMaxLength: Integer;
     function getText: WideString; override;
     function getTextStatic: Boolean; override;
@@ -930,6 +932,7 @@ type
     FCurrentChangedHook: QTabWidget_hookH;
     FCloseRequestedHook: QTabWidget_hookH;
     FStackedWidgetHook: QObject_hookH;
+    FSwitchTabsByKeyboard: boolean;
     FTabBar: TQtTabBar;
     FStackWidget: QWidgetH;
     function getShowTabs: Boolean;
@@ -968,6 +971,7 @@ type
     property ShowTabs: Boolean read getShowTabs write setShowTabs;
     property TabBar: TQtTabBar read getTabBar;
     property StackWidget: QWidgetH read getStackWidget;
+    property SwitchTabsByKeyboard: boolean read FSwitchTabsByKeyboard write FSwitchTabsByKeyboard;
   end;
 
   { TQtComboBox }
@@ -993,7 +997,7 @@ type
   protected
     function CreateWidget(const AParams: TCreateParams):QWidgetH; override;
     // IQtEdit implementation
-    function getCursorPosition: Integer;
+    function getCursorPosition: TPoint;
     function getMaxLength: Integer;
     function getSelectionStart: Integer;
     function getSelectionLength: Integer;
@@ -1065,7 +1069,7 @@ type
   protected
     function CreateWidget(const AParams: TCreateParams):QWidgetH; override;
     // IQtEdit implementation
-    function getCursorPosition: Integer;
+    function getCursorPosition: TPoint;
     function getMaxLength: Integer;
     function getSelectionStart: Integer;
     function getSelectionLength: Integer;
@@ -1370,6 +1374,8 @@ type
     function getResizeMode(AIndex: Integer): QHeaderViewResizeMode;
     procedure setResizeMode(AResizeMode: QHeaderViewResizeMode); overload;
     procedure setResizeMode(AIndex: Integer; AResizeMode: QHeaderViewResizeMode); overload;
+    function sectionSize(AIndex: Integer): Integer;
+    function sectionSizeHint(AIndex: Integer): Integer;
     procedure moveSection(AFromIndex: Integer; AToIndex: Integer);
     procedure resizeSection(ASection: Integer; ASize: Integer);
     procedure setHighlightSections(AValue: Boolean);
@@ -1898,11 +1904,12 @@ const
   );
 
   QtCheckStateRole = Ord(QtUserRole) + 1;
-
+  QtListViewOwnerDataRole = Ord(QtUserRole) + 2;
 implementation
 
 uses
   Buttons,
+  math,
   qtCaret,
   qtproc,
   qtprivate,
@@ -2063,7 +2070,7 @@ begin
       if (csNoFocus in LCLObject.ControlStyle) then
       begin
         if LCLObject.TabStop then
-          setFocusPolicy(QtWheelFocus)
+          setFocusPolicy(QtTabFocus)
         else
           setFocusPolicy(QtNoFocus);
       end else
@@ -2195,6 +2202,9 @@ end;
 procedure TQtWidget.Release;
 begin
   LCLObject := nil;
+  {always hide widget since we use QObject_deleteLater(). issue #27781}
+  if (Widget <> nil) then
+    Hide;
   inherited Release;
 end;
 
@@ -2701,6 +2711,25 @@ begin
   Form := GetParentForm(LCLObject);
   if Assigned(Form) and (Form.HandleAllocated) then
     Result := TQtMainWindow(Form.Handle).getAcceptDropFiles;
+end;
+
+function TQtWidget.measureText(AText: WideString; AFlags: cardinal): TRect;
+var
+  AMetrics: QFontMetricsH;
+  AFont: QFontH;
+begin
+  Result := Rect(0, 0, 0, 0);
+  if Assigned(LCLObject) and Assigned(LCLObject.Font) and
+    LCLObject.Font.HandleAllocated then
+      AFont := TQtFont(LCLObject.Font.Reference.Handle).FHandle
+  else
+    AFont := QWidget_font(Widget);
+  AMetrics := QFontMetrics_create(AFont);
+  try
+    QFontMetrics_boundingRect(AMetrics, @Result, @AText);
+  finally
+    QFontMetrics_destroy(AMetrics);
+  end;
 end;
 
 procedure TQtWidget.SetNoMousePropagation(Sender: QWidgetH;
@@ -3935,7 +3964,10 @@ end;
 procedure TQtWidget.SlotMove(Event: QEventH); cdecl;
 var
   Msg: TLMMove;
-  APos, ACurrPos: TQtPoint;
+  APos: TQtPoint;
+  {$IFDEF HASX11}
+  ACurrPos: TQtPoint;
+  {$ENDIF}
   FrameRect, WindowRect: TRect;
 begin
   {$ifdef VerboseQt}
@@ -5134,7 +5166,7 @@ class procedure TQtWidget.removeProperty(AObject: QObjectH; APropName: PAnsiChar
 var
   AVariant: QVariantH;
 begin
-  AVariant := QVariant_create(QVariantInvalid);
+  AVariant := QVariant_create;
   QObject_setProperty(AObject, APropName, AVariant);
   QVariant_destroy(AVariant);
 end;
@@ -6668,13 +6700,30 @@ begin
       if Screen.ActiveForm <> nil then
         NewParent := TQtWidget(Screen.ActiveForm.Handle).Widget;
     pmExplicit:
+    begin
       // parent is FPopupParent
       if FPopupParent <> nil then
-        NewParent := FPopupParent;
+        NewParent := FPopupParent
+      {$IFDEF HASX11}
+      else
+      begin
+        if not IsMainForm then
+        begin
+          NewParent := TQtMainWindow(Application.MainForm.Handle).Widget;
+          setWindowFlags(windowFlags or QtSheet);
+        end;
+      end;
+      {$ENDIF}
+    end;
   end;
-  if (NewParent = nil) and not FShowOnTaskBar and not IsMainForm then
-    NewParent := TQtMainWindow(Application.MainForm.Handle).Widget;
-
+  if (NewParent = nil) and (FPopupMode <> pmNone) and
+    not FShowOnTaskBar and not IsMainForm then
+      NewParent := TQtMainWindow(Application.MainForm.Handle).Widget;
+  {$IFDEF MSWINDOWS}
+  if (NewParent = nil) and (FPopupMode = pmNone) and
+    not FShowOnTaskBar and not IsMainForm then
+      NewParent := TQtMainWindow(Application.MainForm.Handle).Widget;
+  {$ENDIF}
   ChangeParent(NewParent);
 end;
 
@@ -7260,9 +7309,20 @@ begin
 
   Msg.SizeType := Msg.SizeType or Size_SourceIsInterface;
 
-  Msg.Width := Word(getWidth);
-  Msg.Height := Word(getHeight);
-  
+  {Mdichild sends size of minimized title, and that's bad, after restore client
+   rect is mismatched and provokes OnResize events.We are sending
+   to the LCL Width and Height of LCLObject so resize event won't trigger.
+   issue #27518}
+  if IsMDIChild and Assigned(LCLObject) and
+    (getWindowState and QtWindowMinimized <> 0) then
+  begin
+    Msg.Width := Word(LCLObject.Width);
+    Msg.Height := Word(LCLObject.Height);
+  end else
+  begin
+    Msg.Width := Word(getWidth);
+    Msg.Height := Word(getHeight);
+  end;
   DeliverMessage(Msg);
 end;
 
@@ -8497,10 +8557,14 @@ begin
         if not getVisible then
           Result := FOwner.SlotMouseWheel(FOwner.Widget, Event)
         else
-          Result := inherited EventFilter(Sender, Event);
-
-        // DebugLn('TQtScrollBar.EventFilter: QEventWheel ',dbgsName(LCLObject),' Result=',dbgs(Result));
-
+        begin
+          // issue #27675.Do not send wheel event from cbox when dropped down.
+          // LCL thinks that combobox sent that event so we have undesirable effects.
+          if (FOwner.ChildOfComplexWidget = ccwComboBox) and getEnabled then
+            Result := False
+          else
+            Result := inherited EventFilter(Sender, Event);
+        end;
         // do not scroll when disabled or issue #25992
         if not getEnabled then
           Result := True
@@ -8649,6 +8713,7 @@ begin
  {$endif}
   if SliderPressed and not InUpdate then
   begin
+    Msg.Msg := 0; // shutup compiler
     FillChar(Msg, SizeOf(Msg), #0);
     Msg.Msg := LM_CHANGED;
     DeliverMessage(Msg);
@@ -8693,9 +8758,10 @@ begin
   Result := QLineEdit_alignment(QLineEditH(Widget));
 end;
 
-function TQtLineEdit.getCursorPosition: Integer;
+function TQtLineEdit.getCursorPosition: TPoint;
 begin
-  Result := QLineEdit_cursorPosition(QLineEditH(Widget));
+  Result.Y := 0;
+  Result.X := QLineEdit_cursorPosition(QLineEditH(Widget));
 end;
 
 function TQtLineEdit.getMaxLength: Integer;
@@ -8717,7 +8783,7 @@ begin
     if (CachedSelectionStart <> -1) and not hasFocus then
       Result := CachedSelectionStart
     else
-      Result := getCursorPosition;
+      Result := getCursorPosition.X;
   end;
 end;
 
@@ -9016,16 +9082,19 @@ begin
   Result := QTextDocument_blockCount(QTextEdit_document(QTextEditH(Widget)));
 end;
 
-function TQtTextEdit.getCursorPosition: Integer;
+function TQtTextEdit.getCursorPosition: TPoint;
 var
   TextCursor: QTextCursorH;
 begin
   TextCursor := QTextCursor_create();
   QTextEdit_textCursor(QTextEditH(Widget), TextCursor);
   if QTextCursor_isNull(TextCursor) then
-    Result := 0
+    Result := Point(0, 0)
   else
-    Result := QTextCursor_position(TextCursor);
+  begin
+    Result.X := QTextCursor_position(TextCursor);
+    Result.Y := QTextCursor_blockNumber(TextCursor);
+  end;
   QTextCursor_destroy(TextCursor);
 end;
 
@@ -9609,6 +9678,14 @@ begin
 end;
 
 function TQtTabBar.EventFilter(Sender: QObjectH; Event: QEventH): Boolean; cdecl;
+
+  function StopShortcutEvent: boolean;
+  begin
+    Result := Assigned(FOwner) and (FOwner.ChildOfComplexWidget <> ccwTTabControl) and
+      not TQtTabWidget(FOwner).FSwitchTabsByKeyboard and (QKeyEvent_matches(QKeyEventH(Event), QKeySequenceNextChild) or
+      QKeyEvent_matches(QKeyEventH(Event), QKeySequencePreviousChild));
+  end;
+
 {$IFDEF QT_ENABLE_LCL_PAINT_TABS}
 var
   R: TRect;
@@ -9639,6 +9716,7 @@ begin
           QEvent_ignore(Event);
         end;
       {$ENDIF}
+      QEventShortcutOverride: Result := StopShortcutEvent;
       QEventKeyPress,
       QEventKeyRelease:
       begin
@@ -9648,6 +9726,8 @@ begin
         if (LCLObject = nil) or
           ((LCLObject <> nil) and not LCLObject.HandleAllocated) then
           Result := True;
+        if not Result then
+          Result := StopShortcutEvent;
       end;
       QEventMouseButtonPress,
       QEventMouseButtonRelease,
@@ -9741,6 +9821,7 @@ begin
   {$ifdef VerboseQt}
     WriteLn('TQtTabWidget.Create');
   {$endif}
+  FSwitchTabsByKeyboard := False; {shortcuts are enabled by default under qt, but not under LCL}
   FWidgetNeedFontColorInitialization := True;
   if AParams.WndParent <> 0 then
     Parent := TQtWidget(AParams.WndParent).GetContainerWidget
@@ -10160,12 +10241,11 @@ begin
   FOwnerDrawn := False;
 end;
 
-function TQtComboBox.getCursorPosition: Integer;
+function TQtComboBox.getCursorPosition: TPoint;
 begin
+  Result := Point(0, 0);
   if LineEdit <> nil then
-    Result := LineEdit.getCursorPosition
-  else
-    Result := 0;
+    Result.X := LineEdit.getCursorPosition.X;
 end;
 
 function TQtComboBox.getMaxLength: Integer;
@@ -10974,12 +11054,11 @@ begin
     QLineEdit_undo(LineEdit);
 end;
 
-function TQtAbstractSpinBox.getCursorPosition: Integer;
+function TQtAbstractSpinBox.getCursorPosition: TPoint;
 begin
+  Result := Point(0, 0);
   if LineEdit <> nil then
-    Result := QLineEdit_cursorPosition(LineEdit)
-  else
-    Result := 0;
+    Result.X := QLineEdit_cursorPosition(LineEdit);
 end;
 
 function TQtAbstractSpinBox.getReadOnly: Boolean;
@@ -11519,7 +11598,11 @@ var
   v: QVariantH;
   WStr: WideString;
   DataStr: WideString;
-  ASelected: Boolean;
+  ImgList: TCustomImageList;
+  AImageIndex: TImageIndex;
+  Bmp: TBitmap;
+  v2: QVariantH;
+  AOk: Boolean;
 begin
 
   {do not set items during design time}
@@ -11555,9 +11638,47 @@ begin
         if (TopItem < 0) or (TopItem > TCustomListViewHack(LCLObject).Items.Count - 1) then
           break;
 
-        if (TCustomListViewHack(LCLObject).Items[TopItem].ImageIndex <> -1) then
+        ImgList := TCustomListViewHack(LCLObject).SmallImages;
+        if Assigned(ImgList) then
         begin
-          // TODO: paint icons and reduce paint overhead by checking icon
+          AImageIndex := TCustomListViewHack(LCLObject).Items[TopItem].ImageIndex;
+          if (ImgList.Count > 0) and
+            ((AImageIndex >= 0) and (AImageIndex < ImgList.Count)) then
+          begin
+            Bmp := TBitmap.Create;
+            try
+              ImgList.GetBitmap(AImageIndex, Bmp);
+              v2 := QVariant_create;
+              QListWidgetItem_data(item, v2, QtListViewOwnerDataRole);
+              if not QVariant_isNull(v2) then
+              begin
+                AOk := True;
+                if QVariant_toInt(v2, @AOk) <> AImageIndex then
+                begin
+                  v2 := QVariant_create(AImageIndex);
+                  QListWidgetItem_setData(item, QtListViewOwnerDataRole, v2);
+                  QVariant_destroy(v2);
+                  QListWidgetItem_setIcon(item, TQtImage(Bmp.Handle).AsIcon)
+                end;
+                // else we are imageIndex and that''s fine.
+              end else
+              begin
+                v2 := QVariant_create(AImageIndex);
+                QListWidgetItem_setData(item, QtListViewOwnerDataRole, v2);
+                QVariant_destroy(v2);
+                QListWidgetItem_setIcon(item, TQtImage(Bmp.Handle).AsIcon);
+              end;
+            finally
+              Bmp.Free;
+            end;
+          end else
+          if (AImageIndex < 0) then
+          begin
+            v2 := QVariant_create;
+            QListWidgetItem_setData(item, QtListViewOwnerDataRole, v2);
+            QVariant_destroy(v2);
+            QListWidgetItem_setIcon(item, nil);
+          end;
         end;
 
         WStr := GetUTF8String(TCustomListViewHack(LCLObject).Items[TopItem].Caption);
@@ -11571,7 +11692,7 @@ begin
           DataStr := '';
         QVariant_destroy(v);
 
-        ASelected := TCustomListViewHack(LCLObject).Items[TopItem].Selected;
+        // ASelected := not TCustomListViewHack(LCLObject).Items[TopItem].Selected;
 
         if (DataStr <> WStr) then
         begin
@@ -11582,8 +11703,9 @@ begin
             QVariant_destroy(v);
           end;
         end;
-        if QListWidgetItem_isSelected(Item) <> ASelected then
-          QListWidgetItem_setSelected(Item, ASelected);
+
+        // if (QListWidgetItem_isSelected(Item) <> ASelected) then
+        //  QListWidgetItem_setSelected(Item, ASelected);
 
       end else
         break;
@@ -11836,6 +11958,8 @@ begin
       begin
         HasPaint := True;
         QPaintEvent_rect(QPaintEventH(Event), @R);
+        if FOwnerData then
+          OwnerDataNeeded(R);
         DC := TQtDeviceContext.Create(QWidgetH(Sender), True);
         try
           TCustomListViewAccess(LCLObject).Canvas.handle := HDC(DC);
@@ -11908,8 +12032,7 @@ begin
             // trigger selectionChanged() here
             // Multiselection needs special handling to get proper
             // order of OnSelectItem.
-
-            if getSelectionMode > QAbstractItemViewSingleSelection then
+            if (getSelectionMode > QAbstractItemViewSingleSelection) or FOwnerData then
             begin
               Modifiers := QInputEvent_modifiers(QInputEventH(Event));
               SlotMouse(Sender, Event);
@@ -12449,7 +12572,10 @@ var
 begin
   Item := QListWidgetItem_create(AText, nil, QListWidgetItemType);
   if Checkable then
-    QListWidgetItem_setCheckState(Item, QtUnChecked);
+    QListWidgetItem_setCheckState(Item, QtUnChecked)
+  else
+  if (ViewStyle = Ord(vsIcon)) and not (FChildOfComplexWidget = ccwComboBox) then
+    QListWidgetItem_setTextAlignment(Item, QtAlignHCenter);
   QListWidget_insertItem(QListWidgetH(Widget), AIndex, Item);
 end;
 
@@ -13063,7 +13189,7 @@ end;
   Params:  None
   Returns: Nothing
  ------------------------------------------------------------------------------}
-procedure TQtHeaderView.SignalSectionClicked(logicalIndex: Integer) cdecl;
+procedure TQtHeaderView.SignalSectionClicked(logicalIndex: Integer); cdecl;
 var
   Msg: TLMNotify;
   NMLV: TNMListView;
@@ -13101,6 +13227,16 @@ procedure TQtHeaderView.setResizeMode(AIndex: Integer;
   AResizeMode: QHeaderViewResizeMode);
 begin
   QHeaderView_setResizeMode(QHeaderViewH(Widget), AIndex, AResizeMode);
+end;
+
+function TQtHeaderView.sectionSize(AIndex: Integer): Integer;
+begin
+  Result := QHeaderView_sectionSize(QHeaderViewH(Widget), AIndex);
+end;
+
+function TQtHeaderView.sectionSizeHint(AIndex: Integer): Integer;
+begin
+  Result := QHeaderView_sectionSizeHint(QHeaderViewH(Widget), AIndex);
 end;
 
 procedure TQtHeaderView.moveSection(AFromIndex: Integer; AToIndex: Integer);
@@ -13542,18 +13678,19 @@ var
   R: TRect;
   TopItem: Integer;
   i: Integer;
-  j, x: Integer;
+  j: Integer;
   ChildCount: Integer;
   VHeight: Integer; // viewport height
   RowHeight: Integer;
   item: QTreeWidgetItemH;
   itemChild: QTreeWidgetItemH;
-  v: QVariantH;
-  WStr: WideString;
+  v,v2: QVariantH;
+  WStr, TempStr: WideString;
   ASelected: Boolean;
   ImgList: TCustomImageList;
   AImageIndex: TImageIndex;
   Bmp: TBitmap;
+  AOk: Boolean;
 begin
   {do not set items during design time}
   if csDesigning in LCLObject.ComponentState then
@@ -13577,7 +13714,6 @@ begin
       exit;
 
     i := 0;
-
     while (i < (VHeight + RowHeight)) do
     begin
       item := QTreeWidget_itemAt(QTreeWidgetH(Widget), 0, i + 1);
@@ -13595,7 +13731,17 @@ begin
 
         v := QVariant_create(PWideString(@WStr));
         try
-          QTreeWidgetItem_setData(item, 0, Ord(QtDisplayRole), v);
+          v2 := QVariant_create;
+          try
+            TempStr := '';
+            QTreeWidgetItem_data(item, v2, 0, Ord(QtDisplayRole));
+            if not QVariant_isNull(v2) then
+              QVariant_toString(v2, @TempStr);
+            if TempStr <> WStr then
+              QTreeWidgetItem_setData(item, 0, Ord(QtDisplayRole), v);
+          finally
+            QVariant_destroy(v2);
+          end;
 
           // set imageindex, part of comment in issue #27233
           ImgList := TCustomListViewHack(LCLObject).SmallImages;
@@ -13608,13 +13754,37 @@ begin
               Bmp := TBitmap.Create;
               try
                 ImgList.GetBitmap(AImageIndex, Bmp);
-                QTreeWidgetItem_setIcon(item, 0, TQtImage(Bmp.Handle).AsIcon);
+                v2 := QVariant_create;
+                QTreeWidgetItem_data(item, v2, 0, QtListViewOwnerDataRole);
+                if not QVariant_isNull(v2) then
+                begin
+                  AOk := True;
+                  if QVariant_toInt(v2, @AOk) <> AImageIndex then
+                  begin
+                    v2 := QVariant_create(AImageIndex);
+                    QTreeWidgetItem_setData(item, 0, QtListViewOwnerDataRole, v2);
+                    QVariant_destroy(v2);
+                    QTreeWidgetItem_setIcon(item, 0, TQtImage(Bmp.Handle).AsIcon)
+                  end;
+                  // else we are imageIndex and that''s fine.
+                end else
+                begin
+                  v2 := QVariant_create(AImageIndex);
+                  QTreeWidgetItem_setData(item, 0, QtListViewOwnerDataRole, v2);
+                  QVariant_destroy(v2);
+                  QTreeWidgetItem_setIcon(item, 0, TQtImage(Bmp.Handle).AsIcon);
+                end;
               finally
                 Bmp.Free;
               end;
             end else
             if (AImageIndex < 0) then
+            begin
+              v2 := QVariant_create;
+              QTreeWidgetItem_setData(item, 0, QtListViewOwnerDataRole, v2);
+              QVariant_destroy(v2);
               QTreeWidgetItem_setIcon(item, 0, nil);
+            end;
           end;
 
           // set alignment, issue #27233
@@ -13640,8 +13810,18 @@ begin
             begin
               WStr := GetUTF8String(TCustomListViewHack(LCLObject).Items[TopItem].SubItems[j]);
               v := QVariant_create(PWideString(@WStr));
-              QTreeWidgetItem_setData(itemChild, j, Ord(QtDisplayRole), v);
-              QVariant_destroy(v);
+              v2 := QVariant_create;
+              try
+                TempStr := '';
+                QTreeWidgetItem_data(itemChild, v2, j, Ord(QtDisplayRole));
+                if not QVariant_isNull(v2) then
+                  QVariant_toString(v2, @TempStr);
+                if TempStr <> WStr then
+                  QTreeWidgetItem_setData(itemChild, j, Ord(QtDisplayRole), v);
+              finally
+                QVariant_destroy(v2);
+                QVariant_destroy(v);
+              end;
             end;
           end;
         end else
@@ -13962,8 +14142,7 @@ end;
 
 procedure TQtTreeWidget.setMinColSize(ACol: Integer; const AValue: Integer);
 begin
-  // QTreeWidgetItem_setSizeHint(headerItem, @Size, ACol);
-  {$note QSizeH implementation missing for TQtTreeWidget.setMinColSize}
+  QHeaderView_setMinimumSectionSize(QTreeView_header(QTreeViewH(Widget)), AValue);
 end;
 
 {------------------------------------------------------------------------------
@@ -14146,7 +14325,7 @@ var
   v: QVariantH;
 begin
   if Data = nil then
-    v := QVariant_create(QVariantInvalid)
+    v := QVariant_create
   else
     v := QVariant_create(Int64({%H-}PtrUInt(Data)));
   QTreeWidgetItem_setData(AItem, AColumn, ARole, v);
@@ -16537,7 +16716,9 @@ begin
   begin
     QLCLAbstractScrollArea_override_viewportEvent(QLCLAbstractScrollAreaH(Widget),
       QLCLAbstractScrollArea_viewportEvent_Override(NilMethod));
-    FreeAndNil(FViewPortWidget);
+    FViewPortWidget.FOwner := nil;
+    FViewPortWidget.Release;
+    FViewPortWidget := nil;
   end;
 end;
 
@@ -17101,6 +17282,8 @@ end;
 function TQtPage.EventFilter(Sender: QObjectH; Event: QEventH): Boolean; cdecl;
 var
   ASize: TSize;
+  ACapture: HWND;
+  B: Boolean;
 begin
   Result := False;
   if LCLObject = nil then
@@ -17127,7 +17310,22 @@ begin
       DelayResizeEvent(QWidgetH(Sender), ASize);
       exit;
     end;
-  end;
+  end else
+  if (QEvent_type(Event) = QEventShow) then
+  begin
+    if Assigned(DragManager) and DragManager.IsDragging then
+      ACapture := GetCapture
+    else
+      ACapture := 0;
+    B := (ACapture <> 0) and (ACapture <> HWND(Self));
+    Result := inherited EventFilter(Sender, Event);
+    if B then
+    begin
+      QtWidgetSet.InvalidateWidgetAtCache;
+      SetCapture(0);
+      SetCapture(HWND(Self));
+    end;
+  end else
   Result := inherited EventFilter(Sender, Event);
 end;
 
@@ -17575,10 +17773,14 @@ procedure TQtAbstractItemView.ItemDelegateSizeHint(
 var
   Msg: TLMMeasureItem;
   MeasureItemStruct: TMeasureItemStruct;
+  decorationSize: TSize;
+  Metric: Integer;
 begin
+  QStyleOptionViewItem_decorationSize(option, @decorationSize);
+  Metric := QStyle_pixelMetric(QApplication_style(), QStylePM_FocusFrameVMargin, nil, nil) * 2;
   MeasureItemStruct.itemID := UINT(QModelIndex_row(index));
   MeasureItemStruct.itemWidth := UINT(Size^.cx);
-  MeasureItemStruct.itemHeight := UINT(Size^.cy);
+  MeasureItemStruct.itemHeight := UINT(Max(Size^.cy, (decorationSize.cy + Metric)));
   Msg.Msg := LM_MEASUREITEM;
   Msg.MeasureItemStruct := @MeasureItemStruct;
   DeliverMessage(Msg);
@@ -18093,8 +18295,10 @@ end;
 function TQtFilePreviewDialog.CreateWidget(parent: QWidgetH; f: QtWindowFlags
   ): QWidgetH;
 begin
+  {$ifndef QT_NATIVE_DIALOGS}
   FPreviewWidget := nil;
   FTextWidget := nil;
+  {$endif}
   Result := inherited CreateWidget(parent, f);
 end;
 

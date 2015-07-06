@@ -228,6 +228,8 @@ const
     EnvOptionsFiles         = 100;
     EnvOptionsDesktop       = 200;
     EnvOptionsWindow        = 300;
+    EnvOptionsToolbar       = 320;
+    EnvOptionsEditorToolbar = 330;
     EnvOptionsCompPalette   = 350;
     EnvOptionsFormEd        = 400;
     EnvOptionsOI            = 500;
@@ -312,6 +314,9 @@ const
 
   GroupPkgCompiler  = 200200;
 
+var
+  HasGUI: boolean = true; // lazbuild sets this to false
+
 implementation
 
 var
@@ -358,6 +363,7 @@ begin
   for I := AStartIndex to High(Integer) do
     if IDEEditorGroups.GetByIndex(I) = nil then
       Exit(I);
+  Result := -1;
 end;
 
 function GetFreeIDEOptionsIndex(AGroupIndex: Integer; AStartIndex: Integer): Integer;

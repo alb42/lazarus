@@ -46,13 +46,14 @@ type
     TextToFindLabel: TLabel;
     WhereRadioGroup: TRadioGroup;
     procedure DirectoriesBrowseClick(Sender: TObject);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
     procedure OKButtonClick(Sender : TObject);
     procedure ReplaceCheckBoxChange(Sender: TObject);
     procedure WhereRadioGroupClick(Sender: TObject);
   private
+    FProject: TProject;
     function GetFindText: string;
     function GetOptions: TLazFindInFileSearchOptions;
     function GetReplaceText: string;
@@ -72,10 +73,14 @@ type
     function GetBaseDirectory: string;
     procedure LoadHistory;
     procedure SaveHistory;
+    procedure FindInSearchPath(SearchPath: string);
     procedure FindInFilesPerDialog(AProject: TProject);
+    procedure InitFindText;
     procedure InitFromLazSearch(Sender: TObject);
     procedure FindInFiles(AProject: TProject; const AFindText: string);
     function GetResolvedDirectories: string;
+    function Execute: boolean;
+    property LazProject: TProject read FProject write FProject;
   end;
 
 function FindInFilesDialog: TLazFindInFilesDialog;
@@ -162,7 +167,7 @@ begin
   TextToFindLabel.Caption := dlgTextToFind;
   ReplaceCheckBox.Caption := dlgReplaceWith;
 
-  OptionsCheckGroupBox.Caption := dlgFROpts;
+  OptionsCheckGroupBox.Caption := lisOptions;
   OptionsCheckGroupBox.Items[0] := dlgCaseSensitive;
   OptionsCheckGroupBox.Items[1] := dlgWholeWordsOnly;
   OptionsCheckGroupBox.Items[2] := dlgRegularExpressions;
@@ -303,6 +308,9 @@ begin
     Result:=GetCurrentDirUTF8;
 end;
 
+const
+  SharedOptions = [ssoMatchCase,ssoWholeWord,ssoRegExpr,ssoRegExprMultiLine];
+
 procedure TLazFindInFilesDialog.LoadHistory;
 
   procedure AssignToComboBox(AComboBox: TComboBox; Strings: TStrings);
@@ -358,26 +366,50 @@ begin
   // show last used file masks
   AssignToComboBox(FileMaskComboBox, InputHistories.FindInFilesMaskHistory);
   Options := InputHistories.FindInFilesSearchOptions;
+  SynSearchOptions := InputHistories.FindOptions * SharedOptions;//share basic options with FindReplaceDlg
 end;
 
 procedure TLazFindInFilesDialog.SaveHistory;
 var
   Dir: String;
 begin
+  if ReplaceCheckBox.Checked then
+    InputHistories.AddToReplaceHistory(ReplaceText);
   InputHistories.AddToFindHistory(FindText);
   Dir:=AppendPathDelim(TrimFilename(DirectoriesComboBox.Text));
   if Dir<>'' then
     InputHistories.AddToFindInFilesPathHistory(Dir);
   InputHistories.AddToFindInFilesMaskHistory(FileMaskComboBox.Text);
   InputHistories.FindInFilesSearchOptions:=Options;
+  InputHistories.FindOptions := InputHistories.FindOptions - SharedOptions + (SynSearchOptions*SharedOptions);//share basic options with FindReplaceDlg
   InputHistories.Save;
 end;
 
+procedure TLazFindInFilesDialog.FindInSearchPath(SearchPath: string);
+begin
+  debugln(['TLazFindInFilesDialog.FindInSearchPath ',SearchPath]);
+  InitFindText;
+  LoadHistory;
+  DirectoriesComboBox.Text:=SearchPath;
+  WhereRadioGroup.ItemIndex:=ItemIndDirectories;
+  // disable replace. Find in files is often called,
+  // but almost never to replace with the same parameters
+  Options := Options-[fifReplace,fifReplaceAll];
+  Execute;
+end;
+
 procedure TLazFindInFilesDialog.FindInFilesPerDialog(AProject: TProject);
+begin
+  InitFindText;
+  FindInFiles(AProject, FindText);
+end;
+
+procedure TLazFindInFilesDialog.InitFindText;
 var
   TempEditor: TSourceEditorInterface;
-Begin
-  FindText:='';
+  NewFindText: String;
+begin
+  NewFindText:='';
   TempEditor := SourceEditorManagerIntf.ActiveEditor;
   if TempEditor <> nil
   then //with TempEditor.EditorComponent do
@@ -385,15 +417,14 @@ Begin
     if EditorOpts.FindTextAtCursor
     then begin
       if TempEditor.SelectionAvailable and (TempEditor.BlockBegin.Y = TempEditor.BlockEnd.Y)
-      then FindText := TempEditor.Selection
-      else FindText := TSynEdit(TempEditor.EditorControl).GetWordAtRowCol(TempEditor.CursorTextXY);
+      then NewFindText := TempEditor.Selection
+      else NewFindText := TSynEdit(TempEditor.EditorControl).GetWordAtRowCol(TempEditor.CursorTextXY);
     end else begin
       if InputHistories.FindHistory.Count>0 then
-        FindText:=InputHistories.FindHistory[0];
+        NewFindText:=InputHistories.FindHistory[0];
     end;
   end;
-
-  FindInFiles(AProject, FindText);
+  FindText:=NewFindText;
 end;
 
 procedure TLazFindInFilesDialog.InitFromLazSearch(Sender: TObject);
@@ -408,9 +439,8 @@ begin
 end;
 
 procedure TLazFindInFilesDialog.FindInFiles(AProject: TProject; const AFindText: string);
-var
-  SearchForm:  TSearchProgressForm;
 begin
+  LazProject:=AProject;
   LoadHistory;
 
   // if there is no FindText, use the most recently used FindText
@@ -421,8 +451,23 @@ begin
   // disable replace. Find in files is often called,
   // but almost never to replace with the same parameters
   Options := Options-[fifReplace,fifReplaceAll];
+  Execute;
+end;
+
+function TLazFindInFilesDialog.GetResolvedDirectories: string;
+begin
+  Result:=DirectoriesComboBox.Text;
+  IDEMacros.SubstituteMacros(Result);
+  Result:=TrimSearchPath(Result,GetBaseDirectory,true,true);
+end;
+
+function TLazFindInFilesDialog.Execute: boolean;
+var
+  SearchForm: TSearchProgressForm;
+begin
   if ShowModal=mrOk then
   begin
+    Result:=true;
     SaveHistory;
 
     SearchForm:= TSearchProgressForm.Create(SearchResultsView);
@@ -438,7 +483,11 @@ begin
       if FindText <> '' then
       begin
         case WhereRadioGroup.ItemIndex of
-          ItemIndProject    : SearchForm.DoSearchProject(AProject);
+          ItemIndProject    :
+            if LazProject=nil then
+              SearchForm.DoSearchProject(Project1)
+            else
+              SearchForm.DoSearchProject(LazProject);
           ItemIndOpenFiles  : SearchForm.DoSearchOpenFiles;
           ItemIndDirectories: SearchForm.DoSearchDir;
           ItemIndActiveFile : SearchForm.DoSearchActiveFile;
@@ -447,14 +496,10 @@ begin
     finally
       FreeAndNil(SearchForm);
     end;
-  end;
-end;
+  end else
+    Result:=false;
 
-function TLazFindInFilesDialog.GetResolvedDirectories: string;
-begin
-  Result:=DirectoriesComboBox.Text;
-  IDEMacros.SubstituteMacros(Result);
-  Result:=TrimSearchPath(Result,GetBaseDirectory,true,true);
+  FProject:=nil;
 end;
 
 end.

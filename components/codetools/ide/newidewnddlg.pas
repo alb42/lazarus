@@ -5,7 +5,7 @@ unit NewIDEWndDlg;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, LazLogger, LazUTF8, CodeCache, CodeToolManager,
+  Classes, SysUtils, LazFileUtils, LazLogger, LazUTF8, CodeCache, CodeToolManager,
   Forms, Controls, Graphics, Dialogs, StdCtrls, ProjectIntf, MacroIntf,
   IDEDialogs, CodyStrConsts;
 
@@ -130,11 +130,11 @@ begin
     debugln('Source: ==================================================');
     debugln(Src);
     debugln('==========================================================');
-    exit;
+    exit('');
   end;
   if EndPos<1 then begin
     debugln(['ERROR: TFileDescIDEDockableWindow.ExtractTemplate marker "'+EndMarker+'" not found']);
-    exit;
+    exit('');
   end;
   inc(StartPos,length(StartMarker));
   Result:=UTF8Trim(copy(Src,StartPos,EndPos-StartPos));

@@ -27,7 +27,7 @@ uses
   qt4,
   qtobjects, qtwidgets, qtproc,
   // RTL + LCL
-  SysUtils, Classes, LCLType, LazUTF8, FileUtil, Dialogs, Controls, Forms, Graphics,
+  SysUtils, Classes, LCLType, LazUTF8, LazFileUtils, Dialogs, Controls, Forms, Graphics,
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -651,8 +651,9 @@ begin
     {. $note WE MUST USE NON NATIVE DIALOGS HERE, OTHERWISE NO SIGNALS #16532.}
     QFileDialog_setOption(QFileDialogH(FileDialog.Widget),
       QFileDialogDontUseNativeDialog, True);
-
+    {$ifndef QT_NATIVE_DIALOGS}
     FileDialog.initializePreview(TPreviewFileDialog(ACommonDialog).PreviewFileControl);
+    {$endif}
     FileDialog.AttachEvents;
 
     Result := THandle(FileDialog);

@@ -39,10 +39,10 @@ unit MakeResStrDlg;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, Forms, Controls, Buttons, ComCtrls, StdCtrls,
-  Dialogs, ExtCtrls, IDEWindowIntf,
+  Classes, SysUtils, LCLProc, Forms, Controls, Buttons, StdCtrls,
+  Dialogs, ExtCtrls, ButtonPanel, IDEWindowIntf,
   SynHighlighterPas, SynEdit,
-  CodeToolManager, CodeAtom, CodeToolsStructs, CodeCache,
+  CodeToolManager, CodeToolsStructs, CodeCache,
   IDEHelpIntf, IDEDialogs,
   LazarusIDEStrConsts,
   EditorOptions, InputHistory, MiscOptions, IDEProcs;
@@ -52,6 +52,7 @@ type
   { TMakeResStrDialog }
 
   TMakeResStrDialog = class(TForm)
+    ButtonPanel1: TButtonPanel;
     CustomIdentifierCheckBox: TCheckBox;
     IdentifierGroupBox: TGroupBox;
     IdentifierEdit: TEdit;
@@ -63,7 +64,6 @@ type
     // options
     ConversionGroupBox: TGroupBox;
     CodePanel: TPanel;
-    BtnPanel: TPanel;
     // resourcestring section
     ResStrSectionLabel: TLabel;
     ResStrSectionComboBox: TComboBox;
@@ -84,14 +84,8 @@ type
     // highlighter
     SynPasSyn: TSynPasSyn;
 
-    // ok+cancel buttons
-    OkButton: TBitBtn;
-    CancelButton: TBitBtn;
-    HelpButton: TBitBtn;
 
-    procedure CancelButtonClick(Sender: TObject);
     procedure CustomIdentifierCheckBoxClick(Sender: TObject);
-    procedure FormCreate(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
     procedure IdentLengthComboBoxChange(Sender: TObject);
     procedure IdentPrefixComboBoxChange(Sender: TObject);
@@ -121,7 +115,7 @@ type
     function ResStrExistsInCurrentSection(const Identifier: string): boolean;
     function ResStrExistsInAnySection(const Identifier: string): boolean;
     function ResStrExistsWithSameValue(const Identifier: string): boolean;
-    procedure GetNewSource(var NewSource, ResourceStringValue: string);
+    procedure GetNewSource(out NewSource, ResourceStringValue: string);
     procedure Init;
     procedure SaveHistories;
     procedure SaveIdentPrefixes;
@@ -131,34 +125,35 @@ type
   
 function ShowMakeResStrDialog(
   const StartPos, EndPos: TPoint; Code: TCodeBuffer;
-  Positions: TCodeXYPositions;
-  var NewIdentifier, NewIdentifierValue: string;
-  var NewSourceLines: string;
-  var ResStrSectionCode: TCodeBuffer;
-  var ResStrSectionXY: TPoint;
-  var InsertPolicy: TResourcestringInsertPolicy): TModalResult;
+  out NewIdentifier, NewIdentifierValue: string;
+  out NewSourceLines: string;
+  out ResStrSectionCode: TCodeBuffer;
+  out ResStrSectionXY: TPoint;
+  out InsertPolicy: TResourcestringInsertPolicy): TModalResult;
 
 implementation
 
 {$R *.lfm}
 
-uses
-  Math;
 
-function ShowMakeResStrDialog(
-  const StartPos, EndPos: TPoint; Code: TCodeBuffer;
-  Positions: TCodeXYPositions;
-  var NewIdentifier, NewIdentifierValue: string;
-  var NewSourceLines: string;
-  var ResStrSectionCode: TCodeBuffer;
-  var ResStrSectionXY: TPoint;
-  var InsertPolicy: TResourcestringInsertPolicy): TModalResult;
+function ShowMakeResStrDialog(const StartPos, EndPos: TPoint;
+  Code: TCodeBuffer; out NewIdentifier, NewIdentifierValue: string; out
+  NewSourceLines: string; out ResStrSectionCode: TCodeBuffer; out
+  ResStrSectionXY: TPoint; out InsertPolicy: TResourcestringInsertPolicy
+  ): TModalResult;
 var
   MakeResStrDialog: TMakeResStrDialog;
   Section: PCodeXYPosition;
   ResourcestringSectionID: Integer;
 begin
   //debugln('ShowMakeResStrDialog StartPos=',dbgs(StartPos),' EndPos=',dbgs(EndPos),' ');
+  NewIdentifier:='';
+  NewIdentifierValue:='';
+  NewSourceLines:='';
+  ResStrSectionCode:=nil;
+  ResStrSectionXY:=Point(0,0);
+  InsertPolicy:=rsipNone;
+
   MakeResStrDialog:=TMakeResStrDialog.Create(nil);
   MakeResStrDialog.Positions:=CodeToolBoss.Positions.CreateCopy;
   MakeResStrDialog.SetSource(Code,StartPos,EndPos);
@@ -195,19 +190,9 @@ end;
 
 { TMakeResStrDialog }
 
-procedure TMakeResStrDialog.CancelButtonClick(Sender: TObject);
-begin
-  ModalResult:=mrCancel;
-end;
-
 procedure TMakeResStrDialog.CustomIdentifierCheckBoxClick(Sender: TObject);
 begin
   UpdateIdentifier;
-end;
-
-procedure TMakeResStrDialog.FormCreate(Sender: TObject);
-begin
-  ActiveControl:=OkButton;
 end;
 
 procedure TMakeResStrDialog.HelpButtonClick(Sender: TObject);
@@ -290,9 +275,9 @@ begin
   StringConstGroupBox.Caption:=lisMakeResStrStringConstantInSource;
 
   // OK, Cancel, Help buttons
-  OkButton.Caption:=lisMenuOk;
-  CancelButton.Caption:=lisCancel;
-  HelpButton.Caption:=lisMenuHelp;
+  ButtonPanel1.OkButton.Caption:=lisMenuOk;
+  ButtonPanel1.CancelButton.Caption:=lisCancel;
+  ButtonPanel1.HelpButton.Caption:=lisMenuHelp;
 end;
 
 constructor TMakeResStrDialog.Create(TheOwner: TComponent);
@@ -529,7 +514,7 @@ begin
   Result:=false;
 end;
 
-procedure TMakeResStrDialog.GetNewSource(var NewSource,
+procedure TMakeResStrDialog.GetNewSource(out NewSource,
   ResourceStringValue: string);
 var
   FormatStringConstant: string;
@@ -540,6 +525,8 @@ var
   RightSide: String;
   StartInStringConst, EndInStringConst: boolean;
 begin
+  NewSource:='';
+  ResourceStringValue:='';
   if not CodeToolBoss.StringConstToFormatString(Code,StartPos.X,StartPos.Y,
      Code,EndPos.X,EndPos.Y,FormatStringConstant,FormatParameters,
      StartInStringConst,EndInStringConst)

@@ -38,10 +38,6 @@ type
   { TOIDBGGrid }
 
   TOIDBGGrid=class(TOIPropertyGrid)
-  private
-  protected
-    procedure BuildPropertyList(OnlyIfNeeded: boolean=false);
-  public
   end;
 
   { TIDEInspectDlg }
@@ -67,13 +63,13 @@ type
     procedure btnForwardClick(Sender: TObject);
     procedure btnUseInstanceClick(Sender: TObject);
     procedure EdInspectEditingDone(Sender: TObject);
-    procedure EdInspectKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure EdInspectKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
     procedure DataGridDoubleClick(Sender: TObject);
-    procedure DataGridMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X,
-      Y: Integer);
+    procedure DataGridMouseDown(Sender: TObject; Button: TMouseButton; {%H-}Shift: TShiftState; {%H-}X,
+      {%H-}Y: Integer);
   private
     //FDataGridHook,
     //FPropertiesGridHook,
@@ -108,7 +104,7 @@ type
   protected
     function  ColSizeGetter(AColId: Integer; var ASize: Integer): Boolean;
     procedure ColSizeSetter(AColId: Integer; ASize: Integer);
-    procedure InternalExecute(const AExpression: ansistring; ARepeatCount: Integer = -1);
+    procedure InternalExecute(const AExpression: ansistring);
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -224,6 +220,7 @@ begin
     if btnUseInstance.Down then
       include(TestOpts, defClassAutoCast);
     TestDBGInfo := nil;
+    TestHumanReadable:='';
     if DebugBoss.Evaluate('(' + FExpression + ')^', TestHumanReadable, TestDBGInfo, TestOpts) and
        assigned(TestDBGInfo)
     then
@@ -502,7 +499,7 @@ begin
     TypeName, 2, length(FDBGInfo.TypeName))])
   else FGridData.Cells[2,1]:=FDBGInfo.TypeName;
   {$PUSH}{$RANGECHECKS OFF}
-  FGridData.Cells[3,1]:=format('$%x',[PtrUInt(FDBGInfo.Value.AsPointer)]);
+  FGridData.Cells[3,1]:=format('$%x',[{%H-}PtrUInt(FDBGInfo.Value.AsPointer)]);
   {$POP}
   //FGridData.AutoSizeColumn(2);
 end;
@@ -740,30 +737,8 @@ begin
 end;
 
 constructor TIDEInspectDlg.Create(AOwner: TComponent);
-
-  function NewGrid(AName: String; AParent: TWinControl; AHook: TPropertyEditorHook): TOIDBGGrid;
-  begin
-    Result := TOIDBGGrid.Create(Self);
-    with Result do
-    begin
-      Name := AName;
-      Parent := AParent;
-      Visible := True;
-      Align := alClient;
-    end;
-  end;
-
 begin
   inherited Create(AOwner);
-  //FDBGInfo := nil;
-  //FDataGridHook := TPropertyEditorHook.Create;
-  //FDataGrid := NewGrid('DataGrid', DataPage, FDataGridHook);
-  //
-  //FPropertiesGridHook := TPropertyEditorHook.Create;
-  //FPropertiesGrid := NewGrid('PropertiesGrid', PropertiesPage, FPropertiesGridHook);
-  //
-  //FMethodsGridHook := TPropertyEditorHook.Create;
-  //FMethodsGrid := NewGrid('MethodsGrid', MethodsPage, FMethodsGridHook);
 
   FUpdateLock := False;
   FUpdateNeeded := False;
@@ -815,7 +790,7 @@ begin
   inherited Destroy;
 end;
 
-procedure TIDEInspectDlg.InternalExecute(const AExpression: ansistring; ARepeatCount: Integer);
+procedure TIDEInspectDlg.InternalExecute(const AExpression: ansistring);
 begin
   if FHistoryIndex >= FHistory.Count then
     FHistoryIndex := FHistory.Count - 1;
@@ -912,13 +887,6 @@ begin
 
   if FUpdateNeeded then
     UpdateData;
-end;
-
-{ TOIDBGGrid }
-
-procedure TOIDBGGrid.BuildPropertyList(OnlyIfNeeded: boolean);
-begin
-
 end;
 
 initialization

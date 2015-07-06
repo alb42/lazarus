@@ -35,7 +35,7 @@
     - function header doesn't match any method: update interface/class
     - complete function implementation with missing parameters
     - private variable not used => remove
-    - Hint: Local variable "Path" does not seem to be initialized
+    - Hint/Warning: (5036) Local variable "Path" does not seem to be initialized
          auto add begin+end
          Pointer:=nil
          integer:=0
@@ -60,7 +60,8 @@ uses
   KeywordFuncLists,
   IDEExternToolIntf, IDEMsgIntf, LazIDEIntf, IDEDialogs, MenuIntf,
   ProjectIntf, PackageIntf, CompOptsIntf,
-  etFPCMsgParser, AbstractsMethodsDlg, LazarusIDEStrConsts;
+  LazarusIDEStrConsts,
+  etFPCMsgParser, AbstractsMethodsDlg, QFInitLocalVarDlg;
 
 type
 
@@ -70,7 +71,7 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out Identifier: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TQuickFixLocalVariableNotUsed_Remove }
@@ -79,7 +80,16 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out Identifier: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+  end;
+
+  { TQuickFixLocalVarNotInitialized_AddAssignment }
+
+  TQuickFixLocalVarNotInitialized_AddAssignment = class(TMsgQuickFix)
+  public
+    function IsApplicable(Msg: TMessageLine; out Identifier: string): boolean;
+    procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TQuickFixUnitNotFound_Remove }
@@ -89,7 +99,7 @@ type
     function IsApplicable(Msg: TMessageLine;
       out MissingUnitName, UsedByUnit: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TQuickFixClassWithAbstractMethods
@@ -100,7 +110,7 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out aClassName: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TQuickFixSrcPathOfPkgContains_OpenPkg
@@ -112,7 +122,7 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out PkgName: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TQuickFix_HideWithIDEDirective - hide with IDE directive %H- }
@@ -131,7 +141,7 @@ type
     function IsApplicable(Msg: TMessageLine; out ToolData: TIDEExternalToolData;
       out IDETool: TObject): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
   { TIDEQuickFixes }
@@ -159,6 +169,12 @@ var
 
 function GetMsgCodetoolPos(Msg: TMessageLine; out Code: TCodeBuffer;
   out Tool: TCodeTool; out CleanPos: integer; out Node: TCodeTreeNode): boolean;
+function GetMsgSrcPosOfIdentifier(Msg: TMessageLine; out Identifier: string;
+  out Code: TCodeBuffer; out Tool: TCodeTool; out CleanPos: integer;
+  out Node: TCodeTreeNode): boolean;
+function GetMsgSrcPosOfThisIdentifier(Msg: TMessageLine; const Identifier: string;
+  out Code: TCodeBuffer; out Tool: TCodeTool; out CleanPos: integer;
+  out Node: TCodeTreeNode): boolean;
 
 implementation
 
@@ -219,6 +235,124 @@ begin
   if Tool.CaretToCleanPos(CodeXYPosition(Msg.Column,Msg.Line,Code),CleanPos)<>0 then exit;
   Node:=Tool.FindDeepestNodeAtPos(CleanPos,false);
   Result:=Node<>nil;
+end;
+
+function GetMsgSrcPosOfIdentifier(Msg: TMessageLine; out Identifier: string;
+  out Code: TCodeBuffer; out Tool: TCodeTool; out CleanPos: integer; out
+  Node: TCodeTreeNode): boolean;
+begin
+  Result:=false;
+  Code:=nil;
+  Tool:=nil;
+  CleanPos:=0;
+  Node:=nil;
+  // check if message position is at end of identifier
+  // (FPC gives position of start or end of identifier)
+  if not GetMsgCodetoolPos(Msg,Code,Tool,CleanPos,Node) then exit;
+  Tool.MoveCursorToCleanPos(CleanPos);
+  if (CleanPos>Tool.SrcLen) or (not IsIdentChar[Tool.Src[CleanPos]]) then
+    Tool.ReadPriorAtom
+  else
+    Tool.ReadNextAtom;
+  Identifier:=Tool.GetAtom;
+  CleanPos:=Tool.CurPos.StartPos;
+  Result:=(Identifier<>'') and IsValidIdent(Identifier);
+end;
+
+function GetMsgSrcPosOfThisIdentifier(Msg: TMessageLine; const Identifier: string;
+  out Code: TCodeBuffer; out Tool: TCodeTool; out CleanPos: integer;
+  out Node: TCodeTreeNode): boolean;
+var
+  CurIdentifier: string;
+begin
+  Result:=GetMsgSrcPosOfIdentifier(Msg,CurIdentifier,Code,Tool,CleanPos,Node)
+     and (CompareIdentifiers(PChar(CurIdentifier),PChar(Identifier))=0);
+end;
+
+{ TQuickFixLocalVarNotInitialized_AddAssignment }
+
+function TQuickFixLocalVarNotInitialized_AddAssignment.IsApplicable(
+  Msg: TMessageLine; out Identifier: string): boolean;
+var
+  Tool: TCodeTool;
+  CleanPos: integer;
+  Node: TCodeTreeNode;
+  Code: TCodeBuffer;
+begin
+  Result:=false;
+  if (Msg=nil) or (Msg.SubTool<>SubToolFPC) or (Msg.MsgID<1)
+  or (not Msg.HasSourcePosition) then exit;
+
+  // Check: Local variable "$1" does not seem to be initialized
+  case Msg.MsgID of
+  5036, // W_Local variable "$1" does not seem to be initialized
+  5037, // W_Variable "$1" does not seem to be initialized
+  5057, // H_Local variable "$1" does not seem to be initialized
+  5058, // H_Variable "$1" does not seem to be initialized
+  5089, // W_Local variable "$1" of a managed type does not seem to be initialized
+  5090, // W_Variable "$1" of a managed type does not seem to be initialized
+  5091, // H_Local variable "$1" of a managed type does not seem to be initialized
+  5092: // H_Variable "$1" of a managed type does not seem to be initialized
+    begin
+      Identifier:=TIDEFPCParser.GetFPCMsgValue1(Msg);
+      // check if message position is at end of identifier
+      if not GetMsgSrcPosOfThisIdentifier(Msg,Identifier,Code,Tool,CleanPos,Node)
+      then exit;
+    end;
+  5059, // W_Function result variable does not seem to initialized
+  5060, // H_Function result variable does not seem to be initialized
+  5093, // W_function result variable of a managed type does not seem to initialized
+  5094: // H_Function result variable of a managed type does not seem to be initialized
+    begin
+      if not GetMsgSrcPosOfIdentifier(Msg,Identifier,Code,Tool,CleanPos,Node)
+      then exit;
+    end;
+  else
+    exit;
+  end;
+  if not IsValidIdent(Identifier) then exit;
+
+  // check if identifier is in statement and start of expression
+  if not (Node.Desc in AllPascalStatements) then exit;
+  if (Tool.CurPos.Flag in [cafPoint,cafRoundBracketClose,cafEdgedBracketClose,
+                           cafEnd])
+  then exit;
+  Result:=true;
+end;
+
+procedure TQuickFixLocalVarNotInitialized_AddAssignment.CreateMenuItems(
+  Fixes: TMsgQuickFixes);
+var
+  Msg: TMessageLine;
+  Identifier: String;
+  i: Integer;
+begin
+  for i:=0 to Fixes.LineCount-1 do begin
+    Msg:=Fixes.Lines[i];
+    if not IsApplicable(Msg,Identifier) then continue;
+    Fixes.AddMenuItem(Self, Msg, Format(lisInsertAssignment, [Identifier]));
+    exit;
+  end;
+end;
+
+procedure TQuickFixLocalVarNotInitialized_AddAssignment.QuickFix(
+  Fixes: TMsgQuickFixes; Msg: TMessageLine);
+var
+  Identifier: String;
+  Code: TCodeBuffer;
+begin
+  if not IsApplicable(Msg,Identifier) then exit;
+
+  if not LazarusIDE.BeginCodeTools then begin
+    DebugLn(['TQuickFixLocalVarNotInitialized_AddAssignment failed because IDE busy']);
+    exit;
+  end;
+
+  Code:=CodeToolBoss.LoadFile(Msg.GetFullFilename,true,false);
+  if Code=nil then exit;
+
+  if QuickFixLocalVarNotInitialized(Code, Msg.Column, Msg.Line) then
+    Msg.MarkFixed;
 end;
 
 { TQuickFixSrcPathOfPkgContains_OpenPkg }
@@ -377,15 +511,10 @@ begin
   if not Msg.HasSourcePosition or not IsValidIdent(Identifier) then exit;
 
   // check if message position is at end of identifier
-  // (FPC gives position of start or end of identifier)
-  if not GetMsgCodetoolPos(Msg,Code,Tool,CleanPos,Node) then exit;
+  if not GetMsgSrcPosOfThisIdentifier(Msg,Identifier,Code,Tool,CleanPos,Node) then exit;
+
+  // check if identifier is a var definition
   if not (Node.Desc in [ctnVarDefinition]) then exit;
-  Tool.MoveCursorToCleanPos(CleanPos);
-  if (CleanPos>Tool.SrcLen) or (not IsIdentChar[Tool.Src[CleanPos]]) then
-    Tool.ReadPriorAtom
-  else
-    Tool.ReadNextAtom;
-  if not Tool.AtomIs(Identifier) then exit;
   Tool.ReadPriorAtom;
   if (Tool.CurPos.Flag in [cafPoint,cafRoundBracketClose,cafEdgedBracketClose,
                            cafEnd])
@@ -423,11 +552,6 @@ begin
 
   Code:=CodeToolBoss.LoadFile(Msg.GetFullFilename,true,false);
   if Code=nil then exit;
-
-  if not IsIdentifierInCode(Code,Msg.Column,Msg.Line,Identifier,
-    Format(lisNotFoundInAtLineColumnMaybeTheMessageIsOutdated,
-           [Identifier, Code.Filename, IntToStr(Msg.Line), IntToStr(Msg.Column), LineEnding]))
-  then exit;
 
   if not CodeToolBoss.RemoveIdentifierDefinition(Code,Msg.Column,Msg.Line) then
   begin
@@ -611,11 +735,11 @@ end;
 function TQuickFixIdentifierNotFoundAddLocal.IsApplicable(Msg: TMessageLine;
   out Identifier: string): boolean;
 var
+  Code: TCodeBuffer;
   Tool: TCodeTool;
   CleanPos: integer;
   Node: TCodeTreeNode;
   Dummy: string;
-  Code: TCodeBuffer;
 begin
   Result:=false;
   Identifier:='';
@@ -625,15 +749,10 @@ begin
   if not Msg.HasSourcePosition or not IsValidIdent(Identifier) then exit;
 
   // check if message position is at identifier
-  if not GetMsgCodetoolPos(Msg, Code,Tool, CleanPos, Node) then exit;
+  if not GetMsgSrcPosOfThisIdentifier(Msg,Identifier,Code,Tool,CleanPos,Node) then exit;
+
+  // check if identifier is expression start in statement
   if not (Node.Desc in AllPascalStatements) then exit;
-  Tool.MoveCursorToCleanPos(CleanPos);
-  if mlfLeftToken in Msg.Flags then
-    Tool.ReadPriorAtom
-  else
-    Tool.ReadNextAtom;
-  if not Tool.AtomIs(Identifier) then exit;
-  Tool.ReadPriorAtom;
   if (Tool.CurPos.Flag in [cafPoint,cafRoundBracketClose,cafEdgedBracketClose,
                            cafEnd])
   then exit;
@@ -675,11 +794,6 @@ begin
 
   Code:=CodeToolBoss.LoadFile(Msg.GetFullFilename,true,false);
   if Code=nil then exit;
-
-  if not IsIdentifierInCode(Code,Msg.Column,Msg.Line,Identifier,
-    Format(lisNotFoundInAtLineColumnMaybeTheMessageIsOutdated, [Identifier,
-      Code.Filename, IntToStr(Msg.Line), IntToStr(Msg.Column), LineEnding]))
-  then exit;
 
   if not CodeToolBoss.CreateVariableForIdentifier(Code,Msg.Column,Msg.Line,-1,
              NewCode,NewX,NewY,NewTopLine)
@@ -862,6 +976,7 @@ begin
   // add them in the order of usefulness
   IDEQuickFixes.RegisterQuickFix(TQuickFixIdentifierNotFoundAddLocal.Create);
   IDEQuickFixes.RegisterQuickFix(TQuickFixLocalVariableNotUsed_Remove.Create);
+  IDEQuickFixes.RegisterQuickFix(TQuickFixLocalVarNotInitialized_AddAssignment.Create);
   IDEQuickFixes.RegisterQuickFix(TQuickFixUnitNotFound_Remove.Create);
   IDEQuickFixes.RegisterQuickFix(TQuickFixClassWithAbstractMethods.Create);
   IDEQuickFixes.RegisterQuickFix(TQuickFixSrcPathOfPkgContains_OpenPkg.Create);

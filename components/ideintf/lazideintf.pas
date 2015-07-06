@@ -149,6 +149,10 @@ type
       // Global options should be prependended, project options should be appended.
     ): boolean of object;
 
+  TGetFPCFrontEndPath = function(Sender: TObject;
+    var Path: string // this path is prepended to fpc.
+    ): boolean of object;
+
   TLazarusIDEHandlerType = (
     lihtSavingAll, // called before IDE saves everything
     lihtSavedAll,  // called after IDE saved everything
@@ -160,7 +164,8 @@ type
     lihtProjectDependenciesCompiling, // called before IDE compiles dependencies of project
     lihtProjectDependenciesCompiled, // called after IDE compiled dependencies of project
     lihtQuickSyntaxCheck,  // called when quick syntax check is clicked (menu item or shortcut)
-    lihtGetFPCFrontEndParams // called when the IDE gets the parameters of the 'fpc' front end tool
+    lihtGetFPCFrontEndParams, // called when the IDE gets the parameters of the 'fpc' front end tool
+    lihtGetFPCFrontEndPath // called when the IDE gets the path of the 'fpc' front end tool
     );
     
   { TLazIDEInterface }
@@ -177,8 +182,11 @@ type
                             const AMethod: TMethod);
   protected
     FLazarusIDEHandlers: array[TLazarusIDEHandlerType] of TMethodList;
-    fOwningComponent: TComponent;
-    LastActivatedWindows: TFPList;
+    FOwningComponent: TComponent;
+    FIDEStarted: boolean;
+    FLastActivatedWindows: TFPList;
+    // used to find the last form so you can display the correct tab
+    FLastFormActivated: TCustomForm;
 
     function GetActiveProject: TLazProject; virtual; abstract;
     procedure DoCallNotifyHandler(HandlerType: TLazarusIDEHandlerType);
@@ -190,7 +198,7 @@ type
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
-    property OwningComponent: TComponent read fOwningComponent;
+    property OwningComponent: TComponent read FOwningComponent;
     
     // the main window with the IDE menu
     function GetMainBar: TComponent; virtual; abstract;
@@ -242,7 +250,8 @@ type
     function DoPublishProject(Flags: TSaveFlags;
                               ShowDialog: boolean): TModalResult; virtual; abstract;
     function DoBuildProject(const AReason: TCompileReason;
-                            Flags: TProjectBuildFlags): TModalResult; virtual; abstract;
+                            Flags: TProjectBuildFlags;
+                            FinalizeResources: boolean = True): TModalResult; virtual; abstract;
     function GetProjectFileForProjectEditor(AEditor: TSourceEditorInterface): TLazProjectFile; virtual; abstract;
     function DoCallProjectChangedHandler(HandlerType: TLazarusIDEHandlerType;
                                          AProject: TLazProject): TModalResult;
@@ -268,6 +277,7 @@ type
 
     // codetools
     function BeginCodeTools: boolean; virtual; abstract;
+    function DoShowCodeToolBossError: TMessageLine; virtual; abstract;
     procedure DoJumpToCodeToolBossError; virtual; abstract;
 
     function NeedSaveSourceEditorChangesToCodeCache(AEditor: TSourceEditorInterface): boolean; virtual; abstract;
@@ -356,8 +366,17 @@ type
     procedure RemoveHandlerGetFPCFrontEndParams(
                                           const Handler: TGetFPCFrontEndParams);
     function CallHandlerGetFPCFrontEndParams(Sender: TObject; var Params: string): boolean;
+    procedure AddHandlerGetFPCFrontEndPath(
+                 const Handler: TGetFPCFrontEndPath; AsLast: boolean = false);
+    procedure RemoveHandlerGetFPCFrontEndPath(
+                                          const Handler: TGetFPCFrontEndPath);
+    function CallHandlerGetFPCFrontEndPath(Sender: TObject; var Path: string): boolean;
+
+    property IDEStarted: boolean read FIDEStarted;
+    property LastActivatedWindows: TFPList read FLastActivatedWindows;
+    property LastFormActivated: TCustomForm read FLastFormActivated write FLastFormActivated;
   end;
-  
+
 var
   LazarusIDE: TLazIDEInterface = nil; // will be set by the IDE
 
@@ -666,6 +685,32 @@ begin
   while FLazarusIDEHandlers[lihtGetFPCFrontEndParams].NextDownIndex(i) do
   begin
     if not TGetFPCFrontEndParams(FLazarusIDEHandlers[lihtGetFPCFrontEndParams][i])(Self,Params)
+    then exit(false);
+  end;
+  Result:=true;
+end;
+
+procedure TLazIDEInterface.AddHandlerGetFPCFrontEndPath(
+  const Handler: TGetFPCFrontEndPath; AsLast: boolean);
+begin
+  AddHandler(lihtGetFPCFrontEndPath,TMethod(Handler),AsLast);
+end;
+
+procedure TLazIDEInterface.RemoveHandlerGetFPCFrontEndPath(
+  const Handler: TGetFPCFrontEndPath);
+begin
+  RemoveHandler(lihtGetFPCFrontEndPath,TMethod(Handler));
+end;
+
+function TLazIDEInterface.CallHandlerGetFPCFrontEndPath(Sender: TObject;
+  var Path: string): boolean;
+var
+  i: longint;
+begin
+  i:=FLazarusIDEHandlers[lihtGetFPCFrontEndPath].Count;
+  while FLazarusIDEHandlers[lihtGetFPCFrontEndPath].NextDownIndex(i) do
+  begin
+    if not TGetFPCFrontEndPath(FLazarusIDEHandlers[lihtGetFPCFrontEndPath][i])(Self,Path)
     then exit(false);
   end;
   Result:=true;

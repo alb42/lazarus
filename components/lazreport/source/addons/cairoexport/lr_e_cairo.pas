@@ -68,7 +68,7 @@ type
     procedure Frame(View: TfrView; x, y, h, w: integer);
     procedure ShowFrame(View: TfrView; x, y, h, w: integer);
     procedure Line(View: TfrView; x1,y1, x2,y2: Integer);
-    procedure ShowBarCode(View: TfrBarCodeView; x, y, h, w: integer);
+    procedure ShowBarCode(View: TfrCustomBarCodeView; x, y, h, w: integer);
     procedure ShowPicture(View: TfrPictureView; x, y, h, w: integer);
     procedure ShowRoundRect(View: TfrRoundRectView; x, y, h, w: integer);
     procedure ShowShape(View: TfrShapeView; x, y, h, w: integer);
@@ -80,6 +80,7 @@ type
   end;
 
 implementation
+uses LR_Utils;
 
 // missing cairo functions to make shared images posible
 const
@@ -158,18 +159,18 @@ procedure TlrCairoExportFilter.DefaultShowView(View: TfrView; nx, ny, ndy,
   ndx: Integer);
 begin
   if (View.FillColor <> clNone)
-     and not (View is TfrBarCodeView)
+     and not (View is TfrCustomBarCodeView)
      and not ((View is TfrPictureView) and
               TfrPictureView(View).Stretched and not TfrPictureView(View).KeepAspect)
   then
     ShowBackGround(View, nx, ny, ndy, ndx);
 
-  if View is TfrBarCodeView then
-      ShowBarCode(TfrBarCodeView(View), nx, ny, ndy, ndx)
+  if View is TfrCustomBarCodeView then
+      ShowBarCode(TfrCustomBarCodeView(View), nx, ny, ndy, ndx)
   else if View is TfrPictureView then
       ShowPicture(TfrPictureView(View), nx, ny, ndy, ndx);
 
-  if (View.Frames<>[]) and not (View is TfrBarCodeView) then
+  if (View.Frames<>[]) and not (View is TfrCustomBarCodeView) then
      ShowFrame(View, nx, ny, ndy, ndx);
 end;
 
@@ -370,7 +371,7 @@ end;
 {$NOTES ON}
 {$HINTS ON}
 
-procedure TlrCairoExportFilter.ShowBarCode(View: TfrBarCodeView; x, y, h,
+procedure TlrCairoExportFilter.ShowBarCode(View: TfrCustomBarCodeView; x, y, h,
   w: integer);
 const
   cbDefaultText = '12345678';
@@ -752,8 +753,8 @@ begin
   aStyle.Layout:=tlTop;    //       background painting, set to false for the moment
   aStyle.Wordbreak:= TfrMemoView_(View).WordWrap;
 
-  gapx := trunc(View.FrameWidth / 2 + 0.5) + 2;
-  gapy := trunc(View.FrameWidth / 4 + 0.5) + 1;
+  gapx := trunc(View.FrameWidth / 2 + 0.5);
+  gapy := trunc(View.FrameWidth / 4 + 0.5);
   sgapx := trunc( gapx * ScaleX + 0.5);
   sgapy := trunc( gapy * ScaleY + 0.5);
   nx := trunc((x+gapx) * ScaleX + 0.5);
@@ -767,7 +768,12 @@ begin
   if fCairoPrinter.Canvas.Font.Orientation<>0 then
     fCairoPrinter.Canvas.TextRect(R, nx, R.Bottom, Text, aStyle)
   else
-    fCairoPrinter.Canvas.TextRect(R, R.Left, ny, Text, aStyle);
+  begin
+    if TfrMemoView_(View).Justify and not TfrMemoView_(View).LastLine then
+      CanvasTextRectJustify(fCairoPrinter.Canvas, R, nx, R.Right, ny, Text, true)
+    else
+      fCairoPrinter.Canvas.TextRect(R, {R.Left} nx, ny, Text, aStyle);
+  end;
 
   // restore previous clipping
   //if OldClipping then
@@ -783,8 +789,8 @@ begin
 
   nx := Trunc( x * ScaleX + 0.5 );
   ny := Trunc( y * ScaleY + 0.5 );
-  ndx := Trunc( View.dx * ScaleX + 1.5 );
-  ndy := Trunc( View.dy * ScaleY + 1.5 );
+  ndx := Trunc( View.dx * ScaleX + 0.5 );
+  ndy := Trunc( View.dy * ScaleY + 0.5 );
 
   DataRect := Rect(nx, ny, nx+ndx, ny+ndy);
 

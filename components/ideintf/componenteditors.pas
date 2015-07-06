@@ -75,7 +75,9 @@ type
                               Flags: TComponentPasteSelectionFlags
                               ): Boolean; virtual; abstract;
     function InvokeComponentEditor(AComponent: TComponent;
-                                   MenuIndex: integer): boolean; virtual; abstract;
+                                   {%H-}MenuIndex: integer): boolean; deprecated;
+    function InvokeComponentEditor(AComponent: TComponent): boolean; virtual; abstract;
+    function ChangeClass: boolean; virtual; abstract;
 
     function CanUndo: Boolean; virtual; abstract;
     function CanRedo: Boolean; virtual; abstract;
@@ -952,7 +954,9 @@ var
 begin
   APage:=Page;
   if (APage.Parent<>nil) and (APage.Parent is TCustomTabControl) then
-    Result:=TCustomTabControl(APage.Parent);
+    Result:=TCustomTabControl(APage.Parent)
+  else
+    Result:=nil;
 end;
 
 function TPageComponentEditor.Page: TCustomPage;
@@ -1103,7 +1107,9 @@ var
 begin
   APage:=Page;
   if (APage.Parent<>nil) and (APage.Parent is TNotebook) then
-    Result:=TNotebook(APage.Parent);
+    Result:=TNotebook(APage.Parent)
+  else
+    Result:=nil;
 end;
 
 function TUNBPageComponentEditor.Page: TPage;
@@ -1517,6 +1523,12 @@ begin
   else
     FChangeStamp:=Low(FChangeStamp);
   FHandlers[cedhtModified].CallNotifyEvents(Self);
+end;
+
+function TComponentEditorDesigner.InvokeComponentEditor(AComponent: TComponent;
+  MenuIndex: integer): boolean;
+begin
+  Result:=InvokeComponentEditor(AComponent,-1){%H-};
 end;
 
 procedure TComponentEditorDesigner.DisconnectComponent;

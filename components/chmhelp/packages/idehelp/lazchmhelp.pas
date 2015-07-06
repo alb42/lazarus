@@ -22,6 +22,7 @@
 unit LazChmHelp;
 
 {$mode objfpc}{$H+}
+{ $DEFINE CHMLOADTIMES}
 
 interface
 
@@ -66,7 +67,7 @@ type
     // Sets label/ID used for simpleipc communications
     procedure SetHelpLabel(AValue: String);
     // Check for lhelp executable, if not present, build if possible
-    function CheckBuildLHelp: Integer; // modal result
+    function CheckBuildLHelp(AForce: Boolean = False): Integer; // modal result
     // Get full path of lazbuild executable
     function GetLazBuildEXE(out ALazBuild: String): Boolean;
     function PassTheBuck(Node: THelpNode; var ErrMsg: string): TShowHelpResult;
@@ -167,6 +168,9 @@ var
   SearchPaths: TStringList; // SearchPath split to a StringList
   SearchFiles: TStringList; // Files found in SearchPath
   i: integer;
+  {$IFDEF CHMLOADTIMES}
+  StartTime: TDateTime;
+  {$ENDIF}
 begin
   { Alternative:
     Open registered chm help files (no online html help etc)
@@ -197,13 +201,22 @@ begin
     SearchPaths.Delimiter:=';';
     SearchPaths.StrictDelimiter:=false;
     SearchPaths.DelimitedText:=SearchPath;
+    {$IFDEF CHMLOADTIMES}
+    StartTime := Now;
+    {$ENDIF}
     for i := 0 to SearchPaths.Count-1 do
     begin
       // Note: FindAllFiles has a SearchPath parameter that is a *single* directory,
-      SearchFiles := FindAllFiles(SearchPaths[i]);
+      SearchFiles := FindAllFiles(SearchPaths[i], '*.chm;*.CHM;*.Chm', False);
       CHMFiles.AddStrings(SearchFiles);
       SearchFiles.Free;
     end;
+    {$IFDEF CHMLOADTIMES}
+    DebugLn(['CHMLOADTIMES: ',Format('Searching files in %s took %d ms',[SearchPath,DateTimeToTimeStamp(Now-StartTime).Time])]);
+    StartTime := Now;
+    {$ENDIF}
+
+    fHelpConnection.BeginUpdate;
     for i := 0 to CHMFiles.Count-1 do
     begin
       if UpperCase(ExtractFileExt(CHMFiles[i]))='.CHM' then
@@ -215,7 +228,14 @@ begin
         //Application.ProcessMessages;
       end;
     end;
+    {$IFDEF CHMLOADTIMES}
+    DebugLn(['CHMLOADTIMES: ',Format('Loading chm files took %d ms',[DateTimeToTimeStamp(Now-StartTime).Time])]);
+
+    {$ENDIF}
+
+
   finally
+    fHelpConnection.EndUpdate;
     CHMFiles.Free;
     SearchPaths.Free;
   end;
@@ -307,7 +327,7 @@ begin
   end;
 end;
 
-function TChmHelpViewer.CheckBuildLHelp: Integer;
+function TChmHelpViewer.CheckBuildLHelp(AForce: Boolean): Integer;
 var
   Lazbuild: String;
   LHelpProject: String;
@@ -315,11 +335,32 @@ var
   WS: String;
   PCP: String;
   Tool: TIDEExternalToolOptions;
+  OrigFile: String;
+  TmpFile: String = '';
+  ExistingFile: Boolean;
 begin
   Result := mrCancel;
 
-  if FileExistsUTF8(GetHelpExe) then
+  ExistingFile := FileExistsUTF8(GetHelpExe);
+
+  if ExistingFile and not AForce then
     Exit(mrOK);
+
+  if ExistingFile then
+  begin
+    OrigFile:=StringReplace(GetHelpEXE, PathDelim+PathDelim, PathDelim, [rfReplaceAll]);
+    TmpFile:=ChangeFileExt(OrigFile, '.tmp');
+    //debugln(['TChmHelpViewer.CheckBuildLHelp forced rebuilding of lhelp']);
+    if FileExistsUTF8(TmpFile) then
+      DeleteFileUTF8(TmpFile);
+    if not RenameFile(OrigFile, TmpFile) then
+    begin
+      debugln(['TChmHelpViewer.CheckBuildLHelp no permission to modify lhelp executable']);
+      // we don't have permission to move or rebuild lhelp so exit
+      // Exit with mrYes anyway since lhelp is still present, just an older version
+      Exit(mrYes);
+    end;
+  end;
 
   if not GetLazBuildEXE(Lazbuild) then
   begin
@@ -353,7 +394,19 @@ begin
     Tool.Scanners.Add(SubToolFPC);
     Tool.Scanners.Add(SubToolMake);
     if RunExternalTool(Tool) then
+    begin
       Result:=mrOk;
+      if (TmpFile <> '') and FileExistsUTF8(TmpFile)  then
+        DeleteFileUTF8(TmpFile);
+    end
+    else
+    begin
+      debugln(['TChmHelpViewer.CheckBuildLHelp failed building of lhelp. Trying to use old version']);
+      // compile failed
+      // try to copy back the old lhelp if it existed
+      if (TmpFile <> '') and FileExistsUTF8(TmpFile) and RenameFile(TmpFile, OrigFile) then
+        Result := mrOK;
+    end;
   finally
     Tool.Free;
   end;
@@ -502,6 +555,10 @@ var
   FoundFileName: String;
   LHelpPath: String;
   WasRunning: boolean;
+  {$IFDEF CHMLOADTIMES}
+  TotalTime: TDateTime;
+  StartTime: TDateTime;
+  {$ENDIF}
 begin
   if Pos('file://', Node.URL) = 1 then
   begin
@@ -544,18 +601,57 @@ begin
     // Start server and tell it to hide
     // No use setting cursor to hourglass as that may take as long as the
     // waitforresponse timeout.
+    {$IFDEF CHMLOADTIMES}
+    TotalTime:=Now;
+    StartTime:=Now;
+    {$ENDIF}
     fHelpConnection.StartHelpServer(HelpLabel, GetHelpExe, true);
+    {$IFDEF CHMLOADTIMES}
+    DebugLn(['CHMLOADTIMES: ',Format('Starting LHelp took %d ms',[DateTimeToTimeStamp(Now-StartTime).Time])]);
+    {$ENDIF}
     // If the server is not already running, open all chm files after it has started
     // This will allow cross-chm (LCL, FCL etc) searching and browsing in lhelp.
     if not(WasRunning) then
     begin
+      if fHelpConnection.BeginUpdate = srError then
+      begin
+        // existing lhelp doesn't understand mrBeginUpdate and needs to be rebuilt
+        //close lhelp
+        if fHelpConnection.RunMiscCommand(LHelpControl.mrClose) <> srError then
+        begin
+          // force rebuild of lhelp
+          // this may not succeed but the old lhelp will be restarted anyway and
+          // just return error codes for unknown messages.
+          if CheckBuildLHelp(True) = mrOK then
+          begin
+            // start it again
+            Debugln(['TChmHelpViewer.ShowNode restarting lhelp to use updated protocols']);
+            fHelpConnection.StartHelpServer(HelpLabel, GetHelpExe, true);
+            // now run begin update
+            fHelpConnection.BeginUpdate; // it inc's a value so calling it more than once doesn't hurt
+          end;
+        end;
+      end;
+      {$IFDEF CHMLOADTIMES}
+      StartTime := Now;
+      {$ENDIF}
       OpenAllCHMsInSearchPath(SearchPath);
+      {$IFDEF CHMLOADTIMES}
+      DebugLn(['CHMLOADTIMES: ',Format('Searching and Loading files took %d ms',[DateTimeToTimeStamp(Now-StartTime).Time])]);
+      {$ENDIF}
       // Instruct viewer to show its GUI
       Response:=fHelpConnection.RunMiscCommand(mrShow);
       if Response<>srSuccess then
         debugln('Help viewer gave error response to mrShow command. Response was: ord: '+inttostr(ord(Response)));
     end;
+    fHelpConnection.BeginUpdate;
     Response := fHelpConnection.OpenURL(FileName, Url);
+    fHelpConnection.EndUpdate;
+    if not WasRunning then
+      fHelpConnection.EndUpdate;
+    {$IFDEF CHMLOADTIMES}
+    DebugLn(['CHMLOADTIMES: ',Format('Total start time was %d ms',[DateTimeToTimeStamp(Now-TotalTime).Time])]);
+    {$ENDIF}
   end
   else
   begin

@@ -101,6 +101,269 @@ begin
      NSObject(Handle).lclLocalToScreen(P.X, P.Y);
 end;
 
+{------------------------------------------------------------------------------
+  Method:  ClipboardFormatToMimeType
+  Params:  FormatID - A registered format identifier (0 is invalid)
+  Returns: The corresponding mime type as string
+ ------------------------------------------------------------------------------}
+function TCocoaWidgetSet.ClipboardFormatToMimeType(FormatID: TClipboardFormat): string;
+var
+  lFormat: TClipboardData;
+begin
+  {$IFDEF VerboseClipboard}
+    DebugLn('TCocoaWidgetSet.ClipboardFormatToMimeType FormatID: ' + DbgS(FormatID));
+  {$ENDIF}
+
+  lFormat := GetClipboardDataForFormat(FormatID);
+  if lFormat = nil then Exit;
+  Result := lFormat.MimeType;
+end;
+
+{------------------------------------------------------------------------------
+  Method:  ClipboardGetData
+  Params:  ClipboardType - Clipboard type
+           FormatID      - A registered format identifier (0 is invalid)
+           Stream        - If format is available, it will be appended to this
+                           stream
+  Returns: If the function succeeds
+ ------------------------------------------------------------------------------}
+function TCocoaWidgetSet.ClipboardGetData(ClipboardType: TClipboardType;
+  FormatID: TClipboardFormat; Stream: TStream): boolean;
+var
+  pasteboard: NSPasteboard;
+  lFormat: TClipboardData;
+  lNSStr: NSString;
+  // for text
+  lStr: String;
+  // for standard
+  lNSData: NSData;
+  lNSbytes: PByte;
+  i: Integer;
+begin
+  Result := False;
+  {$IFDEF VerboseClipboard}
+    DebugLn('TCocoaWidgetSet.ClipboardGetData ClipboardType=' +
+      ClipboardTypeName[ClipboardType] + ' FormatID: ' + DbgS(FormatID));
+  {$ENDIF}
+
+  case ClipboardType of
+  ctPrimarySelection:   pasteboard := PrimarySelection;
+  ctSecondarySelection: pasteboard := SecondarySelection;
+  ctClipboard:          pasteboard := NSPasteboard.generalPasteboard;
+  end;
+
+  lFormat := GetClipboardDataForFormat(FormatID);
+  if lFormat = nil then Exit;
+
+  case lFormat.DataType of
+  ccdtText:
+  begin
+    lNSStr := pasteboard.stringForType(lFormat.CocoaFormat);
+    if lNSStr = nil then Exit;
+    lStr := NSStringToString(lNSStr);
+    Stream.Write(lStr[1], Length(lStr));
+    {$IFDEF VerboseClipboard}
+      DebugLn('TCocoaWidgetSet.ClipboardGetData IsText Result=' + lStr);
+    {$ENDIF}
+  end;
+  ccdtCocoaStandard, ccdtNonStandard:
+  begin
+    lNSData := pasteboard.dataForType(lFormat.CocoaFormat);
+    if lNSData = nil then Exit;
+    lNSbytes := lNSData.bytes;
+    for i := 0 to lNSData.length-1 do
+      Stream.WriteByte(lNSbytes[i]);
+  end;
+  end;
+
+  Result := True;
+end;
+
+{------------------------------------------------------------------------------
+  Method:  ClipboardGetFormats
+  Params:  ClipboardType - The type of clipboard operation
+           Count         - The number of clipboard formats
+           List          - Pointer to an array of supported formats
+                           (you must free it yourself)
+  Returns: If the function succeeds
+ ------------------------------------------------------------------------------}
+function TCocoaWidgetSet.ClipboardGetFormats(ClipboardType: TClipboardType;
+  var Count: integer; var List: PClipboardFormat): boolean;
+var
+  ListDataSize, ListCount: Integer;
+  i: Integer;
+begin
+  Result := False;
+  {$IFDEF VerboseClipboard}
+    DebugLn('TCocoaWidgetSet.ClipboardGetFormats ClipboardType' +
+      ClipboardTypeName[ClipboardType]);
+  {$ENDIF}
+
+  ListCount := Min(ClipboardFormats.Count, Count);
+  ListDataSize := SizeOf(Pointer) * ListCount;
+  List := GetMem(ListDataSize);
+
+  for i := 0 to ListCount - 1 do
+  begin
+    List[i] := PtrUInt(ClipboardFormats.Items[i]);
+  end;
+
+  Result := True;
+end;
+
+{------------------------------------------------------------------------------
+  Method:  ClipboardGetOwnerShip
+  Params:  ClipboardType - Type of clipboard
+           OnRequestProc - TClipboardRequestEvent is defined in LCLType.pp
+                           If OnRequestProc is nil the onwership will end.
+           FormatCount   - Number of formats
+           Formats       - Array of TClipboardFormat. The supported formats the
+                           owner provides.
+
+  Returns: If the function succeeds
+
+  Sets the supported formats and requests ownership for the clipboard.
+  The OnRequestProc is used to get the data from the LCL and to put it on the
+  clipboard.
+  If someone else requests the ownership, the OnRequestProc will be executed
+  with the invalid FormatID 0 to notify the old owner of the lost of ownership.
+ ------------------------------------------------------------------------------}
+function TCocoaWidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType;
+  OnRequestProc: TClipboardRequestEvent; FormatCount: integer;
+  Formats: PClipboardFormat): boolean;
+var
+  pasteboard: NSPasteboard;
+  i: Integer;
+  lCurFormat: TClipboardData;
+  DataStream: TMemoryStream;
+  FormatToOwn: NSString;
+  FormatToOwnArray: NSArray;
+  // text format
+  lText: string;
+  lNSText: NSString;
+  // non-text
+  lNSData: NSData;
+begin
+  Result := False;
+  {$IFDEF VerboseClipboard}
+    DebugLn('TCocoaWidgetSet.ClipboardGetOwnerShip ClipboardType=' +
+      ClipboardTypeName[ClipboardType] + ' FormatCount: ' + DbgS(FormatCount));
+  {$ENDIF}
+
+  case ClipboardType of
+  ctPrimarySelection:   pasteboard := PrimarySelection;
+  ctSecondarySelection: pasteboard := SecondarySelection;
+  ctClipboard:          pasteboard := NSPasteboard.generalPasteboard;
+  end;
+
+  DataStream := TMemoryStream.Create;
+  try
+    for i := 0 to FormatCount-1 do
+    begin
+      lCurFormat := TClipboardData(Formats[i]);
+      if lCurFormat = nil then Continue;
+      DataStream.Position := 0;
+      DataStream.Size := 0;
+      OnRequestProc(Formats[i], DataStream);
+
+      case lCurFormat.DataType of
+      ccdtText:
+      begin
+        FormatToOwn := lCurFormat.CocoaFormat;
+        FormatToOwnArray := NSArray.arrayWithObjects_count(@FormatToOwn, 1);
+
+        DataStream.Position := 0;
+        SetLength(lText, DataStream.Size);
+        DataStream.Read(lText[1], DataStream.Size);
+        lNSText := NSStringUtf8(lText);
+
+        pasteboard.declareTypes_owner(FormatToOwnArray, nil);
+        pasteboard.setString_forType(lNSText, lCurFormat.CocoaFormat);
+      end;
+      ccdtCocoaStandard, ccdtNonStandard:
+      begin
+        FormatToOwn := lCurFormat.CocoaFormat;
+        FormatToOwnArray := NSArray.arrayWithObjects_count(@FormatToOwn, 1);
+
+        DataStream.Position := 0;
+        lNSData := NSData.dataWithBytes_length(DataStream.Memory, DataStream.Size);
+
+        pasteboard.declareTypes_owner(FormatToOwnArray, nil);
+        pasteboard.setData_forType(lNSData, lCurFormat.CocoaFormat);
+        //lNSData.release; // this causes a crash
+      end;
+      end;
+    end;
+  finally
+    DataStream.Free;
+  end;
+
+  Result := True;
+end;
+
+{------------------------------------------------------------------------------
+  Method:  ClipboardRegisterFormat
+  Params:  AMimeType - A string (usually a MIME type) identifying a new format
+                       type to register
+  Returns: The registered Format identifier (TClipboardFormat)
+ ------------------------------------------------------------------------------}
+function TCocoaWidgetSet.ClipboardRegisterFormat(const AMimeType: string): TClipboardFormat;
+var
+  i: Integer;
+  lCurData: TClipboardData;
+  lNSStr: NSString = nil;
+  lDataType: TCocoaClipboardDataType;
+begin
+  Result := 0;
+
+  // Check first if it was already registered
+  for i := 0 to ClipboardFormats.Count-1 do
+  begin
+    lCurData := TClipboardData(ClipboardFormats.Items[i]);
+    if lCurData.MimeType = AMimeType then
+    begin
+      Result := TClipboardFormat(lCurData);
+      {$IFDEF VerboseClipboard}
+        DebugLn('TCocoaWidgetSet.ClipboardRegisterFormat AMimeType=' + AMimeType
+          + ' Result='+DbgS(Result));
+      {$ENDIF}
+      Exit;
+    end;
+  end;
+
+  // if none was found, we need to register it
+
+  lDataType := ccdtNonStandard;
+  // See PredefinedClipboardMimeTypes for the most common mime-types
+  case AMimeType of
+  'text/plain':
+  begin
+    lNSStr := NSPasteboardTypeString;
+    lDataType := ccdtText;
+  end;
+  'image/png':
+  begin
+    lNSStr := NSPasteboardTypePNG;
+    lDataType := ccdtCocoaStandard;
+  end;
+  else
+    lNSStr := NSStringUtf8(AMimeType);
+    lDataType := ccdtNonStandard;
+  end;
+
+  if lNSStr <> nil then
+  begin
+    lCurData := TClipboardData.Create(AMimeType, lNSStr, lDataType);
+    ClipboardFormats.Add(lCurData);
+    Result := TClipboardFormat(lCurData);
+  end;
+
+  {$IFDEF VerboseClipboard}
+    DebugLn('TCocoaWidgetSet.ClipboardRegisterFormat AMimeType=' + AMimeType
+      + ' Result='+DbgS(Result));
+  {$ENDIF}
+end;
+
 function TCocoaWidgetSet.CombineRgn(Dest, Src1, Src2: HRGN; fnCombineMode: Longint): Longint;
 begin
   Result := LCLType.Error;
@@ -473,8 +736,7 @@ begin
   Result := Assigned(ctx) and (not Assigned(br) or (br is TCocoaBrush));
   if not Result then Exit;
 
-  with Rect do
-    ctx.Rectangle(Left, Top, Right, Bottom, True, TCocoaBrush(br));
+  ctx.Rectangle(Rect.Left, Rect.Top, Rect.Right, Rect.Bottom, True, TCocoaBrush(br));
 end;
 
 function TCocoaWidgetSet.FillRgn(DC: HDC; RegionHnd: HRGN; hbr: HBRUSH): Bool;
@@ -1145,7 +1407,8 @@ begin
   Result:=False;
 end;
 
-function TCocoaWidgetSet.GetScrollInfo(Handle: HWND; BarFlag: Integer; Var ScrollInfo: TScrollInfo): Boolean;
+function TCocoaWidgetSet.GetScrollInfo(Handle: HWND; BarFlag: Integer;
+  var ScrollInfo: TScrollInfo): Boolean;
 begin
   Result:=False;
 end;
@@ -1429,21 +1692,23 @@ end;
 
 function TCocoaWidgetSet.GetDC(hWnd: HWND): HDC;
 var
-  ctx: TCocoaContext;
+  ctx: TCocoaContext = nil;
+  lCallback: ICommonCallback;
 begin
   if hWnd = 0 then
     Result := HDC(ScreenContext)
   else
   begin
-    ctx := NSObject(hWnd).lclGetCallback.GetContext;
+    lCallback := NSObject(hWnd).lclGetCallback;
+    if lCallback <> nil then
+      ctx := lCallback.GetContext;
 
     if ctx = nil then
     begin
       ctx := TCocoaContext.Create(DefaultContext.ctx);
-      with DefaultContext.size do
-        ctx.InitDraw(cx, cy);
+      ctx.InitDraw(DefaultContext.size.cx, DefaultContext.size.cy);
     end;
-    Result := HDC(ctx)
+    Result := HDC(ctx);
   end;
 
   {$IFDEF VerboseWinAPI}
@@ -1558,35 +1823,15 @@ begin
     VK_CAPITAL:
       Result := ToggleMap[(Modifiers and NSAlphaShiftKeyMask) <> 0];
     VK_LBUTTON:
-      {$IFDEF NoCarbon}
-      Result:=DownMap[false]; // ToDo
-      {$ELSE}
-      Result := DownMap[(GetCurrentEventButtonState and $01) <> 0];
-      {$ENDIF}
+      Result := DownMap[(NSEvent.pressedMouseButtons() and $1) <> 0];
     VK_RBUTTON:
-      {$IFDEF NoCarbon}
-      Result:=DownMap[false]; // ToDo
-      {$ELSE}
-      Result := DownMap[(GetCurrentEventButtonState and $02) <> 0];
-      {$ENDIF}
+      Result := DownMap[(NSEvent.pressedMouseButtons() and $2) <> 0];
     VK_MBUTTON:
-      {$IFDEF NoCarbon}
-      Result:=DownMap[false]; // ToDo
-      {$ELSE}
-      Result := DownMap[(GetCurrentEventButtonState and $03) <> 0];
-      {$ENDIF}
+      Result := DownMap[(NSEvent.pressedMouseButtons() and $3) <> 0];
     VK_XBUTTON1:
-      {$IFDEF NoCarbon}
-      Result:=DownMap[false]; // ToDo
-      {$ELSE}
-      Result := DownMap[(GetCurrentEventButtonState and $04) <> 0];
-      {$ENDIF}
+      Result := DownMap[(NSEvent.pressedMouseButtons() and $4) <> 0];
     VK_XBUTTON2:
-      {$IFDEF NoCarbon}
-      Result:=DownMap[false]; // ToDo
-      {$ELSE}
-      Result := DownMap[(GetCurrentEventButtonState and $05) <> 0];
-      {$ENDIF}
+      Result := DownMap[(NSEvent.pressedMouseButtons() and $5) <> 0];
     else
       Result := 0;
   end;
@@ -1730,7 +1975,7 @@ begin
   Result:=inherited SetCaretRespondToFocus(handle, ShowHideOnFocus);
 end;
 
-function TCocoaWidgetSet.RectVisible(DC: HDC; const ARect: TRect): Boolean;
+function TCocoaWidgetSet.RectVisible(dc: HDC; const ARect: TRect): Boolean;
 var
   ClipBox: CGRect;
   ctx : TCocoaContext;
@@ -1933,7 +2178,7 @@ begin
     SM_CYHSCROLL,
     SM_CXVSCROLL,
     SM_CYVSCROLL:
-      Result := GetHiThemeMetric(kThemeMetricScrollBarWidth);
+      Result := Round(NSScroller.scrollerWidthForControlSize(NSRegularControlSize));
     SM_CXSCREEN,
     SM_CXVIRTUALSCREEN: Result := Round(NSScreen.mainScreen.frame.size.width);
     SM_CYSCREEN,
@@ -1953,10 +2198,8 @@ begin
           Result := 64 else}
           Result := 16;
       end;
-    SM_CXHTHUMB:
-      Result := GetHiThemeMetric(kThemeMetricScrollBarMinThumbWidth);
-    SM_CYVTHUMB:
-      Result := GetHiThemeMetric(kThemeMetricScrollBarMinThumbHeight);
+    SM_CXHTHUMB, SM_CYVTHUMB:
+      Result := Round(NSScroller.scrollerWidthForControlSize(NSRegularControlSize));
     SM_SWSCROLLBARSPACING:
       Result := 0;
   else
@@ -2056,7 +2299,6 @@ begin
 
   if Result = 1 then
     NSObject(Handle).lclScreenToLocal(P.X, P.Y);
-
 end;
 
 function TCocoaWidgetSet.SelectClipRGN(DC: hDC; RGN: HRGN): Longint;

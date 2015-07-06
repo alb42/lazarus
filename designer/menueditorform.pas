@@ -50,7 +50,7 @@ type
     Panel: TPanel;
     Panel_MenuList:TPanel;
     Splitter_BoxPanel:TSplitter;
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure List_menusClick(Sender: TObject);
@@ -59,7 +59,7 @@ type
     FMenu: TMenu;
     FDesigner: TComponentEditorDesigner;
     procedure OnPersistentDeleting(APersistent: TPersistent);
-    procedure OnPersistentAdded(APersistent: TPersistent; Select: boolean);
+    procedure OnPersistentAdded(APersistent: TPersistent; {%H-}Select: boolean);
     procedure UpdateListOfMenus;
   public
     procedure SetMenu(NewMenu: TMenu);
@@ -252,6 +252,7 @@ function TMainMenuComponentEditor.GetVerb(Index: Integer): string;
 begin
   case Index of
     0: Result := lisMenuEditor;
+    else Result := '';;
   end;
 end;
 

@@ -39,7 +39,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ComCtrls,
   ExtCtrls, StdCtrls,
-  CodeTree, CodeToolManager, CodeAtom, CodeCache,
+  CodeTree, CodeToolManager, CodeCache,
   IDEImagesIntf;
 
 type
@@ -66,7 +66,7 @@ type
     procedure cbObjectsChange(Sender: TObject);
     procedure edMethodsChange(Sender: TObject);
     procedure edMethodsKeyDown(Sender: TObject; var Key: Word;
-      Shift: TShiftState);
+      {%H-}Shift: TShiftState);
     procedure edMethodsKeyPress(Sender: TObject; var Key: char);
     procedure FormCreate(Sender: TObject);
     procedure FormKeyPress(Sender: TObject; var Key: char);
@@ -75,6 +75,7 @@ type
     procedure LVDblClick(Sender: TObject);
     procedure LVSelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure tbAboutClick(Sender: TObject);
+    procedure tbChangeFontClick(Sender: TObject);
     procedure tbCopyClick(Sender: TObject);
   private
     FCaret: TCodeXYPosition;
@@ -105,8 +106,7 @@ implementation
 {$R *.lfm}
 
 uses
-  MenuIntf
-  ,SrcEditorIntf
+  SrcEditorIntf
   ,PascalParserTool
   ,KeywordFuncLists
   ,LCLType
@@ -172,11 +172,8 @@ var
   c: Char;
   i: Integer;
 begin
-  if SubStr='' then
-  begin
-    Result := true;
-  end
-  else
+  Result := SubStr='';
+  if not Result then
   begin
     Src := PChar(Str);
     PFilter := PChar(SubStr);
@@ -238,6 +235,11 @@ end;
 procedure TProcedureListForm.tbAboutClick(Sender: TObject);
 begin
   ShowMessage(cAbout);
+end;
+
+procedure TProcedureListForm.tbChangeFontClick(Sender: TObject);
+begin
+
 end;
 
 
@@ -542,8 +544,13 @@ end;
 procedure TProcedureListForm.FormCreate(Sender: TObject);
 begin
   if SourceEditorManagerIntf.ActiveEditor = nil then
+  begin
+    //SetupGUI makes the dialog look as it should, and is clears the listview
+    //thus preventing a crash when clicking on the LV
+    SetupGUI;
     Exit; //==>
-    
+  end;
+
   FMainFilename := SourceEditorManagerIntf.ActiveEditor.Filename;
   Caption := Caption + ExtractFileName(FMainFilename);
   SetupGUI;

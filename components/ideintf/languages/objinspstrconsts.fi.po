@@ -148,6 +148,10 @@ msgstr "Tämä tuhoaa kaikki sarakkeet. Jatka?"
 msgid "This will replace all captions from dataset. Continue?"
 msgstr "Tämä hakee ja korvaa kaikki otsikot tietokannasta. Jatka?"
 
+#: objinspstrconsts.dpeunabletoretrievefieldsdefinitions
+msgid "Unable to retrieve fields definition from dataset."
+msgstr ""
+
 #: objinspstrconsts.fescalculated
 msgid "&Calculated"
 msgstr "&Laskettu"
@@ -404,6 +408,14 @@ msgstr "Luokka"
 #: objinspstrconsts.oiscdelete
 msgid "Delete?"
 msgstr "Poista?"
+
+#: objinspstrconsts.oischangeclass
+msgid "Change Class ..."
+msgstr ""
+
+#: objinspstrconsts.oischangeparent
+msgid "Change Parent"
+msgstr ""
 
 #: objinspstrconsts.oischar
 msgid "Char"
@@ -675,6 +687,10 @@ msgstr "Kuva"
 msgid "Save image as"
 msgstr "Tallenna kuva"
 
+#: objinspstrconsts.oispressakey
+msgid "Press a key ..."
+msgstr ""
+
 #: objinspstrconsts.oisproperties
 msgid "Properties"
 msgstr "Ominaisuudet"
@@ -694,6 +710,10 @@ msgstr "Poista suosikeista"
 #: objinspstrconsts.oisrestricted
 msgid "Restricted"
 msgstr "Rajoitettu"
+
+#: objinspstrconsts.oisreverttoinherited
+msgid "Revert to inherited"
+msgstr ""
 
 #: objinspstrconsts.oissamplemasks
 msgid "Sample Masks:"

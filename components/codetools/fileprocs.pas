@@ -47,7 +47,7 @@ type
   TFPCMemStreamSeekType = integer;
   PCharZ = Pointer;
 
-{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
+{$if defined(Windows) or defined(darwin)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -245,50 +245,48 @@ function CfgStrToDate(const s: string; out Date: TDateTime; const aFormat: strin
 function SimpleFormat(const Fmt: String; const Args: Array of const): String;
 
 // debugging
+var
+  CTConsoleVerbosity: integer = {$IFDEF VerboseCodetools}1{$ELSE}0{$ENDIF}; // 0=quiet, 1=normal, 2=verbose
+
 procedure RaiseCatchableException(const Msg: string);
 procedure RaiseAndCatchException;
 
-type
-  TCTDbgOutEvent = procedure(const s: string);
-var
-  CTDbgOutEvent: TCTDbgOutEvent = nil;
-
 procedure DebugLn(Args: array of const);
 procedure DebugLn(const S: String; Args: array of const);// similar to Format(s,Args)
-procedure DebugLn;
-procedure DebugLn(const s: string);
-procedure DebugLn(const s1,s2: string);
-procedure DebugLn(const s1,s2,s3: string);
-procedure DebugLn(const s1,s2,s3,s4: string);
-procedure DebugLn(const s1,s2,s3,s4,s5: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11: string);
-procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12: string);
+procedure DebugLn; inline;
+procedure DebugLn(const s: string); inline;
+procedure DebugLn(const s1,s2: string); inline;
+procedure DebugLn(const s1,s2,s3: string); inline;
+procedure DebugLn(const s1,s2,s3,s4: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11: string); inline;
+procedure DebugLn(const s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12: string); inline;
 
 procedure DbgOut(Args: array of const);
-procedure DbgOut(const s: string);
-procedure DbgOut(const s1,s2: string);
-procedure DbgOut(const s1,s2,s3: string);
-procedure DbgOut(const s1,s2,s3,s4: string);
-procedure DbgOut(const s1,s2,s3,s4,s5: string);
-procedure DbgOut(const s1,s2,s3,s4,s5,s6: string);
+procedure DbgOut(const s: string); inline;
+procedure DbgOut(const s1,s2: string); inline;
+procedure DbgOut(const s1,s2,s3: string); inline;
+procedure DbgOut(const s1,s2,s3,s4: string); inline;
+procedure DbgOut(const s1,s2,s3,s4,s5: string); inline;
+procedure DbgOut(const s1,s2,s3,s4,s5,s6: string); inline;
 
 function DbgS(Args: array of const): string; overload;
 function DbgS(const c: char): string; overload;
-function DbgS(const c: cardinal): string; overload;
-function DbgS(const i: integer): string; overload;
-function DbgS(const i: QWord): string; overload;
-function DbgS(const i: int64): string; overload;
-function DbgS(const r: TRect): string; overload;
-function DbgS(const p: TPoint): string; overload;
-function DbgS(const p: pointer): string; overload;
+function DbgS(const c: cardinal): string; inline; overload;
+function DbgS(const i: integer): string; inline; overload;
+function DbgS(const i: QWord): string; inline; overload;
+function DbgS(const i: int64): string; inline; overload;
+function DbgS(const r: TRect): string; inline; overload;
+function DbgS(const p: TPoint): string; inline; overload;
+function DbgS(const p: pointer): string; inline; overload;
 function DbgS(const e: extended; MaxDecimals: integer = 999): string; overload; inline;
 function DbgS(const b: boolean): string; overload; inline;
-function DbgS(const ms: TCustomMemoryStream; Count: PtrInt = -1): string; overload;
+function DbgS(const ms: TCustomMemoryStream; Count: PtrInt = -1): string; inline; overload;
 function DbgSName(const p: TObject): string; overload; inline;
 function DbgSName(const p: TClass): string; overload; inline;
 function dbgMemRange(P: PByte; Count: integer; Width: integer = 0): string; inline;
@@ -355,18 +353,10 @@ implementation
 // to get more detailed error messages consider the os
 {$IFnDEF Windows}
 uses
-{$IFDEF HASAMIGA}
-  dos;
-{$ELSE}
-  {$IFDEF Windows}
-    Windows;
-  {$ELSE}
-    {$IFDEF darwin}
-      MacOSAll,
-    {$ENDIF}
-    Unix, BaseUnix;
+  {$IFDEF darwin}
+  MacOSAll,
   {$ENDIF}
-{$ENDIF}
+  Unix;
 {$ENDIF}
 
 function SimpleFormat(const Fmt: String; const Args: array of const): String;
@@ -1231,7 +1221,7 @@ begin
   Result:='';
   if SearchCase=ctsfcAllCase then
     Base:=FindDiskFilename(Base);
-
+    
   if SearchCase in [ctsfcDefault,ctsfcLoUpCase] then begin
     LowerCaseFilename:=lowercase(ShortFilename);
     UpperCaseFilename:=uppercase(ShortFilename);
@@ -1239,7 +1229,7 @@ begin
     LowerCaseFilename:='';
     UpperCaseFilename:='';
   end;
-
+  
   if FindFirstUTF8(Base+FileMask,faAnyFile,FileInfo)=0 then
   begin
     repeat
@@ -1413,8 +1403,9 @@ var
   p: Integer;
   StartPos: integer;
 begin
+  Result:='';
   if BeginsWith='' then
-    exit('');
+    exit;
   p:=1;
   while ReadNextFPCParameter(CmdLine,p,StartPos) do begin
     Param:=ExtractFPCParameter(CmdLine,StartPos);
@@ -1455,6 +1446,7 @@ var
   ShortFile: String;
   FileInfo: TSearchRec;
 begin
+  Result:='';
   Base:=AppendPathDelim(BaseDirectory);
   ShortFile:=Filename;
   if System.Pos(PathDelim,ShortFile)>0 then begin
@@ -1482,7 +1474,6 @@ begin
   ctsfcAllCase:
     begin
       // search file
-      Result:='';
       Base:=FindDiskFilename(Base);
       if FindFirstUTF8(Base+FileMask,faAnyFile,FileInfo)=0 then
       begin
@@ -1976,117 +1967,113 @@ end;
 
 procedure DebugLn(Args: array of const);
 begin
-  DbgOut(Args);
-  DebugLn;
+  LazLogger.Debugln(Args);
 end;
 
 procedure DebugLn(const S: String; Args: array of const);
 begin
-  DebugLn(Format(S, Args));
+  LazLogger.DebugLn(Format(S, Args));
 end;
 
 procedure DebugLn;
 begin
-  DebugLn('');
+  LazLogger.DebugLn('');
 end;
 
 procedure DebugLn(const s: string);
 begin
-  DbgOut(s+LineEnding);
+  LazLogger.Debugln(s);
 end;
 
 procedure DebugLn(const s1, s2: string);
 begin
-  DebugLn(s1+s2);
+  LazLogger.Debugln(s1,s2);
 end;
 
 procedure DebugLn(const s1, s2, s3: string);
 begin
-  DebugLn(s1+s2+s3);
+  LazLogger.Debugln(s1,s2,s3);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4: string);
 begin
-  DebugLn(s1+s2+s3+s4);
+  LazLogger.Debugln(s1,s2,s3,s4);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5);
+  LazLogger.Debugln(s1,s2,s3,s4,s5);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7, s8: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7+s8);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7,s8);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7, s8, s9: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7+s8+s9);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7,s8,s9);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7, s8, s9, s10: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7+s8+s9+s10);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7+s8+s9+s10+s11);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11);
 end;
 
 procedure DebugLn(const s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11,
   s12: string);
 begin
-  DebugLn(s1+s2+s3+s4+s5+s6+s7+s8+s9+s10+s11+s12);
+  LazLogger.Debugln(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12);
 end;
 
 procedure DbgOut(Args: array of const);
 begin
-  dbgout(dbgs(Args));
+  LazLogger.DbgOut(dbgs(Args));
 end;
 
 procedure DbgOut(const s: string);
 begin
-  if Assigned(CTDbgOutEvent) then
-    CTDbgOutEvent(s)
-  else if TextRec(Output).Mode<>fmClosed then
-    write(s);
+  LazLogger.DbgOut(s);
 end;
 
 procedure DbgOut(const s1, s2: string);
 begin
-  DbgOut(s1+s2);
+  LazLogger.DbgOut(s1,s2);
 end;
 
 procedure DbgOut(const s1, s2, s3: string);
 begin
-  DbgOut(s1+s2+s3);
+  LazLogger.DbgOut(s1,s2,s3);
 end;
 
 procedure DbgOut(const s1, s2, s3, s4: string);
 begin
-  DbgOut(s1+s2+s3+s4);
+  LazLogger.DbgOut(s1,s2,s3,s4);
 end;
 
 procedure DbgOut(const s1, s2, s3, s4, s5: string);
 begin
-  DbgOut(s1+s2+s3+s4+s5);
+  LazLogger.DbgOut(s1,s2,s3,s4,s5);
 end;
 
 procedure DbgOut(const s1, s2, s3, s4, s5, s6: string);
 begin
-  DbgOut(s1+s2+s3+s4+s5+s6);
+  LazLogger.DbgOut(s1,s2,s3,s4,s5,s6);
 end;
 
 function DbgS(Args: array of const): string;
@@ -2136,38 +2123,37 @@ end;
 
 function DbgS(const c: cardinal): string;
 begin
-  Result:=IntToStr(c);
+  Result:=LazLogger.DbgS(c);
 end;
 
 function DbgS(const i: integer): string;
 begin
-  Result:=IntToStr(i);
+  Result:=LazLogger.DbgS(i);
 end;
 
 function DbgS(const i: QWord): string;
 begin
-  Result:=IntToStr(i);
+  Result:=LazLogger.DbgS(i);
 end;
 
 function DbgS(const i: int64): string;
 begin
-  Result:=IntToStr(i);
+  Result:=LazLogger.DbgS(i);
 end;
 
 function DbgS(const r: TRect): string;
 begin
-  Result:=' l='+IntToStr(r.Left)+',t='+IntToStr(r.Top)
-         +',r='+IntToStr(r.Right)+',b='+IntToStr(r.Bottom);
+  Result:=LazLogger.DbgS(r);
 end;
 
 function DbgS(const p: TPoint): string;
 begin
-  Result:=' x='+IntToStr(p.x)+',y='+IntToStr(p.y);
+  Result:=LazLogger.DbgS(p);
 end;
 
 function DbgS(const p: pointer): string;
 begin
-  Result:=HexStr(p-nil,2*sizeof(PtrInt));
+  Result:=LazLogger.DbgS(p);
 end;
 
 function DbgS(const e: extended; MaxDecimals: integer = 999): string;
@@ -2186,20 +2172,8 @@ begin
 end;
 
 function DbgS(const ms: TCustomMemoryStream; Count: PtrInt): string;
-var
-  OldPos: Int64;
 begin
-  if Count<0 then
-    Count:=ms.Size-ms.Position;
-  if Count=0 then
-    exit('');
-  OldPos:=ms.Position;
-  try
-    SetLength(Result,Count);
-    ms.Read(Result[1],length(Result));
-  finally
-    ms.Position:=OldPos;
-  end;
+  Result:=dbgMemStream(ms,Count);
 end;
 
 function DbgSName(const p: TObject): string;
@@ -2246,30 +2220,31 @@ function DbgText(const StringWithSpecialChars: string; KeepLines: boolean
 var
   i: Integer;
   s: String;
-  LastChar: Char;
   c: Char;
+  l: Integer;
 begin
   Result:=StringWithSpecialChars;
   i:=1;
-  LastChar:=#0;
   while (i<=length(Result)) do begin
     c:=Result[i];
     case c of
     ' '..#126: inc(i);
     else
-      s:='#'+IntToStr(ord(c));
-      if (c in [#10,#13]) then begin
-        if ((LastChar in [#10,#13])
-            or (i=length(Result)) or (not (Result[i+1] in [#10,#13])))
-        then begin
-          s+=LineEnding;
-          c:=#0; // line break was handled
-        end;
+      if KeepLines and (c in [#10,#13]) then begin
+        // replace line ending with system line ending
+        if (i<length(Result)) and (Result[i+1] in [#10,#13])
+        and (c<>Result[i+1]) then
+          l:=2
+        else
+          l:=1;
+        ReplaceSubstring(Result,i,l,LineEnding);
+        inc(i,length(LineEnding));
+      end else begin
+        s:='#'+IntToStr(ord(c));
+        ReplaceSubstring(Result,i,1,s);
+        inc(i,length(s));
       end;
-      ReplaceSubstring(Result,i,1,s);
-      inc(i,length(s));
     end;
-    LastChar:=c;
   end;
 end;
 

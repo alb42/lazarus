@@ -33,7 +33,7 @@ interface
 
 uses
   Classes, SysUtils, contnrs, Forms, LCLType, LCLProc, AvgLvlTree, Laz2_XMLCfg,
-  SynEditKeyCmds, SynPluginTemplateEdit, SynPluginSyncroEdit,
+  SynEditKeyCmds, SynPluginTemplateEdit, SynPluginSyncroEdit, SynPluginMultiCaret,
   IDECommands, LazarusIDEStrConsts, Debugger;
 
 type
@@ -315,8 +315,8 @@ function EditorCommandToDescriptionString(cmd: word): String;
 begin
   case cmd of
     ecNone                    : Result:= dlgEnvNone;
-    ecLeft                    : Result:= lisLeft;
-    ecRight                   : Result:= lisRight;
+    ecLeft                    : Result:= srkmecKeyMapLeft;
+    ecRight                   : Result:= srkmecKeyMapRight;
     ecUp                      : Result:= lisUp;
     ecDown                    : Result:= lisDown;
     ecWordLeft                : Result:= srkmecWordLeft;
@@ -435,6 +435,16 @@ begin
     ecBlockGotoBegin  : Result := srkmecBlockGotoBegin;
     ecBlockGotoEnd    : Result := srkmecBlockGotoEnd;
 
+    // multi coret
+    ecPluginMultiCaretSetCaret          : Result := srkmecPluginMultiCaretSetCaret;
+    ecPluginMultiCaretUnsetCaret        : Result := srkmecPluginMultiCaretUnsetCaret;
+    ecPluginMultiCaretToggleCaret       : Result := srkmecPluginMultiCaretToggleCaret;
+    ecPluginMultiCaretClearAll          : Result := srkmecPluginMultiCaretClearAll;
+
+    ecPluginMultiCaretModeCancelOnMove  : Result := srkmecPluginMultiCaretModeCancelOnMove;
+    ecPluginMultiCaretModeMoveAll       : Result := srkmecPluginMultiCaretModeMoveAll;
+
+
     // sourcenotebook
     ecNextEditor              : Result:= srkmecNextEditor;
     ecPrevEditor              : Result:= srkmecPrevEditor;
@@ -540,6 +550,11 @@ begin
     ecJumpToNextError         : Result:= lisMenuJumpToNextError;
     ecJumpToPrevError         : Result:= lisMenuJumpToPrevError;
     ecGotoIncludeDirective    : Result:= srkmecGotoIncludeDirective;
+    ecJumpToInterface         : Result:= lisMenuJumpToInterface;
+    ecJumpToInterfaceUses     : Result:= lisMenuJumpToInterfaceUses;
+    ecJumpToImplementation    : Result:= lisMenuJumpToImplementation;
+    ecJumpToImplementationUses: Result:= lisMenuJumpToImplementationUses;
+    ecJumpToInitialization    : Result:= lisMenuJumpToInitialization;
     ecOpenFileAtCursor        : Result:= srkmecOpenFileAtCursor;
     ecProcedureList           : Result:= lisPListProcedureList;
 
@@ -678,7 +693,7 @@ begin
     ecDiff                    : Result:= srkmecDiff;
 
     // window menu
-    ecManageSourceEditors           : Result:= lisSourceEditorWindowManager;
+    ecManageSourceEditors     : Result:= lisSourceEditorWindowManager;
 
     // help menu
     ecAboutLazarus            : Result:= lisAboutLazarus;
@@ -970,6 +985,15 @@ begin
   ecColSelLineEnd:       SetSingle(VK_END,[ssAlt,ssShift]);
   ecColSelEditorTop:     SetSingle(VK_HOME,[ssAlt,ssShift,ssCtrl]);
   ecColSelEditorBottom:  SetSingle(VK_END,[ssAlt,ssShift,ssCtrl]);
+
+  // multi caret
+  ecPluginMultiCaretSetCaret:    SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretUnsetCaret:  SetSingle(VK_DELETE,[ssShift, ssCtrl]);
+  //ecPluginMultiCaretToggleCaret: SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretClearAll:    SetSingle(VK_ESCAPE,[ssShift, ssCtrl]);
+
+  ecPluginMultiCaretModeCancelOnMove:  SetCombo(VK_Q,[ssShift, ssCtrl], VK_X,[ssShift, ssCtrl]);
+  ecPluginMultiCaretModeMoveAll:       SetCombo(VK_Q,[ssShift, ssCtrl], VK_M,[ssShift, ssCtrl]);
 
   // editing
   ecBlockIndent:         SetCombo(VK_I,[ssCtrl],VK_UNKNOWN,[], VK_K,[SSCtrl],VK_I,[]);
@@ -1423,6 +1447,15 @@ begin
   ecColSelLineEnd:       SetSingle(VK_END,  [ssAlt,ssShift]);
   ecColSelEditorTop:     SetSingle(VK_HOME, [ssAlt,ssShift,ssCtrl]);
   ecColSelEditorBottom:  SetSingle(VK_END,  [ssAlt,ssShift,ssCtrl]);
+
+  // multi caret
+  ecPluginMultiCaretSetCaret:    SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretUnsetCaret:  SetSingle(VK_DELETE,[ssShift, ssCtrl]);
+  //ecPluginMultiCaretToggleCaret: SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretClearAll:    SetSingle(VK_ESCAPE,[ssShift, ssCtrl], VK_ESCAPE,[ssShift]);
+
+  ecPluginMultiCaretModeCancelOnMove:  SetCombo(VK_Q,[ssShift, ssCtrl], VK_X,[ssShift, ssCtrl]);
+  ecPluginMultiCaretModeMoveAll:       SetCombo(VK_Q,[ssShift, ssCtrl], VK_M,[ssShift, ssCtrl]);
 
   // editing
   ecInsertMode:          SetSingle(VK_V,[ssCtrl],    VK_INSERT,[]);
@@ -2030,6 +2063,15 @@ begin
   ecColSelEditorTop:     SetSingle(VK_HOME,[ssAlt,ssShift,ssCtrl]);
   ecColSelEditorBottom:  SetSingle(VK_END,[ssAlt,ssShift,ssCtrl]);
 
+  // multi caret
+  ecPluginMultiCaretSetCaret:    SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretUnsetCaret:  SetSingle(VK_DELETE,[ssShift, ssCtrl]);
+  //ecPluginMultiCaretToggleCaret: SetSingle(VK_INSERT,[ssShift, ssCtrl]);
+  ecPluginMultiCaretClearAll:    SetSingle(VK_ESCAPE,[ssShift, ssCtrl], VK_ESCAPE,[ssShift]);
+
+  ecPluginMultiCaretModeCancelOnMove:  SetCombo(VK_Q,[ssShift, ssCtrl], VK_X,[ssShift, ssCtrl]);
+  ecPluginMultiCaretModeMoveAll:       SetCombo(VK_Q,[ssShift, ssCtrl], VK_M,[ssShift, ssCtrl]);
+
   // editing
   ecBlockIndent:         SetCombo(VK_I,[ssCtrl],VK_UNKNOWN,[],  VK_K,[SSCtrl],VK_I,[]);
   ecBlockUnindent:       SetCombo(VK_U,[ssCtrl],VK_UNKNOWN,[],  VK_K,[SSCtrl],VK_U,[]);
@@ -2574,6 +2616,15 @@ begin
   AddDefault(C, 'Column Select to absolute beginning', srkmecColSelEditorTop, ecColSelEditorTop);
   AddDefault(C, 'Column Select to absolute end', srkmecColSelEditorBottom, ecColSelEditorBottom);
 
+  // multi caret
+  C:=Categories[AddCategory('MultiCaret', srkmCatMultiCaret, nil)];
+  AddDefault(C, 'Add extra caret', srkmecPluginMultiCaretSetCaret, ecPluginMultiCaretSetCaret);
+  AddDefault(C, 'Remove extra caret', srkmecPluginMultiCaretUnsetCaret, ecPluginMultiCaretUnsetCaret);
+  AddDefault(C, 'Toggle extra caret', srkmecPluginMultiCaretToggleCaret, ecPluginMultiCaretToggleCaret);
+  AddDefault(C, 'Clear all extra carets', srkmecPluginMultiCaretClearAll, ecPluginMultiCaretClearAll);
+  AddDefault(C, 'Cursor keys clear all extra carets', srkmecPluginMultiCaretModeCancelOnMove, ecPluginMultiCaretModeCancelOnMove);
+  AddDefault(C, 'Cursor keys move all extra carets', srkmecPluginMultiCaretModeMoveAll, ecPluginMultiCaretModeMoveAll);
+
   // editing - without menu items in the IDE bar
   C:=Categories[AddCategory(CommandCategoryTextEditingName,srkmCatEditing,
                 IDECmdScopeSrcEditOnly)];
@@ -2712,6 +2763,11 @@ begin
   AddDefault(C, 'Find block other end', srkmecFindBlockOtherEnd, ecFindBlockOtherEnd);
   AddDefault(C, 'Find block start', srkmecFindBlockStart, ecFindBlockStart);
   AddDefault(C, 'Goto include directive', lisMenuGotoIncludeDirective, ecGotoIncludeDirective);
+  AddDefault(C, 'Jump to Interface', lisMenuJumpToInterface, ecJumpToInterface);
+  AddDefault(C, 'Jump to Interface uses', lisMenuJumpToInterfaceUses, ecJumpToInterfaceUses);
+  AddDefault(C, 'Jump to Implementation', lisMenuJumpToImplementation, ecJumpToImplementation);
+  AddDefault(C, 'Jump to Implementation uses', lisMenuJumpToImplementationUses, ecJumpToImplementationUses);
+  AddDefault(C, 'Jump to Initialization', lisMenuJumpToInitialization, ecJumpToInitialization);
   AddDefault(C, 'Show abstract methods', srkmecShowAbstractMethods, ecShowAbstractMethods);
   AddDefault(C, 'Remove empty methods', srkmecRemoveEmptyMethods, ecRemoveEmptyMethods);
   AddDefault(C, 'Remove unused units', srkmecRemoveUnusedUnits, ecRemoveUnusedUnits);

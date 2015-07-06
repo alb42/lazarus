@@ -59,6 +59,7 @@ resourcestring
   oisOrderForwardOne = 'Forward One';
   oisOrderBackOne = 'Back One';
   oisSetToDefault = 'Set to default: %s';
+  oisRevertToInherited = 'Revert to inherited';
   oisSetToDefaultHint = 'Set property value to Default';
   oisSetMaxConstraints = 'Set MaxHeight=%d, MaxWidth=%d';
   oisSetMinConstraints = 'Set MinHeight=%d, MinWidth=%d';
@@ -348,6 +349,7 @@ resourcestring
   ois0Lines0Chars = '0 lines, 0 chars';
   oisInvalidPropertyValue = 'Invalid property value';
   oisNone = '(none)';
+  oisPressAKey = 'Press a key ...';
   oisSelectShortCut = 'Select short cut';
   srGrabKey = 'Grab key';
   oisComponentNameIsNotAValidIdentifier = 'Component name "%s" is not a valid identifier';
@@ -432,6 +434,8 @@ resourcestring
   oisUnableToChangeParentOfControlToNewParent = 'Unable to change parent of '
     +'control "%s" to new parent "%s".%s%s';
   oisAddCollectionItem = '&Add Item';
+  oisChangeClass = 'Change Class ...';
+  oisChangeParent = 'Change Parent';
   lisUnableToFindParserForTool = 'Unable to find parser for tool "%s"';
 
   // Dbgrid Columns editor
@@ -444,6 +448,9 @@ resourcestring
 
   // IDE Text Converter
   itcsSearchAndReplace = 'Search and replace';
+
+  // DBPropedits
+  dpeUnableToRetrieveFieldsDefinitions = 'Unable to retrieve fields definition from dataset.';
 
 implementation
 

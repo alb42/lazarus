@@ -43,7 +43,7 @@ type
     procedure DeleteKey(AKey: String);
   public
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -147,8 +147,8 @@ begin
   LanguageSelectionLabel.Caption := rsLanguageSelection;
   CharacterSetLabel.Caption := rsCharacterSet;
   OtherInfoGroupBox.Caption := rsOtherInfo;
-  StringInfo.Cells[0, 0] := lisKey;
-  StringInfo.Cells[0, 1] := lisValue;
+  StringInfo.Columns[0].Title.Caption := lisKey;
+  StringInfo.Columns[1].Title.Caption := lisValue;
   AttributesGroupBox.Caption := rsAttributes;
   for Attr := Low(TProjectVersionAttribute) to High(TProjectVersionAttribute) do
     clbAttributes.AddItem(ProjectVersionAttributeToStr[Attr], nil);

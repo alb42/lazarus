@@ -8,6 +8,7 @@ Alexander Shiyan
 Alexandr Gridnev
 Alexandre Leclerc
 Alexandru Alexandrov
+Alexey Torgashin
 Andreas Hausladen
 Andreas Schneider
 Andrew Haines
@@ -19,6 +20,7 @@ Arnold Bosch
 Attila Tamás - Hungarian translation
 August Klein
 Babak Mahmoudabadi
+Balazs Szekely
 Bald Zhang
 Bart Broersma
 Benito van der Zander
@@ -102,6 +104,7 @@ Johannes Muller
 Jonas Maebe
 Joost van der Sluis
 Jose Alonso Cardenas M.
+José Martínez - Spanish translation
 Jose Mejuto
 Jouke Rensma
 Juan Salvador Perez García
@@ -152,6 +155,7 @@ Mike Sapsard
 Mike Thompson
 Nikolay Ermolov
 Olivier Guilbaud
+Ondrej Pokorny
 Patrick Chevalley
 Paul Ishenin
 Paul Michell

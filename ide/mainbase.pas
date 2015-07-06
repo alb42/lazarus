@@ -55,19 +55,18 @@ uses
 {$IFDEF IDE_MEM_CHECK}
   MemCheck,
 {$ENDIF}
-  Math, Classes, LCLType, LCLProc, LCLIntf, StdCtrls, Buttons, Menus, ComCtrls,
-  SysUtils, types, Controls, Graphics, ExtCtrls, Dialogs, FileUtil, Forms,
-  CodeToolManager, CodeCache, AVL_Tree, SynEditKeyCmds, PackageIntf,
+  Math, Classes, LCLType, LCLProc, LCLIntf, Buttons, Menus,
+  SysUtils, types, Controls, Graphics, ExtCtrls, Dialogs, LazFileUtils, Forms,
+  CodeToolManager, AVL_Tree, SynEditKeyCmds, PackageIntf,
   // IDEIntf
   IDEImagesIntf, SrcEditorIntf, LazIDEIntf, MenuIntf,
-  IDECommands, IDEMsgIntf, IDEWindowIntf,
+  IDECommands, IDEWindowIntf,
   // IDE
-  LazConf, LazarusIDEStrConsts, ProjectDefs, Project, PublishModule,
-  BuildLazDialog, Compiler, ComponentReg, etMessagesWnd,
-  TransferMacros, ObjectInspector, PropEdits, IDEDefs,
+  LazConf, LazarusIDEStrConsts, ProjectDefs, Project,
+  TransferMacros, ObjectInspector, PropEdits,
   EnvironmentOpts, EditorOptions, CompilerOptions, KeyMapping, IDEProcs,
-  Debugger, IDEOptionDefs, CodeToolsDefines, Splash, Designer,
-  SourceEditor, BuildManager, FindInFilesDlg,
+  Debugger, IDEOptionDefs, Splash, Designer,
+  SourceEditor, FindInFilesDlg,
   MainBar, MainIntf, SourceSynEditor, PseudoTerminalDlg;
 
 type
@@ -85,12 +84,9 @@ type
     FToolStatus: TIDEToolStatus;
     FWindowMenuActiveForm: TCustomForm;
     FDisplayState: TDisplayState;
-    // used to find the last form so you can display the correct tab
-    FLastFormActivated: TCustomForm;
     procedure SetDisplayState(AValue: TDisplayState);
   protected
     FNeedUpdateHighlighters: boolean;
-    FIDEStarted: boolean;
 
     function CreateMenuSeparator : TMenuItem;
     procedure CreateMenuItem(Section: TIDEMenuSection;
@@ -172,13 +168,13 @@ type
     procedure GetCurrentUnit(out ActiveSourceEditor: TSourceEditor;
                              out ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure GetDesignerUnit(ADesigner: TDesigner;
-          var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
+          out ActiveSourceEditor: TSourceEditor; out ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure GetObjectInspectorUnit(
-          var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
+          out ActiveSourceEditor: TSourceEditor; out ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure GetUnitWithForm(AForm: TCustomForm;
-          var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
+          out ActiveSourceEditor: TSourceEditor; out ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure GetUnitWithPersistent(APersistent: TPersistent;
-          var ActiveSourceEditor: TSourceEditor; var ActiveUnitInfo: TUnitInfo); virtual; abstract;
+          out ActiveSourceEditor: TSourceEditor; out ActiveUnitInfo: TUnitInfo); virtual; abstract;
     procedure DoShowComponentList(State: TIWGetFormState = iwgfShowOnTop); virtual; abstract;
 
     function DoOpenMacroFile(Sender: TObject; const AFilename: string): TModalResult; override;
@@ -190,13 +186,13 @@ type
     procedure FindInFilesPerDialog(AProject: TProject); override;
     procedure FindInFiles(AProject: TProject; const FindText: string); override;
 
+    procedure SelComponentPageButtonMouseDown(Sender: TObject;
+      Button: TMouseButton; Shift: TShiftState; X, Y: Integer); virtual; abstract;
     procedure SelComponentPageButtonClick(Sender: TObject); virtual; abstract;
   public
     property ToolStatus: TIDEToolStatus read FToolStatus write SetToolStatus;
     property WindowMenuActiveForm: TCustomForm read FWindowMenuActiveForm write FWindowMenuActiveForm;
     property DisplayState: TDisplayState read FDisplayState write SetDisplayState;
-    property IDEStarted: boolean read FIDEStarted;
-    property LastFormActivated: TCustomForm read FLastFormActivated write FLastFormActivated;
   end;
 
 function  GetMainIde: TMainIDEBase;
@@ -226,12 +222,14 @@ procedure TMainIDEBase.mnuWindowItemClick(Sender: TObject);
 var
   i: Integer;
   Form: TCustomForm;
+  nfd: Boolean;
 begin
   i:=Screen.CustomFormCount-1;
   while (i>=0) do begin
     Form:=Screen.CustomForms[i];
-    if (EnvironmentOptions.IDENameForDesignedFormList and (Form.Name=(Sender as TIDEMenuCommand).Caption)) or
-      ((not EnvironmentOptions.IDENameForDesignedFormList) and (Form.Caption=(Sender as TIDEMenuCommand).Caption)) then
+    nfd := EnvironmentOptions.Desktop.IDENameForDesignedFormList;
+    if (nfd and (Form.Name=(Sender as TIDEMenuCommand).Caption))
+    or ((not nfd) and (Form.Caption=(Sender as TIDEMenuCommand).Caption)) then
       begin
         IDEWindowCreators.ShowForm(Form,true);
         break;
@@ -245,12 +243,14 @@ var
   i: Integer;
   Form: TCustomForm;
   r, NewBounds: TRect;
+  nfd: Boolean;
 begin
   i:=Screen.CustomFormCount-1;
   while (i>=0) do begin
     Form:=Screen.CustomForms[i];
-    if (EnvironmentOptions.IDENameForDesignedFormList and (Form.Name=(Sender as TIDEMenuCommand).Caption)) or
-      ((not EnvironmentOptions.IDENameForDesignedFormList) and (Form.Caption=(Sender as TIDEMenuCommand).Caption)) then
+    nfd := EnvironmentOptions.Desktop.IDENameForDesignedFormList;
+    if (nfd and (Form.Name=(Sender as TIDEMenuCommand).Caption))
+    or ((not nfd) and (Form.Caption=(Sender as TIDEMenuCommand).Caption)) then
     begin
       // show
       if not Form.IsVisible then
@@ -694,6 +694,15 @@ begin
     CreateMenuItem(ParentMI,itmJumpToNextError,'itmJumpToNextError',lisMenuJumpToNextError);
     CreateMenuItem(ParentMI,itmJumpToPrevError,'itmJumpToPrevError',lisMenuJumpToPrevError);
 
+    CreateMenuSubSection(ParentMI,itmJumpToSection,'itmJumpToSection',lisMenuJumpTo);
+    ParentMI:=itmJumpToSection;
+
+    CreateMenuItem(ParentMI,itmJumpToInterface,'itmJumpToInterface',lisMenuJumpToInterface, 'menu_jumpto_interface');
+    CreateMenuItem(ParentMI,itmJumpToInterfaceUses,'itmJumpToInterfaceUses',lisMenuJumpToInterfaceUses, 'menu_jumpto_interfaceuses');
+    CreateMenuItem(ParentMI,itmJumpToImplementation,'itmJumpToImplementation',lisMenuJumpToImplementation, 'menu_jumpto_implementation');
+    CreateMenuItem(ParentMI,itmJumpToImplementationUses,'itmJumpToImplementationUses',lisMenuJumpToImplementationUses, 'menu_jumpto_implementationuses');
+    CreateMenuItem(ParentMI,itmJumpToInitialization,'itmJumpToInitialization',lisMenuJumpToInitialization, 'menu_jumpto_initialization');
+
     CreateMenuSeparatorSection(mnuSearch,itmBookmarks,'itmBookmarks');
     ParentMI:=itmBookmarks;
 
@@ -769,9 +778,9 @@ begin
       {$ENDIF}
     end;
     CreateMenuItem(ParentMI,itmViewComponentPalette,'itmViewComponentPalette',lisMenuViewComponentPalette, '',
-      true, EnvironmentOptions.ComponentPaletteVisible);
+      true, EnvironmentOptions.Desktop.ComponentPaletteOptions.Visible);
     CreateMenuItem(ParentMI,itmViewIDESpeedButtons,'itmViewIDESpeedButtons',lisMenuViewIDESpeedButtons, '',
-      true, EnvironmentOptions.IDESpeedButtonsVisible);
+      true, EnvironmentOptions.Desktop.IDECoolBarOptions.IDECoolBarVisible);
   end;
 end;
 
@@ -788,6 +797,7 @@ begin
     CreateMenuItem(ParentMI,itmSourceEncloseBlock,'itmSourceEncloseBlock',lisMenuEncloseSelection);
     CreateMenuItem(ParentMI,itmSourceEncloseInIFDEF,'itmSourceEncloseInIFDEF',lisMenuEncloseInIFDEF);
     CreateMenuItem(ParentMI,itmSourceCompleteCode,'itmSourceCompleteCode',lisMenuCompleteCode);
+    CreateMenuItem(ParentMI,itmRefactorInvertAssignment,'itmInvertAssignment',uemInvertAssignment);
     CreateMenuItem(ParentMI,itmSourceUseUnit,'itmSourceUseUnit',lisMenuUseUnit);
     // Refactor
     CreateMenuSeparatorSection(mnuSource,itmSourceRefactor,'itmSourceRefactor');
@@ -797,7 +807,6 @@ begin
       ParentMI:=itmRefactorCodeTools;
       CreateMenuItem(ParentMI,itmRefactorRenameIdentifier,'itmRefactorRenameIdentifier',lisMenuRenameIdentifier);
       CreateMenuItem(ParentMI,itmRefactorExtractProc,'itmRefactorExtractProc',lisMenuExtractProc);
-      CreateMenuItem(ParentMI,itmRefactorInvertAssignment,'itmInvertAssignment',uemInvertAssignment);
 
       CreateMenuSeparatorSection(SubParentMI,itmRefactorAdvanced,'itmRefactorAdvanced');
       ParentMI:=itmRefactorAdvanced;
@@ -892,6 +901,7 @@ begin
     CreateMenuItem(ParentMI,itmProjectViewUnits,'itmProjectViewUnits',lisMenuViewUnits, 'menu_view_units');
     CreateMenuItem(ParentMI,itmProjectViewForms,'itmProjectViewForms',lisMenuViewForms, 'menu_view_forms');
     CreateMenuItem(ParentMI,itmProjectViewSource,'itmProjectViewSource',lisMenuViewProjectSource, 'menu_project_viewsource');
+    CreateMenuItem(ParentMI,itmProjectBuildMode,'itmProjectBuildMode',lisChangeBuildMode, 'menu_compiler_options');
   end;
 end;
 
@@ -996,6 +1006,7 @@ begin
 
     CreateMenuSeparatorSection(mnuTools,itmSecondaryTools,'itmSecondaryTools');
     ParentMI:=itmSecondaryTools;
+    CreateMenuItem(ParentMI,itmToolManageDesktops,'itmToolManageDesktops', lisDesktops);
     CreateMenuItem(ParentMI,itmToolManageExamples,'itmToolManageExamples',lisMenuExampleProjects, 'camera');
     CreateMenuItem(ParentMI,itmToolDiff,'itmToolDiff',lisMenuCompareFiles, 'menu_tool_diff');
 
@@ -1137,6 +1148,11 @@ begin
     itmSetFreeBookmark.Command:=GetCommand(ecSetFreeBookmark);
     itmJumpToNextBookmark.Command:=GetCommand(ecNextBookmark);
     itmJumpToPrevBookmark.Command:=GetCommand(ecPrevBookmark);
+    itmJumpToInterface.Command:=GetCommand(ecJumpToInterface);
+    itmJumpToInterfaceUses.Command:=GetCommand(ecJumpToInterfaceUses);
+    itmJumpToImplementation.Command:=GetCommand(ecJumpToImplementation);
+    itmJumpToImplementationUses.Command:=GetCommand(ecJumpToImplementationUses);
+    itmJumpToInitialization.Command:=GetCommand(ecJumpToInitialization);
     itmFindBlockOtherEnd.Command:=GetCommand(ecFindBlockOtherEnd);
     itmFindBlockStart.Command:=GetCommand(ecFindBlockStart);
     itmFindDeclaration.Command:=GetCommand(ecFindDeclaration);
@@ -1274,6 +1290,9 @@ begin
     itmEnvCodeToolsDefinesEditor.Command:=GetCommand(ecCodeToolsDefinesEd);
 
     itmToolConfigure.Command:=GetCommand(ecExtToolSettings);
+
+    itmToolManageDesktops.Command:=GetCommand(ecManageDesktops);
+    itmToolManageExamples.Command:=GetCommand(ecManageExamples);
     itmToolDiff.Command:=GetCommand(ecDiff);
 
     itmToolConvertDFMtoLFM.Command:=GetCommand(ecConvertDFM2LFM);
@@ -1282,7 +1301,6 @@ begin
     itmToolConvertDelphiProject.Command:=GetCommand(ecConvertDelphiProject);
     itmToolConvertDelphiPackage.Command:=GetCommand(ecConvertDelphiPackage);
     itmToolConvertEncoding.Command:=GetCommand(ecConvertEncoding);
-    itmToolManageExamples.Command:=GetCommand(ecManageExamples);
     itmToolBuildLazarus.Command:=GetCommand(ecBuildLazarus);
     itmToolConfigureBuildLazarus.Command:=GetCommand(ecConfigBuildLazarus);
 
@@ -1373,7 +1391,8 @@ begin
   begin
     // in the 'bring to front' list
     CurMenuItem := GetMenuItem(i, itmWindowLists);
-    if EnvironmentOptions.IDENameForDesignedFormList and (TCustomForm(WindowsList[i]).Designer<>nil) then
+    if EnvironmentOptions.Desktop.IDENameForDesignedFormList
+    and (TCustomForm(WindowsList[i]).Designer<>nil) then
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Name
     else
        CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Caption;
@@ -1381,7 +1400,8 @@ begin
     CurMenuItem.OnClick:=@mnuWindowItemClick;
     // in the 'center' list
     CurMenuItem := GetMenuItem(i, itmCenterWindowLists);
-    if EnvironmentOptions.IDENameForDesignedFormList and (TCustomForm(WindowsList[i]).Designer<>nil) then
+    if EnvironmentOptions.Desktop.IDENameForDesignedFormList
+    and (TCustomForm(WindowsList[i]).Designer<>nil) then
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Name
     else
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Caption;

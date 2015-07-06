@@ -486,6 +486,14 @@ msgstr "Sem Ação"
 msgid "Quick Paste Selection"
 msgstr "Colar Seleção Rapidamente"
 
+#: syneditstrconst.syns_emcpluginmulticaretselectiontocarets
+msgid "Set carets at EOL in selected lines"
+msgstr ""
+
+#: syneditstrconst.syns_emcpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
 #: syneditstrconst.syns_emcselection_opt
 msgid "Mode,Begin,Continue"
 msgstr "Modo,Iniciar,Continuar"
@@ -514,9 +522,17 @@ msgstr "Seleção Coluna"
 msgid "Drag Selection"
 msgstr "Arrastar Seleção"
 
+#: syneditstrconst.syns_emcstartdragmove_opt
+msgid "\"Caret on up if not dragged\",yes,no"
+msgstr ""
+
 #: syneditstrconst.syns_emcstartlineselections
 msgid "Line Selection"
 msgstr "Seleção Linha"
+
+#: syneditstrconst.syns_emcstartlineselectionsnoneempty
+msgid "Line Selection (select immediate)"
+msgstr ""
 
 #: syneditstrconst.syns_emcstartselection
 msgid "Selection"

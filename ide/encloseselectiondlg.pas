@@ -62,16 +62,15 @@ type
     function GetEncloseType: TEncloseSelectionType;
   end;
   
-function ShowEncloseSelectionDialog(var TheType: TEncloseSelectionType
+function ShowEncloseSelectionDialog(out TheType: TEncloseSelectionType
                                     ): TModalResult;
 function EncloseSelectionTypeDescription(TheType: TEncloseSelectionType
                                          ): string;
 procedure GetEncloseSelectionParams(TheType: TEncloseSelectionType;
-                                    var Template: string);
+                                    out Template: string);
 procedure EncloseTextSelection(const Template: string; Source: TStrings;
                                SelectionStart, SelectionEnd: TPoint;
-                               Indent: integer;
-                               var NewSelection: string; var NewCursor: TPoint);
+                               out NewSelection: string; out NewCursor: TPoint);
 
 implementation
 
@@ -94,11 +93,12 @@ begin
   end;
 end;
 
-function ShowEncloseSelectionDialog(var TheType: TEncloseSelectionType
+function ShowEncloseSelectionDialog(out TheType: TEncloseSelectionType
   ): TModalResult;
 var
   TheDialog: TEncloseSelectionDialog;
 begin
+  TheType:=estBeginEnd;
   TheDialog:=TEncloseSelectionDialog.Create(nil);
   Result:=TheDialog.ShowModal;
   if Result=mrOk then
@@ -106,8 +106,8 @@ begin
   TheDialog.Free;
 end;
 
-procedure GetEncloseSelectionParams(TheType: TEncloseSelectionType;
-  var Template: string);
+procedure GetEncloseSelectionParams(TheType: TEncloseSelectionType; out
+  Template: string);
 begin
   case TheType of
     estTryFinally:
@@ -160,11 +160,8 @@ begin
 end;
 
 procedure EncloseTextSelection(const Template: string; Source: TStrings;
-  SelectionStart, SelectionEnd: TPoint;
-  Indent: integer;
-  var NewSelection: string; var NewCursor: TPoint);
-const
-  TemplateBaseIndent = 2;
+  SelectionStart, SelectionEnd: TPoint; out NewSelection: string; out
+  NewCursor: TPoint);
 var
   TemplateLen: Integer;
   TemplatePos: Integer;
@@ -336,6 +333,8 @@ var
   
 begin
   //debugln(['EncloseTextSelection A ',SelectionStart.X,',',SelectionStart.Y,'-',SelectionEnd.X,',',SelectionEnd.Y,' indent=',Indent,' Template="',Template,'"']);
+  NewSelection:='';
+  NewCursor:=Point(0,0);
   CutLastLineBreak:=true;
   if (SelectionEnd.X=1) and (SelectionEnd.Y>SelectionStart.Y) then begin
     CutLastLineBreak:=false;

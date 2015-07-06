@@ -16,8 +16,8 @@ unit ProjectIntf;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, FileUtil, Controls, Forms, AvgLvlTree,
-  NewItemIntf, ProjPackIntf, IDEOptionsIntf, CompOptsIntf, ObjInspStrConsts;
+  Classes, SysUtils, FileUtil, LazFileUtils, Controls, Forms, AvgLvlTree,
+  NewItemIntf, ProjPackIntf, CompOptsIntf, ObjInspStrConsts;
 
 const
   FileDescGroupName = 'File';
@@ -929,6 +929,7 @@ begin
         Result:='initialization'+LE+'  {$I '+ResourceFilename+'}'+LE+LE;
       end;
     rtRes: Result := '{$R *.lfm}'+LE+LE;
+    else Result:='';
   end;
 end;
 

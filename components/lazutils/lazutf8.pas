@@ -19,16 +19,22 @@ unit LazUTF8;
 {$mode objfpc}{$H+}{$inline on}
 
 {$IF defined(EnableUTF8RTL) and (FPC_FULLVERSION<20701)}
-  {$error UTF8 RTl requires fpc 2.7.1+}
+  {$error UTF8 in RTL requires fpc 2.7.1+}
 {$ENDIF}
 
 interface
 
 uses
-{$ifdef windows}
+  {$IFDEF EnableUTF8RTL}
+    {$ifdef unix}
+    cwstring, // UTF8 RTL on Unix requires this. Must be used although it pulls in clib.
+    {$endif}
+  FPCAdds,
+  {$ENDIF}
+  {$ifdef windows}
   Windows,
-{$endif}
-  Classes, SysUtils; 
+  {$endif}
+  Classes, SysUtils;
 
 // AnsiToUTF8 and UTF8ToAnsi need a widestring manager under Linux, BSD, MacOSX
 // but normally these OS use UTF-8 as system encoding so the widestringmanager
@@ -44,12 +50,16 @@ function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings; ove
 function SysToUTF8(const s: string): string; overload;
 function SysToUTF8(const AFormatSettings: TFormatSettings): TFormatSettings; overload;
 
-function ConsoleToUTF8(const s: string): string;// converts OEM encoded string to UTF8 (used with some Windows specific functions)
-function UTF8ToConsole(const s: string): string;// converts UTF8 string to console encoding (used by Write, WriteLn)
+// converts OEM encoded string to UTF8 (used with some Windows specific functions)
+function ConsoleToUTF8(const s: string): string;
+// converts UTF8 string to console encoding (used by Write, WriteLn)
+function UTF8ToConsole(const s: string): string;
 {$IFDEF MSWindows}
 // for all Windows supporting 8bit codepages (e.g. not WinCE)
-function WinCPToUTF8(const s: string): string;// converts string in Windows code page to UTF8 (used with some Windows specific functions)
-function UTF8ToWinCP(const s: string): string;// converts UTF8 string to Windows code page encoding (used by Write, WriteLn)
+// converts string in Windows code page to UTF8 (used with some Windows specific functions)
+function WinCPToUTF8(const s: string): string;
+// converts UTF8 string to Windows code page encoding (used by Write, WriteLn)
+function UTF8ToWinCP(const s: string): string;
 {$ENDIF}
 
 function ParamStrUTF8(Param: Integer): string;
@@ -58,7 +68,6 @@ function GetEnvironmentStringUTF8(Index: Integer): string;
 function GetEnvironmentVariableUTF8(const EnvVar: string): String;
 
 function SysErrorMessageUTF8(ErrorCode: Integer): String;
-
 
 function UTF8CharacterLength(p: PChar): integer;
 function UTF8Length(const s: string): PtrInt;
@@ -94,6 +103,7 @@ function UTF8LowerCase(const AInStr: string; ALanguage: string=''): string;
 function UTF8LowerString(const s: string): string;
 function UTF8UpperCase(const AInStr: string; ALanguage: string=''): string;
 function UTF8UpperString(const s: string): string;
+function UTF8SwapCase(const AInStr: string; ALanguage: string=''): string;
 function FindInvalidUTF8Character(p: PChar; Count: PtrInt;
                                   StopOnNonUTF8: Boolean = true): PtrInt;
 function ValidUTF8String(const s: String): String;
@@ -107,6 +117,9 @@ function UTF8LeftStr(const AText: String; const ACount: Integer): String;
 function UTF8RightStr(const AText: String; const ACount: Integer): String;
 function UTF8QuotedStr(const S, Quote: string): string;
 //Utf8 version of MidStr is just Utf8Copy with same parameters, so it is not implemented here
+
+function UTF8WrapText(S, BreakStr :string; BreakChars :TSysCharSet; MaxCol: integer): string; overload;
+function UTF8WrapText(S :string; MaxCol :integer) :string; overload;
 
 type
   TUTF8TrimFlag = (
@@ -124,11 +137,11 @@ procedure AssignUTF8ListToAnsi(UTF8List, AnsiList: TStrings);
 
 //compare functions
 
-function UTF8CompareStr(const S1, S2: string): Integer; inline;
-function UTF8CompareStrP(S1, S2: PChar): Integer;
-function UTF8CompareStr(S1: PChar; Count1: SizeInt; S2: PChar; Count2: SizeInt): Integer;
-function UTF8CompareText(const S1, S2: string): Integer;
-function UTF8CompareStrCollated(const S1, S2: string): Integer;
+function UTF8CompareStr(const S1, S2: string): PtrInt; inline;
+function UTF8CompareStrP(S1, S2: PChar): PtrInt;
+function UTF8CompareStr(S1: PChar; Count1: SizeInt; S2: PChar; Count2: SizeInt): PtrInt;
+function UTF8CompareText(const S1, S2: string): PtrInt;
+function UTF8CompareStrCollated(const S1, S2: string): PtrInt;
 function CompareStrListUTF8LowerCase(List: TStringList; Index1, Index2: Integer): Integer;
 
 type
@@ -943,6 +956,38 @@ begin
         Srch := Copy(Srch, P, Length(Srch)-P+1);
     end;
   end;
+end;
+
+{
+  UTF8SwapCase - a "naive" implementation that uses UTF8UpperCase and UTF8LowerCase.
+    It serves its purpose and performs OK for short and resonably long strings
+    but it should be rewritten in the future if better performance and lower
+    memory consumption is needed.
+
+  AInStr - The input string.
+  ALanguage - The language. Use '' for maximum speed if one desires to ignore the language
+    (See UTF8LowerCase comment for more details on ALanguage parameter.)
+}
+function UTF8SwapCase(const AInStr: string; ALanguage: string=''): string;
+var
+  xUpperCase: string;
+  xLowerCase: string;
+  I: Integer;
+begin
+  if AInStr = '' then
+    Exit('');
+
+  xUpperCase := UTF8UpperCase(AInStr, ALanguage);
+  xLowerCase := UTF8LowerCase(AInStr, ALanguage);
+  if (Length(xUpperCase) <> Length(AInStr)) or (Length(xLowerCase) <> Length(AInStr)) then
+    Exit(AInStr);//something went wrong -> the lengths of utf8 strings changed
+
+  SetLength(Result, Length(AInStr));
+  for I := 1 to Length(AInStr) do
+    if AInStr[I] <> xUpperCase[I] then
+      Result[I] := xUpperCase[I]
+    else
+      Result[I] := xLowerCase[I];
 end;
 
 {
@@ -2728,6 +2773,60 @@ begin
   Result+=copy(S,CopyPos-PChar(S)+1,p-CopyPos)+Quote;
 end;
 
+function UTF8WrapText(S, BreakStr :string; BreakChars :TSysCharSet; MaxCol: integer): string;
+var
+  P :PChar;
+  CharLen :integer;
+  RightSpace : Integer = 0;
+  N :integer = 0;
+  i : Integer;
+  j : Integer;
+  Len :integer = 0;
+  ResultLen, RP :Integer;
+begin
+  Result := '';
+  if (S = '') or (MaxCol = 0) or (BreakStr = '') or (BreakChars = []) then Exit;
+  P := PChar(S);
+  while P^ <> #0 do
+  begin
+    CharLen := UTF8CharacterLength(P);
+    i := 1;
+    j := 0;
+    ResultLen := Length(Result);
+    SetLength(Result, ResultLen + CharLen);
+    while i <= CharLen do
+    begin
+      Result[ResultLen + i] := (P + J)^;
+      Inc(i);
+      Inc(j);
+    end;
+    Inc(N);
+    if P^ = BreakStr[Length(BreakStr)] then
+      N := 0;
+    if N > MaxCol then
+    begin
+      Len := Length(Result);
+      RP := Len;
+      while not (Result[RP] in BreakChars) do
+        Dec(RP);
+      RightSpace := Len - RP;
+      if (RightSpace > 0) and (RightSpace < MaxCol) then
+      begin
+        Dec(P, RightSpace);
+        SetLength(Result, Len - RightSpace);
+      end;
+      Result := Result + BreakStr;
+      N := 0;
+    end;
+    Inc(P, CharLen);
+  end;
+end;
+
+function UTF8WrapText(S :string; MaxCol: integer): string;
+begin
+  Result := UTF8WrapText(S, LineEnding, [' ', '-', #9], MaxCol);
+end;
+
 function UTF8Trim(const s: string; Flags: TUTF8TrimFlags): string;
 var
   p: PChar;
@@ -2855,19 +2954,19 @@ end;
   Returns: < 0 if S1 < S2, 0 if S1 = S2, > 0 if S2 > S1.
   Compare 2 UTF8 encoded strings, case sensitive.
  ------------------------------------------------------------------------------}
-function UTF8CompareStr(const S1, S2: string): Integer;
+function UTF8CompareStr(const S1, S2: string): PtrInt;
 begin
   Result := UTF8CompareStr(PChar(Pointer(S1)),length(S1),
                             PChar(Pointer(S2)),length(S2));
 end;
 
-function UTF8CompareStrP(S1, S2: PChar): Integer;
+function UTF8CompareStrP(S1, S2: PChar): PtrInt;
 begin
   Result:=UTF8CompareStr(S1,StrLen(S1),S2,StrLen(S2));
 end;
 
 function UTF8CompareStr(S1: PChar; Count1: SizeInt; S2: PChar; Count2: SizeInt
-  ): Integer;
+  ): PtrInt;
 var
   Count: SizeInt;
 begin
@@ -2894,7 +2993,7 @@ end;
   Note: Use this function instead of AnsiCompareText.
   This function guarantees proper collation on all supported platforms.
  ------------------------------------------------------------------------------}
-function UTF8CompareText(const S1, S2: string): Integer;
+function UTF8CompareText(const S1, S2: string): PtrInt;
 var
   S1Lower, S2Lower: string;
 begin
@@ -2903,7 +3002,7 @@ begin
   Result := UTF8CompareStr(S1Lower, S2Lower);
 end;
 
-function UTF8CompareStrCollated(const S1, S2: string): Integer;
+function UTF8CompareStrCollated(const S1, S2: string): PtrInt;
 begin
   {$IFDEF MSWINDOWS}
     Result := AnsiCompareStr(UTF8ToSys(S1), UTF8ToSys(S2));

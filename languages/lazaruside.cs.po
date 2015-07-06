@@ -78,6 +78,10 @@ msgstr "Zpět v historii"
 msgid "History forward"
 msgstr "Vpřed v historii"
 
+#: lazarusidestrconsts.dlfmousesimplebuttonmulticarettoggle
+msgid "Toggle extra Caret"
+msgstr ""
+
 #: lazarusidestrconsts.dlfmousesimplebuttonnothing
 msgctxt "lazarusidestrconsts.dlfmousesimplebuttonnothing"
 msgid "Nothing/Default"
@@ -160,6 +164,14 @@ msgstr "Standardní, všechny akce (body přerušení, složení) při stisknut�
 #: lazarusidestrconsts.dlfmousesimplegutterleftup
 msgid "Extended, Actions (breakpoint, fold) on mouse up. Selection on mouse down and move"
 msgstr "Rozšířené, akce (body přerušení, složení) při uvolnění tlačítka myši. Výběr při současném stisknutí tlačítka myši a pohybu"
+
+#: lazarusidestrconsts.dlfmousesimplegutterleftupright
+msgid "Extended, Actions, right gutter half only"
+msgstr ""
+
+#: lazarusidestrconsts.dlfmousesimplegutterlines
+msgid "Use line numers to select lines"
+msgstr ""
 
 #: lazarusidestrconsts.dlfmousesimpleguttersect
 msgctxt "lazarusidestrconsts.dlfmousesimpleguttersect"
@@ -545,10 +557,6 @@ msgstr "Přidat středník"
 msgid "Adjust top line due to comment in front"
 msgstr "Přizpůsobit vrchní linku kvůli komentářů vpředu"
 
-#: lazarusidestrconsts.dlgallfiles
-msgid "All files"
-msgstr "Všechny soubory"
-
 #: lazarusidestrconsts.dlgalphabetically
 msgid "Alphabetically"
 msgstr "Abecedně"
@@ -590,7 +598,9 @@ msgid "Main .lpr unit creates each form with Application.CreateForm(). They are 
 msgstr ""
 
 #: lazarusidestrconsts.dlgautocreatenewforms
-msgid "When creating new forms, add them to auto-created forms"
+#, fuzzy
+#| msgid "When creating new forms, add them to auto-created forms"
+msgid "Auto-create new forms"
 msgstr "Při vytváření nových formulářů je přidat do seznamu automaticky vytvářených formulářů."
 
 #: lazarusidestrconsts.dlgautodel
@@ -1301,6 +1311,7 @@ msgid "Sub directory"
 msgstr "Podadresář"
 
 #: lazarusidestrconsts.dlgedcodetempl
+msgctxt "lazarusidestrconsts.dlgedcodetempl"
 msgid "Code Templates"
 msgstr "Šablony kódu"
 
@@ -1526,6 +1537,158 @@ msgstr "Používat externí soubor ladících symbolů GDB."
 msgid "File extensions"
 msgstr "Přípony souboru"
 
+#: lazarusidestrconsts.dlgfiles
+msgid "%s files"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterall
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterall"
+msgid "All files"
+msgstr "Všechny soubory"
+
+#: lazarusidestrconsts.dlgfiltercodetoolstemplatefile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfiltercodetoolstemplatefile"
+msgid "CodeTools template file"
+msgstr "Šablona CodeTools"
+
+#: lazarusidestrconsts.dlgfilterdcifile
+msgid "DCI file"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterdelphiform
+msgid "Delphi form"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterdelphipackage
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphipackage"
+msgid "Delphi package"
+msgstr "Balíček Delphi"
+
+#: lazarusidestrconsts.dlgfilterdelphiproject
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphiproject"
+msgid "Delphi project"
+msgstr "Projekt Delphi"
+
+#: lazarusidestrconsts.dlgfilterdelphiunit
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphiunit"
+msgid "Delphi unit"
+msgstr "Jednotka Delphi"
+
+#: lazarusidestrconsts.dlgfilterexecutable
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterexecutable"
+msgid "Executable"
+msgstr "Spustitelný"
+
+#: lazarusidestrconsts.dlgfilterfpcmessagefile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterfpcmessagefile"
+msgid "FPC message file"
+msgstr "Soubor FPC zpráv"
+
+#: lazarusidestrconsts.dlgfilterhtml
+msgid "HTML files"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagesbitmap
+msgid "Bitmap images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagespixmap
+msgid "Pixmap images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagespng
+msgid "PNG images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterlazarusdesktopsettings
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusdesktopsettings"
+msgid "Lazarus Desktop Settings"
+msgstr "Nastavení plochy Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazaruseditorfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazaruseditorfile"
+msgid "Editor file types"
+msgstr "Typy souborů editoru"
+
+#: lazarusidestrconsts.dlgfilterlazarusfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusfile"
+msgid "Lazarus file"
+msgstr "Soubor Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarusform
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusform"
+msgid "Lazarus form"
+msgstr "Formulář Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarusinclude
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusinclude"
+msgid "Lazarus include file"
+msgstr "Zahrnutý soubor Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarusotherfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusotherfile"
+msgid "Lazarus other file"
+msgstr "Jiný soubor Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazaruspackage
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazaruspackage"
+msgid "Lazarus package"
+msgstr "Balíček Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarusproject
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusproject"
+msgid "Lazarus project"
+msgstr "Projekt Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarusprojectsource
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusprojectsource"
+msgid "Lazarus project source"
+msgstr "Zdrojový soubor Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterlazarussession
+msgid "Lazarus session"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterlazarusunit
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusunit"
+msgid "Lazarus unit"
+msgstr "Jednotka Lazarusu"
+
+#: lazarusidestrconsts.dlgfilterpascalfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterpascalfile"
+msgid "Pascal file"
+msgstr "Soubor Pascalu"
+
+#: lazarusidestrconsts.dlgfilterprograms
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterprograms"
+msgid "Programs"
+msgstr "Programy"
+
+#: lazarusidestrconsts.dlgfilterxml
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterxml"
+msgid "XML files"
+msgstr "XML soubory"
+
 #: lazarusidestrconsts.dlgfindtextatcursor
 msgid "Find text at cursor"
 msgstr "Najít text od kurzoru"
@@ -1724,11 +1887,6 @@ msgstr "Od začátku"
 #: lazarusidestrconsts.dlgfromcursor
 msgid "&From cursor"
 msgstr "&Od kurzoru"
-
-#: lazarusidestrconsts.dlgfropts
-msgctxt "lazarusidestrconsts.dlgfropts"
-msgid "Options"
-msgstr "Volby"
 
 #: lazarusidestrconsts.dlggetposition
 msgid "Get position"
@@ -2241,6 +2399,7 @@ msgid "Mouse Action"
 msgstr ""
 
 #: lazarusidestrconsts.dlgmouseoptbtn1
+msgctxt "lazarusidestrconsts.dlgmouseoptbtn1"
 msgid "Single"
 msgstr "Jednoduchý"
 
@@ -2446,6 +2605,10 @@ msgctxt "lazarusidestrconsts.dlgmouseoptnodegutter"
 msgid "Gutter"
 msgstr "Žlábek"
 
+#: lazarusidestrconsts.dlgmouseoptnodegutterchanges
+msgid "Line Changes"
+msgstr ""
+
 #: lazarusidestrconsts.dlgmouseoptnodegutterfold
 msgid "Fold Tree"
 msgstr "Svinout strom"
@@ -2497,6 +2660,88 @@ msgstr "Priorita"
 msgctxt "lazarusidestrconsts.dlgmsgs"
 msgid "Messages"
 msgstr "Zprávy"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentdebug
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentdebug"
+msgid "Debug"
+msgstr "Ladění"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgenterror
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgenterror"
+msgid "Error"
+msgstr "Chyba"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentfatal
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentfatal"
+msgid "Fatal"
+msgstr "Fatální"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgenthint
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgenthint"
+msgid "Hint"
+msgstr "Tip"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentimportant
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentimportant"
+msgid "Important"
+msgstr "Důležité"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentnone
+msgid "Normal"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentnote
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentnote"
+msgid "Note"
+msgstr "Poznámka"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentpanic
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentpanic"
+msgid "Panic"
+msgstr "Panika"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentprogress
+msgid "Time and statistics"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentverbose"
+msgid "Verbose"
+msgstr "Výřečný"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose2
+msgid "Verbose 2"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose3
+msgid "Verbose 3"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentwarning
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentwarning"
+msgid "Warning"
+msgstr "Varování"
+
+#: lazarusidestrconsts.dlgmulticaretcolumnmode
+msgid "Multi-caret (column-select) move with cursor"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmulticaretmode
+msgid "Multi-caret move with cursor"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmulticaretoncolumnselection
+msgid "Enable multi caret for column selection"
+msgstr ""
 
 #: lazarusidestrconsts.dlgmultiselect
 msgid "Multi Select"
@@ -2571,11 +2816,6 @@ msgstr "Výška položky"
 msgctxt "lazarusidestrconsts.dlgoimiscellaneous"
 msgid "Miscellaneous"
 msgstr "Různé"
-
-#: lazarusidestrconsts.dlgoioptions
-msgctxt "lazarusidestrconsts.dlgoioptions"
-msgid "Options"
-msgstr "Volby"
 
 #: lazarusidestrconsts.dlgoispeedsettings
 msgid "Speed settings"
@@ -2910,10 +3150,6 @@ msgstr "Ukládat informace editoru pouze pro soubory projektu"
 msgid "Only files that belong to this project."
 msgstr ""
 
-#: lazarusidestrconsts.dlgscope
-msgid "Scope"
-msgstr "Rozsah"
-
 #: lazarusidestrconsts.dlgscrollbyoneless
 msgid "Scroll by one less"
 msgstr "Posunout o jedno méně"
@@ -2950,6 +3186,10 @@ msgstr "Hledání ..."
 #: lazarusidestrconsts.dlgsearchpaths
 msgid "Paths"
 msgstr "Cesty"
+
+#: lazarusidestrconsts.dlgsearchscope
+msgid "Search scope"
+msgstr ""
 
 #: lazarusidestrconsts.dlgselectallchildcontrols
 msgid "Select all child controls together with their parent."
@@ -3092,6 +3332,10 @@ msgstr "Přichycovat k vodícím čarám"
 
 #: lazarusidestrconsts.dlgsnapguidelineshint
 msgid "When a control is close to being aligned with another control, it snaps to the aligned position."
+msgstr ""
+
+#: lazarusidestrconsts.dlgsourceedittabmultiline
+msgid "Multiline tabs"
 msgstr ""
 
 #: lazarusidestrconsts.dlgspacenotcosmos
@@ -3278,7 +3522,9 @@ msgid "Use launching application"
 msgstr "Použít spouštěcí aplikaci"
 
 #: lazarusidestrconsts.dlguseminimumime
-msgid "Ime handled by System"
+#, fuzzy
+#| msgid "Ime handled by System"
+msgid "IME handled by System"
 msgstr "Ime obsluhováno systémem"
 
 #: lazarusidestrconsts.dlguserschemeerror
@@ -3567,6 +3813,10 @@ msgstr "Jméno souboru"
 #: lazarusidestrconsts.lisa2pfilenotunit
 msgid "File not unit"
 msgstr "Soubor není jednotka"
+
+#: lazarusidestrconsts.lisa2piconandsize
+msgid "Icon (maximum 24x24):"
+msgstr ""
 
 #: lazarusidestrconsts.lisa2pinvalidancestortype
 msgid "Invalid Ancestor Type"
@@ -3925,6 +4175,10 @@ msgctxt "lazarusidestrconsts.lisaddressbreakpoint"
 msgid "&Address Breakpoint ..."
 msgstr "Adresa bodu přerušení ..."
 
+#: lazarusidestrconsts.lisaddsub
+msgid "Add >>"
+msgstr ""
+
 #: lazarusidestrconsts.lisaddtoincludesearchpath
 msgid "Add to include search path?"
 msgstr "Přidat do cesty hledání \"include\"?"
@@ -4022,10 +4276,6 @@ msgstr "Všechny bloky vypadají dobře."
 #: lazarusidestrconsts.lisallbuildmodes
 msgid "<All build modes>"
 msgstr "<Všechny módy sestavení>"
-
-#: lazarusidestrconsts.lisallfiles
-msgid "All Files"
-msgstr "Všechny soubory"
 
 #: lazarusidestrconsts.lisallinheritedoptions
 msgid "All inherited options"
@@ -4209,6 +4459,18 @@ msgstr "Zeptat se na jméno při vytvoření"
 msgid "A useful setting on Windows systems is: $(LazarusDir)\\mingw\\bin\\$(TargetCPU)-$(TargetOS)\\gdb.exe"
 msgstr "Užitečné nastavení na systémech Windows je: $(LazarusDir)\\mingw\\bin\\$(TargetCPU)-$(TargetOS)\\gdb.exe"
 
+#: lazarusidestrconsts.lisautoadjustideheight
+msgid "Automatically adjust IDE main window height"
+msgstr ""
+
+#: lazarusidestrconsts.lisautoadjustideheightfullcomponentpalette
+msgid "Show complete component palette"
+msgstr ""
+
+#: lazarusidestrconsts.lisautoadjustideheightfullcomponentpalettehint
+msgid "If component palette spans over more lines, show them all and not only one."
+msgstr ""
+
 #: lazarusidestrconsts.lisautocompletionoff
 msgid "Auto completion: off"
 msgstr "Automatické dokončení: vypnuto"
@@ -4354,6 +4616,12 @@ msgstr "Tlustě nevýchozí hodnoty"
 msgid "Border space"
 msgstr "Okrajový prostor"
 
+#: lazarusidestrconsts.lisbottom
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisbottom"
+msgid "Bottom"
+msgstr "Dolní"
+
 #: lazarusidestrconsts.lisbottomborderspacespinedithint
 msgid "Bottom borderspace. This value is added to base borderspace and used for the space below the control."
 msgstr "Dolní okrajový prostor. Tato hodnota je přidána k základnímu okraji a je použita pro místo pod prvkem."
@@ -4463,6 +4731,10 @@ msgstr ""
 #: lazarusidestrconsts.lisbuildinglazarusfailed
 msgid "Building Lazarus failed"
 msgstr "Sestavení Lazarusu selhalo"
+
+#: lazarusidestrconsts.lisbuildmode
+msgid "Build Mode: %s"
+msgstr ""
 
 #: lazarusidestrconsts.lisbuildmodediffdifferencesbetweenbuildmodes
 msgid "Differences between build modes"
@@ -4716,6 +4988,7 @@ msgid "unusual characters"
 msgstr "neobvyklé znaky"
 
 #: lazarusidestrconsts.lisccowarningcaption
+msgctxt "lazarusidestrconsts.lisccowarningcaption"
 msgid "Warning"
 msgstr "Varování"
 
@@ -5133,6 +5406,10 @@ msgstr "Zkontrolujte cestu pro hledání balíčku %s, zkuste čisté sestavení
 msgid "%s Check the target (OS, CPU, LCL widget type). Maybe you have to recompile the package for this target or set another target for the project."
 msgstr "%s Ověřte cíl (OS, CPU, typ LCL widgetu). Možná musíte přeložit balíček pro tento cíl, nebo nastavit jiný cíl pro tento projekt."
 
+#: lazarusidestrconsts.lischeckuncheckall
+msgid "Check/uncheck all"
+msgstr ""
+
 #: lazarusidestrconsts.lischooseadifferentname
 msgid "Choose a different name"
 msgstr "Vyberte jiné jméno"
@@ -5193,6 +5470,10 @@ msgstr "Vyberte jednotku Delphi (*.pas)"
 msgid "Choose directory"
 msgstr "Vyberte adresář"
 
+#: lazarusidestrconsts.lischooseexecutable
+msgid "Choose an executable"
+msgstr ""
+
 #: lazarusidestrconsts.lischoosefpcsourcedir
 msgid "Choose FPC source directory"
 msgstr "Vyberte zdrojový adresář FPC"
@@ -5248,10 +5529,6 @@ msgstr "Dokončení třídy"
 #: lazarusidestrconsts.lisclassesandpropertiesexistvalueswerenotchecked
 msgid "Classes and properties exist. Values were not checked."
 msgstr "Třídy a vlastnosti existují. Hodnoty nebyly zkontrolovány."
-
-#: lazarusidestrconsts.lisclassesppunotfoundcheckyourfpccfg
-msgid "classes.ppu not found. Check your fpc.cfg."
-msgstr "classes.ppu nenalezen. Zkontrolujte Váš fpc.cfg."
 
 #: lazarusidestrconsts.lisclassisnotaregisteredcomponentclassunabletopaste
 msgid "Class \"%s\" is not a registered component class.%sUnable to paste."
@@ -5351,9 +5628,13 @@ msgstr "Vyčistit filtr pro možnosti"
 msgid "Click here to browse the file"
 msgstr "K procházení souboru klikněte zde"
 
-#: lazarusidestrconsts.lisclicktoseethepossibleuses
-msgid "Click to see the possible uses"
-msgstr "Klikněte pro zobrazení možných použití"
+#: lazarusidestrconsts.lisclicktoseethechoices
+msgid "Click to see the choices"
+msgstr ""
+
+#: lazarusidestrconsts.lisclicktoselectpalettepage
+msgid "Click to Select Palette Page"
+msgstr ""
 
 #: lazarusidestrconsts.lisclone
 msgid "Clone"
@@ -6006,10 +6287,6 @@ msgstr "Konstantní řetězec"
 msgid "Symbol"
 msgstr "Symbol"
 
-#: lazarusidestrconsts.liscodetoolstemplatefile
-msgid "CodeTools template file"
-msgstr "Šablona CodeTools"
-
 #: lazarusidestrconsts.liscoexecuteafter
 msgid "Execute after"
 msgstr "Spustit pak"
@@ -6118,7 +6395,9 @@ msgid "Compile"
 msgstr "Přeložit"
 
 #: lazarusidestrconsts.liscompilewithvdformoredetailscheckforduplicates
-msgid "%s -> Compile with -vd for more details. Check for duplicates."
+#, fuzzy,badformat
+#| msgid "%s -> Compile with -vd for more details. Check for duplicates."
+msgid "Compile with -vd for more details. Check for duplicates."
 msgstr "%s-> Kompilujte s -vd pro více detailů. Kontrolujte na duplicity."
 
 #: lazarusidestrconsts.liscompiling
@@ -6199,6 +6478,10 @@ msgstr "Nastavit sestavení %s"
 #: lazarusidestrconsts.lisconfigurebuildlazarus
 msgid "Configure \"Build Lazarus\""
 msgstr "Nastavení \"Sestavení Lazarusu\""
+
+#: lazarusidestrconsts.lisconfigureeditortoolbar
+msgid "Configure Toolbar"
+msgstr ""
 
 #: lazarusidestrconsts.lisconfigurelazaruside
 msgid "Configure Lazarus IDE"
@@ -6641,6 +6924,190 @@ msgstr "Neznámé vlastnosti"
 msgid "User selected to end conversion with file %s"
 msgstr ""
 
+#: lazarusidestrconsts.liscoolbaraddconfigdelete
+msgid "Add/Config/Delete Toolbar(s)"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaradddivider
+msgid "Add Divider"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaraddselected
+msgid "Add selected item to toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaravailablecommands
+msgid "Available commands"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarborderstyle
+msgid "Toolbars border style"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarborderstyleitem0
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarborderstyleitem0"
+msgid "None"
+msgstr "Žádné"
+
+#: lazarusidestrconsts.liscoolbarborderstyleitem1
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarborderstyleitem1"
+msgid "Single"
+msgstr "Jednoduchý"
+
+#: lazarusidestrconsts.liscoolbarclearselection
+msgid "Clear selection"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarcodeexplorer
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarcodeexplorer"
+msgid "Code Explorer"
+msgstr "Průzkumník kódu"
+
+#: lazarusidestrconsts.liscoolbarcodetemplates
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarcodetemplates"
+msgid "Code Templates"
+msgstr "Šablony kódu"
+
+#: lazarusidestrconsts.liscoolbarconfigure
+msgid "&Configure"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardeletetoolbar
+msgid "Are you sure you want to delete the selected toolbar?"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardeletewarning
+msgid "There must be at least one toolbar!"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardesigner
+msgid "Designer"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargeneralsettings
+msgid "General Coolbar Settings"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyle
+msgid "Toolbars grab style"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem0
+msgid "Simple"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem1
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbargrabstyleitem1"
+msgid "Double"
+msgstr "Dvojitý"
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem2
+msgid "HorLines"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem3
+msgid "VerLines"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem4
+msgid "Gripper"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem5
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbargrabstyleitem5"
+msgid "Button"
+msgstr "Tlačítko"
+
+#: lazarusidestrconsts.liscoolbargrabwidth
+msgid "Grab width"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp1
+msgid "The \"Add\" button inserts a command before the selected Item of the Toolbar."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp2
+msgid "If none is selected, the Item will be appended at the end of the Toolbar."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp3
+msgid "You may rearrange Toolbar Items with \"Move Up\" and \"Move Down\" buttons."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp4
+msgid "Hint: to append an Item at the end, use \"Clear selection\""
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaridemainmenu
+msgid "IDE Main Menu"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarmessages
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarmessages"
+msgid "Messages"
+msgstr "Zprávy"
+
+#: lazarusidestrconsts.liscoolbarmoveselecteddown
+msgid "Move selected toolbar item down"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarmoveselectedup
+msgid "Move selected toolbar item up"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaroptions
+msgid "IDE CoolBar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarpackageeditor
+msgid "Package Editor"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarpackageeditorfiles
+msgid "Package Editor Files"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarremoveselected
+msgid "Remove selected item from toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarrestoredefaults
+msgid "Restore defaults"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarselecttoolbar
+msgid "Please select a toolbar first!"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarsourceeditor
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarsourceeditor"
+msgid "Source Editor"
+msgstr "Editor zdrojového kódu"
+
+#: lazarusidestrconsts.liscoolbarsourcetab
+msgid "Source Tab"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbartoolbarcommands
+msgid "Toolbar commands"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarvisible
+msgid "Coolbar is &visible"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarwidth
+msgid "Coolbar width"
+msgstr ""
+
 #: lazarusidestrconsts.liscopy
 msgctxt "lazarusidestrconsts.liscopy"
 msgid "Copy"
@@ -6770,9 +7237,9 @@ msgstr ""
 msgid "Create a project first!"
 msgstr "Vytvořte nejdříve projekt!"
 
-#: lazarusidestrconsts.liscreatedebugandreleasemodes
-msgid "Create Debug and Release modes"
-msgstr "Vytvořit Ladící a Vydávací módy"
+#: lazarusidestrconsts.liscreatedebugandreleasemodesnewproj
+msgid "Create Debug and Release modes for new projects"
+msgstr ""
 
 #: lazarusidestrconsts.liscreatedirectory
 msgid "Create directory?"
@@ -6809,6 +7276,10 @@ msgstr "(Vytvořit nový balíček)"
 #: lazarusidestrconsts.liscreatenewpackagecomponent
 msgid "Create new package component"
 msgstr "(Vytvořit novou komponentu balíčku)"
+
+#: lazarusidestrconsts.liscreatenowforthisproject
+msgid "Create now for this project"
+msgstr ""
 
 #: lazarusidestrconsts.liscreateproject
 msgid "Create project"
@@ -7113,9 +7584,10 @@ msgid "Disable/Enable updates for the entire window"
 msgstr "Zakázat/Povolit změny pro celé okno"
 
 #: lazarusidestrconsts.lisdebug
+#, fuzzy
 msgctxt "lazarusidestrconsts.lisdebug"
 msgid "Debug"
-msgstr ""
+msgstr "Ladění"
 
 #: lazarusidestrconsts.lisdebugger
 msgctxt "lazarusidestrconsts.lisdebugger"
@@ -7419,18 +7891,6 @@ msgstr "Delphi"
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr ""
-
-#: lazarusidestrconsts.lisdelphipackage
-msgid "Delphi package"
-msgstr "Balíček Delphi"
-
-#: lazarusidestrconsts.lisdelphiproject
-msgid "Delphi project"
-msgstr "Projekt Delphi"
-
-#: lazarusidestrconsts.lisdelphiunit
-msgid "Delphi unit"
-msgstr "Jednotka Delphi"
 
 #: lazarusidestrconsts.lisdesigntimepackagesaddcomponentsandmenuitemstotheid
 msgid "\"Design time\" packages add components and menu items to the IDE. They can be used by projects, but are not compiled into the project. The compiler will not find units of this package when compiling the project."
@@ -7805,6 +8265,10 @@ msgstr "Duplicitní zdroje. Smažte jeden nebo se ujistěte, že všechny prohle
 msgid "Duplicate Unit"
 msgstr "Duplicitní Jednotka"
 
+#: lazarusidestrconsts.lisduplicateunitin
+msgid "Duplicate unit \"%s\" in \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lisedit
 msgctxt "lazarusidestrconsts.lisedit"
 msgid "Edit"
@@ -7830,13 +8294,21 @@ msgstr "Upravit klávesu"
 msgid "Editor Colors"
 msgstr "Barvy Editoru"
 
-#: lazarusidestrconsts.liseditorfiletypes
-msgid "Editor file types"
-msgstr "Typy souborů editoru"
-
 #: lazarusidestrconsts.liseditormacros
 msgid "Editor macros"
 msgstr "Návrhář maker"
+
+#: lazarusidestrconsts.liseditortoolbar
+msgid "Editor ToolBar"
+msgstr ""
+
+#: lazarusidestrconsts.liseditortoolbarhint
+msgid "You may add here your favorite commands"
+msgstr ""
+
+#: lazarusidestrconsts.liseditortoolbarvisible
+msgid "EditorToolbar is &visible"
+msgstr ""
 
 #: lazarusidestrconsts.lisedoptsloadascheme
 msgid "Load a scheme"
@@ -8151,7 +8623,9 @@ msgid "Error in the \"unit output directory\":"
 msgstr "Chyba v \"výstupní adresář jednotek\":"
 
 #: lazarusidestrconsts.liserrorinvalidbuildmode
-msgid "ERROR: invalid build mode \"%s\""
+#, fuzzy
+#| msgid "ERROR: invalid build mode \"%s\""
+msgid "Error: (lazarus) invalid build mode \"%s\""
 msgstr "CHYBA: neplatný sestavovací mód \"%s\""
 
 #: lazarusidestrconsts.liserrorloadingfile
@@ -8294,10 +8768,6 @@ msgstr "%s vyjmuto za běhu"
 msgid "Exclude filter"
 msgstr "Filtr vyřazení"
 
-#: lazarusidestrconsts.lisexecutable
-msgid "Executable"
-msgstr "Spustitelný"
-
 #: lazarusidestrconsts.lisexecutableisadirectory
 msgid "executable \"%s\" is a directory"
 msgstr "spustitelný soubor \"%s\" je složka"
@@ -8317,10 +8787,6 @@ msgstr "Vykonávání příkazu před"
 #: lazarusidestrconsts.lisexecutionstopped
 msgid "Execution stopped"
 msgstr "Vykonání zastaveno"
-
-#: lazarusidestrconsts.lisexeprograms
-msgid "Programs"
-msgstr "Programy"
 
 #: lazarusidestrconsts.lisexit
 msgctxt "lazarusidestrconsts.lisexit"
@@ -8452,6 +8918,7 @@ msgid "Failed to save file."
 msgstr "Uložení souboru selhalo."
 
 #: lazarusidestrconsts.lisfatal
+msgctxt "lazarusidestrconsts.lisfatal"
 msgid "Fatal"
 msgstr "Fatální"
 
@@ -8742,6 +9209,10 @@ msgstr "Hledat scházející jednotku"
 msgid "First"
 msgstr "První"
 
+#: lazarusidestrconsts.lisfirsttest
+msgid "&First test"
+msgstr ""
+
 #: lazarusidestrconsts.lisfixlfmfile
 msgid "Fix LFM file"
 msgstr "Opravit LFM soubor"
@@ -8793,10 +9264,6 @@ msgstr ""
 #: lazarusidestrconsts.lisfpcmakefailed
 msgid "fpcmake failed"
 msgstr "fpcmake selhal"
-
-#: lazarusidestrconsts.lisfpcmessagefile
-msgid "FPC message file"
-msgstr "Soubor FPC zpráv"
 
 #: lazarusidestrconsts.lisfpcmessagefile2
 msgid "FPC message file:"
@@ -8921,17 +9388,17 @@ msgstr "Neplatný identifikátor"
 msgid "Rename all References"
 msgstr "Přejmenovat všechny výskyty"
 
-#: lazarusidestrconsts.lisfrirenameto
-msgid "Rename to"
-msgstr "Přejmenovat na"
+#: lazarusidestrconsts.lisfrirenaming
+msgid "Renaming"
+msgstr ""
+
+#: lazarusidestrconsts.lisfrisearch
+msgid "Search"
+msgstr ""
 
 #: lazarusidestrconsts.lisfrisearchincommentstoo
 msgid "Search in comments too"
 msgstr "Hledat také v příkazech"
-
-#: lazarusidestrconsts.lisfrisearchwhere
-msgid "Search where"
-msgstr "Kde hledat"
 
 #: lazarusidestrconsts.lisfull
 msgid "Full"
@@ -8959,10 +9426,9 @@ msgstr ""
 msgid "Goto Line"
 msgstr "Přejít na řádek"
 
-#: lazarusidestrconsts.lisgotoselectedsourceline
-msgctxt "lazarusidestrconsts.lisgotoselectedsourceline"
-msgid "Goto selected source line"
-msgstr "Přejít na vybraný zdrojový řádek"
+#: lazarusidestrconsts.lisgotoselected
+msgid "Goto selected"
+msgstr ""
 
 #: lazarusidestrconsts.lisgplnotice
 msgid ""
@@ -9030,6 +9496,10 @@ msgstr "Narůst na největší"
 msgid "Has Help"
 msgstr "Má nápovědu"
 
+#: lazarusidestrconsts.lisheadercolors
+msgid "Header colors"
+msgstr ""
+
 #: lazarusidestrconsts.lisheadercommentforclass
 msgid "Header comment for class"
 msgstr "Hlavičkový komentář pro třídu"
@@ -9080,6 +9550,7 @@ msgid "Hide with project option (-vm%s)"
 msgstr "Skrýt volbou projektu (-vm%s)"
 
 #: lazarusidestrconsts.lishint
+msgctxt "lazarusidestrconsts.lishint"
 msgid "Hint"
 msgstr "Tip"
 
@@ -9350,6 +9821,7 @@ msgid "Import"
 msgstr "Importovat"
 
 #: lazarusidestrconsts.lisimportant
+msgctxt "lazarusidestrconsts.lisimportant"
 msgid "Important"
 msgstr "Důležité"
 
@@ -9449,6 +9921,10 @@ msgstr "Zděděné parametry"
 msgid "Inherited project component"
 msgstr "Zděděné komponenty projektu"
 
+#: lazarusidestrconsts.lisinitializelocalvariable
+msgid "Initialize Local Variable"
+msgstr ""
+
 #: lazarusidestrconsts.lisinordertocreateacleancopyoftheprojectpackageallfil
 #, fuzzy
 msgid "In order to create a clean copy of the project/package, all files in the following directory will be deleted and all its content will be lost.%sDelete all files in \"%s\"?"
@@ -9458,6 +9934,10 @@ msgstr "Před vytvořením čisté kopie projektu/balíčku budou smazané všec
 msgctxt "lazarusidestrconsts.lisinsert"
 msgid "Insert"
 msgstr "Vložit"
+
+#: lazarusidestrconsts.lisinsertassignment
+msgid "Insert Assignment %s := ..."
+msgstr ""
 
 #: lazarusidestrconsts.lisinsertdate
 msgid "insert date"
@@ -9614,6 +10094,14 @@ msgstr "Neplatný povel"
 msgid "Invalid delete"
 msgstr "Neplatné odebrání"
 
+#: lazarusidestrconsts.lisinvalidexecutable
+msgid "Invalid Executable"
+msgstr ""
+
+#: lazarusidestrconsts.lisinvalidexecutablemessagetext
+msgid "The file \"%s\" is not executable."
+msgstr ""
+
 #: lazarusidestrconsts.lisinvalidexpression
 msgid "Invalid expression:%s%s%s%s"
 msgstr "Neplatný výraz:%s%s%s%s"
@@ -9727,6 +10215,14 @@ msgstr "Jak se to mohlo stát? Chyba v hlavním adresáři:"
 msgctxt "lazarusidestrconsts.lisjhjumphistory"
 msgid "Jump History"
 msgstr "Historie skoků"
+
+#: lazarusidestrconsts.lisjumptoerror
+msgid "Jump to error"
+msgstr ""
+
+#: lazarusidestrconsts.lisjumptoerroratidentifiercompletion
+msgid "When an error in the sources is found at identifier completion, jump to it."
+msgstr ""
 
 #: lazarusidestrconsts.lisjumptoprocedure
 msgid "Jump to procedure %s"
@@ -10310,6 +10806,10 @@ msgstr "Zobrazit zdroj projektu"
 msgid "View Unit Info"
 msgstr "Zobrazit informace o jednotce"
 
+#: lazarusidestrconsts.lislastopened
+msgid "Last opened"
+msgstr ""
+
 #: lazarusidestrconsts.lislaunchingapplicationinvalid
 msgid "Launching application invalid"
 msgstr "Neplatné spouštění aplikace"
@@ -10327,10 +10827,6 @@ msgstr "Lazarus"
 msgid "Lazarus Default"
 msgstr "Lazarus Výchoí"
 
-#: lazarusidestrconsts.lislazarusdesktopsettings
-msgid "Lazarus Desktop Settings"
-msgstr "Nastavení plochy Lazarusu"
-
 #: lazarusidestrconsts.lislazarusdirectory
 msgid "Lazarus directory"
 msgstr "Složka Lazarusu"
@@ -10343,21 +10839,9 @@ msgstr "adresář, který bude použit jako základový"
 msgid "Lazarus IDE v%s"
 msgstr "Lazarus IDE v%s"
 
-#: lazarusidestrconsts.lislazarusfile
-msgid "Lazarus file"
-msgstr "Soubor Lazarusu"
-
-#: lazarusidestrconsts.lislazarusform
-msgid "Lazarus form"
-msgstr "Formulář Lazarusu"
-
 #: lazarusidestrconsts.lislazaruside
 msgid "Lazarus IDE"
 msgstr "Lazarus IDE"
-
-#: lazarusidestrconsts.lislazarusinclude
-msgid "Lazarus include file"
-msgstr "Zahrnutý soubor Lazarusu"
 
 #: lazarusidestrconsts.lislazaruslanguageid
 msgid "Lazarus language ID (e.g. en, de, br, fi)"
@@ -10370,30 +10854,6 @@ msgstr "Jméno jazyka Lazarusu (např. angličtina, čeština)"
 #: lazarusidestrconsts.lislazarusoptionsprojectfilename
 msgid "lazarus [options] <project-filename>"
 msgstr "lazarus [volby] <jméno-projektu>"
-
-#: lazarusidestrconsts.lislazarusotherfile
-msgid "Lazarus other file"
-msgstr "Jiný soubor Lazarusu"
-
-#: lazarusidestrconsts.lislazaruspackage
-msgid "Lazarus package"
-msgstr "Balíček Lazarusu"
-
-#: lazarusidestrconsts.lislazarusproject
-msgid "Lazarus project"
-msgstr "Projekt Lazarusu"
-
-#: lazarusidestrconsts.lislazarusprojectinfofile
-msgid "Lazarus Project Info file"
-msgstr "Informační soubor projektu Lazarusu"
-
-#: lazarusidestrconsts.lislazarusprojectsource
-msgid "Lazarus project source"
-msgstr "Zdrojový soubor Lazarusu"
-
-#: lazarusidestrconsts.lislazarusunit
-msgid "Lazarus unit"
-msgstr "Jednotka Lazarusu"
 
 #: lazarusidestrconsts.lislazbuildaboaction
 msgctxt "lazarusidestrconsts.lislazbuildaboaction"
@@ -10874,6 +11334,10 @@ msgstr ""
 msgid "Manage Source Editors ..."
 msgstr "Spravovat editory zdrojových kódů ..."
 
+#: lazarusidestrconsts.lismaximumnumberofthreadsforcompilinginparalleldefaul
+msgid "Maximum number of threads for compiling in parallel. Default is 0, which guesses the number of cores in the system."
+msgstr ""
+
 #: lazarusidestrconsts.lismaximumparallelprocesses0meansdefault
 msgid "Maximum parallel processes, 0 means default (%s)"
 msgstr ""
@@ -11298,6 +11762,22 @@ msgstr "Skočit na"
 #: lazarusidestrconsts.lismenujumptoimplementation
 msgid "Jump to Implementation"
 msgstr "Skočit na implementaci"
+
+#: lazarusidestrconsts.lismenujumptoimplementationuses
+msgid "Jump to Implementation uses"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptoinitialization
+msgid "Jump to Initialization"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptointerface
+msgid "Jump to Interface"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptointerfaceuses
+msgid "Jump to Interface uses"
+msgstr ""
 
 #: lazarusidestrconsts.lismenujumptonextbookmark
 msgid "Jump to Next Bookmark"
@@ -12107,6 +12587,10 @@ msgctxt "lazarusidestrconsts.lismore"
 msgid "More"
 msgstr "Více"
 
+#: lazarusidestrconsts.lismore2
+msgid "More ..."
+msgstr ""
+
 #: lazarusidestrconsts.lismoresub
 msgctxt "lazarusidestrconsts.lismoresub"
 msgid "More >>"
@@ -12171,6 +12655,10 @@ msgstr "Přesunt těchto unit rozbije jejich sekce uses. Podívej se do okna Zpr
 #: lazarusidestrconsts.lisms
 msgid "(ms)"
 msgstr "(ms)"
+
+#: lazarusidestrconsts.lismsgcolors
+msgid "Message colors"
+msgstr ""
 
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
@@ -12384,6 +12872,7 @@ msgid "Not a valid Pascal identifier"
 msgstr "Neplatný pascalovský identifikátor"
 
 #: lazarusidestrconsts.lisnote
+msgctxt "lazarusidestrconsts.lisnote"
 msgid "Note"
 msgstr "Poznámka"
 
@@ -12693,6 +13182,12 @@ msgstr ""
 msgid "Open XML"
 msgstr "Otevřít XML"
 
+#: lazarusidestrconsts.lisoptions
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisoptions"
+msgid "Options"
+msgstr "Volby"
+
 #: lazarusidestrconsts.lisoptionschangedrecompilingcleanwithb
 msgid "Options changed, recompiling clean with -B"
 msgstr "Volby změněny, čisté překládání s -B"
@@ -12789,6 +13284,10 @@ msgstr "Výstupní adresář balíčků"
 msgid "Package source directories"
 msgstr "Zdrojový adresář balíčků"
 
+#: lazarusidestrconsts.lispackagesunitsidentifierslinesbytes
+msgid "packages=%s/%s units=%s/%s identifiers=%s/%s lines=%s bytes=%s"
+msgstr ""
+
 #: lazarusidestrconsts.lispackageunit
 msgid "package unit"
 msgstr "jednotka balíčku"
@@ -12806,6 +13305,7 @@ msgid "Page name \"%s\" already exists. Not added."
 msgstr ""
 
 #: lazarusidestrconsts.lispanic
+msgctxt "lazarusidestrconsts.lispanic"
 msgid "Panic"
 msgstr "Panika"
 
@@ -12816,10 +13316,6 @@ msgstr ", zanalyzovný "
 #: lazarusidestrconsts.lisparser
 msgid "parser \"%s\": %s"
 msgstr "parser \"%s\":%s"
-
-#: lazarusidestrconsts.lispascalfile
-msgid "Pascal file"
-msgstr "Soubor Pascalu"
 
 #: lazarusidestrconsts.lispasscount
 msgid "Pass Count"
@@ -12836,6 +13332,10 @@ msgstr "vložit schránku"
 
 #: lazarusidestrconsts.lispastefromclipboard
 msgid "Paste from clipboard"
+msgstr ""
+
+#: lazarusidestrconsts.lispastelcolors
+msgid "Pastel Colors"
 msgstr ""
 
 #: lazarusidestrconsts.lispath
@@ -12912,8 +13412,8 @@ msgstr "Vyčistit pro použití jména balíčku"
 msgid "Disable I18N of lfm"
 msgstr "Zakázat I18N v lfm"
 
-#: lazarusidestrconsts.lispckeditaddfiles
-msgid "Add files from the file system"
+#: lazarusidestrconsts.lispckeditaddfilesfromfilesystem
+msgid "Add Files from File System"
 msgstr ""
 
 #: lazarusidestrconsts.lispckeditaddotheritems
@@ -12971,7 +13471,9 @@ msgid "Dependency Properties"
 msgstr "Vlastnosti závislosti"
 
 #: lazarusidestrconsts.lispckediteditgeneraloptions
-msgid "Edit General Options"
+#, fuzzy
+#| msgid "Edit General Options"
+msgid "Edit general options"
 msgstr "Upravit obecné nastavení"
 
 #: lazarusidestrconsts.lispckeditfileproperties
@@ -12981,10 +13483,6 @@ msgstr "Vlastnosti souboru"
 #: lazarusidestrconsts.lispckeditinstall
 msgid "Install"
 msgstr "Instalovat"
-
-#: lazarusidestrconsts.lispckeditinstallpackageintheide
-msgid "Install package in the IDE"
-msgstr "Instalovat balíček do IDE"
 
 #: lazarusidestrconsts.lispckeditinvalidmaximumversion
 msgid "Invalid maximum version"
@@ -13436,9 +13934,9 @@ msgstr "Navrátit balíček?"
 msgid "The file \"%s\"%sis currently not in the unit path of the package.%sAdd \"%s\" to unit path?"
 msgstr "Soubor \"%s\"%snení aktuálně v cestě jednotek balíčku.%sPřidat \"%s\" do cesty jednotek?"
 
-#: lazarusidestrconsts.lispkgedtherearemorefunctionsinthepopupmenu
-msgid "There are more functions in the popupmenu"
-msgstr "V roletovém menu je více funkcí"
+#: lazarusidestrconsts.lispkgedmorefunctionsforthepackage
+msgid "More functions for the package"
+msgstr ""
 
 #: lazarusidestrconsts.lispkgfiletypebinary
 msgctxt "lazarusidestrconsts.lispkgfiletypebinary"
@@ -13522,9 +14020,9 @@ msgstr "Porušená závislost"
 msgid "Circular dependencies found"
 msgstr "Nalezeny kruhové závislosti"
 
-#: lazarusidestrconsts.lispkgmangcompilingpackage
-msgid "Compiling package %s"
-msgstr "Překládání balíčku %s"
+#: lazarusidestrconsts.lispkgmangcompilepackage
+msgid "Compile package %s"
+msgstr ""
 
 #: lazarusidestrconsts.lispkgmangdeletefailed
 msgid "Delete failed"
@@ -14048,13 +14546,13 @@ msgstr "Celkový"
 msgid "Package Links"
 msgstr "Odkazy balíčku"
 
-#: lazarusidestrconsts.lispldshowgloballinks
-msgid "Show global links"
-msgstr "Ukázat celkové odkazy"
+#: lazarusidestrconsts.lispldshowgloballinksin
+msgid "Show global links in "
+msgstr ""
 
-#: lazarusidestrconsts.lispldshowuserlinks
-msgid "Show user links"
-msgstr "Ukázat uživatelské odkazy"
+#: lazarusidestrconsts.lispldshowuserlinksin
+msgid "Show user links in "
+msgstr ""
 
 #: lazarusidestrconsts.lisplduser
 msgid "User"
@@ -14148,6 +14646,10 @@ msgstr "Uložit informace o sezení"
 msgid ".lpi is the project main info file, .lps is a separate file for session data only."
 msgstr ""
 
+#: lazarusidestrconsts.lisposition
+msgid "Position"
+msgstr ""
+
 #: lazarusidestrconsts.lispositionoutsideofsource
 #, fuzzy
 #| msgid "%s (position outside of source"
@@ -14156,6 +14658,10 @@ msgstr "%s (pozice vně zdroje"
 
 #: lazarusidestrconsts.lisppuinwrongdirectory
 msgid "ppu in wrong directory=%s."
+msgstr ""
+
+#: lazarusidestrconsts.lisppunotfoundcheckyourfpccfg
+msgid "%s.ppu not found. Check your fpc.cfg."
 msgstr ""
 
 #: lazarusidestrconsts.lisprecedingword
@@ -15182,6 +15688,10 @@ msgstr ""
 msgid "Scanning"
 msgstr "Prohledávání"
 
+#: lazarusidestrconsts.lisscanning2
+msgid "%s. Scanning ..."
+msgstr ""
+
 #: lazarusidestrconsts.lisscanparentdir
 msgid "Scanning parent directory"
 msgstr "Prohledávání nadřazeného adresáře"
@@ -15201,6 +15711,10 @@ msgstr "druhotná konfigurační složka, kde Lazarus hledá šablony konfigura�
 #: lazarusidestrconsts.lissecondaryconfigpath
 msgid "Secondary config path"
 msgstr "Druhotná konfigurační cesta"
+
+#: lazarusidestrconsts.lissecondtest
+msgid "&Second test"
+msgstr ""
 
 #: lazarusidestrconsts.lisseemessages
 msgid "See messages."
@@ -15318,6 +15832,10 @@ msgstr "Toto nastavte k překládání zpráv překladače do jiného jazyka (mi
 #: lazarusidestrconsts.lissetupdefaultindentation
 msgid "(Set up default indentation)"
 msgstr "(Nastavení výchozího odsazování)"
+
+#: lazarusidestrconsts.lissetutf8inrtl
+msgid "Set UTF-8 in RTL"
+msgstr ""
 
 #: lazarusidestrconsts.lisshort
 msgid "Short:"
@@ -15491,6 +16009,10 @@ msgstr "Přeskočit soubor a pokračovat v načítání"
 #: lazarusidestrconsts.lisskiploadinglastproject
 msgid "Skip loading last project"
 msgstr "Přeskočit načtení posledního projektu"
+
+#: lazarusidestrconsts.lisskipthesewarnings
+msgid "Skip these warnings"
+msgstr ""
 
 #: lazarusidestrconsts.lisslowerbutmoreaccurate
 msgid "Slower but more accurate."
@@ -15722,10 +16244,6 @@ msgstr ""
 #: lazarusidestrconsts.lissuggestdefaultnameofnewfileinlowercase
 msgid "Suggest default name of new file in lowercase"
 msgstr "Navrhnout přednastavené jméno nového souboru malými písmeny"
-
-#: lazarusidestrconsts.lissupportutf8rtl
-msgid "Support UTF-8 RTL"
-msgstr ""
 
 #: lazarusidestrconsts.lissuspiciousincludepath
 msgid "Suspicious include path"
@@ -16372,6 +16890,10 @@ msgstr "Cesta hledání jednotek \"%s\" obsahuje zdrojový adresář \"%s\" bal�
 msgid "The working directory \"%s\" does not exist.%sPlease check the working directory in Menu > Run > Run parameters."
 msgstr "Pracovní adresář \"%s\" neexistuje.%sProsím, zkontrolujte pracovní adresář v Spustit -> Parametry spuštění."
 
+#: lazarusidestrconsts.listhisbuildmodenowsetsutf8inthertlflagsareinpagesoth
+msgid "This build mode now sets UTF-8 in the RTL.%s Flags are in pages \"Other\" and \"Additions and Overrides\"."
+msgstr ""
+
 #: lazarusidestrconsts.listhiscomponentalreadycontainsaclasswiththename
 msgid "This component already contains a class with the name %s."
 msgstr "Tato komponenta už obsahuje třídu s názvem %s."
@@ -16408,6 +16930,10 @@ msgstr "Tato kombinace voleb sestavení Lazarusu není podporována touto instal
 #: lazarusidestrconsts.listhisstatementcannotbeextractedpleaseselectsomecode
 msgid "This statement can not be extracted.%sPlease select some code to extract a new procedure/method."
 msgstr "Tento příkaz nelze vyjmout.%sProsím, vyberte nějaký kód pro vyjmutí procedury/metody."
+
+#: lazarusidestrconsts.listhiswillallowchangingallbuildmodesatoncenotimpleme
+msgid "This will allow changing all build modes at once. Not implemented yet."
+msgstr ""
 
 #: lazarusidestrconsts.listhiswillcreateacirculardependency
 msgid "This will create a circular dependency."
@@ -16467,6 +16993,10 @@ msgstr "Titulek v panelu úloh zobrazí například: projekt1.lpi - Lazarus"
 msgid "Title (leave empty for default)"
 msgstr "Název (nechejte prázdné pro výchozí)"
 
+#: lazarusidestrconsts.listitleopencomponenticon24x24
+msgid "Choose a component icon 24x24"
+msgstr ""
+
 #: lazarusidestrconsts.listmfunctionappendpathdelimiter
 msgid "Function: append path delimiter"
 msgstr "Funkce: připojit oddělovač cesty"
@@ -16503,6 +17033,34 @@ msgstr "Cesta:"
 msgid "Toggle showing filenames with full path or with relative path"
 msgstr "Přepnout zobrazení názvů souborů s plnou cestou nebo s relativní cestou"
 
+#: lazarusidestrconsts.listoolbarconfiguration
+msgid "Toolbar Configuration"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptions
+msgid "Toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionshighlight
+msgid "Highlight toolbars buttons"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsraise
+msgid "Raise toolbars"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsstandardvisible
+msgid "Standard toolbar visible"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionstoolbarsvisible
+msgid "Toolbars visible"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsviewdebugvisible
+msgid "Debug toolbar visible"
+msgstr ""
+
 #: lazarusidestrconsts.listoolhasnoexecutable
 msgid "tool \"%s\" has no executable"
 msgstr "nástroj \"%s\" nemá spustitelný soubor"
@@ -16527,6 +17085,12 @@ msgstr "Hlavička Nástroje: Úspěch"
 msgid "tool stopped with exit code %s. Use context menu to get more information."
 msgstr "nástro skončil s kódem %s. Použijte kontextové menu pro více informací."
 
+#: lazarusidestrconsts.listop
+#, fuzzy
+msgctxt "lazarusidestrconsts.listop"
+msgid "Top"
+msgstr "Nahoře"
+
 #: lazarusidestrconsts.listopanchoring
 msgid "Top anchoring"
 msgstr "Přichycení nahoru"
@@ -16550,6 +17114,10 @@ msgstr "Toto je sourozenec prvku, k jehož horní straně je ukotvený. Ponechte
 #: lazarusidestrconsts.listopspaceequally
 msgid "Top space equally"
 msgstr "Horní mezery stejně"
+
+#: lazarusidestrconsts.listotalpages
+msgid "Total Pages: %s"
+msgstr ""
 
 #: lazarusidestrconsts.listranslatetheenglishmessages
 msgid "Translate the English Messages"
@@ -16752,7 +17320,9 @@ msgid "Included by:"
 msgstr "Zahrnut tímto:"
 
 #: lazarusidestrconsts.lisuidinproject
-msgid "in Project:"
+#, fuzzy
+#| msgid "in Project:"
+msgid "In project:"
 msgstr "v projektu:"
 
 #: lazarusidestrconsts.lisuidlines
@@ -17370,6 +17940,7 @@ msgid "Variable"
 msgstr "Proměnná"
 
 #: lazarusidestrconsts.lisverbose
+msgctxt "lazarusidestrconsts.lisverbose"
 msgid "Verbose"
 msgstr "Výřečný"
 
@@ -17607,10 +18178,6 @@ msgstr "špatná verze v %s: %s"
 msgid "XML Error"
 msgstr "Chyba XML"
 
-#: lazarusidestrconsts.lisxmlfiles
-msgid "XML files"
-msgstr "XML soubory"
-
 #: lazarusidestrconsts.lisxmlparsererrorinfileerror
 msgid "XML parser error in file %s%sError: %s"
 msgstr "Chyba XML analyzátoru v souboru %s%sChyba: %s"
@@ -17755,10 +18322,6 @@ msgstr "Zadejte PID"
 #: lazarusidestrconsts.rsfilterthelistwithstring
 msgid "Filter the lines in list with a string"
 msgstr "Filtrovat řádky v seznamu s řetězcem"
-
-#: lazarusidestrconsts.rsformdatafiledfm
-msgid "Form data file (*.dfm)|*.dfm"
-msgstr "Datový soubor formuláře (*.dfm)|*.dfm"
 
 #: lazarusidestrconsts.rsfoundbutnotlistedhere
 msgid "Found, but not listed here: "
@@ -18037,6 +18600,10 @@ msgstr "Makra"
 #: lazarusidestrconsts.srkmcatmarker
 msgid "Text marker commands"
 msgstr "Příkazy označení textu"
+
+#: lazarusidestrconsts.srkmcatmulticaret
+msgid "Multi caret commands"
+msgstr ""
 
 #: lazarusidestrconsts.srkmcatpackagemenu
 msgid "Package menu commands"
@@ -18600,6 +19167,18 @@ msgctxt "lazarusidestrconsts.srkmecinvertassignment"
 msgid "Invert Assignment"
 msgstr "Převrátit přiřazení"
 
+#: lazarusidestrconsts.srkmeckeymapleft
+#, fuzzy
+msgctxt "lazarusidestrconsts.srkmeckeymapleft"
+msgid "Left"
+msgstr "Vlevo"
+
+#: lazarusidestrconsts.srkmeckeymapright
+#, fuzzy
+msgctxt "lazarusidestrconsts.srkmeckeymapright"
+msgid "Right"
+msgstr "Vpravo"
+
 #: lazarusidestrconsts.srkmecleft
 msgid "Move cursor left"
 msgstr "Přesunout kurzor vlevo"
@@ -18723,6 +19302,30 @@ msgstr "Vložit schránku na aktuální pozici"
 #: lazarusidestrconsts.srkmecpause
 msgid "pause program"
 msgstr "pozastavit program"
+
+#: lazarusidestrconsts.srkmecpluginmulticaretclearall
+msgid "Clear all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretmodecancelonmove
+msgid "Cursor keys clear all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretmodemoveall
+msgid "Cursor keys move all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretsetcaret
+msgid "Add extra caret"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretunsetcaret
+msgid "Remove extra caret"
+msgstr ""
 
 #: lazarusidestrconsts.srkmecprevbookmark
 msgid "Previous Bookmark"
@@ -19292,6 +19895,10 @@ msgstr "Přesunout ukazatel o slovo doprava"
 msgid "Edit keys of command"
 msgstr "Upravit klávesy povelů"
 
+#: lazarusidestrconsts.synfcontinuewithnextmouseupaction
+msgid "Continue with next mouse up action"
+msgstr ""
+
 #: lazarusidestrconsts.synffoldcomments
 msgid "Fold comments"
 msgstr "Složit komentáře"
@@ -19323,6 +19930,26 @@ msgstr "Skrýt komentáře"
 #: lazarusidestrconsts.synfhidecommentsinselection
 msgid "Hide comments in selection"
 msgstr "Skrýt komentáře ve výběru"
+
+#: lazarusidestrconsts.synfmatchactionbuttonofmousedown
+msgid "Match action button of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionlineofmousedown
+msgid "Match action line of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionmodifiersofmousedown
+msgid "Match action modifiers of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionposofmousedown
+msgid "Match action pos of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfsearchallactionofmousedown
+msgid "Search all action of mouse down"
+msgstr ""
 
 #: lazarusidestrconsts.synfunfoldactiveifdef
 msgid "Unfold active Ifdef"

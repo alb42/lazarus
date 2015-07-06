@@ -1005,8 +1005,15 @@ begin
   {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
   WriteLn('> ** TQtWidgetSet.FocusChanged: old: ', dbgHex(PtrUInt(aold)), ' new: ', dbgHex(PtrUInt(anew)));
   {$ENDIF}
-  OldWidget := GetFirstQtObjectFromWidgetH(aold);
-  NewWidget := GetFirstQtObjectFromWidgetH(anew);
+  if (AOld <> nil) and not QWidget_isVisible(AOld) then
+    OldWidget := nil
+  else
+    OldWidget := GetFirstQtObjectFromWidgetH(aold);
+
+  if (ANew <> nil) then
+    NewWidget := GetFirstQtObjectFromWidgetH(anew)
+  else
+    NewWidget := nil;
 
   if OldWidget = NewWidget then
   begin
@@ -1225,7 +1232,6 @@ end;
 
 procedure TQtWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
 var
-  ASavedColor: TQColor;
   Color: TQColor;
   ColorRef: TColorRef;
   Pen: QPenH;
@@ -1235,13 +1241,18 @@ begin
   begin
     // WriteLn('TQtWidgetSet.DCSetPixel X=',X,' Y=',Y, ' AColor=',dbghex(AColor),' rgb ? ',dbgHex(ColorToRGB(AColor)));
     Painter := TQtDeviceContext(CanvasHandle).Widget;
-    Pen := QPainter_pen(Painter);
-    QPen_color(Pen, @ASavedColor);
-    ColorRef := TColorRef(ColorToRGB(AColor));
-    QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
-    QPainter_setPen(Painter, @Color);
-    QPainter_drawPoint(Painter, X,Y);
-    QPainter_setPen(Painter, @ASavedColor);
+    {Save current pen.Better save copy of pen instead of
+     using painter save/restore, or saved Pen in devicecontext which
+     may be null. Issue #27620}
+    Pen := QPen_create(QPainter_pen(Painter));
+    try
+      ColorRef := TColorRef(ColorToRGB(AColor));
+      QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
+      QPainter_setPen(Painter, @Color);
+      QPainter_drawPoint(Painter, X,Y);
+    finally
+      QPainter_setPen(Painter, Pen);
+    end;
   end;
 end;
 

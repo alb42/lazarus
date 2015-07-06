@@ -34,14 +34,15 @@ interface
 uses
   // LCL FCL
   Classes, SysUtils, Forms, Controls, StdCtrls, ComCtrls, Buttons, Graphics,
-  LCLType, LCLProc, Menus, Dialogs, FileUtil, LazFileCache, ExtCtrls,
+  LCLType, LCLProc, Menus, Dialogs, FileUtil, LazFileUtils, LazFileCache, ExtCtrls,
   contnrs,
   // IDEIntf CodeTools
-  CodeToolManager, CodeCache, CodeTree,
+  CodeToolManager, CodeCache,
   TreeFilterEdit,
   IDEImagesIntf, MenuIntf, LazIDEIntf, ProjectIntf, CodeToolsStructs,
-  FormEditingIntf, PackageIntf, IDEHelpIntf, IDEOptionsIntf, SrcEditorIntf,
-  IDEMsgIntf, IDEExternToolIntf,
+  FormEditingIntf, PackageIntf, IDEHelpIntf, IDEOptionsIntf,
+  IDEExternToolIntf,
+  NewItemIntf,
   // IDE
   IDEDialogs, IDEProcs, LazarusIDEStrConsts, IDEDefs, CompilerOptions,
   ComponentReg, UnitResources, EnvironmentOpts, DialogProcs, InputHistory,
@@ -176,6 +177,12 @@ type
   { TPackageEditorForm }
 
   TPackageEditorForm = class(TBasePackageEditor,IFilesEditorInterface)
+    MenuItem1: TMenuItem;
+    mnuAddDiskFile: TMenuItem;
+    mnuAddDiskFiles: TMenuItem;
+    mnuAddNewFile: TMenuItem;
+    mnuAddNewComp: TMenuItem;
+    mnuAddNewReqr: TMenuItem;
     MoveDownBtn: TSpeedButton;
     MoveUpBtn: TSpeedButton;
     DirectoryHierarchyButton: TSpeedButton;
@@ -183,6 +190,7 @@ type
     DisableI18NForLFMCheckBox: TCheckBox;
     FilterEdit: TTreeFilterEdit;
     FilterPanel: TPanel;
+    AddPopupMenu: TPopupMenu;
     SortAlphabeticallyButton: TSpeedButton;
     Splitter1: TSplitter;
     // toolbar
@@ -192,7 +200,6 @@ type
     CompileBitBtn: TToolButton;
     UseBitBtn: TToolButton;
     AddBitBtn: TToolButton;
-    AddMoreBitBtn: TToolButton;
     RemoveBitBtn: TToolButton;
     OptionsBitBtn: TToolButton;
     MoreBitBtn: TToolButton;
@@ -219,7 +226,6 @@ type
     ItemsPopupMenu: TPopupMenu;
     MorePopupMenu: TPopupMenu;
     procedure AddBitBtnClick(Sender: TObject);
-    procedure AddMoreBitBtnClick(Sender: TObject);
     procedure AddToProjectClick(Sender: TObject);
     procedure AddToUsesPkgSectionCheckBoxChange(Sender: TObject);
     procedure ApplyDependencyButtonClick(Sender: TObject);
@@ -244,12 +250,16 @@ type
     procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
     procedure ItemsPopupMenuPopup(Sender: TObject);
     procedure ItemsTreeViewAdvancedCustomDrawItem(Sender: TCustomTreeView;
-      Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
-      var PaintImages, DefaultDraw: Boolean);
+      Node: TTreeNode; {%H-}State: TCustomDrawState; Stage: TCustomDrawStage;
+      var {%H-}PaintImages, {%H-}DefaultDraw: Boolean);
     procedure ItemsTreeViewDragDrop(Sender, Source: TObject; X, Y: Integer);
     procedure ItemsTreeViewDragOver(Sender, Source: TObject; X, Y: Integer;
       State: TDragState; var Accept: Boolean);
     procedure ItemsTreeViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure mnuAddDiskFilesClick(Sender: TObject);
+    procedure mnuAddNewCompClick(Sender: TObject);
+    procedure mnuAddNewReqrClick(Sender: TObject);
+    procedure mnuAddNewFileClick(Sender: TObject);
     procedure MorePopupMenuPopup(Sender: TObject);
     procedure ItemsTreeViewDblClick(Sender: TObject);
     procedure ItemsTreeViewSelectionChanged(Sender: TObject);
@@ -260,15 +270,15 @@ type
     procedure MinVersionEditChange(Sender: TObject);
     procedure MoveDownBtnClick(Sender: TObject);
     procedure MoveUpBtnClick(Sender: TObject);
-    procedure OnIdle(Sender: TObject; var Done: Boolean);
+    procedure OnIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure OpenFileMenuItemClick(Sender: TObject);
     procedure OptionsBitBtnClick(Sender: TObject);
-    procedure PackageEditorFormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure PackageEditorFormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure PackageEditorFormCloseQuery(Sender: TObject; var CanClose: boolean);
     procedure PublishClick(Sender: TObject);
     procedure ReAddMenuItemClick(Sender: TObject);
-    procedure RegisteredListBoxDrawItem(Control: TWinControl; Index: Integer;
-                                        ARect: TRect; State: TOwnerDrawState);
+    procedure RegisteredListBoxDrawItem({%H-}Control: TWinControl; Index: Integer;
+                                        ARect: TRect; {%H-}State: TOwnerDrawState);
     procedure RemoveBitBtnClick(Sender: TObject);
     procedure RevertClick(Sender: TObject);
     procedure SaveAsClick(Sender: TObject);
@@ -304,6 +314,7 @@ type
     fUpdateLock: integer;
     fForcedFlags: TPEFlags;
     function AddOneFile(aFilename: string; var NewUnitPaths, NewIncPaths: String): TModalResult;
+    procedure DoAddNewFile(NewItem: TNewIDEItemTemplate);
     procedure FreeNodeData(Typ: TPENodeType);
     function CreateNodeData(Typ: TPENodeType; aName: string; aRemoved: boolean): TPENodeData;
     procedure SetDependencyDefaultFilename(AsPreferred: boolean);
@@ -311,7 +322,8 @@ type
     procedure SetShowDirectoryHierarchy(const AValue: boolean);
     procedure SetSortAlphabetically(const AValue: boolean);
     procedure SetupComponents;
-    function OnTreeViewGetImageIndex(Str: String; Data: TObject; var AIsEnabled: Boolean): Integer;
+    function OnTreeViewGetImageIndex({%H-}Str: String; Data: TObject; var {%H-}AIsEnabled: Boolean): Integer;
+    procedure ShowAddDialogEx(AType: TAddToPkgType);
     procedure UpdateNodeImage(TVNode: TTreeNode; NodeData: TPENodeData);
     procedure UpdatePending;
     function CanUpdate(Flag: TPEFlag; Immediately: boolean): boolean;
@@ -508,6 +520,9 @@ var
 procedure RegisterStandardPackageEditorMenuItems;
 
 implementation
+
+uses
+  NewDialog;
 
 {$R *.lfm}
 
@@ -996,6 +1011,41 @@ begin
 
   if Handled then
     Key := VK_UNKNOWN;
+end;
+
+procedure TPackageEditorForm.ShowAddDialogEx(AType: TAddToPkgType);
+begin
+  if LazPackage=nil then exit;
+  BeginUpdate;
+  try
+    ShowAddDialog(AType);
+  finally
+    EndUpdate;
+  end;
+end;
+
+procedure TPackageEditorForm.mnuAddDiskFilesClick(Sender: TObject);
+begin
+  ShowAddDialogEx(d2ptFiles);
+end;
+
+procedure TPackageEditorForm.mnuAddNewCompClick(Sender: TObject);
+begin
+  ShowAddDialogEx(d2ptNewComponent);
+end;
+
+procedure TPackageEditorForm.mnuAddNewReqrClick(Sender: TObject);
+begin
+  ShowAddDialogEx(d2ptRequiredPkg);
+end;
+
+procedure TPackageEditorForm.mnuAddNewFileClick(Sender: TObject);
+var
+  NewItem: TNewIDEItemTemplate;
+begin
+  // Reuse the "New..." dialog for "Add new file".
+  if ShowNewIDEItemDialog(NewItem, true)=mrOk then
+    DoAddNewFile(NewItem);
 end;
 
 procedure TPackageEditorForm.ItemsTreeViewSelectionChanged(Sender: TObject);
@@ -1527,12 +1577,13 @@ begin
     OpenDialog.Title:=lisOpenFile;
     OpenDialog.Options:=OpenDialog.Options
                           +[ofFileMustExist,ofPathMustExist,ofAllowMultiSelect];
-    OpenDialog.Filter:=dlgAllFiles+' ('+GetAllFilesMask+')|'+GetAllFilesMask
-                 +'|'+lisLazarusUnit+' (*.pas;*.pp)|*.pas;*.pp'
-                 +'|'+lisLazarusProject+' (*.lpi)|*.lpi'
-                 +'|'+lisLazarusForm+' (*.lfm;*.dfm)|*.lfm;*.dfm'
-                 +'|'+lisLazarusPackage+' (*.lpk)|*.lpk'
-                 +'|'+lisLazarusProjectSource+' (*.lpr)|*.lpr';
+    OpenDialog.Filter:=
+      dlgFilterAll+' ('+GetAllFilesMask+')|'+GetAllFilesMask
+      +'|'+dlgFilterLazarusUnit+' (*.pas;*.pp)|*.pas;*.pp'
+      +'|'+dlgFilterLazarusProject+' (*.lpi)|*.lpi'
+      +'|'+dlgFilterLazarusForm+' (*.lfm;*.dfm)|*.lfm;*.dfm'
+      +'|'+dlgFilterLazarusPackage+' (*.lpk)|*.lpk'
+      +'|'+dlgFilterLazarusProjectSource+' (*.lpr)|*.lpr';
     if OpenDialog.Execute then begin
       NewUnitPaths:='';
       NewIncPaths:='';
@@ -1546,17 +1597,6 @@ begin
     end;
   finally
     OpenDialog.Free;
-  end;
-end;
-
-procedure TPackageEditorForm.AddMoreBitBtnClick(Sender: TObject);
-begin
-  if LazPackage=nil then exit;
-  BeginUpdate;
-  try
-    ShowAddDialog(fLastDlgPage);
-  finally
-    EndUpdate;
   end;
 end;
 
@@ -1692,23 +1732,18 @@ begin
   CurItem:=TIDEMenuCommand(Sender);
   for CurPFT:=Low(TPkgFileType) to High(TPkgFileType) do begin
     if CurItem.Caption=GetPkgFileTypeLocalizedName(CurPFT) then begin
-      BeginUpdate;
-      try
-        for i:=0 to ItemsTreeView.SelectionCount-1 do begin
-          TVNode:=ItemsTreeView.Selections[i];
-          if not GetNodeDataItem(TVNode,NodeData,Item) then continue;
-          if not (Item is TPkgFile) then continue;
-          CurFile:=TPkgFile(Item);
-          if CurFile.FileType=CurPFT then continue;
-          if (not FilenameIsPascalUnit(CurFile.Filename))
-          and (CurPFT in PkgFileUnitTypes) then
-            continue;
-          CurFile.FileType:=CurPFT;
-          if not NodeData.Removed then
-            LazPackage.Modified:=true;
-        end;
-      finally
-        EndUpdate;
+      for i:=0 to ItemsTreeView.SelectionCount-1 do begin
+        TVNode:=ItemsTreeView.Selections[i];
+        if not GetNodeDataItem(TVNode,NodeData,Item) then continue;
+        if not (Item is TPkgFile) then continue;
+        CurFile:=TPkgFile(Item);
+        if CurFile.FileType=CurPFT then continue;
+        if (not FilenameIsPascalUnit(CurFile.Filename))
+        and (CurPFT in PkgFileUnitTypes) then
+          continue;
+        CurFile.FileType:=CurPFT;
+        if not NodeData.Removed then
+          LazPackage.ModifySilently;
       end;
       exit;
     end;
@@ -1869,17 +1904,24 @@ begin
 
   SaveBitBtn    := CreateToolButton('SaveBitBtn', lisMenuSave, lisPckEditSavePackage, 'laz_save', @SaveBitBtnClick);
   CompileBitBtn := CreateToolButton('CompileBitBtn', lisCompile, lisPckEditCompilePackage, 'pkg_compile', @CompileBitBtnClick);
-  UseBitBtn     := CreateToolButton('UseBitBtn', lisPckEditInstall, lisPckEditInstallPackageInTheIDE, 'pkg_install', nil);
+  UseBitBtn     := CreateToolButton('UseBitBtn', lisUseSub, lisClickToSeeTheChoices, 'pkg_install', nil);
   CreateDivider;
-  AddBitBtn     := CreateToolButton('AddBitBtn', lisAdd, lisPckEditAddFiles, 'laz_add', @AddBitBtnClick);
-  AddMoreBitBtn := CreateToolButton('AddMoreBitBtn', lisDlgAdd, lisPckEditAddOtherItems, 'laz_addmore', @AddMoreBitBtnClick);
+  AddBitBtn     := CreateToolButton('AddBitBtn', lisAddSub, lisClickToSeeTheChoices, 'laz_add', nil);
   RemoveBitBtn  := CreateToolButton('RemoveBitBtn', lisRemove, lisPckEditRemoveSelectedItem, 'laz_delete', @RemoveBitBtnClick);
   CreateDivider;
-  OptionsBitBtn := CreateToolButton('OptionsBitBtn', dlgFROpts, lisPckEditEditGeneralOptions, 'pkg_properties', @OptionsBitBtnClick);
-  HelpBitBtn    := CreateToolButton('HelpBitBtn', GetButtonCaption(idButtonHelp), lisPkgEdThereAreMoreFunctionsInThePopupmenu, 'menu_help', @HelpBitBtnClick);
-  MoreBitBtn    := CreateToolButton('MoreBitBtn', lisMoreSub, lisPkgEdThereAreMoreFunctionsInThePopupmenu, '', nil);
+  OptionsBitBtn := CreateToolButton('OptionsBitBtn', lisOptions, lisPckEditEditGeneralOptions, 'pkg_properties', @OptionsBitBtnClick);
+  HelpBitBtn    := CreateToolButton('HelpBitBtn', GetButtonCaption(idButtonHelp), lisMenuOnlineHelp, 'menu_help', @HelpBitBtnClick);
+  MoreBitBtn    := CreateToolButton('MoreBitBtn', lisMoreSub, lisPkgEdMoreFunctionsForThePackage, '', nil);
 
+  UseBitBtn.DropdownMenu := UsePopupMenu;
+  AddBitBtn.DropdownMenu := AddPopupMenu;
   MoreBitBtn.DropdownMenu := MorePopupMenu;
+
+  mnuAddDiskFile.Caption := lisPckEditAddFilesFromFileSystem;
+  mnuAddDiskFiles.Caption := lisAddFilesInDirectory;
+  mnuAddNewFile.Caption := lisA2PNewFile;
+  mnuAddNewComp.Caption := lisA2PNewComponent;
+  mnuAddNewReqr.Caption := lisProjAddNewRequirement;
 
   // Buttons on FilterPanel
   OpenButton.LoadGlyphFromResourceName(HInstance, 'laz_open');
@@ -2002,8 +2044,52 @@ begin
       pefNeedUpdateButtons,
       pefNeedUpdateApplyDependencyButton,
       pefNeedUpdateStatusBar];
-  IdleConnected:=true;
+  if Immediately then
+    UpdatePending
+  else
+    IdleConnected:=true;
 end;
+
+procedure TPackageEditorForm.DoAddNewFile(NewItem: TNewIDEItemTemplate);
+var
+  NewFilename: String;
+  DummyResult: TModalResult;
+  NewFileType: TPkgFileType;
+  NewPkgFileFlags: TPkgFileFlags;
+  Desc: TProjectFileDescriptor;
+  NewUnitName: String;
+  HasRegisterProc: Boolean;
+begin
+  if NewItem is TNewItemProjectFile then begin
+    // create new file
+    Desc:=TNewItemProjectFile(NewItem).Descriptor;
+    NewFilename:='';
+    DummyResult:=LazarusIDE.DoNewFile(Desc,NewFilename,'',
+      [nfOpenInEditor,nfCreateDefaultSrc,nfIsNotPartOfProject],LazPackage);
+    if DummyResult=mrOk then begin
+      // success -> now add it to package
+      NewUnitName:='';
+      NewFileType:=FileNameToPkgFileType(NewFilename);
+      NewPkgFileFlags:=[];
+      if (NewFileType in PkgFileUnitTypes) then begin
+        Include(NewPkgFileFlags,pffAddToPkgUsesSection);
+        NewUnitName:=ExtractFilenameOnly(NewFilename);
+        if Assigned(PackageEditors.OnGetUnitRegisterInfo) then begin
+          HasRegisterProc:=false;
+          PackageEditors.OnGetUnitRegisterInfo(Self,NewFilename,
+            NewUnitName,HasRegisterProc);
+          if HasRegisterProc then
+            Include(NewPkgFileFlags,pffHasRegisterProc);
+        end;
+      end;
+      LazPackage.AddFile(NewFilename,NewUnitName,NewFileType,
+                                              NewPkgFileFlags, cpNormal);
+      FreeAndNil(FNextSelectedPart);
+      FNextSelectedPart:=TPENodeData.Create(penFile,NewFilename,false);
+    end;
+  end;
+end;
+
 
 function TPackageEditorForm.ShowAddDialog(var DlgPage: TAddToPkgType): TModalResult;
 var
@@ -2102,46 +2188,6 @@ var
     FNextSelectedPart:=TPENodeData.Create(penFile,AddParams.UnitFilename,false);
   end;
 
-  procedure AddNewFile(AddParams: TAddToPkgResult);
-  var
-    NewFilename: String;
-    DummyResult: TModalResult;
-    NewFileType: TPkgFileType;
-    NewPkgFileFlags: TPkgFileFlags;
-    Desc: TProjectFileDescriptor;
-    NewUnitName: String;
-    HasRegisterProc: Boolean;
-  begin
-    if AddParams.NewItem is TNewItemProjectFile then begin
-      // create new file
-      Desc:=TNewItemProjectFile(AddParams.NewItem).Descriptor;
-      NewFilename:='';
-      DummyResult:=LazarusIDE.DoNewFile(Desc,NewFilename,'',
-        [nfOpenInEditor,nfCreateDefaultSrc,nfIsNotPartOfProject],LazPackage);
-      if DummyResult=mrOk then begin
-        // success -> now add it to package
-        NewUnitName:='';
-        NewFileType:=FileNameToPkgFileType(NewFilename);
-        NewPkgFileFlags:=[];
-        if (NewFileType in PkgFileUnitTypes) then begin
-          Include(NewPkgFileFlags,pffAddToPkgUsesSection);
-          NewUnitName:=ExtractFilenameOnly(NewFilename);
-          if Assigned(PackageEditors.OnGetUnitRegisterInfo) then begin
-            HasRegisterProc:=false;
-            PackageEditors.OnGetUnitRegisterInfo(Self,NewFilename,
-              NewUnitName,HasRegisterProc);
-            if HasRegisterProc then
-              Include(NewPkgFileFlags,pffHasRegisterProc);
-          end;
-        end;
-        LazPackage.AddFile(NewFilename,NewUnitName,NewFileType,
-                                                NewPkgFileFlags, cpNormal);
-        FreeAndNil(FNextSelectedPart);
-        FNextSelectedPart:=TPENodeData.Create(penFile,NewFilename,false);
-      end;
-    end;
-  end;
-
 var
   AddParams: TAddToPkgResult;
   OldParams: TAddToPkgResult;
@@ -2162,25 +2208,11 @@ begin
   try
     while AddParams<>nil do begin
       case AddParams.AddType of
-
-      d2ptUnit:
-        AddUnit(AddParams);
-
-      d2ptVirtualUnit:
-        AddVirtualUnit(AddParams);
-
-      d2ptNewComponent:
-        AddNewComponent(AddParams);
-
-      d2ptRequiredPkg:
-        AddRequiredPkg(AddParams);
-
-      d2ptFile:
-        AddFile(AddParams);
-
-      d2ptNewFile:
-        AddNewFile(AddParams);
-
+        d2ptUnit:         AddUnit(AddParams);
+        d2ptVirtualUnit:  AddVirtualUnit(AddParams);
+        d2ptNewComponent: AddNewComponent(AddParams);
+        d2ptRequiredPkg:  AddRequiredPkg(AddParams);
+        d2ptFile:         AddFile(AddParams);
       end;
       OldParams:=AddParams;
       AddParams:=AddParams.Next;
@@ -2272,11 +2304,6 @@ begin
   AddBitBtn.Enabled:=Writable;
   RemoveBitBtn.Enabled:=Writable and (ActiveFileCnt+ActiveDepCount>0);
   OpenButton.Enabled:=(FileCount+DepCount>0);
-  UseBitBtn.Caption:=lisUseSub;
-  UseBitBtn.Hint:=lisClickToSeeThePossibleUses;
-  UseBitBtn.OnClick:=nil;
-  UseBitBtn.DropdownMenu:=UsePopupMenu;
-  OptionsBitBtn.Enabled:=true;
 end;
 
 function TPackageEditorForm.OnTreeViewGetImageIndex(Str: String; Data: TObject;
@@ -2912,6 +2939,7 @@ begin
   ShortDirectory:=NewDirectory;
   LazPackage.ShortenFilename(ShortDirectory,true);
   if ShortDirectory='' then exit;
+  ShortIncDirectory:='';
   LazPackage.LongenFilename(NewDirectory);
   NewDirectory:=ChompPathDelim(NewDirectory);
   
@@ -3033,6 +3061,7 @@ begin
     else exit(false);
     end;
   end;
+  Result:=true;
 end;
 
 function TPackageEditorForm.FilesEditTreeView: TTreeView;
@@ -3096,6 +3125,7 @@ end;
 
 procedure TPackageEditorForm.DoCompile(CompileClean, CompileRequired: boolean);
 begin
+  CompileBitBtn.Enabled:=False;
   PackageEditors.CompilePackage(LazPackage,CompileClean,CompileRequired);
   UpdateTitle;
   UpdateButtons;

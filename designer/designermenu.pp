@@ -36,7 +36,7 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, Forms, Controls, Menus, Graphics, GraphType,
-  Buttons, StdCtrls, ExtCtrls, ComponentEditors, LazConf, ComCtrls, Arrow,
+  Buttons, StdCtrls, ExtCtrls, ComponentEditors, LazConf, Arrow,
   ButtonPanel, Laz2_XMLCfg, LazFileUtils, LazarusIDEStrConsts, PropEdits,
   IDEProcs;
 
@@ -141,15 +141,15 @@ type
     procedure RealignDesigner;
     procedure Draw(DMenuItem: TDesignerMenuItem; FormPanel,SubMenuPanel: TPanel); //draw function
     procedure SetCoordinates(Coord_Left,Coord_Top,Coord_Right: Integer; DMenuItem: TDesignerMenuItem); //coord. of each designermenuitem
-    function GetSubMenuHeight(DMenuItem: TDesignerMenuItem; LeftPos,TopPos: Integer; Ident: string): TRect; //width and height of submenu panel
+    function GetSubMenuHeight(DMenuItem: TDesignerMenuItem): TRect; //width and height of submenu panel
     function GetMaxCoordinates(DMenuItem: TDesignerMenuItem; Max_Width, Max_Height: Integer): TRect; //width and height of all expanded menu items
     
     // Event handling
     procedure MenuItemMouseDown(Sender: TObject; Button: TMouseButton;
-                                Shift: TShiftState; X, Y: Integer);
+                                {%H-}Shift: TShiftState; {%H-}X, {%H-}Y: Integer);
     procedure MenuItemDblClick(Sender: TObject);
-    procedure MenuItemDragDrop(Sender, Source: TObject; X, Y: Integer);
-    procedure MenuItemDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState;
+    procedure MenuItemDragDrop(Sender, {%H-}Source: TObject; X, Y: Integer);
+    procedure MenuItemDragOver(Sender, Source: TObject; {%H-}X, {%H-}Y: Integer; {%H-}State: TDragState;
                                var Accept: Boolean);
     procedure AddNewItemBeforeClick(Sender: TObject);
     procedure AddNewItemAfterClick(Sender: TObject);
@@ -198,8 +198,6 @@ const
   DESIGNER_MENU_ITEM_HEIGHT=20;
   DESIGNER_MENU_ITEM_SPACE=30;
   MIN_DESIGNER_MENU_ITEM_WIDTH=100;
-  DESIGNER_MENU_ITEM_PANEL_HEIGHT=22;
-  MIN_SUB_MENU_PANEL_WIDTH=100;
   POSITION_LEFT=10;
   POSITION_TOP=10;
   NUMBER_OF_DEFAULT_TEMPLATES = 3;
@@ -417,9 +415,10 @@ begin
   DMenuItem.SubMenuArrow.Name:='SubMenuArrow_' + DMenuItem.ID;
   DMenuItem.SubMenuArrow.Parent:=DMenuItem.SelfPanel;
   DMenuItem.SubMenuArrow.ArrowType:=atright;
-  DMenuItem.SubMenuArrow.Width:=20;
-  DMenuItem.SubMenuArrow.Height:=13;
-  DMenuItem.SubMenuArrow.ShadowType:=stout;
+  DMenuItem.SubMenuArrow.ArrowPointerAngle:=90;
+  DMenuItem.SubMenuArrow.ShadowType:=stNone;
+  DMenuItem.SubMenuArrow.Width:=14;
+  DMenuItem.SubMenuArrow.Height:=14;
   DMenuItem.SubMenuArrow.Visible:=false;
   DMenuItem.SubMenuArrow.OnMouseDown:=@MenuItemMouseDown;
   DMenuItem.SubMenuArrow.OnDragOver:=@MenuItemDragOver;
@@ -536,7 +535,7 @@ begin
     begin
       if (DMenuItem.PrevItem = nil) then
       begin
-        SubMenuDimensions:=GetSubMenuHeight(Root, 0, 0, DMenuItem.ID);
+        SubMenuDimensions:=GetSubMenuHeight(Root);
         with temp_panel do
         begin
           Parent:=FormPanel;
@@ -588,9 +587,9 @@ begin
       ((DMenuItem.SubMenu.Selected) or (DMenuItem.SubMenu.Active)))) then
     begin
       if (fMenu is TpopupMenu) and (DMenuItem.Level = 1) then
-        SubMenuDimensions:=GetSubMenuHeight(GetDesignerMenuItem(Root, DMenuItem.SubMenu.ID), DMenuItem.coord.right + 1, 0, DMenuItem.SubMenu.ID)
+        SubMenuDimensions:=GetSubMenuHeight(GetDesignerMenuItem(Root, DMenuItem.SubMenu.ID))
       else
-        SubMenuDimensions:=GetSubMenuHeight(GetDesignerMenuItem(Root, DMenuItem.SubMenu.ID), 0, 1, DMenuItem.SubMenu.ID);
+        SubMenuDimensions:=GetSubMenuHeight(GetDesignerMenuItem(Root, DMenuItem.SubMenu.ID));
       with DMenuItem.SubMenuPanel do
       begin
         Parent:=SubMenuPanel;
@@ -692,7 +691,8 @@ end;
 // -------------------------------------------------------------------------------------------------------------------//
 // Determines a position of the SubMenuPanel of some DesignerMenuItem ------------------------------------------------//
 //--------------------------------------------------------------------------------------------------------------------//
-function TDesignerMainMenu.GetSubMenuHeight(DMenuItem: TDesignerMenuItem; LeftPos,TopPos: Integer; Ident: string): TRect;
+function TDesignerMainMenu.GetSubMenuHeight(DMenuItem: TDesignerMenuItem
+  ): TRect;
 var
   coords: TRect;
   SubItemCount: Integer;
@@ -734,7 +734,9 @@ begin
     temp_coord:=GetMaxCoordinates(DMenuItem.SubMenu, Max_Width, Max_Height);
     Max_Width:=temp_coord.Right;
     Max_Height:=temp_coord.Bottom;
-  end;
+  end
+  else
+    temp_coord:=Rect(0,0,0,0);
   if (DMenuItem.NextItem <> nil) then
     temp_coord:=GetMaxCoordinates(DMenuItem.NextItem, Max_Width, Max_Height);
     
@@ -1587,6 +1589,7 @@ begin
         UpdateMenu(fMenu.Items, tempdesignermenuitem, 1, 3);
       end else
       begin
+        // ToDo: tempdesignermenuitem is not initialized here.
         tempdesignermenuitem:=AddNewItemAfter(Root, tempdesignermenuitem.ID);
         SetCoordinates(POSITION_LEFT,POSITION_TOP,0,Root);
         ChangeCaption(tempdesignermenuitem,XMLConfig.GetValue(templatesubmenuitem + '/Name/Value',''));
@@ -1780,6 +1783,7 @@ var
   DesignerMenuItem: TDesignerMenuItem;
 begin
   if not (Sender is TPropertyEditor) then Exit;
+  InvalidateNeeded := False;
   for i := 0 to TPropertyEditor(Sender).PropCount - 1 do
   begin
     Instance := TPropertyEditor(Sender).GetComponent(i);
@@ -1991,6 +1995,8 @@ begin
       DMenuItem.NextItem:=TempMI;
       if (DMenuItem.ParentMenu <> nil) then
         DMenuItem.ParentMenu.SubMenu:=DMenuItem;
+      if (TempMI.NextItem <> nil) then
+        TempMI.NextItem.PrevItem:=TempMI;
       if (DMenuItem.PrevItem <> nil) then
         DMenuItem.PrevItem.NextItem:=DMenuItem;
       Result:=1;
@@ -2252,6 +2258,7 @@ var
   i: Integer;
   temp_menuitem: TMenuItem;
 begin
+  Result := Nil;
   case TheAction of
   // Insert new AMenuItem after selected AMenuItem
   1: begin

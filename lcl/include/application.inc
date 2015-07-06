@@ -64,7 +64,7 @@ begin
     // if there is a modal form, then don't show hints for other forms
     if Assigned(Screen.FFocusedForm) and
        (fsModal in Screen.FFocusedForm.FormState) and
-       (GetParentForm(Result.Control) <> Screen.FFocusedForm) then
+       (GetParentForm(Result.Control) <> GetParentForm(Screen.FFocusedForm)) then
       Result.ControlHasHint := False;
   end;
 end;
@@ -73,15 +73,15 @@ end;
 function GetApplicationName: string;
 begin
   if Assigned(Application) then
-    Result := Application.Title;
+    Result := Application.Title
+  else
+    Result := '';
 end;
 
 {------------------------------------------------------------------------------
        TApplication Constructor
 ------------------------------------------------------------------------------}
 constructor TApplication.Create(AOwner: TComponent);
-var
-  LangDefault, LangFallback: String;
 begin
   LCLProc.SendApplicationMessageFunction:=@SendApplicationMsg;
 
@@ -114,15 +114,7 @@ begin
   FFindGlobalComponentEnabled:=true;
   RegisterFindGlobalComponentProc(@FindApplicationComponent);
 
-  {$ifndef wince}// remove ifdef when gettext is fixed
-  LazGetLanguageIDs(LangDefault, LangFallback);
-  if LangDefault <> '' then
-    FBidiMode := Direction(LangDefault)
-  else
-    FBidiMode := Direction(LangFallback);
-  {$else}
-    FBidiMode := bdLeftToRight;
-  {$endif}
+  FBidiMode := DefaultApplicationBiDiMode;
 
   FMainFormOnTaskBar := False;
 
@@ -213,7 +205,7 @@ begin
           //if a hint is visible immediately query the app to show a new hint...
           if FHintTimerType = ahttHideHint then
             ShowHintWindow(Info);
-          //...if there's no hint window visible at this point than schedule a new query
+          //...if there's no hint window visible at this point then schedule a new query
           if (FHintTimerType = ahttNone) or (FHintWindow = nil) or not FHintWindow.Visible then
             StartHintTimer(HintPause, ahttShowHint);
         end;
@@ -864,7 +856,10 @@ begin
     FHintWindow.ActivateHint(HintWinRect, HintInfo.HintStr);
     FHintRect := HintInfo.CursorRect;
     // start hide timer
-    StartHintTimer(HintInfo.HideTimeout,ahttHideHint);
+    if HintInfo.ReshowTimeout>0 then
+      StartHintTimer(HintInfo.ReshowTimeout,ahttReshowHint)
+    else
+      StartHintTimer(HintInfo.HideTimeout,ahttHideHint);
   end
   else
     HideHint;
@@ -912,7 +907,7 @@ begin
   {$endif}
   StopHintTimer;
   case FHintTimerType of
-    ahttShowHint:
+    ahttShowHint,ahttReshowHint:
       begin
         if not GetCursorPos(CursorPos) then
           HideHint

@@ -55,10 +55,6 @@
   <CompilerOptions>
     <Version Value="8"/>
     <PathDelim Value="\"/>
-    <SearchPaths>
-      <OtherUnitFiles Value="$(LazarusDir)\components\units\$(TargetCPU)\$(TargetOS)\"/>
-      <SrcPath Value="$(LazarusDir)\lcl\;$(LazarusDir)\lcl\interfaces\$(LCLWidgetType)\"/>
-    </SearchPaths>
     <Linking>
       <Options>
         <Win32>

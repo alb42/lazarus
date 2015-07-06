@@ -1,27 +1,25 @@
 object MouseaActionDialog: TMouseaActionDialog
-  Left = 314
-  Height = 255
-  Top = 217
-  Width = 374
-  AutoSize = True
+  Left = 414
+  Height = 400
+  Top = 225
+  Width = 620
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'MouseaActionDialog'
-  ClientHeight = 255
-  ClientWidth = 374
+  ClientHeight = 400
+  ClientWidth = 620
   OnCreate = FormCreate
   Position = poScreenCenter
-  LCLVersion = '1.1'
+  LCLVersion = '1.5'
   object BtnLabel: TLabel
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = ButtonBox
-    AnchorSideTop.Side = asrCenter
+    AnchorSideTop.Control = Panel1
     AnchorSideRight.Control = ActionLabel
     AnchorSideRight.Side = asrBottom
     Left = 6
-    Height = 13
-    Top = 136
-    Width = 55
+    Height = 15
+    Top = 134
+    Width = 63
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 6
     Caption = 'BtnLabel'
@@ -32,9 +30,9 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Control = ActionBox
     AnchorSideTop.Side = asrCenter
     Left = 6
-    Height = 13
+    Height = 15
     Top = 10
-    Width = 55
+    Width = 63
     BorderSpacing.Left = 6
     Caption = 'ActionLabel'
     ParentColor = False
@@ -45,10 +43,10 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 67
+    Left = 75
     Height = 16
-    Top = 56
-    Width = 301
+    Top = 60
+    Width = 539
     Anchors = [akTop, akLeft, akRight]
     AutoSize = False
     BorderSpacing.Top = 6
@@ -61,54 +59,51 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Control = PriorSpin
     AnchorSideTop.Side = asrCenter
     Left = 6
-    Height = 13
-    Top = 103
-    Width = 47
+    Height = 15
+    Top = 109
+    Width = 53
     BorderSpacing.Left = 6
     Caption = 'PriorLabel'
     ParentColor = False
   end
   object CapturePanel: TPanel
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = ShiftCheck
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = BtnDefault
+    AnchorSideLeft.Control = chkUpRestrict
+    AnchorSideTop.Control = BtnDefault
+    AnchorSideRight.Control = chkUpRestrict
+    AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ButtonPanel1
-    Left = 6
-    Height = 27
-    Top = 182
-    Width = 279
+    Left = 181
+    Height = 62
+    Top = 292
+    Width = 433
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Left = 6
-    BorderSpacing.Top = 6
-    BorderSpacing.Right = 6
-    BorderSpacing.Bottom = 6
     BevelOuter = bvLowered
     BevelWidth = 2
-    ClientHeight = 27
-    ClientWidth = 279
+    ClientHeight = 62
+    ClientWidth = 433
     Color = clBtnShadow
     ParentColor = False
-    TabOrder = 2
+    TabOrder = 11
     OnMouseDown = CapturePanelMouseDown
     object PaintBox1: TPaintBox
       Left = 2
-      Height = 23
+      Height = 58
       Top = 2
-      Width = 275
+      Width = 429
       Align = alClient
+      Anchors = [akTop, akRight, akBottom]
       OnMouseDown = CapturePanelMouseDown
       OnMouseWheel = PaintBox1MouseWheel
     end
   end
   object ShiftCheck: TCheckBox
-    AnchorSideLeft.Control = ButtonBox
-    AnchorSideTop.Control = ButtonBox
+    AnchorSideLeft.Control = Panel1
+    AnchorSideTop.Control = Panel1
     AnchorSideTop.Side = asrBottom
-    Left = 67
-    Height = 17
-    Top = 159
-    Width = 69
+    Left = 75
+    Height = 19
+    Top = 217
+    Width = 77
     AllowGrayed = True
     BorderSpacing.Top = 6
     Caption = 'ShiftCheck'
@@ -116,101 +111,55 @@ object MouseaActionDialog: TMouseaActionDialog
   end
   object AltCheck: TCheckBox
     AnchorSideLeft.Control = ShiftCheck
-    AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = ShiftCheck
-    AnchorSideTop.Side = asrCenter
-    Left = 142
-    Height = 17
-    Top = 159
-    Width = 60
+    AnchorSideTop.Side = asrBottom
+    Left = 75
+    Height = 19
+    Top = 242
+    Width = 68
     AllowGrayed = True
-    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
     Caption = 'AltCheck'
     TabOrder = 7
   end
   object CtrlCheck: TCheckBox
     AnchorSideLeft.Control = AltCheck
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = ShiftCheck
-    AnchorSideTop.Side = asrCenter
-    Left = 208
-    Height = 17
-    Top = 159
-    Width = 64
+    AnchorSideTop.Control = AltCheck
+    AnchorSideTop.Side = asrBottom
+    Left = 75
+    Height = 19
+    Top = 267
+    Width = 72
     AllowGrayed = True
-    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
     Caption = 'CtrlCheck'
     TabOrder = 8
   end
   object BtnDefault: TButton
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = CapturePanel
-    AnchorSideTop.Side = asrCenter
+    AnchorSideLeft.Control = CtrlCheck
+    AnchorSideTop.Control = CtrlCheck
+    AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Side = asrBottom
-    Left = 291
-    Height = 23
-    Top = 184
-    Width = 77
-    Anchors = [akTop, akRight]
+    Left = 75
+    Height = 25
+    Top = 292
+    Width = 82
     AutoSize = True
     BorderSpacing.Top = 6
-    BorderSpacing.Right = 6
     Caption = 'BtnDefault'
     OnClick = BtnDefaultClick
     TabOrder = 9
-  end
-  object DirCheck: TCheckBox
-    AnchorSideLeft.Control = ClickBox
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = ClickBox
-    AnchorSideTop.Side = asrCenter
-    Left = 279
-    Height = 17
-    Top = 134
-    Width = 60
-    BorderSpacing.Around = 6
-    Caption = 'DirCheck'
-    TabOrder = 5
-  end
-  object ClickBox: TComboBox
-    AnchorSideLeft.Control = ButtonBox
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = ButtonBox
-    Left = 173
-    Height = 21
-    Top = 132
-    Width = 100
-    BorderSpacing.Left = 6
-    ItemHeight = 13
-    Style = csDropDownList
-    TabOrder = 4
-  end
-  object ButtonBox: TComboBox
-    AnchorSideLeft.Control = BtnLabel
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = PriorSpin
-    AnchorSideTop.Side = asrBottom
-    Left = 67
-    Height = 21
-    Top = 132
-    Width = 100
-    BorderSpacing.Left = 6
-    BorderSpacing.Top = 12
-    ItemHeight = 13
-    OnChange = ButtonBoxChange
-    Style = csDropDownList
-    TabOrder = 3
   end
   object CaretCheck: TCheckBox
     AnchorSideLeft.Control = ActionBox
     AnchorSideTop.Control = ActionBox
     AnchorSideTop.Side = asrBottom
-    Left = 67
-    Height = 17
-    Top = 33
-    Width = 74
+    Left = 75
+    Height = 19
+    Top = 35
+    Width = 81
     BorderSpacing.Top = 6
     Caption = 'CaretCheck'
     TabOrder = 1
@@ -221,15 +170,15 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Control = Owner
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 67
-    Height = 21
+    Left = 75
+    Height = 23
     Top = 6
-    Width = 301
+    Width = 539
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 6
     BorderSpacing.Top = 6
     BorderSpacing.Right = 6
-    ItemHeight = 13
+    ItemHeight = 15
     OnChange = ActionBoxChange
     Style = csDropDownList
     TabOrder = 0
@@ -241,8 +190,8 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideRight.Side = asrBottom
     Left = 6
     Height = 34
-    Top = 215
-    Width = 362
+    Top = 360
+    Width = 608
     OKButton.Name = 'OKButton'
     OKButton.DefaultCaption = True
     HelpButton.Name = 'HelpButton'
@@ -251,7 +200,7 @@ object MouseaActionDialog: TMouseaActionDialog
     CloseButton.DefaultCaption = True
     CancelButton.Name = 'CancelButton'
     CancelButton.DefaultCaption = True
-    TabOrder = 10
+    TabOrder = 12
     ShowButtons = [pbOK, pbCancel]
   end
   object OptBox: TComboBox
@@ -260,28 +209,28 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 67
-    Height = 21
-    Top = 72
-    Width = 301
+    Left = 75
+    Height = 23
+    Top = 76
+    Width = 539
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Right = 6
     Enabled = False
-    ItemHeight = 13
+    ItemHeight = 15
     Style = csDropDownList
-    TabOrder = 11
+    TabOrder = 2
   end
   object PriorSpin: TSpinEdit
     AnchorSideLeft.Control = OptLabel
     AnchorSideTop.Control = OptBox
     AnchorSideTop.Side = asrBottom
-    Left = 67
-    Height = 21
-    Top = 99
+    Left = 75
+    Height = 23
+    Top = 105
     Width = 60
     BorderSpacing.Top = 6
     MaxValue = 3
-    TabOrder = 12
+    TabOrder = 3
   end
   object Opt2Spin: TSpinEdit
     AnchorSideLeft.Control = OptLabel
@@ -289,29 +238,95 @@ object MouseaActionDialog: TMouseaActionDialog
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 308
-    Height = 21
-    Top = 99
+    Left = 554
+    Height = 23
+    Top = 105
     Width = 60
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 6
     BorderSpacing.Right = 6
     MaxValue = 999
-    TabOrder = 13
+    TabOrder = 4
   end
   object Opt2Label: TLabel
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = Opt2Spin
     AnchorSideTop.Side = asrCenter
     AnchorSideRight.Control = Opt2Spin
-    Left = 253
-    Height = 13
-    Top = 103
-    Width = 49
+    Left = 494
+    Height = 15
+    Top = 109
+    Width = 54
     Anchors = [akTop, akRight]
     BorderSpacing.Left = 6
     BorderSpacing.Right = 6
     Caption = 'Opt2Label'
     ParentColor = False
+  end
+  object Panel1: TPanel
+    AnchorSideLeft.Control = PriorSpin
+    AnchorSideTop.Control = PriorSpin
+    AnchorSideTop.Side = asrBottom
+    Left = 75
+    Height = 77
+    Top = 134
+    Width = 100
+    AutoSize = True
+    BorderSpacing.Top = 6
+    BevelOuter = bvNone
+    ClientHeight = 77
+    ClientWidth = 100
+    TabOrder = 5
+    object DirCheck: TCheckBox
+      AnchorSideTop.Control = ClickBox
+      AnchorSideTop.Side = asrBottom
+      Left = 0
+      Height = 19
+      Top = 58
+      Width = 68
+      BorderSpacing.Top = 6
+      Caption = 'DirCheck'
+      OnChange = DirCheckChange
+      TabOrder = 2
+    end
+    object ClickBox: TComboBox
+      AnchorSideTop.Control = ButtonBox
+      AnchorSideTop.Side = asrBottom
+      Left = 0
+      Height = 23
+      Top = 29
+      Width = 100
+      BorderSpacing.Top = 6
+      ItemHeight = 15
+      Style = csDropDownList
+      TabOrder = 1
+    end
+    object ButtonBox: TComboBox
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Side = asrBottom
+      Left = 0
+      Height = 23
+      Top = 0
+      Width = 100
+      ItemHeight = 15
+      OnChange = ButtonBoxChange
+      Style = csDropDownList
+      TabOrder = 0
+    end
+  end
+  object chkUpRestrict: TCheckListBox
+    AnchorSideLeft.Control = Panel1
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = Panel1
+    AnchorSideBottom.Control = BtnDefault
+    Left = 181
+    Height = 152
+    Top = 134
+    Width = 433
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 6
+    BorderSpacing.Right = 6
+    ItemHeight = 0
+    TabOrder = 10
   end
 end

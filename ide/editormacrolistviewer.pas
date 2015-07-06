@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils,
-  FileUtil, Laz2_XMLCfg, LazUTF8, LazLoggerBase,
+  LazFileUtils, Laz2_XMLCfg, LazUTF8, LazLoggerBase,
   LCLType, Forms, Controls, Dialogs, StdCtrls, ButtonPanel, ComCtrls, ExtCtrls,
   Spin, Menus,
   SynMacroRecorder, SynEdit, SynEditKeyCmds,
@@ -30,7 +30,7 @@ type
     FKeyBinding: TEditorMacroKeyBinding;
 
     procedure DoMacroRecorderState(Sender: TObject);
-    procedure DoMacroRecorderUserCommand(aSender: TCustomSynMacroRecorder;
+    procedure DoMacroRecorderUserCommand({%H-}aSender: TCustomSynMacroRecorder;
                 aCmd: TSynEditorCommand; var aEvent: TSynMacroEvent);
   protected
     function  GetMacroName: String; override;
@@ -204,7 +204,7 @@ type
     procedure btnSetKeysClick(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
-    procedure lbRecordedViewSelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
+    procedure lbRecordedViewSelectItem(Sender: TObject; {%H-}Item: TListItem; {%H-}Selected: Boolean);
     procedure mnExportClick(Sender: TObject);
     procedure mnImportClick(Sender: TObject);
     procedure tbIDEClick(Sender: TObject);
@@ -237,7 +237,7 @@ procedure ShowMacroListViewer;
 procedure UpdateMacroListViewer;
 procedure DoEditorMacroStateChanged;
 
-procedure LoadProjectSpecificInfo(XMLConfig: TXMLConfig; Merge: boolean);
+procedure LoadProjectSpecificInfo(XMLConfig: TXMLConfig);
 procedure SaveProjectSpecificInfo(XMLConfig: TXMLConfig; Flags: TProjectWriteFlags);
 procedure LoadGlobalInfo;
 procedure SaveGlobalInfo;
@@ -334,7 +334,7 @@ begin
     MacroListView.DoEditorMacroStateChanged;
 end;
 
-procedure LoadProjectSpecificInfo(XMLConfig: TXMLConfig; Merge: boolean);
+procedure LoadProjectSpecificInfo(XMLConfig: TXMLConfig);
 begin
   MacroListViewer.FIgnoreMacroChanges := True;
   try
@@ -751,9 +751,8 @@ begin
   then begin
     FHasError := True;
     AddError('Wrong amount of param');
-    exit;
+    exit(0);
   end;
-
   Result := FParams[Index].Num;
 end;
 
@@ -763,9 +762,8 @@ begin
   then begin
     FHasError := True;
     AddError('Wrong amount of param');
-    exit;
+    exit('');
   end;
-
   Result := FParams[Index].Text;
 end;
 
@@ -774,9 +772,8 @@ begin
   if (Index < 0) or (Index >= Length(FParams)) then begin
     FHasError := True;
     AddError('Wrong amount of param');
-    exit;
+    exit(ptString); // What to return here?
   end;
-
   Result := FParams[Index].ParamType;
 end;
 
@@ -845,6 +842,7 @@ begin
   if i = 1 then exit(AddError('Expected Command, but found "'+UTF8Copy(FText,1,1)+'"'));
 
   s := Copy(FText, 1, i-1);
+  j:=0;
   if not IdentToEditorCommand(s, j) then exit(AddError('Unknown Command "'+s+'"'));
   FEventCommand := j;
   FEventName := s;

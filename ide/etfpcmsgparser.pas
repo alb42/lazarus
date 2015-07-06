@@ -27,7 +27,7 @@ unit etFPCMsgParser;
 
 {$mode objfpc}{$H+}
 
-{$DEFINE VerboseFPCMsgUnitNotFound}
+{ $DEFINE VerboseFPCMsgUnitNotFound}
 
 interface
 
@@ -42,6 +42,7 @@ uses
   etMakeMsgParser;
 
 const
+  FPCMsgIDCompiling = 3104;
   FPCMsgIDLogo = 11023;
   FPCMsgIDCantFindUnitUsedBy = 10022;
   FPCMsgIDLinking = 9015;
@@ -52,6 +53,8 @@ const
   FPCMsgIDMethodIdentifierExpected = 3047;
   FPCMsgIDIdentifierNotFound = 5000;
   FPCMsgIDChecksumChanged = 10028;
+  FPCMsgIDUnitNotUsed = 5023; // Unit "$1" not used in $2
+  FPCMsgIDCompilationAborted = 1018;
 
   FPCMsgAttrWorkerDirectory = 'WD';
   FPCMsgAttrMissingUnit = 'MissingUnit';
@@ -121,7 +124,9 @@ type
   public
     Pattern: string;
     MsgID: integer;
+    PatternLine: integer; // line index in a multi line pattern, starting at 0
   end;
+  PPatternToMsgID = ^TPatternToMsgID;
 
   { TPatternToMsgIDs }
 
@@ -133,9 +138,10 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Clear;
-    procedure Add(Pattern: string; MsgID: integer);
+    procedure Add(Pattern: string; MsgID: integer; PatternLine: integer = 0);
     procedure AddLines(const Lines: string; MsgID: integer);
-    function LineToMsgID(p: PChar): integer; // 0 = not found
+    function LineToMsgID(p: PChar): integer; inline; // 0 = not found
+    function LineToPattern(p: PChar): PPatternToMsgID;
     procedure WriteDebugReport;
     procedure ConsistencyCheck;
   end;
@@ -192,6 +198,8 @@ type
       MsgLine: TMessageLine);
     procedure ImproveMsgIdentifierPosition(aPhase: TExtToolParserSyncPhase;
       MsgLine: TMessageLine; SourceOK: boolean);
+    function FindSrcViaPPU(aPhase: TExtToolParserSyncPhase; MsgLine: TMessageLine;
+      const PPUFilename: string): boolean;
     procedure Translate(p: PChar; MsgItem, TranslatedItem: TFPCMsgItem;
       out TranslatedMsg: String; out MsgType: TMessageLineUrgency);
     procedure ReverseInstantFPCCacheDir(var aFilename: string; aSynchronized: boolean);
@@ -203,10 +211,11 @@ type
     TranslationFilename: string; // e.g. /path/to/fpcsrc/compiler/msg/errord.msg
     TranslationFile: TFPCMsgFilePoolItem;
     InstantFPCCache: string; // with trailing pathdelim
+    FPC_FullVersion: cardinal;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Init; override; // called after macros resolved, before starting thread (main thread)
-    procedure InitReading; override; // called if process started, before first line (worker thread)
+    procedure InitReading; override; // called when process started, before first line (worker thread)
     procedure Done; override; // called after process stopped (worker thread)
     procedure ReadLine(Line: string; OutputIndex: integer; var Handled: boolean); override;
     procedure AddMsgLine(MsgLine: TMessageLine); override;
@@ -611,7 +620,8 @@ begin
   SetLength(fItems,0);
 end;
 
-procedure TPatternToMsgIDs.Add(Pattern: string; MsgID: integer);
+procedure TPatternToMsgIDs.Add(Pattern: string; MsgID: integer;
+  PatternLine: integer);
 
   procedure RaiseInvalidMsgID;
   begin
@@ -636,19 +646,23 @@ begin
   fItems[i]:=Item;
   Item.Pattern:=Pattern;
   Item.MsgID:=MsgID;
+  Item.PatternLine:=PatternLine;
 end;
 
 procedure TPatternToMsgIDs.AddLines(const Lines: string; MsgID: integer);
 var
   StartPos: PChar;
   p: PChar;
+  PatternLine: Integer;
 begin
+  PatternLine:=0;
   p:=PChar(Lines);
   while p^<>#0 do begin
     StartPos:=p;
     while not (p^ in [#0,#10,#13]) do inc(p);
     if p>StartPos then begin
-      Add(copy(Lines,StartPos-PChar(Lines)+1,p-StartPos),MsgID);
+      Add(copy(Lines,StartPos-PChar(Lines)+1,p-StartPos),MsgID,PatternLine);
+      inc(PatternLine);
     end;
     while p^ in [#10,#13] do inc(p);
   end;
@@ -656,14 +670,25 @@ end;
 
 function TPatternToMsgIDs.LineToMsgID(p: PChar): integer;
 var
+  Item: PPatternToMsgID;
+begin
+  Item:=LineToPattern(p);
+  if Item=nil then
+    Result:=0
+  else
+    Result:=Item^.MsgID;
+end;
+
+function TPatternToMsgIDs.LineToPattern(p: PChar): PPatternToMsgID;
+var
   i: Integer;
 begin
   while p^ in [' ',#9,#10,#13] do inc(p);
   i:=IndexOf(p,false);
   if i<0 then
-    Result:=0
+    Result:=nil
   else
-    Result:=fItems[i].MsgID;
+    Result:=@fItems[i];
 end;
 
 procedure TPatternToMsgIDs.WriteDebugReport;
@@ -762,11 +787,15 @@ begin
         Item.Free;
         FFiles.Delete(i);
       end else begin
-        debugln(['TFPCMsgFilePool.Destroy file still used: ',Item.Filename]);
+        if ExitCode=0 then
+          debugln(['TFPCMsgFilePool.Destroy file still used: ',Item.Filename]);
       end;
     end;
-    if FFiles.Count>0 then
+    if FFiles.Count>0 then begin
+      if ExitCode<>0 then
+        exit;
       raise Exception.Create('TFPCMsgFilePool.Destroy some files are still used');
+    end;
     FreeAndNil(FFiles);
     if FPCMsgFilePool=Self then
       FPCMsgFilePool:=nil;
@@ -1065,8 +1094,16 @@ var
   p: PChar;
   aTargetOS: String;
   aTargetCPU: String;
+  FPCVersion: integer;
+  FPCRelease: integer;
+  FPCPatch: integer;
 begin
   inherited Init;
+
+  // get FPC version
+  CodeToolBoss.GetFPCVersionForDirectory(Tool.WorkerDirectory, FPCVersion,
+    FPCRelease, FPCPatch);
+  FPC_FullVersion:=FPCVersion*10000+FPCRelease*100+FPCPatch;
 
   if FPCMsgFilePool<>nil then begin
     aTargetOS:='';
@@ -1141,8 +1178,6 @@ begin
 end;
 
 function TIDEFPCParser.CheckForCompilingState(p: PChar): boolean;
-const
-  FPCMsgIDCompiling = 3104;
 var
   OldP: PChar;
   AFilename: string;
@@ -1224,7 +1259,6 @@ function TIDEFPCParser.CheckForGeneralMessage(p: PChar): boolean;
   Error: /usr/bin/ppc386 returned an error exitcode
 }
 const
-  FPCMsgIDCompilationAborted = 1018;
   FrontEndFPCExitCodeError = 'returned an error exitcode';
 var
   MsgLine: TMessageLine;
@@ -1431,16 +1465,53 @@ begin
 end;
 
 function TIDEFPCParser.CheckForInfos(p: PChar): boolean;
+
+  function ReadFPCLogo(PatternItem: PPatternToMsgID;
+    out FPCVersionAsInt: cardinal): boolean;
+  var
+    Line: string;
+    Ranges: TFPCMsgRanges;
+    aRange: PFPCMsgRange;
+    i: SizeInt;
+    aFPCFullVersion: String;
+    FPCVersion: integer;
+    FPCRelease: integer;
+    FPCPatch: integer;
+  begin
+    Result:=false;
+    FPCVersionAsInt:=0;
+    i:=Pos('$FPCFULLVERSION',PatternItem^.Pattern);
+    if i<1 then exit;
+    Line:=p;
+    Ranges:=nil;
+    try
+      ExtractFPCMsgParameters(PatternItem^.Pattern,Line,Ranges);
+      if Ranges.Count>0 then begin
+        // first is $FPCFULLVERSION
+        aRange:=@Ranges.Ranges[0];
+        aFPCFullVersion:=copy(Line,aRange^.StartPos+1,aRange^.EndPos-aRange^.StartPos);
+        SplitFPCVersion(aFPCFullVersion,FPCVersion,FPCRelease,FPCPatch);
+        FPCVersionAsInt:=FPCVersion*10000+FPCRelease*100+FPCPatch;
+        Result:=FPCVersionAsInt>0;
+      end;
+      // second is $FPCDATE
+      // third is $FPCCPU
+    finally
+      Ranges.Free;
+    end;
+  end;
+
 var
   MsgItem: TFPCMsgItem;
   MsgLine: TMessageLine;
-  i: Integer;
   MsgType: TMessageLineUrgency;
+  PatternItem: PPatternToMsgID;
+  aFPCVersion: cardinal;
 begin
   Result:=false;
-  i:=fLineToMsgID.LineToMsgID(p);
-  if i=0 then exit;
-  fMsgID:=i;
+  PatternItem:=fLineToMsgID.LineToPattern(p);
+  if PatternItem=nil then exit;
+  fMsgID:=PatternItem^.MsgID;
   if (fMsgID=FPCMsgIDLogo) and (DirectoryStack<>nil) then begin
     // a new call of the compiler (e.g. when compiling via make)
     // => clear stack
@@ -1455,6 +1526,12 @@ begin
   MsgLine:=CreateMsgLine;
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Urgency:=MsgType;
+  if (fMsgID=FPCMsgIDLogo) and ReadFPCLogo(PatternItem,aFPCVersion) then begin
+    if aFPCVersion<>FPC_FullVersion then begin
+      // unexpected FPC version => always show
+      MsgLine.Urgency:=mluImportant;
+    end;
+  end;
   AddMsgLine(MsgLine);
 end;
 
@@ -1484,6 +1561,7 @@ For example:
 
   Mac OS X linker example:
   ld: framework not found Cocoas
+  Note: this comes in stderr, so it might be some lines after corresponding stdout
 
   Multiline Mac OS X linker example:
   Undefined symbols:
@@ -1504,10 +1582,8 @@ var
   i: Integer;
   MsgLine: TMessageLine;
 begin
-  // find message "Linking ..."
+  // add all skipped lines in front of the linking error
   i:=Tool.WorkerMessages.Count-1;
-  while (i>=0) and (Tool.WorkerMessages[i].MsgID<>FPCMsgIDLinking) do
-    dec(i);
   if i<0 then exit;
   MsgLine:=Tool.WorkerMessages[i];
   for i:=MsgLine.OutputIndex+1 to fOutputIndex-1 do begin
@@ -1580,10 +1656,20 @@ end;
 procedure TIDEFPCParser.ImproveMsgHiddenByIDEDirective(
   aPhase: TExtToolParserSyncPhase; MsgLine: TMessageLine; SourceOK: Boolean);
 // check for {%H-}
+
+  function IsH(p: PChar): boolean; inline;
+  begin
+    Result:=(p^='{') and (p[1]='%') and (p[2]='H') and (p[3]='-');
+  end;
+
 var
   p: PChar;
   X: Integer;
   Y: Integer;
+  HasDirective: Boolean;
+  AbsPos: Integer; // 0-based
+  OtherPos: Integer;
+  AtomEnd: integer;
 begin
   if MsgLine.Urgency>=mluError then exit;
   if mlfHiddenByIDEDirectiveValid in MsgLine.Flags then exit;
@@ -1594,15 +1680,44 @@ begin
   Y:=MsgLine.Line;
   if (y<=fCurSource.LineCount) and (x-1<=fCurSource.GetLineLength(y-1))
   then begin
-    p:=PChar(fCurSource.Source)+fCurSource.GetLineStart(y-1)+x-2;
-    //debugln(['TFPCParser.ImproveMsgHiddenByIDEDirective ',aFilename,' ',Y,',',X,' ',copy(fCurSource.GetLine(y-1),1,x-1),'|',copy(fCurSource.GetLine(y-1),x,100),' p=',p[0],p[1],p[2]]);
-    if ((p^='{') and (p[1]='%') and (p[2]='H') and (p[3]='-'))
-    or ((x>5) and (p[-5]='{') and (p[-4]='%') and (p[-3]='H') and (p[-2]='-')
-      and (p[-1]='}'))
-    then begin
-      //debugln(['TFPCParser.ImproveMsgHiddenByIDEDirective HIDDEN ',aFilename,' ',Y,',',X,' ',MsgLine.Msg]);
+    HasDirective:=false;
+    AbsPos:=fCurSource.GetLineStart(y-1)+x-2; // 0-based
+    p:=PChar(fCurSource.Source)+AbsPos;
+    //debugln(['TFPCParser.ImproveMsgHiddenByIDEDirective ',MsgLine.Filename,' ',Y,',',X,' ',copy(fCurSource.GetLine(y-1),1,x-1),'|',copy(fCurSource.GetLine(y-1),x,100),' p=',p[0],p[1],p[2]]);
+    if IsH(p) then
+      // directive beginning at cursor
+      HasDirective:=true
+    else if (x>5) and IsH(p-5) then
+      // directive ending at cursor
+      HasDirective:=true
+    else begin
+      // different compiler versions report some message positions differently.
+      // They changed some message positions from start to end of token.
+      // => check other end of token
+      //debugln(['TIDEFPCParser.ImproveMsgHiddenByIDEDirective mlfLeftToken=',mlfLeftToken in MsgLine.Flags]);
+      if mlfLeftToken in MsgLine.Flags then begin
+        if IsIdentChar[p[-1]] then begin
+          OtherPos:=AbsPos+1;
+          ReadPriorPascalAtom(fCurSource.Source,OtherPos,AtomEnd);
+          if (OtherPos>5) and (AtomEnd=AbsPos+1)
+          and IsH(@fCurSource.Source[OtherPos-5]) then begin
+            // for example: {%H-}identifier|
+            HasDirective:=true;
+          end;
+        end;
+      end else begin
+        if IsIdentStartChar[p^] then begin
+          inc(p,GetIdentLen(p));
+          if IsH(p) then
+            // for example: |identifier{%H-}
+            HasDirective:=true;
+        end;
+      end;
+    end;
+    if HasDirective then begin
       MsgLine.Flags:=MsgLine.Flags+[mlfHiddenByIDEDirective,
         mlfHiddenByIDEDirectiveValid];
+      exit;
     end;
   end;
   MsgLine.Flags:=MsgLine.Flags+[mlfHiddenByIDEDirectiveValid];
@@ -1625,8 +1740,6 @@ procedure TIDEFPCParser.ImproveMsgUnitNotUsed(aPhase: TExtToolParserSyncPhase;
   MsgLine: TMessageLine);
 // check for Unit not used message in main sources
 // and change urgency to merely 'verbose'
-const
-  FPCMsgIDUnitNotUsed = 5023; // Unit "$1" not used in $2
 begin
   if aPhase<>etpspAfterReadLine then exit;
   if (MsgLine.Urgency<=mluVerbose) then exit;
@@ -1802,6 +1915,7 @@ var
   MissingPkg: TIDEPackage;
   MissingPkgName: String;
   MissingPkgFile: TLazPackageFile;
+  FPCUnitFilename: String;
 begin
   if MsgLine.Urgency<mluError then exit;
   if not IsMsgID(MsgLine,FPCMsgIDCantFindUnitUsedBy,fMsgItemCantFindUnitUsedBy)
@@ -1907,6 +2021,11 @@ begin
       {$ENDIF}
       PPUFilename:=CodeToolBoss.DirectoryCachePool.FindCompiledUnitInCompletePath(
                         ExtractFilePath(CodeBuf.Filename),MissingUnitname);
+      if (PPUFilename<>'') then begin
+        FPCUnitFilename:=CodeToolBoss.DirectoryCachePool.FindUnitInUnitSet(
+          ExtractFilePath(CodeBuf.Filename),MissingUnitName);
+      end else
+        FPCUnitFilename:='';
       {$IFDEF VerboseFPCMsgUnitNotFound}
       debugln(['TIDEFPCParser.ImproveMsgUnitNotFound PPUFilename=',PPUFilename,' IsFileInIDESrcDir=',IsFileInIDESrcDir(CodeBuf.Filename)]);
       {$ENDIF}
@@ -1922,12 +2041,14 @@ begin
       {$IFDEF VerboseFPCMsgUnitNotFound}
       debugln(['TIDEFPCParser.ImproveMsgUnitNotFound MissingUnitPkg=',MissingPkgName]);
       {$ENDIF}
+      s:=Format(lisCannotFind, [MissingUnitname]);
+      if UsedByUnit<>'' then
+        s+=Format(lisUsedBy, [UsedByUnit]);
       if PPUFiles.Count>0 then begin
-        // there is a ppu file, but the compiler didn't like it
-        // => change message
-        s:=Format(lisCannotFind, [MissingUnitname]);
-        if UsedByUnit<>'' then
-          s+=Format(lisUsedBy, [UsedByUnit]);
+        // there is a ppu file in a package output directory, but the compiler
+        // didn't like it => change message
+        if PPUFilename='' then
+          PPUFilename:=PPUFiles[0];
         s+=Format(lisIncompatiblePpu, [PPUFilename]);
         if PPUFiles.Count=1 then
           s+=Format(lisPackage3, [TIDEPackage(PPUFiles.Objects[0]).Name])
@@ -1939,15 +2060,15 @@ begin
             s+=TIDEPackage(PPUFiles.Objects[i]).Name;
           end;
         end;
-      end else begin
-        // there is no ppu file in the ppu path (it might be in the source path)
-        {$IFDEF VerboseFPCMsgUnitNotFound}
-        debugln(['TIDEFPCParser.ImproveMsgUnitNotFound PPUFilename=',PPUFilename,' PPUFiles.Count=',PPUFiles.Count]);
-        {$ENDIF}
-        s:=Format(lisCannotFindUnit, [MissingUnitname]);
-        if UsedByUnit<>'' then
-          s+=Format(lisUsedBy, [UsedByUnit]);
-        if PPUFilename<>'' then begin
+      end else if PPUFilename<>'' then begin
+        if CompareFilenames(PPUFilename,FPCUnitFilename)=0 then begin
+          // there is ppu in the FPC units, but the compiler does not like it
+          // => a) using a wrong compiler version (wrong fpc.cfg)
+          //    b) user units in fpc.cfg
+          //    c) fpc units not compiled with -Ur
+          //    d) wrong target platform
+          s+=', ppu='+PPUFilename+', check your fpc.cfg';
+        end else begin
           // there is a ppu file in the source path
           if (MissingPkg<>nil) and (MissingPkg.LazCompilerOptions.UnitOutputDirectory='')
           then
@@ -1957,32 +2078,34 @@ begin
           s+=' '+Format(lisPpuInWrongDirectory, [PPUFilename]);
           if MissingPkgName<>'' then
             s+=' '+Format(lisCleanUpPackage, [MissingPkgName]);
-        end
-        else if (UsedByPkg<>nil)
-        and (CompareTextCT(UsedByPkg.Name,MissingPkgName)=0) then
-        begin
-          // two units of a package cannot find each other
-          s+=Format(lisCheckSearchPathPackageTryACleanRebuildCheckImpleme, [
-            UsedByPkg.Name]);
-        end else if (MissingPkgName<>'')
-        and (OnlyInstalled
-          or ((UsedByOwner<>nil)
-             and PackageEditingInterface.IsOwnerDependingOnPkg(UsedByOwner,MissingPkgName,DepOwner)))
-        then begin
-          // ppu file of an used package is missing
-          if (MissingPkgFile<>nil) and (not MissingPkgFile.InUses) then
-            s+=Format(lisEnableFlagUseUnitOfUnitInPackage, [MissingUnitName, MissingPkgName])
-          else
-            s+=Format(lisCheckIfPackageCreatesPpuCheckNothingDeletesThisFil, [
-              MissingPkgName, MissingUnitName]);
-        end else begin
-          if MissingPkgName<>'' then
-            s+=Format(lisCheckIfPackageIsInTheDependencies, [MissingPkgName]);
-          if UsedByOwner is TLazProject then
-            s+=lisOfTheProjectInspector
-          else if UsedByPkg<>nil then
-            s+=Format(lisOfPackage, [UsedByPkg.Name]);
+          s+='.';
         end;
+      end
+      else if (UsedByPkg<>nil) and (CompareTextCT(UsedByPkg.Name,MissingPkgName)=0)
+      then begin
+        // two units of a package cannot find each other
+        s+=Format(lisCheckSearchPathPackageTryACleanRebuildCheckImpleme, [
+          UsedByPkg.Name]);
+        s+='.';
+      end else if (MissingPkgName<>'')
+      and (OnlyInstalled
+        or ((UsedByOwner<>nil)
+           and PackageEditingInterface.IsOwnerDependingOnPkg(UsedByOwner,MissingPkgName,DepOwner)))
+      then begin
+        // ppu file of an used package is missing
+        if (MissingPkgFile<>nil) and (not MissingPkgFile.InUses) then
+          s+=Format(lisEnableFlagUseUnitOfUnitInPackage, [MissingUnitName, MissingPkgName])
+        else
+          s+=Format(lisCheckIfPackageCreatesPpuCheckNothingDeletesThisFil, [
+            MissingPkgName, MissingUnitName]);
+        s+='.';
+      end else begin
+        if MissingPkgName<>'' then
+          s+=Format(lisCheckIfPackageIsInTheDependencies, [MissingPkgName]);
+        if UsedByOwner is TLazProject then
+          s+=lisOfTheProjectInspector
+        else if UsedByPkg<>nil then
+          s+=Format(lisOfPackage, [UsedByPkg.Name]);
         s+='.';
       end;
       MsgLine.Msg:=s;
@@ -2133,7 +2256,7 @@ end;
 
 procedure TIDEFPCParser.ImproveMsgIdentifierPosition(
   aPhase: TExtToolParserSyncPhase; MsgLine: TMessageLine; SourceOK: boolean);
-{ FPC report the token after the identifier
+{ FPC sometimes reports the token after the identifier
   => fix the position
   Examples:
     "  i :="
@@ -2150,16 +2273,28 @@ var
   p, AtomEnd: integer;
   Src: String;
   Identifier: String;
+  NewP: Integer;
 begin
   Col:=MsgLine.Column;
   Line:=MsgLine.Line;
   if (Col<1) or (Line<1) then
     exit;
   if (Line=1) and (Col=1) then exit;
-  if (not IsMsgID(MsgLine,FPCMsgIDIdentifierNotFound,fMsgItemIdentifierNotFound))
-  and (not IsMsgID(MsgLine,FPCMsgIDMethodIdentifierExpected,fMsgItemMethodIdentifierExpected))
-  then
-    exit;
+  if MsgLine.SubTool<>SubToolFPC then exit;
+  if MsgLine.MsgID=0 then begin
+    // maybe not compiled with -vq: search patterns of common messages
+    if (not IsMsgID(MsgLine,FPCMsgIDIdentifierNotFound,fMsgItemIdentifierNotFound))
+    and (not IsMsgID(MsgLine,FPCMsgIDMethodIdentifierExpected,fMsgItemMethodIdentifierExpected))
+    then
+      exit;
+  end;
+  if MsgLine.MsgID=FPCMsgIDMethodIdentifierExpected then
+    Identifier:=''
+  else begin
+    Identifier:=GetFPCMsgValue1(MsgLine);
+    if (Identifier='') or not IsValidIdent(Identifier) then exit;
+  end;
+
   if MsgLine.Attribute[AttrPosChecked]<>'' then exit;
   if NeedSource(aPhase,SourceOK) then
     exit;
@@ -2167,11 +2302,6 @@ begin
 
   //DebuglnThreadLog(['Old Line=',Line,' ',MsgLine.Column]);
   if Line>=fCurSource.LineCount then exit;
-  if MsgLine.MsgID=FPCMsgIDIdentifierNotFound then begin
-    Identifier:=GetFPCMsgValue1(MsgLine);
-    if Identifier='' then exit;
-  end else
-    Identifier:='';
   fCurSource.GetLineRange(Line-1,LineRange);
   //DebuglnThreadLog(['Old Range=',LineRange.StartPos,'-',LineRange.EndPos,' Str="',copy(fCurSource.Source,LineRange.StartPos,LineRange.EndPos-LineRange.StartPos),'"']);
   Col:=Min(Col,LineRange.EndPos-LineRange.StartPos+1);
@@ -2180,7 +2310,7 @@ begin
   if Identifier<>'' then begin
     // message is about a specific identifier
     if CompareIdentifiers(PChar(Identifier),@Src[p])=0 then begin
-      // already pointing at the right identifier
+      // already pointing at the start of the identifier
       exit;
     end;
   end else begin
@@ -2192,27 +2322,110 @@ begin
   end;
   // go to prior token
   //DebuglnThreadLog(['New Line=',Line,' Col=',Col,' p=',p]);
-  ReadPriorPascalAtom(Src,p,AtomEnd,false);
-  if p<1 then exit;
+  NewP:=p;
+  ReadPriorPascalAtom(Src,NewP,AtomEnd,false);
+  if NewP<1 then exit;
   if Identifier<>'' then begin
     // message is about a specific identifier
-    if CompareIdentifiers(PChar(Identifier),@Src[p])<>0 then begin
+    if CompareIdentifiers(PChar(Identifier),@Src[NewP])<>0 then begin
       // the prior token is not the identifier neither
       // => don't know
       exit;
     end;
   end else begin
     // message is about any one identifier
-    if not IsIdentStartChar[Src[p]] then begin
+    if not IsIdentStartChar[Src[NewP]] then begin
       // the prior token is not an identifier neither
       // => don't know
       exit;
     end;
   end;
-  fCurSource.AbsoluteToLineCol(p,Line,Col);
-  //DebuglnThreadLog(['New Line=',Line,' Col=',Col,' p=',p]);
+  fCurSource.AbsoluteToLineCol(NewP,Line,Col);
+  //DebuglnThreadLog(['New Line=',Line,' Col=',Col,' p=',NewP]);
   if (Line<1) or (Col<1) then exit;
-  MsgLine.SetSourcePosition(MsgLine.Filename,Line,Col)
+  if MsgLine.Urgency>=mluError then begin
+    // position errors at start of wrong identifier, nicer for identifier completion
+    MsgLine.SetSourcePosition(MsgLine.Filename,Line,Col);
+    MsgLine.Flags:=MsgLine.Flags-[mlfLeftToken];
+  end else begin
+    // position hints at end of identifier, nicer for {%H-}
+    MsgLine.SetSourcePosition(MsgLine.Filename,Line,Col+length(Identifier));
+    MsgLine.Flags:=MsgLine.Flags+[mlfLeftToken];
+  end;
+end;
+
+function TIDEFPCParser.FindSrcViaPPU(aPhase: TExtToolParserSyncPhase;
+  MsgLine: TMessageLine; const PPUFilename: string): boolean;
+{ in main thread
+ for example:
+   /usr/lib/fpc/3.1.1/units/x86_64-linux/rtl/sysutils.ppu:filutil.inc(481,10) Error: (5088) ...
+   PPUFilename=/usr/lib/fpc/3.1.1/units/x86_64-linux/rtl/sysutils.ppu
+   Filename=filutil.inc
+}
+var
+  i: Integer;
+  PrevMsgLine: TMessageLine;
+  aFilename: String;
+  MsgWorkerDir: String;
+  UnitSrcFilename: String;
+  IncPath: String;
+  Dir: String;
+  ShortFilename: String;
+  IncFilename: String;
+  AnUnitName: String;
+  InFilename: String;
+begin
+  case aPhase of
+  etpspAfterReadLine: exit(false);
+  etpspSynchronized: ;
+  etpspAfterSync: exit(true);
+  end;
+  Result:=true;
+
+  // in main thread
+  i:=MsgLine.Index;
+  aFilename:=MsgLine.Filename;
+  //debugln(['TIDEFPCParser.FindSrcViaPPU i=',i,' PPUFilename="',PPUFilename,'" Filename="',aFilename,'"']);
+  if (i>0) then begin
+    PrevMsgLine:=Tool.WorkerMessages[i-1];
+    if (PrevMsgLine.SubTool=SubToolFPC)
+    and (CompareFilenames(PPUFilename,PrevMsgLine.Attribute['PPU'])=0)
+    and FilenameIsAbsolute(PrevMsgLine.Filename)
+    and (CompareFilenames(ExtractFilename(PrevMsgLine.Filename),ExtractFilename(aFilename))=0)
+    then begin
+      // same file as previous message => use it
+      MsgLine.Filename:=PrevMsgLine.Filename;
+      exit;
+    end;
+  end;
+
+  if not FilenameIsAbsolute(PPUFilename) then
+  begin
+    exit;
+  end;
+
+  ShortFilename:=ExtractFilename(aFilename);
+  MsgWorkerDir:=MsgLine.Attribute[FPCMsgAttrWorkerDirectory];
+  AnUnitName:=ExtractFilenameOnly(PPUFilename);
+  InFilename:='';
+  UnitSrcFilename:=CodeToolBoss.DirectoryCachePool.FindUnitSourceInCompletePath(
+                              MsgWorkerDir,AnUnitName,InFilename);
+  //debugln(['TIDEFPCParser.FindSrcViaPPU MsgWorkerDir="',MsgWorkerDir,'" UnitSrcFilename="',UnitSrcFilename,'"']);
+  if UnitSrcFilename<>'' then begin
+    if CompareFilenames(ExtractFilename(UnitSrcFilename),ShortFilename)=0 then
+    begin
+      MsgLine.Filename:=UnitSrcFilename;
+      exit;
+    end;
+    Dir:=ChompPathDelim(TrimFilename(ExtractFilePath(UnitSrcFilename)));
+    IncPath:=CodeToolBoss.GetIncludePathForDirectory(Dir);
+    IncFilename:=SearchFileInPath(ShortFilename,Dir,IncPath,';',ctsfcDefault);
+    //debugln(['TIDEFPCParser.FindSrcViaPPU Dir="',Dir,'" IncPath="',IncPath,'" ShortFilename="',ShortFilename,'" IncFilename="',IncFilename,'"']);
+    if IncFilename<>'' then begin
+      MsgLine.Filename:=IncFilename;
+      exit;
+    end;
+  end;
 end;
 
 procedure TIDEFPCParser.Translate(p: PChar; MsgItem, TranslatedItem: TFPCMsgItem;
@@ -2257,6 +2470,7 @@ begin
   FFilesToIgnoreUnitNotUsed:=TStringList.Create;
   HideHintsSenderNotUsed:=true;
   HideHintsUnitNotUsedInMainSource:=true;
+  FPC_FullVersion:=GetCompiledFPCVersion;
 end;
 
 function TIDEFPCParser.FileExists(const Filename: string; aSynchronized: boolean
@@ -2349,8 +2563,6 @@ begin
   Translate(p,MsgItem,TranslatedItem,TranslatedMsg,MsgType);
   Msg:=p;
   case fMsgID of
-  FPCMsgIDErrorWhileCompilingResources: // Error while compiling resources
-    Msg+=' -> Compile with -vd for more details. Check for duplicates.';
   FPCMsgIDThereWereErrorsCompiling: // There were $1 errors compiling module, stopping
     MsgType:=mluVerbose;
   end;
@@ -2367,6 +2579,7 @@ function TIDEFPCParser.CheckForFileLineColMessage(p: PChar): boolean;
   filename(line,column) Hint: (msgid) message
   filename(line) Hint: (msgid) message
   B:\file(3)name(line,column) Hint: (msgid) message
+  /usr/lib/fpc/3.1.1/units/x86_64-linux/rtl/sysutils.ppu:filutil.inc(481,10) Error: (5088) ...
 }
 var
   FileStartPos: PChar;
@@ -2382,17 +2595,29 @@ var
   TranslatedMsg: String;
   aFilename: String;
   Column: Integer;
+  PPUFileStartPos: PChar;
+  PPUFileEndPos: PChar;
 begin
   Result:=false;
   FileStartPos:=p;
   FileEndPos:=nil;
+  PPUFileStartPos:=nil;
+  PPUFileEndPos:=nil;
   // search colon and last ( in front of colon
   while true do begin
     case p^ of
     #0: exit;
     '(': FileEndPos:=p;
     ':':
-      if (DriveSeparator='') or (p-FileStartPos>1) then
+      if (p-FileStartPos>5) and (p[-4]='.') and (p[-3] in ['p','P'])
+      and (p[-2] in ['p','P']) and (p[-1] in ['u','U']) then begin
+        // e.g. /usr/lib/fpc/3.1.1/units/x86_64-linux/rtl/sysutils.ppu:filutil.inc(481,10) Error: (5088) ...
+        if PPUFileStartPos<>nil then exit;
+        PPUFileStartPos:=FileStartPos;
+        PPUFileEndPos:=p;
+        FileStartPos:=p+1;
+      end
+      else if (DriveSeparator='') or (p-FileStartPos>1) then
         break;
     end;
     inc(p);
@@ -2473,6 +2698,8 @@ begin
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Urgency:=MsgType;
   aFilename:=GetString(FileStartPos,FileEndPos-FileStartPos);
+  if PPUFileStartPos<>nil then
+    MsgLine.Attribute['PPU']:=GetString(PPUFileStartPos,PPUFileEndPos-PPUFileStartPos);
   MsgLine.Filename:=LongenFilename(MsgLine,aFilename);
   MsgLine.Line:=Str2Integer(LineStartPos,0);
   MsgLine.Column:=Column;
@@ -2526,6 +2753,10 @@ var
   p: PChar;
 begin
   if Line='' then exit;
+  if FPC_FullVersion>=20701 then
+    Line:=LazUTF8.ConsoleToUTF8(Line)
+  else
+    Line:=LazUTF8.SysToUTF8(Line);
   p:=PChar(Line);
   fOutputIndex:=OutputIndex;
   fMsgID:=0;
@@ -2592,8 +2823,8 @@ begin
   then begin
     // Error while compiling resources
     AddResourceMessages;
-    MsgLine.Msg:=Format(lisCompileWithVdForMoreDetailsCheckForDuplicates, [
-      MsgLine.Msg]);
+    MsgLine.Msg:=MsgLine.Msg+' -> '+'Compile with -vd for more details. Check for duplicates.';
+    MsgLine.TranslatedMsg:=MsgLine.TranslatedMsg+' -> '+lisCompileWithVdForMoreDetailsCheckForDuplicates;
   end
   else if IsMsgID(MsgLine,FPCMsgIDErrorWhileLinking,fMsgItemErrorWhileLinking) then
     AddLinkingMessages
@@ -2619,6 +2850,11 @@ begin
     ReverseInstantFPCCacheDir(Result,false);
     exit;
   end;
+  if MsgLine.Attribute['PPU']<>'' then begin
+    MsgLine.Attribute[FPCMsgAttrWorkerDirectory]:=Tool.WorkerDirectory;
+    exit;
+  end;
+
   ShortFilename:=Result;
   // check last message line
   LastMsgLine:=Tool.WorkerMessages.GetLastLine;
@@ -2667,6 +2903,7 @@ var
   PrevMsgLine: TMessageLine;
   CmdLineParams: String;
   SrcFilename: String;
+  PPUFilename: String;
 begin
   //debugln(['TIDEFPCParser.ImproveMessages START ',aSynchronized,' Last=',fLastWorkerImprovedMessage[aSynchronized],' Now=',Tool.WorkerMessages.Count]);
   for i:=fLastWorkerImprovedMessage[aPhase]+1 to Tool.WorkerMessages.Count-1 do
@@ -2678,6 +2915,14 @@ begin
     and (MsgLine.SubTool=SubToolFPC) and (MsgLine.Filename<>'')
     then begin
       aFilename:=MsgLine.Filename;
+      PPUFilename:='';
+      if (not FilenameIsAbsolute(aFilename)) then begin
+        PPUFilename:=MsgLine.Attribute['PPU'];
+        if PPUFilename<>'' then begin
+          // compiler gave ppu file and relative source file
+          if not FindSrcViaPPU(aPhase,MsgLine,PPUFilename) then continue;
+        end;
+      end;
       if (not FilenameIsAbsolute(aFilename)) then begin
         // short file name => 1. search the full file name in previous message
         if i>0 then begin
@@ -2768,10 +3013,10 @@ begin
         end;
       end;
 
+      ImproveMsgIdentifierPosition(aPhase, MsgLine, SourceOK);
       ImproveMsgHiddenByIDEDirective(aPhase, MsgLine, SourceOK);
       ImproveMsgUnitNotUsed(aPhase, MsgLine);
       ImproveMsgSenderNotUsed(aPhase, MsgLine);
-      ImproveMsgIdentifierPosition(aPhase, MsgLine, SourceOK);
     end else if MsgLine.SubTool=SubToolFPCLinker then begin
       ImproveMsgLinkerUndefinedReference(aPhase, MsgLine);
     end;

@@ -1,9 +1,22 @@
-{  $Id$  }
 {
- *****************************************************************************
-  See the file COPYING.modifiedLGPL.txt, included in this distribution,
-  for details about the license.
- *****************************************************************************
+ ***************************************************************************
+ *                                                                         *
+ *   This source is free software; you can redistribute it and/or modify   *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This code is distributed in the hope that it will be useful, but      *
+ *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU     *
+ *   General Public License for more details.                              *
+ *                                                                         *
+ *   A copy of the GNU General Public License is available on the World    *
+ *   Wide Web at <http://www.gnu.org/copyleft/gpl.html>. You can also      *
+ *   obtain it by writing to the Free Software Foundation,                 *
+ *   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.        *
+ *                                                                         *
+ ***************************************************************************
 
   Author: Joost van der Sluis
   
@@ -53,9 +66,10 @@ unit registersqldb;
 {$DEFINE HASMYSQL56CONNECTION}
 {$ENDIF}
 
-{$IFNDEF Solaris}
+{ IFNDEF Solaris}
+// Reflects missing fcl-db support around FPC 2.6.1.
 {$DEFINE HASIBCONNECTION}
-{$ENDIF}
+{ ENDIF}
 
 interface
 
@@ -501,8 +515,10 @@ Var
 
 procedure Register;
 begin
+{$IFDEF HASIBCONNECTION}
   RegisterPropertyEditor(TypeInfo(AnsiString),
     TIBConnection, 'DatabaseName', TSQLFirebirdFileNamePropertyEditor);
+{$ENDIF}
   RegisterPropertyEditor(TypeInfo(AnsiString),
     TSQLConnector, 'ConnectorType', TSQLDBConnectorTypePropertyEditor);
 {$IFDEF HASLIBLOADER}
@@ -513,8 +529,9 @@ begin
 {$endif}
   RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'SQL'      , TSQLStringsPropertyEditor);
   RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'InsertSQL', TSQLStringsPropertyEditor);
-  RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'DeleteSQL', TSQLStringsPropertyEditor);
   RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'UpdateSQL', TSQLStringsPropertyEditor);
+  RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'DeleteSQL', TSQLStringsPropertyEditor);
+  RegisterPropertyEditor(TStrings.ClassInfo, TSQLQuery,  'RefreshSQL',TSQLStringsPropertyEditor);
   RegisterPropertyEditor(TStrings.ClassInfo, TSQLScript, 'Script'   , TSQLStringsPropertyEditor);
   RegisterProjectFileDescriptor(TSQLFileDescriptor.Create);
 

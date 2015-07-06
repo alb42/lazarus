@@ -8,8 +8,9 @@ unit DebugAttachDialog;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, DbgIntfDebuggerBase, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, ComCtrls, LCLType, Contnrs, LazarusIDEStrConsts, BaseDebugManager, Debugger;
+  Classes, SysUtils, Forms, Controls, Dialogs, StdCtrls, ComCtrls,
+  LCLType, LazFileUtils, DbgIntfDebuggerBase,
+  LazarusIDEStrConsts, BaseDebugManager, Debugger;
 
 type
 
@@ -24,12 +25,12 @@ type
     procedure btnRefreshClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure lvProcessesChange(Sender: TObject; Item: TListItem;
-      Change: TItemChange);
+      {%H-}Change: TItemChange);
     procedure lvProcessesColumnClick(Sender: TObject; Column: TListColumn);
     procedure lvProcessesData(Sender: TObject; Item: TListItem);
     procedure lvProcessesDblClick(Sender: TObject);
     procedure lvProcessesKeyDown(Sender: TObject; var Key: Word;
-      Shift: TShiftState);
+      {%H-}Shift: TShiftState);
   private
     FPidString: string;
     FList: TRunningProcessInfoList;

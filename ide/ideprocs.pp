@@ -118,7 +118,7 @@ function FindShortFileNameOnDisk(const Filename: string): string;
 function CreateNonExistingFilename(const BaseFilename: string): string;
 function FindFPCTool(const Executable, CompilerFilename: string): string;
 procedure ResolveLinksInFileList(List: TStrings; RemoveDanglingLinks: Boolean);
-function FindProgram(const Programname, BaseDirectory: string;
+function FindProgram(ProgramName, BaseDirectory: string;
                      WithBaseDirectory: boolean): string;
 
 // search paths
@@ -1501,14 +1501,23 @@ begin
   Result:=true;
 end;
 
-function FindProgram(const Programname, BaseDirectory: string;
+function FindProgram(ProgramName, BaseDirectory: string;
   WithBaseDirectory: boolean): string;
 var
   Flags: TSearchFileInPathFlags;
 begin
-  if FilenameIsAbsolute(Programname) then begin
-    if FileExistsUTF8(Programname) then
-      Result:=Programname
+  Result:='';
+  if ProgramName='' then exit;
+  {$IFDEF Unix}
+  if ProgramName[1]='~' then begin
+    Delete(ProgramName,1,1);
+    ProgramName:=GetEnvironmentVariableUTF8('HOME')+ProgramName;
+  end;
+  {$ENDIF}
+  ProgramName:=ResolveDots(ProgramName);
+  if FilenameIsAbsolute(ProgramName) then begin
+    if FileExistsCached(ProgramName) then
+      Result:=ProgramName
     else
       Result:='';
     exit;
@@ -1516,7 +1525,7 @@ begin
   Flags:=[];
   if not WithBaseDirectory then
     Include(Flags,sffDontSearchInBasePath);
-  Result:=FileUtil.SearchFileInPath(Programname,BaseDirectory,
+  Result:=FileUtil.SearchFileInPath(ProgramName,BaseDirectory,
                                     GetProgramSearchPath,PathSep,Flags);
 end;
 
@@ -2594,12 +2603,11 @@ var
   Count1: Int64;
   Count2: Int64;
 begin
+  Result:=false;
   if s1.Memory=nil then begin
     Result:=s2.Memory=nil;
   end else begin
-    if s2.Memory=nil then begin
-      Result:=false;
-    end else begin
+    if s2.Memory<>nil then begin
       p1:=PChar(s1.Memory);
       p2:=PChar(s2.Memory);
       Count1:=s1.Size;
@@ -2660,11 +2668,6 @@ procedure CTDbgOut(const s: string);
 begin
   LCLProc.DbgOut(s);
 end;
-
-initialization
-  CTDbgOutEvent:=@CTDbgOut;
-finalization
-  CTDbgOutEvent:=nil;
 
 end.
 

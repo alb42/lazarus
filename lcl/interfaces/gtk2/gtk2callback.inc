@@ -1103,6 +1103,7 @@ var
   Mess : TLMessage;
   Info: PWidgetInfo;
   AStart,AEnd: gint;
+  AForm: TCustomForm;
 {$IFDEF VerboseFocus}
   LCLObject: TObject;
   CurFocusWidget: PGtkWidget;
@@ -1138,8 +1139,23 @@ begin
 
   // do not show selection when widget is unfocused
   // issues #18164,#21897,#23182
-  if GtkWidgetIsA(Widget, gtk_type_entry) then
+  if GtkWidgetIsA(Widget, gtk_type_entry) and Assigned(Data) then
   begin
+    if (csDestroying in TComponent(Data).ComponentState) or
+      (csDestroyingHandle in TControl(Data).ControlState) then
+    begin
+      // DebugLn('NOTICE: Control is destroying itself, do not add new idle timer for ',dbgsName(TControl(Data)));
+      exit;
+    end;
+    AForm := GetParentForm(TControl(Data));
+    if Assigned(AForm) and ((csDestroying in AForm.ComponentState) or
+      (csDestroyingHandle in AForm.ControlState) or
+      ((fsModal in AForm.FormState) and (AForm.ModalResult <> mrNone)) ) then
+    begin
+      // DebugLn('NOTICE: Parent form is destroying, do not add new idle timer for ',dbgsName(TControl(Data)));
+      exit;
+    end;
+
     g_idle_add(@GtkEntryDelayClearCursorPos, Widget);
     //save now CursorPos and SelStart in WidgetInfo
     if (Widget <> nil) then
@@ -2403,9 +2419,11 @@ begin
       FixListViewRubberBand(Widget);
     end;
 
-    ReleaseMouseCapture;
     if DesignOnlySignal or (not ControlGetsMouseUpBefore(TControl(Data))) then
+    begin
+      ReleaseMouseCapture;
       Exit;
+    end;
   end else
   begin
     // stop the signal, so that the widget does not auto react
@@ -2417,6 +2435,7 @@ begin
   end;
   if DeliverMouseUpMessage(Widget, Event, TWinControl(Data)) then
   begin
+    ReleaseMouseCapture;
     if not DragManager.IsDragging then
       Result := not CallBackDefaultReturn
     else
@@ -2431,7 +2450,8 @@ begin
           gtk_button_clicked(PGtkButton(Widget));
       end;
     end;
-  end;
+  end else
+    ReleaseMouseCapture;
 end;
 
 {-------------------------------------------------------------------------------

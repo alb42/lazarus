@@ -480,6 +480,14 @@ msgstr "Ei toimintoa"
 msgid "Quick Paste Selection"
 msgstr "Pika-liitä valinta"
 
+#: syneditstrconst.syns_emcpluginmulticaretselectiontocarets
+msgid "Set carets at EOL in selected lines"
+msgstr ""
+
+#: syneditstrconst.syns_emcpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
 #: syneditstrconst.syns_emcselection_opt
 msgid "Mode,Begin,Continue"
 msgstr "Moodi,Ala,Jatka"
@@ -508,9 +516,17 @@ msgstr "Sarakevalinta"
 msgid "Drag Selection"
 msgstr "Vedä valinta"
 
+#: syneditstrconst.syns_emcstartdragmove_opt
+msgid "\"Caret on up if not dragged\",yes,no"
+msgstr ""
+
 #: syneditstrconst.syns_emcstartlineselections
 msgid "Line Selection"
 msgstr "Rivivalinta"
+
+#: syneditstrconst.syns_emcstartlineselectionsnoneempty
+msgid "Line Selection (select immediate)"
+msgstr ""
 
 #: syneditstrconst.syns_emcstartselection
 msgid "Selection"

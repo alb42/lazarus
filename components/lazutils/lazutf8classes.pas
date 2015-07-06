@@ -13,12 +13,11 @@ type
 
   TFileStreamUTF8 = class(TFileStream)
   private
-    FFileName: utf8string;
+    FFileName: string;
   public
-    constructor Create(const AFileName: utf8string; Mode: Word);
-    constructor Create(const AFileName: utf8string; Mode: Word; Rights: Cardinal);
-    destructor Destroy; override;
-    property FileName: utf8string Read FFilename;
+    constructor Create(const AFileName: string; Mode: Word);
+    constructor Create(const AFileName: string; Mode: Word; Rights: Cardinal);
+    property FileName: string Read FFilename;
   end;
 
   { TStringListUTF8 }
@@ -117,12 +116,18 @@ begin
   end;
 end;
 
-constructor TFileStreamUTF8.Create(const AFileName: utf8string; Mode: Word);
+constructor TFileStreamUTF8.Create(const AFileName: string; Mode: Word);
 begin
   Create(AFileName,Mode,438);
+  { Rights 438 is the default in the FCL TFileStream
+    Under Unix:
+      438 = &666 = owner/group/others can read/write
+      Note: the real rights are "Rights and not umask"
+    Under Windows Rights is not used.
+  }
 end;
 
-constructor TFileStreamUTF8.Create(const AFileName: utf8string; Mode: Word; Rights: Cardinal);
+constructor TFileStreamUTF8.Create(const AFileName: string; Mode: Word; Rights: Cardinal);
 var
   lHandle: THandle;
 begin
@@ -141,11 +146,6 @@ begin
   end
   else
     THandleStream(Self).Create(lHandle);
-end;
-
-destructor TFileStreamUTF8.Destroy;
-begin
-  FileClose(Handle);
 end;
 
 function TStringListUTF8.DoCompareText(const s1, s2: string): PtrInt;

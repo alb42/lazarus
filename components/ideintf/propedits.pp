@@ -11,11 +11,6 @@
     A Property Editor is the interface between a row of the object inspector
     and a property in the RTTI.
     For more information see the big comment part below.
-
-  ToDo:
-    -TIntegerSet missing -> taking my own
-
-    -many more... see XXX
 }
 unit PropEdits;
 
@@ -251,13 +246,14 @@ type
     paHasDefaultValue,
     paCustomDrawn
     );
-  TPropertyAttributes=set of TPropertyAttribute;
+  TPropertyAttributes = set of TPropertyAttribute;
 
-  TPropertyEditor=class;
+  TPropertyEditor = class;
 
-  TInstProp=record
-    Instance:TPersistent;
-    PropInfo:PPropInfo;
+  TInstProp = record
+    Instance: TPersistent;
+    PropInfo: PPropInfo;
+    // ToDo: add list of parent instances, e.g. Label1.Font.Color: Font needs Label1
   end;
   PInstProp = ^TInstProp;
 
@@ -289,6 +285,9 @@ type
     FPropCount: Integer;
     FPropList: PInstPropList;
     function GetPrivateDirectory: ansistring;
+  protected
+    // Draw Checkbox for Boolean and Set element editors.
+    function DrawCheckbox(ACanvas: TCanvas; const ARect: TRect; IsTrue: Boolean): TRect;
   public
     constructor Create(Hook:TPropertyEditorHook; APropCount:Integer); virtual;
     destructor Destroy; override;
@@ -340,6 +339,7 @@ type
     procedure GetValues({%H-}Proc: TGetStrProc); virtual;
     procedure Initialize; virtual;
     procedure Revert; virtual;
+    procedure RevertToInherited; virtual;
     procedure SetValue(const {%H-}NewValue: ansistring); virtual;
     procedure SetPropEntry(Index: Integer; AnInstance: TPersistent;
                            APropInfo: PPropInfo);
@@ -371,9 +371,10 @@ type
     function SubPropertiesNeedsUpdate: boolean; virtual;
     function IsDefaultValue: boolean; virtual;
     function IsNotDefaultValue: boolean; virtual;
+    function IsRevertableToInherited: boolean; virtual;
     // These are used for the popup menu in OI
     function GetVerbCount: Integer; virtual;
-    function GetVerb({%H-}Index: Integer): string; virtual;
+    function GetVerb(Index: Integer): string; virtual;
     procedure PrepareItem({%H-}Index: Integer; const {%H-}AnItem: TMenuItem); virtual;
     procedure ExecuteVerb({%H-}Index: Integer); virtual;
   public
@@ -538,9 +539,13 @@ type
     function GetAttributes: TPropertyAttributes; override;
     function GetName: shortstring; override;
     function GetValue: ansistring; override;
+    function GetVerbCount: Integer; override;
+    function GetVisualValue: ansistring; override;
     procedure GetValues(Proc: TGetStrProc); override;
     procedure SetValue(const NewValue: ansistring); override;
     function IsNotDefaultValue: boolean; override;
+    procedure PropDrawValue(ACanvas: TCanvas; const ARect: TRect;
+                            AState: TPropEditDrawState); override;
    end;
 
 { TSetPropertyEditor
@@ -553,6 +558,7 @@ type
     function GetAttributes: TPropertyAttributes; override;
     function GetEditLimit: Integer; override;
     procedure GetProperties(Proc: TGetPropEditProc); override;
+    procedure SetValue(const NewValue: ansistring); override;
     function OrdValueToVisualValue(OrdValue: longint): string; override;
   end;
 
@@ -1177,6 +1183,8 @@ type
   TPropHookGetComponentNames = procedure(TypeData: PTypeData;
                                          Proc: TGetStrProc) of object;
   TPropHookGetRootClassName = function:ShortString of object;
+  TPropHookGetAncestorInstProp = function(const InstProp: TInstProp;
+                            out AncestorInstProp: TInstProp): boolean of object;
   TPropHookAddClicked = function(ADesigner: TIDesigner;
                             MouseDownComponent: TComponent; Button: TMouseButton;
                             Shift: TShiftState; X, Y: Integer;
@@ -1229,6 +1237,7 @@ type
     htGetComponentName,
     htGetComponentNames,
     htGetRootClassName,
+    htGetAncestorInstProp,
     htAddClicked, // user selected a component class and clicked on a form to add a component
     htComponentRenamed,
     // persistent selection
@@ -1298,6 +1307,8 @@ type
     function GetComponentName(AComponent: TComponent): ShortString;
     procedure GetComponentNames(TypeData: PTypeData; const Proc: TGetStrProc);
     function GetRootClassName: ShortString;
+    function GetAncestorInstance(const InstProp: TInstProp;
+                                 out AncestorInstProp: TInstProp): boolean;
     function AddClicked(ADesigner: TIDesigner;
                         MouseDownComponent: TComponent; Button: TMouseButton;
                         Shift: TShiftState; X, Y: Integer;
@@ -1391,6 +1402,10 @@ type
                            const OnGetRootClassName: TPropHookGetRootClassName);
     procedure RemoveHandlerGetRootClassName(
                            const OnGetRootClassName: TPropHookGetRootClassName);
+    procedure AddHandlerGetAncestorInstProp(
+                     const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
+    procedure RemoveHandlerGetAncestorInstProp(
+                     const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
     // component create, delete, rename
     procedure AddHandlerComponentRenamed(
                            const OnComponentRenamed: TPropHookComponentRenamed);
@@ -1501,6 +1516,7 @@ type
     FShiftState: TShiftState;
     FCheckBoxes: array[TShiftStateEnum] of TCheckBox;
     FGrabForm: TForm;
+    function GetKey: Word;
     function GetShiftCheckBox(Shift: TShiftStateEnum): TCheckBox;
     procedure SetAllowedShifts(const AValue: TShiftState);
     procedure SetKey(const AValue: Word);
@@ -1520,7 +1536,7 @@ type
     constructor Create(TheOwner: TComponent); override;
     function GetDefaultShiftButtons: TShiftState;
     property ShiftState: TShiftState read FShiftState write SetShiftState;
-    property Key: Word read FKey write SetKey;
+    property Key: Word read GetKey write SetKey;
     property ShiftButtons: TShiftState read FShiftButtons write SetShiftButtons;
     property AllowedShifts: TShiftState read FAllowedShifts write SetAllowedShifts;
     property KeyComboBox: TComboBox read FKeyComboBox;
@@ -1883,8 +1899,6 @@ var
 type
   PPropertyClassRec=^TPropertyClassRec;
   TPropertyClassRec=record
-    // XXX
-    //Group:Integer;
     PropertyType:PTypeInfo;
     PropertyName:shortstring;
     PersistentClass:TClass;
@@ -1893,8 +1907,6 @@ type
 
   PPropertyEditorMapperRec=^TPropertyEditorMapperRec;
   TPropertyEditorMapperRec=record
-    // XXX
-    //Group:Integer;
     Mapper:TPropertyEditorMapperFunc;
   end;
 
@@ -2063,12 +2075,9 @@ begin
   if PropertyClassList=nil then
     PropertyClassList:=TList.Create;
   New(P);
-  // XXX
-  //P^.Group:=CurrentGroup;
   P^.PropertyType:=PropertyType;
   P^.PersistentClass:=PersistentClass;
   P^.PropertyName:=PropertyName;
-  //if Assigned(PersistentClass) then P^.PropertyName:=PropertyName;
   P^.EditorClass:=EditorClass;
   PropertyClassList.Insert(0,P);
 end;
@@ -2080,8 +2089,6 @@ begin
   if PropertyEditorMapperList=nil then
     PropertyEditorMapperList:=TList.Create;
   New(P);
-  // XXX
-  //P^.Group:=CurrentGroup;
   P^.Mapper:=Mapper;
   PropertyEditorMapperList.Insert(0,P);
 end;
@@ -2165,7 +2172,7 @@ var
   I, J, SelCount: Integer;
   ClassTyp: TClass;
   Candidates: TPropInfoList;
-  PropLists: TList;
+  PropLists: TFPList;
   PropEditor: TPropertyEditor;
   EdClass: TPropertyEditorClass;
   PropInfo: PPropInfo;
@@ -2214,7 +2221,7 @@ begin
       PropEditor.Free;
     end;
 
-    PropLists := TList.Create;
+    PropLists := TFPList.Create;
     try
       PropLists.Count := SelCount;
       // Create a property info list for each component in the selection
@@ -2358,6 +2365,40 @@ begin
   Result:=True;
 end;
 
+function TPropertyEditor.DrawCheckbox(ACanvas: TCanvas; const ARect: TRect;
+  IsTrue: Boolean): TRect;
+// Draws a Checkbox using theme services for editing booleans.
+// Returns the output rectangle adjusted for new text location.
+var
+  Details: TThemedElementDetails;
+  Check: TThemedButton;
+  Sz: TSize;
+  TopMargin: Integer;
+  VisVal: String;
+begin
+  VisVal := GetVisualValue;
+  // Draw the box using theme services.
+  if (VisVal = '') or (VisVal = oisMixed) then
+    Check := tbCheckBoxMixedNormal
+  else if IsTrue then
+    Check := tbCheckBoxCheckedNormal
+  else
+    Check := tbCheckBoxUncheckedNormal;
+  Details := ThemeServices.GetElementDetails(Check);
+  Sz := ThemeServices.GetDetailSize(Details);
+  TopMargin := (ARect.Bottom - ARect.Top - Sz.cy) div 2;
+  Result := ARect;
+  Inc(Result.Top, TopMargin);
+  // Left varies by widgetset and theme etc. Real Checkbox itself has a left margin.
+  Inc(Result.Left, 2);                // ToDo: How to find out the real margin?
+  Result.Right := Result.Left + Sz.cx;
+  Result.Bottom := Result.Top + Sz.cy;
+  ThemeServices.DrawElement(ACanvas.Handle, Details, Result, nil);
+  // Text will be written after the box.
+  Result := ARect;
+  Inc(Result.Left, Sz.cx + 4);
+end;
+
 function TPropertyEditor.GetAttributes: TPropertyAttributes;
 begin
   Result:=[paMultiSelect,paRevertable];
@@ -2382,7 +2423,7 @@ function TPropertyEditor.GetPropTypeUnitName(Index: Integer): string;
 type
   PPropData = ^TPropData;
 var
-  AComponent: TPersistent;
+  aPersistent: TPersistent;
   CurPropInfo: PPropInfo;
   hp: PTypeData;
   pd: PPropData;
@@ -2393,10 +2434,10 @@ var
   ThePropType: PTypeInfo;
 begin
   Result:='';
-  AComponent:=GetComponent(Index);
+  aPersistent:=GetComponent(Index);
   UpperName:=UpCase(GetName);
   ThePropType:=GetPropType;
-  ATypeInfo:=PTypeInfo(AComponent.ClassInfo);
+  ATypeInfo:=PTypeInfo(aPersistent.ClassInfo);
   while Assigned(ATypeInfo) do begin
     // skip the name
     hp:=GetTypeData(ATypeInfo);
@@ -2431,11 +2472,10 @@ begin
   Result:=GetFloatValueAt(0);
 end;
 
-Procedure SetIndexValues (P: PPRopInfo; Var Index, IValue : Longint);
-
+procedure SetIndexValues(P: PPRopInfo; var Index, IValue : Longint);
 begin
   Index:=((P^.PropProcs shr 6) and 1);
-  If Index<>0 then
+  if Index<>0 then
     IValue:=P^.Index
   else
     IValue:=0;
@@ -2548,8 +2588,7 @@ begin
     Result:=GetSetProp(Instance,PropInfo,Brackets);
 end;
 
-function TPropertyEditor.GetSetValueAt(Index: Integer; Brackets: boolean
-  ): AnsiString;
+function TPropertyEditor.GetSetValueAt(Index: Integer; Brackets: boolean): AnsiString;
 begin
   with FPropList^[Index] do
     Result:=GetSetProp(Instance,PropInfo,Brackets);
@@ -2649,11 +2688,11 @@ end;
 function TPropertyEditor.GetDefaultValue: ansistring;
 begin
   if not (paHasDefaultValue in GetAttributes) then
-    raise EPropertyError.Create('No default property available');
+    raise EPropertyError.Create('No property default available');
   Result:='';
 end;
 
-function TPropertyEditor.GetVisualValue:ansistring;
+function TPropertyEditor.GetVisualValue: ansistring;
 begin
   if AllEqual then
     Result:=GetValue
@@ -2770,7 +2809,7 @@ begin
     with FPropList^[I] do
       Changed := Changed or (GetOrdProp(Instance, PropInfo) <> NewValue);
   if Changed then begin
-    for I:=0 to FPropCount-1 do
+    for I := 0 to FPropCount - 1 do
       with FPropList^[I] do SetOrdProp(Instance, PropInfo, NewValue);
     Modified;
   end;
@@ -2847,6 +2886,111 @@ begin
   if PropertyHook<>nil then
     for I:=0 to FPropCount-1 do
       with FPropList^[I] do PropertyHook.Revert(Instance,PropInfo);
+end;
+
+procedure TPropertyEditor.RevertToInherited;
+var
+  i: Integer;
+  AncestorInstProp: TInstProp;
+  Changed: Boolean;
+  InstProp: TInstProp;
+  NewOrdValue, OldOrdValue: Int64;
+  OldStr, NewStr: String;
+  OldWideStr, NewWideStr: WideString;
+  OldUString, NewUString: UnicodeString;
+  OldFloat, NewFloat: Extended;
+  OldObj, NewObj: TObject;
+  OldMethod, NewMethod: TMethod;
+  OldInterface, NewInterface: IInterface;
+begin
+  if PropertyHook=nil then exit;
+  Changed:=false;
+  try
+    for i:=0 to FPropCount-1 do
+    begin
+      InstProp:=FPropList^[i];
+      if not PropertyHook.GetAncestorInstance(InstProp,AncestorInstProp) then
+        continue;
+
+      case InstProp.PropInfo^.PropType^.Kind of
+      tkInteger,tkChar,tkEnumeration,tkBool,tkInt64,tkQWord:
+        begin
+          OldOrdValue:=GetOrdProp(InstProp.Instance,InstProp.PropInfo);
+          NewOrdValue:=GetOrdProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldOrdValue=NewOrdValue then continue;
+          Changed:=true;
+          SetOrdProp(InstProp.Instance,InstProp.PropInfo,NewOrdValue);
+        end;
+      tkSet:
+        begin
+          OldStr:=GetSetProp(InstProp.Instance,InstProp.PropInfo,false);
+          NewStr:=GetSetProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo,false);
+          if OldStr=NewStr then continue;
+          Changed:=true;
+          SetSetProp(InstProp.Instance,InstProp.PropInfo,NewStr);
+        end;
+      tkString,tkLString,tkAString:
+        begin
+          OldStr:=GetStrProp(InstProp.Instance,InstProp.PropInfo);
+          NewStr:=GetStrProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldStr=NewStr then continue;
+          Changed:=true;
+          SetStrProp(InstProp.Instance,InstProp.PropInfo,NewStr);
+        end;
+      tkWString:
+        begin
+          OldWideStr:=GetWideStrProp(InstProp.Instance,InstProp.PropInfo);
+          NewWideStr:=GetWideStrProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldWideStr=NewWideStr then continue;
+          Changed:=true;
+          SetWideStrProp(InstProp.Instance,InstProp.PropInfo,NewWideStr);
+        end;
+      tkUString:
+        begin
+          OldUString:=GetUnicodeStrProp(InstProp.Instance,InstProp.PropInfo);
+          NewUString:=GetUnicodeStrProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldUString=NewUString then continue;
+          Changed:=true;
+          SetUnicodeStrProp(InstProp.Instance,InstProp.PropInfo,NewUString);
+        end;
+      tkFloat:
+        begin
+          OldFloat:=GetFloatProp(InstProp.Instance,InstProp.PropInfo);
+          NewFloat:=GetFloatProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldFloat=NewFloat then continue;
+          Changed:=true;
+          SetFloatProp(InstProp.Instance,InstProp.PropInfo,NewFloat);
+        end;
+      tkClass:
+        begin
+          OldObj:=GetObjectProp(InstProp.Instance,InstProp.PropInfo);
+          NewObj:=GetObjectProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldObj=NewObj then continue;
+          Changed:=true;
+          SetObjectProp(InstProp.Instance,InstProp.PropInfo,NewObj);
+        end;
+      tkMethod:
+        begin
+          OldMethod:=GetMethodProp(InstProp.Instance,InstProp.PropInfo);
+          NewMethod:=GetMethodProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if CompareMethods(OldMethod,NewMethod) then continue;
+          Changed:=true;
+          SetMethodProp(InstProp.Instance,InstProp.PropInfo,NewMethod);
+        end;
+      tkInterface:
+        begin
+          OldInterface:=GetInterfaceProp(InstProp.Instance,InstProp.PropInfo);
+          NewInterface:=GetInterfaceProp(AncestorInstProp.Instance,AncestorInstProp.PropInfo);
+          if OldInterface=NewInterface then continue;
+          Changed:=true;
+          SetInterfaceProp(InstProp.Instance,InstProp.PropInfo,NewInterface);
+        end;
+      end;
+    end;
+  finally
+    if Changed then
+      Modified;
+  end;
 end;
 
 procedure TPropertyEditor.SetValue(const NewValue:ansistring);
@@ -3016,17 +3160,51 @@ begin
       and (GetDefaultValue<>GetVisualValue);
 end;
 
+function TPropertyEditor.IsRevertableToInherited: boolean;
+begin
+  Result:=(paRevertable in GetAttributes) and (GetComponent(0) is TComponent)
+    and (csAncestor in TComponent(GetComponent(0)).ComponentState)
+    and (PropertyHook<>nil)
+    and (FPropList^[0].PropInfo^.PropType^.Kind in
+      [tkInteger,tkChar,tkEnumeration,tkBool,tkInt64,tkQWord,
+       tkSet,
+       tkString,tkLString,tkAString,
+       tkWString,
+       tkUString,
+       tkFloat,
+       tkClass,
+       tkMethod,
+       tkInterface]);
+end;
+
 function TPropertyEditor.GetVerbCount: Integer;
 begin
+  Result:=0;
   if paHasDefaultValue in GetAttributes then
-    Result := 1 // Show a menu item for default value only if there is default value
-  else
-    Result := 0;
+    inc(Result); // show a menu item for default value only if there is default value
+  if IsRevertableToInherited then
+    inc(Result); // show a menu item for 'Revert to inherited'
 end;
 
 function TPropertyEditor.GetVerb(Index: Integer): string;
+var
+  i: Integer;
 begin
-  Result := Format(oisSetToDefault, [GetDefaultValue]);
+  i:=-1;
+  if paHasDefaultValue in GetAttributes then begin
+    inc(i);
+    if i=Index then begin
+      Result := Format(oisSetToDefault, [GetDefaultValue]);
+      exit;
+    end;
+  end;
+  if IsRevertableToInherited then begin
+    inc(i);
+    if i=Index then begin
+      Result := oisRevertToInherited;
+      exit;
+    end;
+  end;
 end;
 
 procedure TPropertyEditor.PrepareItem(Index: Integer; const AnItem: TMenuItem);
@@ -3035,8 +3213,24 @@ begin
 end;
 
 procedure TPropertyEditor.ExecuteVerb(Index: Integer);
+var
+  i: Integer;
 begin
-  SetValue(GetDefaultValue);
+  i:=-1;
+  if paHasDefaultValue in GetAttributes then begin
+    inc(i);
+    if i=Index then begin
+      SetValue(GetDefaultValue);
+      exit;
+    end;
+  end;
+  if IsRevertableToInherited then begin
+    inc(i);
+    if i=Index then begin
+      RevertToInherited;
+      exit;
+    end;
+  end;
 end;
 
 { TOrdinalPropertyEditor }
@@ -3264,38 +3458,13 @@ end;
 procedure TBoolPropertyEditor.PropDrawValue(ACanvas: TCanvas; const ARect: TRect;
                                             AState: TPropEditDrawState);
 var
-  BRect: TRect;
-  Details: TThemedElementDetails;
-  Check: TThemedButton;
-  Sz: TSize;
-  TopMargin: Integer;
-  VisVal: String;
+  TxtRect: TRect;
 begin
-  BRect := ARect;
   if FPropertyHook.GetCheckboxForBoolean then
-  begin
-    VisVal := GetVisualValue;
-    // Draw the box using theme services.
-    if (VisVal = '') or (VisVal = oisMixed) then
-      Check := tbCheckBoxMixedNormal
-    else if GetOrdValue <> 0 then
-      Check := tbCheckBoxCheckedNormal
-    else
-      Check := tbCheckBoxUncheckedNormal;
-    Details := ThemeServices.GetElementDetails(Check);
-    Sz := ThemeServices.GetDetailSize(Details);
-    TopMargin := (ARect.Bottom - ARect.Top - Sz.cy) div 2;
-    Inc(BRect.Top, TopMargin);
-    // Left varies by widgetset and theme etc. Real Checkbox itself has a left margin.
-    Inc(BRect.Left, 2);                // ToDo: How to find out the real margin?
-    BRect.Right := BRect.Left + Sz.cx;
-    BRect.Bottom := BRect.Top + Sz.cy;
-    ThemeServices.DrawElement(ACanvas.Handle, Details, BRect, nil);
-    // Write text after the box
-    BRect := ARect;
-    Inc(BRect.Left, Sz.cx + 4);
-  end;
-  inherited PropDrawValue(ACanvas, BRect, AState);
+    TxtRect := DrawCheckbox(ACanvas, ARect, GetOrdValue<>0)
+  else
+    TxtRect := ARect;
+  inherited PropDrawValue(ACanvas, TxtRect, AState);
 end;
 
 { TInt64PropertyEditor }
@@ -3458,7 +3627,6 @@ begin
   FElement := AElement;
 end;
 
-// XXX
 // The IntegerSet (a set of size of an integer)
 // don't know if this is always valid
 type
@@ -3500,6 +3668,20 @@ var
 begin
   Integer(S) := GetOrdValue;
   Result := BooleanIdents[FElement in S];
+  if FPropertyHook.GetCheckboxForBoolean then
+    Result := '(' + Result + ')';
+end;
+
+function TSetElementPropertyEditor.GetVerbCount: Integer;
+begin
+  Result:=0;
+end;
+
+function TSetElementPropertyEditor.GetVisualValue: ansistring;
+begin
+  Result := inherited GetVisualValue;
+  if Result = '' then
+    Result := oisMixed;
 end;
 
 procedure TSetElementPropertyEditor.GetValues(Proc: TGetStrProc);
@@ -3513,7 +3695,8 @@ var
   S: TIntegerSet;
 begin
   Integer(S) := GetOrdValue;
-  if CompareText(NewValue, 'True') = 0 then
+  if (CompareText(NewValue, 'True') = 0)
+  or (CompareText(NewValue, '(True)') = 0) then
     Include(S, FElement)
   else
     Exclude(S, FElement);
@@ -3531,6 +3714,22 @@ begin
     Integer(S2) := GetDefaultOrdValue;
     Result := (FElement in S1) <> (FElement in S2);
   end;
+end;
+
+procedure TSetElementPropertyEditor.PropDrawValue(ACanvas: TCanvas; const ARect: TRect;
+                                                  AState: TPropEditDrawState);
+var
+  S: TIntegerSet;
+  TxtRect: TRect;
+begin
+  if FPropertyHook.GetCheckboxForBoolean then
+  begin
+    Integer(S) := GetOrdValue;
+    TxtRect := DrawCheckbox(ACanvas, ARect, FElement in S);
+  end
+  else
+    TxtRect := ARect;
+  inherited PropDrawValue(ACanvas, TxtRect, AState);
 end;
 
 { TSetPropertyEditor }
@@ -3554,6 +3753,20 @@ begin
   with GetTypeData(GetTypeData(GetPropType)^.CompType)^ do
     for I := MinValue to MaxValue do
       Proc(TSetElementPropertyEditor.Create(Self, I));
+end;
+
+procedure TSetPropertyEditor.SetValue(const NewValue: ansistring);
+var
+  S: TIntegerSet;
+  TypeInfo: PTypeInfo;
+  I: Integer;
+begin
+  S := [];
+  TypeInfo := GetTypeData(GetPropType)^.CompType;
+  for I := 0 to SizeOf(Integer) * 8 - 1 do
+    if Pos(GetEnumName(TypeInfo, I), NewValue) > 0 then
+      Include(S, I);
+  SetOrdValue(Integer(S));
 end;
 
 function TSetPropertyEditor.OrdValueToVisualValue(OrdValue: longint): string;
@@ -4355,9 +4568,8 @@ var
   Persistent: TPersistent;
 begin
   if NewValue=GetValue then exit;
-  if (NewValue = '') or (NewValue=oisNone) then
-    Persistent := nil
-  else begin
+  Persistent := nil;
+  if (NewValue <> '') and (NewValue<>oisNone) then begin
     if Assigned(PropertyHook) then begin
       Persistent := PropertyHook.GetComponent(NewValue);
       if not (Persistent is GetTypeData(GetPropType)^.ClassType) then begin
@@ -4529,6 +4741,7 @@ begin
     else
       Intf := nil;
   end;
+  // ToDo: Intf is either Nil or uninitialized. JuMa
   SetIntfValue(Intf);
 end;
 
@@ -4693,8 +4906,7 @@ begin
     Result := Result + [paHasDefaultValue];
 end;
 
-function TModalResultPropertyEditor.OrdValueToVisualValue(OrdValue: longint
-  ): string;
+function TModalResultPropertyEditor.OrdValueToVisualValue(OrdValue: longint): string;
 var
   CurValue: Longint;
 begin
@@ -4939,7 +5151,12 @@ var
   I: Integer;
 begin
   Proc(oisNone);
-  for I := 1 to High(ShortCuts) do Proc(ShortCutToText(ShortCuts[I]));
+  {$IFDEF Darwin}
+    for I := 1 to High(ShortCuts) do Proc(ShortCutToText(ShortCuts[I]));
+  {$ELSE}
+    for I := 1 to 26 do Proc(ShortCutToText(ShortCuts[I]));
+    for I := 53 to High(ShortCuts) do Proc(ShortCutToText(ShortCuts[I]));
+  {$ENDIF}
 end;
 
 procedure TShortCutPropertyEditor.SetValue(const Value: string);
@@ -5236,6 +5453,7 @@ begin
   case Index of
     0: s := oisSetMaxConstraints;
     1: s := oisSetMinConstraints;
+    else s := '';
   end;
   c := GetComponent(0) as TControl;
   Result := Format(s, [c.Height, c.Width]);
@@ -5546,6 +5764,22 @@ begin
   end;
   if (Result='') and Assigned(LookupRoot) then
     Result := LookupRoot.ClassName;
+end;
+
+function TPropertyEditorHook.GetAncestorInstance(const InstProp: TInstProp; out
+  AncestorInstProp: TInstProp): boolean;
+var
+  i: Integer;
+  Handler: TPropHookGetAncestorInstProp;
+begin
+  Result:=false;
+  if (InstProp.Instance=nil) or (InstProp.PropInfo=nil) then exit;
+  i := GetHandlerCount(htGetAncestorInstProp);
+  while GetNextHandlerIndex(htGetAncestorInstProp, i) and (not Result) do
+  begin
+    Handler := TPropHookGetAncestorInstProp(FHandlers[htGetAncestorInstProp][i]);
+    Result := Handler(InstProp,AncestorInstProp);
+  end;
 end;
 
 function TPropertyEditorHook.AddClicked(ADesigner: TIDesigner;
@@ -6048,6 +6282,18 @@ procedure TPropertyEditorHook.RemoveHandlerGetRootClassName(
   const OnGetRootClassName: TPropHookGetRootClassName);
 begin
   RemoveHandler(htGetRootClassName,TMethod(OnGetRootClassName));
+end;
+
+procedure TPropertyEditorHook.AddHandlerGetAncestorInstProp(
+  const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
+begin
+  AddHandler(htGetAncestorInstProp,TMethod(OnGetAncestorInstProp));
+end;
+
+procedure TPropertyEditorHook.RemoveHandlerGetAncestorInstProp(
+  const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
+begin
+  RemoveHandler(htGetAncestorInstProp,TMethod(OnGetAncestorInstProp));
 end;
 
 procedure TPropertyEditorHook.AddHandlerBeforeAddPersistent(
@@ -6586,14 +6832,14 @@ end;
 procedure TCustomShortCutGrabBox.OnGrabButtonClick(Sender: TObject);
 begin
   FGrabForm:=TForm.Create(Self);
-  FGrabForm.BorderStyle:=bsToolWindow;
+  FGrabForm.BorderStyle:=bsDialog;
   FGrabForm.KeyPreview:=true;
   FGrabForm.Position:=poScreenCenter;
   FGrabForm.OnKeyDown:=@OnGrabFormKeyDown;
-  FGrabForm.Caption:='Press a key ...';
+  FGrabForm.Caption:=oisPressAKey;
   with TLabel.Create(Self) do begin
-    Caption:='Press a key ...';
-    BorderSpacing.Around:=25;
+    Caption:=oisPressAKey;
+    BorderSpacing.Around:=50;
     Parent:=FGrabForm;
   end;
   FGrabForm.Width:=200;
@@ -6647,6 +6893,13 @@ end;
 function TCustomShortCutGrabBox.GetShiftCheckBox(Shift: TShiftStateEnum): TCheckBox;
 begin
   Result:=FCheckBoxes[Shift];
+end;
+
+function TCustomShortCutGrabBox.GetKey: Word;
+begin
+  Result:=FKey;
+  if (FKey = 0) then
+    FShiftState:=[];
 end;
 
 procedure TCustomShortCutGrabBox.SetAllowedShifts(const AValue: TShiftState);

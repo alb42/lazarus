@@ -38,7 +38,7 @@ interface
 
 uses
   // FCL + LCL
-  Types, Classes, Math, SysUtils, contnrs, variants, TypInfo,
+  Types, Classes, Math, SysUtils, variants, TypInfo,
   LCLProc, LCLType, LResources, LCLIntf, LMessages, InterfaceBase,
   Forms, Controls, GraphType, Graphics, Dialogs, ExtCtrls, Menus,
   ClipBrd,
@@ -155,7 +155,6 @@ type
     procedure SetGridColor(const AValue: TColor);
     procedure SetGridSizeX(const AValue: integer);
     procedure SetGridSizeY(const AValue: integer);
-    procedure SetIsControl(Value: Boolean);
     procedure SetMediator(const AValue: TDesignerMediator);
     procedure SetPopupMenuComponentEditor(const AValue: TBaseComponentEditor);
     procedure SetShowBorderSpacing(const AValue: boolean);
@@ -185,8 +184,8 @@ type
     procedure KeyUp(Sender: TControl; var TheMessage: TLMKEY);
     function  HandleSetCursor(var TheMessage: TLMessage): boolean;
     procedure HandlePopupMenu(Sender: TControl; var Message: TLMContextMenu);
-    procedure GetMouseMsgShift(TheMessage: TLMMouse; var Shift: TShiftState;
-                               var Button: TMouseButton);
+    procedure GetMouseMsgShift(TheMessage: TLMMouse; out Shift: TShiftState;
+                               out Button: TMouseButton);
 
     // procedures for working with components and persistents
     function GetDesignControl(AControl: TControl): TControl;
@@ -215,7 +214,6 @@ type
 
     procedure DoShowAnchorEditor;
     procedure DoShowTabOrderEditor;
-    procedure DoShowChangeClassDialog;
     procedure DoShowObjectInspector;
     procedure DoChangeZOrder(TheAction: Integer);
 
@@ -282,8 +280,9 @@ type
     function CopySelectionToStream(AllComponentsStream: TStream): boolean; override;
     function InsertFromStream(s: TStream; Parent: TWinControl;
                               PasteFlags: TComponentPasteSelectionFlags): Boolean; override;
-    function InvokeComponentEditor(AComponent: TComponent;
-                                   MenuIndex: integer): boolean; override;
+    function InvokeComponentEditor(AComponent: TComponent): boolean; override;
+    function ChangeClass: boolean; override;
+
     procedure DoProcessCommand(Sender: TObject; var Command: word;
                                var Handled: boolean);
 
@@ -317,7 +316,7 @@ type
                                   var TheMessage: TLMessage): Boolean; override;
     function UniqueName(const BaseName: string): string; override;
     Procedure RemovePersistentAndChilds(APersistent: TPersistent);
-    procedure Notification(AComponent: TComponent;
+    procedure Notification({%H-}AComponent: TComponent;
                            Operation: TOperation); override;
     procedure ValidateRename(AComponent: TComponent;
        const CurName, NewName: string); override;
@@ -337,7 +336,7 @@ type
     property GridSizeX: integer read GetGridSizeX write SetGridSizeX;
     property GridSizeY: integer read GetGridSizeY write SetGridSizeY;
     property GridColor: TColor read GetGridColor write SetGridColor;
-    property IsControl: Boolean read GetIsControl write SetIsControl;
+    property IsControl: Boolean read GetIsControl;
     property Mediator: TDesignerMediator read FMediator write SetMediator;
     property ProcessingDesignerEvent: Integer read FProcessingDesignerEvent;
     property OnActivated: TNotifyEvent read FOnActivated write FOnActivated;
@@ -606,7 +605,7 @@ begin
     DesignerMenuSnapToGuideLinesOption:=RegisterIDEMenuCommand(DesignerMenuSectionOptions,
                                'Snap to guide lines',fdmSnapToGuideLinesOption);
     DesignerMenuShowOptions:=RegisterIDEMenuCommand(DesignerMenuSectionOptions,
-        'Show options',dlgFROpts, nil, nil, nil, 'menu_environment_options');
+        'Show options',lisOptions, nil, nil, nil, 'menu_environment_options');
 end;
 
 // inline
@@ -1406,12 +1405,6 @@ begin
     FOnShowTabOrderEditor(Self);
 end;
 
-procedure TDesigner.DoShowChangeClassDialog;
-begin
-  if (ControlSelection.Count=1) and (not ControlSelection.LookupRootSelected) then
-    ShowChangeClassDialog(Self,ControlSelection[0].Persistent);
-end;
-
 procedure TDesigner.DoShowObjectInspector;
 begin
   if Assigned(FOnShowObjectInspector) then
@@ -1515,8 +1508,7 @@ begin
   Result:=DoDeleteSelectedPersistents;
 end;
 
-function TDesigner.InvokeComponentEditor(AComponent: TComponent;
-  MenuIndex: integer): boolean;
+function TDesigner.InvokeComponentEditor(AComponent: TComponent): boolean;
 var
   CompEditor: TBaseComponentEditor;
 begin
@@ -1549,6 +1541,14 @@ begin
       DebugLn('TDesigner.InvokeComponentEditor ERROR freeing component editor: ',E.Message);
     end;
   end;
+end;
+
+function TDesigner.ChangeClass: boolean;
+begin
+  if (ControlSelection.Count=1) and (not ControlSelection.LookupRootSelected) then
+    Result:=ShowChangeClassDialog(Self,ControlSelection[0].Persistent)=mrOK
+  else
+    Result:=false;
 end;
 
 procedure TDesigner.DoProcessCommand(Sender: TObject; var Command: word;
@@ -1859,10 +1859,11 @@ begin
   Message.Result := 1;
 end;
 
-procedure TDesigner.GetMouseMsgShift(TheMessage: TLMMouse;
-  var Shift: TShiftState; var Button: TMouseButton);
+procedure TDesigner.GetMouseMsgShift(TheMessage: TLMMouse; out
+  Shift: TShiftState; out Button: TMouseButton);
 begin
   Shift := [];
+  Button := mbLeft;
   if (TheMessage.Keys and MK_Shift) = MK_Shift then
     Include(Shift, ssShift);
   if (TheMessage.Keys and MK_Control) = MK_Control then
@@ -2343,7 +2344,7 @@ var
       begin
         // Double Click -> invoke 'Edit' of the component editor
         FShiftState := Shift;
-        InvokeComponentEditor(MouseDownComponent, -1);
+        InvokeComponentEditor(MouseDownComponent);
         FShiftState := [];
       end;
     end;
@@ -2594,7 +2595,7 @@ begin
         begin
           if not (dfHasSized in FFlags) then
           begin
-            ControlSelection.SaveBounds;
+            ControlSelection.SaveBounds(false);
             Include(FFlags, dfHasSized);
           end;
           // skip snapping when Alt is pressed
@@ -2625,7 +2626,7 @@ begin
         begin // move selection
           if not (dfHasSized in FFlags) then
           begin
-            ControlSelection.SaveBounds;
+            ControlSelection.SaveBounds(false);
             Include(FFlags, dfHasSized);
           end;
           //debugln('TDesigner.MouseMoveOnControl Move MouseDownComponent=',dbgsName(MouseDownComponent),' OldMouseMovePos=',dbgs(OldMouseMovePos),' MouseMovePos',dbgs(LastMouseMovePos),' MouseDownPos=',dbgs(MouseDownPos));
@@ -3042,7 +3043,7 @@ begin
     {$IFDEF VerboseDesigner}
     DebugLn('[TDesigner.Notification] opRemove ',dbgsName(AComponent));
     {$ENDIF}
-    // DoDeletePersistent is called already in RemovePersistentAndChilds.
+    DoDeletePersistent(AComponent,false);
   end;
 end;
 
@@ -3185,7 +3186,7 @@ end;
 
 procedure TDesigner.OnChangeClassMenuClick(Sender: TObject);
 begin
-  DoShowChangeClassDialog;
+  ChangeClass;
 end;
 
 procedure TDesigner.OnChangeParentMenuClick(Sender: TObject);
@@ -3353,11 +3354,6 @@ procedure TDesigner.SetGridSizeY(const AValue: integer);
 begin
   if GridSizeY=AValue then exit;
   EnvironmentOptions.GridSizeY:=AValue;
-end;
-
-procedure TDesigner.SetIsControl(Value: Boolean);
-begin
-
 end;
 
 procedure TDesigner.SetMediator(const AValue: TDesignerMediator);
@@ -3965,7 +3961,6 @@ begin
   if ShowAlignComponentsDialog(HorizAlignID,VertAlignID)=mrOk then 
   begin
     case HorizAlignID of
-     0: HorizAlignment:=csaNone;
      1: HorizAlignment:=csaSides1;
      2: HorizAlignment:=csaCenters;
      3: HorizAlignment:=csaSides2;
@@ -3973,9 +3968,9 @@ begin
      5: HorizAlignment:=csaSpaceEqually;
      6: HorizAlignment:=csaSide1SpaceEqually;
      7: HorizAlignment:=csaSide2SpaceEqually;
+     else HorizAlignment:=csaNone;  // value=0, this prevents compiler warning.
     end;
     case VertAlignID of
-     0: VertAlignment:=csaNone;
      1: VertAlignment:=csaSides1;
      2: VertAlignment:=csaCenters;
      3: VertAlignment:=csaSides2;
@@ -3983,6 +3978,7 @@ begin
      5: VertAlignment:=csaSpaceEqually;
      6: VertAlignment:=csaSide1SpaceEqually;
      7: VertAlignment:=csaSide2SpaceEqually;
+     else VertAlignment:=csaNone;  // value=0, this prevents compiler warning.
     end;
     ControlSelection.AlignComponents(HorizAlignment,VertAlignment);
     Modified;
@@ -4021,16 +4017,16 @@ begin
   if ShowSizeComponentsDialog(HorizSizingID,AWidth,VertSizingID,AHeight) = mrOk then 
   begin
     case HorizSizingID of
-     0: HorizSizing:=cssNone;
      1: HorizSizing:=cssShrinkToSmallest;
      2: HorizSizing:=cssGrowToLargest;
      3: HorizSizing:=cssFixed;
+     else HorizSizing:=cssNone;  // value=0, this prevents compiler warning.
     end;
     case VertSizingID of
-     0: VertSizing:=cssNone;
      1: VertSizing:=cssShrinkToSmallest;
      2: VertSizing:=cssGrowToLargest;
      3: VertSizing:=cssFixed;
+     else VertSizing:=cssNone;  // value=0, this prevents compiler warning.
     end;
     ControlSelection.SizeComponents(HorizSizing,AWidth,VertSizing,AHeight);
     Modified;

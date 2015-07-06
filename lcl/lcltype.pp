@@ -1264,7 +1264,7 @@ type
 
 
   PBitmapCoreHeader = ^TBitmapCoreHeader;
-  tagBITMAPCOREHEADER = record
+  tagBITMAPCOREHEADER = packed record // use packed, this is the .bmp file format
     bcSize: DWORD;
     bcWidth: Word;
     bcHeight: Word;
@@ -1276,7 +1276,7 @@ type
 
 
   PBitmapInfoHeader = ^TBitmapInfoHeader;
-  tagBITMAPINFOHEADER = record
+  tagBITMAPINFOHEADER = packed record // use packed, this is the .bmp file format
     biSize : DWORD;
     biWidth : Longint;
     biHeight : Longint;
@@ -3211,6 +3211,7 @@ begin
     FCS_ISO_8859_9:       result := 'FCS_ISO_8859_9';
     FCS_ISO_8859_10:      result := 'FCS_ISO_8859_10';
     FCS_ISO_8859_15:      result := 'FCS_ISO_8859_15';
+    else result := '';
   end;
 end;
 

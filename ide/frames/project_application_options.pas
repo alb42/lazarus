@@ -53,7 +53,7 @@ type
     function GetIconAsStream: TStream;
   public
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -86,8 +86,7 @@ begin
     TargetExeName := LazarusIDE.GetTestBuildDirectory +
       ExtractFilename(AProject.MainUnitInfo.Filename)
   else
-    TargetExeName := AProject.CompilerOptions.CreateTargetFilename(
-      AProject.MainFilename);
+    TargetExeName := AProject.CompilerOptions.CreateTargetFilename;
 
   if not (CreateApplicationBundle(TargetExeName, AProject.GetTitle, True) in
     [mrOk, mrIgnore]) then

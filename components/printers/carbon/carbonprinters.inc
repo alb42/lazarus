@@ -2,7 +2,7 @@
 {**************************************************************
 Implementation for carbonprinter
 ***************************************************************}
-Uses InterfaceBase, LCLIntf, CarbonProc, LCLProc;
+Uses InterfaceBase, LCLIntf, CarbonProc, LCLProc, dl;
 
 
 { TCarbonPrinterContext }
@@ -335,17 +335,58 @@ begin
   Validate;
 end;
 
+type
+ TPMPrinterGetOutputResolution = function( printer: PMPrinter;
+   printSettings: PMPrintSettings;
+   var resolutionP: PMResolution ): OSStatus; cdecl;
+
+var
+ _PMPrinterGetOutputResolution: TPMPrinterGetOutputResolution =  nil;
+ _PMPrinterGetOutputResolutionLoaded: Boolean;
+
 function TCarbonPrinter.GetOutputResolution: PMResolution;
 var
   res: OSStatus;
+  r  : PMresolution;
+  prn: PMPrinter;
+  cnt: UInt32;
+  i  : Integer;
 begin
-  // PMPrinterGetOutputResolution is supported on OS X 10.5 and later
-  // TODO: check version instead, because 10.5 may still support PowerPC
-  {$if defined(PowerPC) or defined(__ppc__) or defined(ppc)}
-  res := noErr+1;
-  {$else}
-  res := PMPrinterGetOutputResolution(GetCurrentPrinter, PrintSettings, Result{%H-});
-  {$endif}
+  prn := GetCurrentPrinter;
+
+  if not _PMPrinterGetOutputResolutionLoaded then
+  begin
+    // loading in run-time, because the function isn't available on OSX 10.4
+    _PMPrinterGetOutputResolutionLoaded := true;
+    _PMPrinterGetOutputResolution := TPMPrinterGetOutputResolution(dlsym(RTLD_DEFAULT,'PMPrinterGetOutputResolution'));
+  end;
+  if Assigned(_PMPrinterGetOutputResolution) then begin
+    // the function might return kPMKeyNotFound, see function description in MacOSAll
+    res := _PMPrinterGetOutputResolution(prn,  PrintSettings, Result{%H-});
+    if (res=kPMKeyNotFound) and (FDefaultResolution.Valid) then begin
+      res := noErr;
+      Result.hRes := fDefaultResolution.HorzRes;
+      Result.vRes := fDefaultResolution.VertRes;
+    end;
+  end
+  else
+    res := noErr+1;
+
+  if res <> noErr then
+  begin
+   res := PMPrinterGetPrinterResolutionCount(prn, cnt{%H-});
+   if res = noErr then
+   begin
+     PMPrinterGetIndexedPrinterResolution(prn, 1, Result);
+     for i := 2 to cnt do
+     begin
+       if PMPrinterGetIndexedPrinterResolution(prn, i, r{%H-}) = noErr then
+         if (r.hRes > Result.hRes) and (r.vRes > Result.vRes) then
+           Result := r;
+     end;
+   end;
+  end;
+
   if res<>noErr then
   begin
     Result.vRes:=72;
@@ -532,6 +573,7 @@ function TCarbonPrinter.DoSetPrinter(aName: string): Integer;
 var
   S: TStringList;
   P: PMPrinter;
+  ResCount: UInt32;
 begin
   S := TStringList.Create;
   BeginEnumPrinters(S);
@@ -546,6 +588,13 @@ begin
       if OSError(PMSessionSetCurrentPMPrinter(PrintSession, P),
         Self, 'DoSetPrinter', 'PMSessionSetCurrentPMPrinter') then
           raise EPrinter.CreateFmt('The system is unable to select printer "%s"!', [AName]);
+      //
+      with FDefaultResolution do
+      begin
+        Valid := (PMPrinterGetPrinterResolutionCount(P, ResCount)=noErr) and (ResCount>1);
+        if Valid then
+          Valid := GetDefaultPPDResolution(P, HorzRes, VertRes);
+      end;
     end;
   finally
     EndEnumPrinters;

@@ -32,8 +32,8 @@ unit CleanPkgDeps;
 interface
 
 uses
-  Classes, SysUtils, contnrs, FileUtil, AvgLvlTree, LazLogger, LvlGraphCtrl,
-  Forms, Controls, Graphics, Dialogs, ButtonPanel, ComCtrls, ExtCtrls, StdCtrls,
+  Classes, SysUtils, contnrs, FileUtil, AvgLvlTree, LazLogger,
+  Forms, Controls, Graphics, Dialogs, ComCtrls, ExtCtrls, StdCtrls,
   Buttons, LazarusIDEStrConsts, Project, PackageDefs, IDEImagesIntf;
 
 const
@@ -56,7 +56,6 @@ type
     BtnPanel: TPanel;
     SelectAllBitBtn: TBitBtn;
     SelectNoneBitBtn: TBitBtn;
-    TransitivityGroupBox: TGroupBox;
     TransitivityLabel: TLabel;
     TransitivityTreeView: TTreeView;
     procedure FormCreate(Sender: TObject);
@@ -64,7 +63,7 @@ type
     procedure SelectAllBitBtnClick(Sender: TObject);
     procedure SelectNoneBitBtnClick(Sender: TObject);
     procedure TransitivityTreeViewMouseDown(Sender: TObject;
-      Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+      {%H-}Button: TMouseButton; {%H-}Shift: TShiftState; X, Y: Integer);
   private
     function GetTVNodeChecked(TVNode: TTreeNode): boolean;
     procedure SetTVNodeChecked(TVNode: TTreeNode; AValue: boolean);
@@ -148,7 +147,6 @@ begin
   ImgIndexKeep             := IDEImages.LoadImage(16, 'menu_run');
 
   Caption:=lisPkgCleanUpPackageDependencies;
-  TransitivityGroupBox.Caption:=lisPkgTransitivity;
   TransitivityLabel.Caption:=
     lisPkgTheFollowingDependenciesAreNotNeededBecauseOfTheAu;
   TransitivityTreeView.Images:=IDEImages.Images_16;
@@ -369,7 +367,9 @@ begin
       Result:=TLazPackage(DepOwner).IDAsString
     else
       Result:=TLazPackage(DepOwner).Name;
-  end;
+  end
+  else
+    Result:='';
 end;
 
 function TCleanPkgDepsDlg.FetchDeletes: TObjectList;

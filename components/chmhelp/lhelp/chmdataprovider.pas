@@ -26,7 +26,8 @@ uses
   FPReadpng,
   FPWritebmp,
   FPWritePNG,
-  IntFGraphics;
+  IntFGraphics,
+  lhelpstrconsts;
 
 
 type
@@ -84,13 +85,15 @@ end;
 
 function TIpChmDataProvider.DoGetHtmlStream(const URL: string;
   PostData: TIpFormDataEntity): TStream;
+var Tmp:string;
 begin
   Result := fChm.GetObject(StripInPageLink(URL));
   // If for some reason we were not able to get the page return something so that
   // we don't cause an AV
   if Result = nil then begin
     Result := TMemoryStream.Create;
-    Result.Write('<HTML>Page cannot be found!</HTML>',33);
+    Tmp := '<HTML>' + slhelp_PageCannotBeFound + '</HTML>';
+    Result.Write(Tmp,Length(tmp));
   end;
   if Assigned(FOnGetHtmlPage) then
       FOnGetHtmlPage(Result);
@@ -178,8 +181,15 @@ begin
   Result := NewURL;
 
   fNewURL := NewURL;
-  if Pos('ms-its:', NewURL) = 1 then
-    Exit;
+  if OldURL = '' then
+    exit;
+
+  if Pos('ms-its:', NewURL) = 1 then begin
+    if Pos('#', NewURL) = 0 then
+      exit;
+    X := Pos('::', fNewURL);
+    fNewURL := Copy(fNewURL, X+3, MaxInt);
+  end;
 
   ParentDirs := GetDirsParents(OldURL);
   RemoveDirCount := 0;

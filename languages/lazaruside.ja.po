@@ -74,6 +74,10 @@ msgstr "履歴を後進"
 msgid "History forward"
 msgstr "履歴を前進"
 
+#: lazarusidestrconsts.dlfmousesimplebuttonmulticarettoggle
+msgid "Toggle extra Caret"
+msgstr ""
+
 #: lazarusidestrconsts.dlfmousesimplebuttonnothing
 msgctxt "lazarusidestrconsts.dlfmousesimplebuttonnothing"
 msgid "Nothing/Default"
@@ -156,6 +160,14 @@ msgstr "標準、マウスボタン押した時にすべての動作（ブレー
 #: lazarusidestrconsts.dlfmousesimplegutterleftup
 msgid "Extended, Actions (breakpoint, fold) on mouse up. Selection on mouse down and move"
 msgstr "拡張、マウスボタンを離した時に動作（ブレークポイント、折りたたみ）を行う。マウスボタンの押しと移動で選択"
+
+#: lazarusidestrconsts.dlfmousesimplegutterleftupright
+msgid "Extended, Actions, right gutter half only"
+msgstr ""
+
+#: lazarusidestrconsts.dlfmousesimplegutterlines
+msgid "Use line numers to select lines"
+msgstr ""
 
 #: lazarusidestrconsts.dlfmousesimpleguttersect
 msgctxt "lazarusidestrconsts.dlfmousesimpleguttersect"
@@ -541,10 +553,6 @@ msgstr "セミコロン；を追加"
 msgid "Adjust top line due to comment in front"
 msgstr "前のコメントのため先頭行を調整"
 
-#: lazarusidestrconsts.dlgallfiles
-msgid "All files"
-msgstr "すべてのファイル"
-
 #: lazarusidestrconsts.dlgalphabetically
 msgid "Alphabetically"
 msgstr "アルファベット順に"
@@ -586,7 +594,9 @@ msgid "Main .lpr unit creates each form with Application.CreateForm(). They are 
 msgstr ""
 
 #: lazarusidestrconsts.dlgautocreatenewforms
-msgid "When creating new forms, add them to auto-created forms"
+#, fuzzy
+#| msgid "When creating new forms, add them to auto-created forms"
+msgid "Auto-create new forms"
 msgstr "新しいフォームを作成した時、自動生成フォームに追加"
 
 #: lazarusidestrconsts.dlgautodel
@@ -1301,6 +1311,7 @@ msgid "Sub directory"
 msgstr "サブディレクトリ"
 
 #: lazarusidestrconsts.dlgedcodetempl
+msgctxt "lazarusidestrconsts.dlgedcodetempl"
 msgid "Code Templates"
 msgstr "コードテンプレート"
 
@@ -1527,6 +1538,158 @@ msgstr "外部のgdbデバッグシンボルファイルを使用"
 msgid "File extensions"
 msgstr "ファイルの拡張子"
 
+#: lazarusidestrconsts.dlgfiles
+msgid "%s files"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterall
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterall"
+msgid "All files"
+msgstr "すべてのファイル"
+
+#: lazarusidestrconsts.dlgfiltercodetoolstemplatefile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfiltercodetoolstemplatefile"
+msgid "CodeTools template file"
+msgstr "CodeToolsテンプレートファイル"
+
+#: lazarusidestrconsts.dlgfilterdcifile
+msgid "DCI file"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterdelphiform
+msgid "Delphi form"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterdelphipackage
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphipackage"
+msgid "Delphi package"
+msgstr "Delphiパッケージ"
+
+#: lazarusidestrconsts.dlgfilterdelphiproject
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphiproject"
+msgid "Delphi project"
+msgstr "Delphiプロジェクト"
+
+#: lazarusidestrconsts.dlgfilterdelphiunit
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterdelphiunit"
+msgid "Delphi unit"
+msgstr "Delphiユニット"
+
+#: lazarusidestrconsts.dlgfilterexecutable
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterexecutable"
+msgid "Executable"
+msgstr "実行ファイル"
+
+#: lazarusidestrconsts.dlgfilterfpcmessagefile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterfpcmessagefile"
+msgid "FPC message file"
+msgstr "FPC メッセージファイル"
+
+#: lazarusidestrconsts.dlgfilterhtml
+msgid "HTML files"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagesbitmap
+msgid "Bitmap images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagespixmap
+msgid "Pixmap images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterimagespng
+msgid "PNG images"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterlazarusdesktopsettings
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusdesktopsettings"
+msgid "Lazarus Desktop Settings"
+msgstr "Lazarusデスクトップ設定"
+
+#: lazarusidestrconsts.dlgfilterlazaruseditorfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazaruseditorfile"
+msgid "Editor file types"
+msgstr "ファイル型を編集"
+
+#: lazarusidestrconsts.dlgfilterlazarusfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusfile"
+msgid "Lazarus file"
+msgstr "Lazarusファイル"
+
+#: lazarusidestrconsts.dlgfilterlazarusform
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusform"
+msgid "Lazarus form"
+msgstr "Lazarusフォーム"
+
+#: lazarusidestrconsts.dlgfilterlazarusinclude
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusinclude"
+msgid "Lazarus include file"
+msgstr "Lazarusインクルードファイル"
+
+#: lazarusidestrconsts.dlgfilterlazarusotherfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusotherfile"
+msgid "Lazarus other file"
+msgstr "Lazarusのその他のファイル"
+
+#: lazarusidestrconsts.dlgfilterlazaruspackage
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazaruspackage"
+msgid "Lazarus package"
+msgstr "Lazarusパッケージ"
+
+#: lazarusidestrconsts.dlgfilterlazarusproject
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusproject"
+msgid "Lazarus project"
+msgstr "Lazarusプロジェクト"
+
+#: lazarusidestrconsts.dlgfilterlazarusprojectsource
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusprojectsource"
+msgid "Lazarus project source"
+msgstr "Lazarusプロジェクトソース"
+
+#: lazarusidestrconsts.dlgfilterlazarussession
+msgid "Lazarus session"
+msgstr ""
+
+#: lazarusidestrconsts.dlgfilterlazarusunit
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterlazarusunit"
+msgid "Lazarus unit"
+msgstr "Lazarusユニット"
+
+#: lazarusidestrconsts.dlgfilterpascalfile
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterpascalfile"
+msgid "Pascal file"
+msgstr "Pascalファイル"
+
+#: lazarusidestrconsts.dlgfilterprograms
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterprograms"
+msgid "Programs"
+msgstr "プログラム"
+
+#: lazarusidestrconsts.dlgfilterxml
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgfilterxml"
+msgid "XML files"
+msgstr "XML ファイル"
+
 #: lazarusidestrconsts.dlgfindtextatcursor
 msgid "Find text at cursor"
 msgstr "カーソル位置のテキストを検索"
@@ -1725,11 +1888,6 @@ msgstr "フォームの冒頭(&E)"
 #: lazarusidestrconsts.dlgfromcursor
 msgid "&From cursor"
 msgstr "カーソルから(&F)"
-
-#: lazarusidestrconsts.dlgfropts
-msgctxt "lazarusidestrconsts.dlgfropts"
-msgid "Options"
-msgstr "オプション"
 
 #: lazarusidestrconsts.dlggetposition
 msgid "Get position"
@@ -2244,6 +2402,7 @@ msgid "Mouse Action"
 msgstr ""
 
 #: lazarusidestrconsts.dlgmouseoptbtn1
+msgctxt "lazarusidestrconsts.dlgmouseoptbtn1"
 msgid "Single"
 msgstr "シングル"
 
@@ -2449,6 +2608,10 @@ msgctxt "lazarusidestrconsts.dlgmouseoptnodegutter"
 msgid "Gutter"
 msgstr "ガター"
 
+#: lazarusidestrconsts.dlgmouseoptnodegutterchanges
+msgid "Line Changes"
+msgstr ""
+
 #: lazarusidestrconsts.dlgmouseoptnodegutterfold
 msgid "Fold Tree"
 msgstr "折りたたみツリー"
@@ -2500,6 +2663,83 @@ msgstr "優先"
 msgctxt "lazarusidestrconsts.dlgmsgs"
 msgid "Messages"
 msgstr "メッセージ"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentdebug
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentdebug"
+msgid "Debug"
+msgstr "デバッグ"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgenterror
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgenterror"
+msgid "Error"
+msgstr "エラー"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentfatal
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentfatal"
+msgid "Fatal"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgenthint
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgenthint"
+msgid "Hint"
+msgstr "ヒント"
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentimportant
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentimportant"
+msgid "Important"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentnone
+msgid "Normal"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentnote
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentnote"
+msgid "Note"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentpanic
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentpanic"
+msgid "Panic"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentprogress
+msgid "Time and statistics"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentverbose"
+msgid "Verbose"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose2
+msgid "Verbose 2"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentverbose3
+msgid "Verbose 3"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmsgwincolorurgentwarning
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlgmsgwincolorurgentwarning"
+msgid "Warning"
+msgstr "警告"
+
+#: lazarusidestrconsts.dlgmulticaretcolumnmode
+msgid "Multi-caret (column-select) move with cursor"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmulticaretmode
+msgid "Multi-caret move with cursor"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmulticaretoncolumnselection
+msgid "Enable multi caret for column selection"
+msgstr ""
 
 #: lazarusidestrconsts.dlgmultiselect
 msgid "Multi Select"
@@ -2574,11 +2814,6 @@ msgstr "アイテムの高さ"
 msgctxt "lazarusidestrconsts.dlgoimiscellaneous"
 msgid "Miscellaneous"
 msgstr "その他"
-
-#: lazarusidestrconsts.dlgoioptions
-msgctxt "lazarusidestrconsts.dlgoioptions"
-msgid "Options"
-msgstr "オプション"
 
 #: lazarusidestrconsts.dlgoispeedsettings
 msgid "Speed settings"
@@ -2913,10 +3148,6 @@ msgstr "プロジェクトファイルのみエディタ情報を保存"
 msgid "Only files that belong to this project."
 msgstr ""
 
-#: lazarusidestrconsts.dlgscope
-msgid "Scope"
-msgstr "スコープ"
-
 #: lazarusidestrconsts.dlgscrollbyoneless
 msgid "Scroll by one less"
 msgstr "一つ少なくスクロール"
@@ -2953,6 +3184,10 @@ msgstr "検索中 ..."
 #: lazarusidestrconsts.dlgsearchpaths
 msgid "Paths"
 msgstr "パス"
+
+#: lazarusidestrconsts.dlgsearchscope
+msgid "Search scope"
+msgstr ""
 
 #: lazarusidestrconsts.dlgselectallchildcontrols
 msgid "Select all child controls together with their parent."
@@ -3095,6 +3330,10 @@ msgstr "ガイドラインに留まる"
 
 #: lazarusidestrconsts.dlgsnapguidelineshint
 msgid "When a control is close to being aligned with another control, it snaps to the aligned position."
+msgstr ""
+
+#: lazarusidestrconsts.dlgsourceedittabmultiline
+msgid "Multiline tabs"
 msgstr ""
 
 #: lazarusidestrconsts.dlgspacenotcosmos
@@ -3281,7 +3520,9 @@ msgid "Use launching application"
 msgstr "アプリケーション起動を使用"
 
 #: lazarusidestrconsts.dlguseminimumime
-msgid "Ime handled by System"
+#, fuzzy
+#| msgid "Ime handled by System"
+msgid "IME handled by System"
 msgstr "システムに操作されたIME"
 
 #: lazarusidestrconsts.dlguserschemeerror
@@ -3574,6 +3815,10 @@ msgstr "ファイル名"
 #: lazarusidestrconsts.lisa2pfilenotunit
 msgid "File not unit"
 msgstr "ファイルはユニットでない"
+
+#: lazarusidestrconsts.lisa2piconandsize
+msgid "Icon (maximum 24x24):"
+msgstr ""
 
 #: lazarusidestrconsts.lisa2pinvalidancestortype
 msgid "Invalid Ancestor Type"
@@ -3963,6 +4208,10 @@ msgctxt "lazarusidestrconsts.lisaddressbreakpoint"
 msgid "&Address Breakpoint ..."
 msgstr "アドレスブレークポイント(&A) ..."
 
+#: lazarusidestrconsts.lisaddsub
+msgid "Add >>"
+msgstr ""
+
 #: lazarusidestrconsts.lisaddtoincludesearchpath
 msgid "Add to include search path?"
 msgstr ""
@@ -4068,10 +4317,6 @@ msgstr "全てのブロックが大丈夫そうです。"
 #: lazarusidestrconsts.lisallbuildmodes
 msgid "<All build modes>"
 msgstr "<全ての構築モード>"
-
-#: lazarusidestrconsts.lisallfiles
-msgid "All Files"
-msgstr "すべてのファイル"
 
 #: lazarusidestrconsts.lisallinheritedoptions
 msgid "All inherited options"
@@ -4260,6 +4505,18 @@ msgstr "作成時に名前を尋ねる"
 msgid "A useful setting on Windows systems is: $(LazarusDir)\\mingw\\bin\\$(TargetCPU)-$(TargetOS)\\gdb.exe"
 msgstr "Windowsシステムに対する便利な設定は：$(LazarusDir)\\mingw\\bin\\$(TargetCPU)-$(TargetOS)\\gdb.exe"
 
+#: lazarusidestrconsts.lisautoadjustideheight
+msgid "Automatically adjust IDE main window height"
+msgstr ""
+
+#: lazarusidestrconsts.lisautoadjustideheightfullcomponentpalette
+msgid "Show complete component palette"
+msgstr ""
+
+#: lazarusidestrconsts.lisautoadjustideheightfullcomponentpalettehint
+msgid "If component palette spans over more lines, show them all and not only one."
+msgstr ""
+
 #: lazarusidestrconsts.lisautocompletionoff
 msgid "Auto completion: off"
 msgstr "自動補完:off"
@@ -4405,6 +4662,12 @@ msgstr "デフォルトでない値を太字に"
 msgid "Border space"
 msgstr "境界間隔"
 
+#: lazarusidestrconsts.lisbottom
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisbottom"
+msgid "Bottom"
+msgstr "底"
+
 #: lazarusidestrconsts.lisbottomborderspacespinedithint
 msgid "Bottom borderspace. This value is added to base borderspace and used for the space below the control."
 msgstr "下部の境界間隔。この値は基本境界間隔に加算され、コントロールの下の間隔に用いられます。"
@@ -4514,6 +4777,10 @@ msgstr ""
 #: lazarusidestrconsts.lisbuildinglazarusfailed
 msgid "Building Lazarus failed"
 msgstr "Lazarusの構築の失敗"
+
+#: lazarusidestrconsts.lisbuildmode
+msgid "Build Mode: %s"
+msgstr ""
 
 #: lazarusidestrconsts.lisbuildmodediffdifferencesbetweenbuildmodes
 msgid "Differences between build modes"
@@ -4765,6 +5032,7 @@ msgid "unusual characters"
 msgstr "特殊な文字"
 
 #: lazarusidestrconsts.lisccowarningcaption
+msgctxt "lazarusidestrconsts.lisccowarningcaption"
 msgid "Warning"
 msgstr "警告"
 
@@ -5184,6 +5452,10 @@ msgstr ""
 msgid "%s Check the target (OS, CPU, LCL widget type). Maybe you have to recompile the package for this target or set another target for the project."
 msgstr "%s 対象(OS, CPU, LCL ウィジェットタイプ)をチェックして下さい。たぶんこの対象についてパッケージを再コンパイルするか、プロジェクトについて別の対象をセットする必要があるでしょう。"
 
+#: lazarusidestrconsts.lischeckuncheckall
+msgid "Check/uncheck all"
+msgstr ""
+
 #: lazarusidestrconsts.lischooseadifferentname
 msgid "Choose a different name"
 msgstr "違う名前を選択してください"
@@ -5244,6 +5516,10 @@ msgstr "Delphiのユニット(*.pas)選択してください"
 msgid "Choose directory"
 msgstr "ディレクトリを選択してください"
 
+#: lazarusidestrconsts.lischooseexecutable
+msgid "Choose an executable"
+msgstr ""
+
 #: lazarusidestrconsts.lischoosefpcsourcedir
 msgid "Choose FPC source directory"
 msgstr "FPC ソースディレクトリを選択してください"
@@ -5299,10 +5575,6 @@ msgstr "クラス補完"
 #: lazarusidestrconsts.lisclassesandpropertiesexistvalueswerenotchecked
 msgid "Classes and properties exist. Values were not checked."
 msgstr "クラスとプロパティが存在します。値はまだチェックされていません。"
-
-#: lazarusidestrconsts.lisclassesppunotfoundcheckyourfpccfg
-msgid "classes.ppu not found. Check your fpc.cfg."
-msgstr "クラス.ppuが見つかりません。fpc.cfgをチェックしてください"
 
 #: lazarusidestrconsts.lisclassisnotaregisteredcomponentclassunabletopaste
 #, fuzzy,badformat
@@ -5406,9 +5678,13 @@ msgstr "オプションのためのフィルタをクリア"
 msgid "Click here to browse the file"
 msgstr "ファイルを閲覧するためにここをクリックしてください。"
 
-#: lazarusidestrconsts.lisclicktoseethepossibleuses
-msgid "Click to see the possible uses"
-msgstr "可能な利用方法を見るにはクリック"
+#: lazarusidestrconsts.lisclicktoseethechoices
+msgid "Click to see the choices"
+msgstr ""
+
+#: lazarusidestrconsts.lisclicktoselectpalettepage
+msgid "Click to Select Palette Page"
+msgstr ""
 
 #: lazarusidestrconsts.lisclone
 msgid "Clone"
@@ -6063,10 +6339,6 @@ msgstr "文字列定数"
 msgid "Symbol"
 msgstr "シンボル"
 
-#: lazarusidestrconsts.liscodetoolstemplatefile
-msgid "CodeTools template file"
-msgstr "CodeToolsテンプレートファイル"
-
 #: lazarusidestrconsts.liscoexecuteafter
 msgid "Execute after"
 msgstr "次の後に実行："
@@ -6175,7 +6447,7 @@ msgid "Compile"
 msgstr "コンパイル"
 
 #: lazarusidestrconsts.liscompilewithvdformoredetailscheckforduplicates
-msgid "%s -> Compile with -vd for more details. Check for duplicates."
+msgid "Compile with -vd for more details. Check for duplicates."
 msgstr ""
 
 #: lazarusidestrconsts.liscompiling
@@ -6262,6 +6534,10 @@ msgstr "構築 %s を設定"
 #| msgid "Configure %sBuild Lazarus%s"
 msgid "Configure \"Build Lazarus\""
 msgstr "%sLazarus構築 %s を設定"
+
+#: lazarusidestrconsts.lisconfigureeditortoolbar
+msgid "Configure Toolbar"
+msgstr ""
 
 #: lazarusidestrconsts.lisconfigurelazaruside
 msgid "Configure Lazarus IDE"
@@ -6706,6 +6982,190 @@ msgstr "不明なプロパティ"
 msgid "User selected to end conversion with file %s"
 msgstr ""
 
+#: lazarusidestrconsts.liscoolbaraddconfigdelete
+msgid "Add/Config/Delete Toolbar(s)"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaradddivider
+msgid "Add Divider"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaraddselected
+msgid "Add selected item to toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaravailablecommands
+msgid "Available commands"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarborderstyle
+msgid "Toolbars border style"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarborderstyleitem0
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarborderstyleitem0"
+msgid "None"
+msgstr "なし"
+
+#: lazarusidestrconsts.liscoolbarborderstyleitem1
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarborderstyleitem1"
+msgid "Single"
+msgstr "シングル"
+
+#: lazarusidestrconsts.liscoolbarclearselection
+msgid "Clear selection"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarcodeexplorer
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarcodeexplorer"
+msgid "Code Explorer"
+msgstr "コードエクスプローラ"
+
+#: lazarusidestrconsts.liscoolbarcodetemplates
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarcodetemplates"
+msgid "Code Templates"
+msgstr "コードテンプレート"
+
+#: lazarusidestrconsts.liscoolbarconfigure
+msgid "&Configure"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardeletetoolbar
+msgid "Are you sure you want to delete the selected toolbar?"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardeletewarning
+msgid "There must be at least one toolbar!"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbardesigner
+msgid "Designer"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargeneralsettings
+msgid "General Coolbar Settings"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyle
+msgid "Toolbars grab style"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem0
+msgid "Simple"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem1
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbargrabstyleitem1"
+msgid "Double"
+msgstr "ダブル"
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem2
+msgid "HorLines"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem3
+msgid "VerLines"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem4
+msgid "Gripper"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbargrabstyleitem5
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbargrabstyleitem5"
+msgid "Button"
+msgstr "ボタン"
+
+#: lazarusidestrconsts.liscoolbargrabwidth
+msgid "Grab width"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp1
+msgid "The \"Add\" button inserts a command before the selected Item of the Toolbar."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp2
+msgid "If none is selected, the Item will be appended at the end of the Toolbar."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp3
+msgid "You may rearrange Toolbar Items with \"Move Up\" and \"Move Down\" buttons."
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarhelp4
+msgid "Hint: to append an Item at the end, use \"Clear selection\""
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaridemainmenu
+msgid "IDE Main Menu"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarmessages
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarmessages"
+msgid "Messages"
+msgstr "メッセージ"
+
+#: lazarusidestrconsts.liscoolbarmoveselecteddown
+msgid "Move selected toolbar item down"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarmoveselectedup
+msgid "Move selected toolbar item up"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbaroptions
+msgid "IDE CoolBar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarpackageeditor
+msgid "Package Editor"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarpackageeditorfiles
+msgid "Package Editor Files"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarremoveselected
+msgid "Remove selected item from toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarrestoredefaults
+msgid "Restore defaults"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarselecttoolbar
+msgid "Please select a toolbar first!"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarsourceeditor
+#, fuzzy
+msgctxt "lazarusidestrconsts.liscoolbarsourceeditor"
+msgid "Source Editor"
+msgstr "ソースエディタ"
+
+#: lazarusidestrconsts.liscoolbarsourcetab
+msgid "Source Tab"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbartoolbarcommands
+msgid "Toolbar commands"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarvisible
+msgid "Coolbar is &visible"
+msgstr ""
+
+#: lazarusidestrconsts.liscoolbarwidth
+msgid "Coolbar width"
+msgstr ""
+
 #: lazarusidestrconsts.liscopy
 msgctxt "lazarusidestrconsts.liscopy"
 msgid "Copy"
@@ -6849,9 +7309,9 @@ msgstr ""
 msgid "Create a project first!"
 msgstr "初めにプロジェクトを作成してください！"
 
-#: lazarusidestrconsts.liscreatedebugandreleasemodes
-msgid "Create Debug and Release modes"
-msgstr "デバッグとリリースモードを作成"
+#: lazarusidestrconsts.liscreatedebugandreleasemodesnewproj
+msgid "Create Debug and Release modes for new projects"
+msgstr ""
 
 #: lazarusidestrconsts.liscreatedirectory
 msgid "Create directory?"
@@ -6888,6 +7348,10 @@ msgstr "（新しいパッケージを作成）"
 #: lazarusidestrconsts.liscreatenewpackagecomponent
 msgid "Create new package component"
 msgstr "新しいパッケージコンポーネントを作成"
+
+#: lazarusidestrconsts.liscreatenowforthisproject
+msgid "Create now for this project"
+msgstr ""
 
 #: lazarusidestrconsts.liscreateproject
 msgid "Create project"
@@ -7192,9 +7656,10 @@ msgid "Disable/Enable updates for the entire window"
 msgstr "ウィンドウ全体への更新を無効／有効"
 
 #: lazarusidestrconsts.lisdebug
+#, fuzzy
 msgctxt "lazarusidestrconsts.lisdebug"
 msgid "Debug"
-msgstr ""
+msgstr "デバッグ"
 
 #: lazarusidestrconsts.lisdebugger
 msgctxt "lazarusidestrconsts.lisdebugger"
@@ -7510,18 +7975,6 @@ msgstr "Delphi"
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr ""
-
-#: lazarusidestrconsts.lisdelphipackage
-msgid "Delphi package"
-msgstr "Delphiパッケージ"
-
-#: lazarusidestrconsts.lisdelphiproject
-msgid "Delphi project"
-msgstr "Delphiプロジェクト"
-
-#: lazarusidestrconsts.lisdelphiunit
-msgid "Delphi unit"
-msgstr "Delphiユニット"
 
 #: lazarusidestrconsts.lisdesigntimepackagesaddcomponentsandmenuitemstotheid
 msgid "\"Design time\" packages add components and menu items to the IDE. They can be used by projects, but are not compiled into the project. The compiler will not find units of this package when compiling the project."
@@ -7901,6 +8354,10 @@ msgstr "ソースの重複。どちらかを削除するか、すべての検索
 msgid "Duplicate Unit"
 msgstr ""
 
+#: lazarusidestrconsts.lisduplicateunitin
+msgid "Duplicate unit \"%s\" in \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lisedit
 msgctxt "lazarusidestrconsts.lisedit"
 msgid "Edit"
@@ -7926,13 +8383,21 @@ msgstr "キーを編集"
 msgid "Editor Colors"
 msgstr ""
 
-#: lazarusidestrconsts.liseditorfiletypes
-msgid "Editor file types"
-msgstr "ファイル型を編集"
-
 #: lazarusidestrconsts.liseditormacros
 msgid "Editor macros"
 msgstr "マクロエディタ"
+
+#: lazarusidestrconsts.liseditortoolbar
+msgid "Editor ToolBar"
+msgstr ""
+
+#: lazarusidestrconsts.liseditortoolbarhint
+msgid "You may add here your favorite commands"
+msgstr ""
+
+#: lazarusidestrconsts.liseditortoolbarvisible
+msgid "EditorToolbar is &visible"
+msgstr ""
 
 #: lazarusidestrconsts.lisedoptsloadascheme
 msgid "Load a scheme"
@@ -8249,7 +8714,9 @@ msgid "Error in the \"unit output directory\":"
 msgstr "\"unit output directory\"の検索パスにエラー:"
 
 #: lazarusidestrconsts.liserrorinvalidbuildmode
-msgid "ERROR: invalid build mode \"%s\""
+#, fuzzy
+#| msgid "ERROR: invalid build mode \"%s\""
+msgid "Error: (lazarus) invalid build mode \"%s\""
 msgstr "エラー：無効な構築モード \"%s\""
 
 #: lazarusidestrconsts.liserrorloadingfile
@@ -8394,10 +8861,6 @@ msgstr "%s 実行時に除外"
 msgid "Exclude filter"
 msgstr "除外フィルタ"
 
-#: lazarusidestrconsts.lisexecutable
-msgid "Executable"
-msgstr "実行ファイル"
-
 #: lazarusidestrconsts.lisexecutableisadirectory
 msgid "executable \"%s\" is a directory"
 msgstr ""
@@ -8417,10 +8880,6 @@ msgstr "次の前にコマンドを実行："
 #: lazarusidestrconsts.lisexecutionstopped
 msgid "Execution stopped"
 msgstr "実行を停止しました"
-
-#: lazarusidestrconsts.lisexeprograms
-msgid "Programs"
-msgstr "プログラム"
 
 #: lazarusidestrconsts.lisexit
 msgctxt "lazarusidestrconsts.lisexit"
@@ -8546,6 +9005,7 @@ msgid "Failed to save file."
 msgstr "ファイルの保存に失敗"
 
 #: lazarusidestrconsts.lisfatal
+msgctxt "lazarusidestrconsts.lisfatal"
 msgid "Fatal"
 msgstr ""
 
@@ -8844,6 +9304,10 @@ msgstr "欠けているUnitを検索"
 msgid "First"
 msgstr "冒頭"
 
+#: lazarusidestrconsts.lisfirsttest
+msgid "&First test"
+msgstr ""
+
 #: lazarusidestrconsts.lisfixlfmfile
 msgid "Fix LFM file"
 msgstr "LFMファイルを修復"
@@ -8895,10 +9359,6 @@ msgstr ""
 #: lazarusidestrconsts.lisfpcmakefailed
 msgid "fpcmake failed"
 msgstr "fpcmakeに失敗しました"
-
-#: lazarusidestrconsts.lisfpcmessagefile
-msgid "FPC message file"
-msgstr "FPC メッセージファイル"
 
 #: lazarusidestrconsts.lisfpcmessagefile2
 msgid "FPC message file:"
@@ -9023,17 +9483,17 @@ msgstr "無効な識別子"
 msgid "Rename all References"
 msgstr "すべての参照名を変更"
 
-#: lazarusidestrconsts.lisfrirenameto
-msgid "Rename to"
-msgstr "次の名前に変更"
+#: lazarusidestrconsts.lisfrirenaming
+msgid "Renaming"
+msgstr ""
+
+#: lazarusidestrconsts.lisfrisearch
+msgid "Search"
+msgstr ""
 
 #: lazarusidestrconsts.lisfrisearchincommentstoo
 msgid "Search in comments too"
 msgstr "コメントも検索"
-
-#: lazarusidestrconsts.lisfrisearchwhere
-msgid "Search where"
-msgstr "検索場所"
 
 #: lazarusidestrconsts.lisfull
 msgid "Full"
@@ -9061,10 +9521,9 @@ msgstr ""
 msgid "Goto Line"
 msgstr "行に移動"
 
-#: lazarusidestrconsts.lisgotoselectedsourceline
-msgctxt "lazarusidestrconsts.lisgotoselectedsourceline"
-msgid "Goto selected source line"
-msgstr "選択されたソース行へ移動"
+#: lazarusidestrconsts.lisgotoselected
+msgid "Goto selected"
+msgstr ""
 
 #: lazarusidestrconsts.lisgplnotice
 #, fuzzy,badformat
@@ -9128,6 +9587,10 @@ msgstr "最大に成長"
 msgid "Has Help"
 msgstr "ヘルプあり"
 
+#: lazarusidestrconsts.lisheadercolors
+msgid "Header colors"
+msgstr ""
+
 #: lazarusidestrconsts.lisheadercommentforclass
 msgid "Header comment for class"
 msgstr "クラスのためのヘッダコメント"
@@ -9178,6 +9641,7 @@ msgid "Hide with project option (-vm%s)"
 msgstr ""
 
 #: lazarusidestrconsts.lishint
+msgctxt "lazarusidestrconsts.lishint"
 msgid "Hint"
 msgstr "ヒント"
 
@@ -9448,6 +9912,7 @@ msgid "Import"
 msgstr "インポート"
 
 #: lazarusidestrconsts.lisimportant
+msgctxt "lazarusidestrconsts.lisimportant"
 msgid "Important"
 msgstr ""
 
@@ -9547,6 +10012,10 @@ msgstr "継承された引数"
 msgid "Inherited project component"
 msgstr "継承されたプロジェクトコンポーネント"
 
+#: lazarusidestrconsts.lisinitializelocalvariable
+msgid "Initialize Local Variable"
+msgstr ""
+
 #: lazarusidestrconsts.lisinordertocreateacleancopyoftheprojectpackageallfil
 #, fuzzy,badformat
 #| msgid "In order to create a clean copy of the project/package, all files in the following directory will be deleted and all its content will be lost.%s%sDelete all files in %s%s%s?"
@@ -9557,6 +10026,10 @@ msgstr "プロジェクトもしくはパッケージのクリーンコピーを
 msgctxt "lazarusidestrconsts.lisinsert"
 msgid "Insert"
 msgstr "挿入"
+
+#: lazarusidestrconsts.lisinsertassignment
+msgid "Insert Assignment %s := ..."
+msgstr ""
 
 #: lazarusidestrconsts.lisinsertdate
 msgid "insert date"
@@ -9713,6 +10186,14 @@ msgstr "無効なコマンド"
 msgid "Invalid delete"
 msgstr "無効な削除"
 
+#: lazarusidestrconsts.lisinvalidexecutable
+msgid "Invalid Executable"
+msgstr ""
+
+#: lazarusidestrconsts.lisinvalidexecutablemessagetext
+msgid "The file \"%s\" is not executable."
+msgstr ""
+
 #: lazarusidestrconsts.lisinvalidexpression
 msgid "Invalid expression:%s%s%s%s"
 msgstr "無効な式：%s%s%s%s"
@@ -9829,6 +10310,14 @@ msgstr "どうやったらこうなったのか不思議です。基底ディレ
 msgctxt "lazarusidestrconsts.lisjhjumphistory"
 msgid "Jump History"
 msgstr "移動履歴"
+
+#: lazarusidestrconsts.lisjumptoerror
+msgid "Jump to error"
+msgstr ""
+
+#: lazarusidestrconsts.lisjumptoerroratidentifiercompletion
+msgid "When an error in the sources is found at identifier completion, jump to it."
+msgstr ""
 
 #: lazarusidestrconsts.lisjumptoprocedure
 msgid "Jump to procedure %s"
@@ -10414,6 +10903,10 @@ msgstr "プロジェクトソースを表示"
 msgid "View Unit Info"
 msgstr "ユニット情報を表示"
 
+#: lazarusidestrconsts.lislastopened
+msgid "Last opened"
+msgstr ""
+
 #: lazarusidestrconsts.lislaunchingapplicationinvalid
 msgid "Launching application invalid"
 msgstr "アプリケーションの実行が無効です"
@@ -10431,10 +10924,6 @@ msgstr "Lazarus"
 msgid "Lazarus Default"
 msgstr ""
 
-#: lazarusidestrconsts.lislazarusdesktopsettings
-msgid "Lazarus Desktop Settings"
-msgstr "Lazarusデスクトップ設定"
-
 #: lazarusidestrconsts.lislazarusdirectory
 msgid "Lazarus directory"
 msgstr "Lazarusディレクトリ"
@@ -10447,21 +10936,9 @@ msgstr "基底ディレクトリとして扱われるディレクトリ"
 msgid "Lazarus IDE v%s"
 msgstr "Lazarus IDE v%s"
 
-#: lazarusidestrconsts.lislazarusfile
-msgid "Lazarus file"
-msgstr "Lazarusファイル"
-
-#: lazarusidestrconsts.lislazarusform
-msgid "Lazarus form"
-msgstr "Lazarusフォーム"
-
 #: lazarusidestrconsts.lislazaruside
 msgid "Lazarus IDE"
 msgstr "Lazarus IDE"
-
-#: lazarusidestrconsts.lislazarusinclude
-msgid "Lazarus include file"
-msgstr "Lazarusインクルードファイル"
 
 #: lazarusidestrconsts.lislazaruslanguageid
 msgid "Lazarus language ID (e.g. en, de, br, fi)"
@@ -10474,30 +10951,6 @@ msgstr "Lazarus言語名(例: english, deutsch)"
 #: lazarusidestrconsts.lislazarusoptionsprojectfilename
 msgid "lazarus [options] <project-filename>"
 msgstr "Lazarus [オプション]<プロジェクト-ファイル名>"
-
-#: lazarusidestrconsts.lislazarusotherfile
-msgid "Lazarus other file"
-msgstr "Lazarusのその他のファイル"
-
-#: lazarusidestrconsts.lislazaruspackage
-msgid "Lazarus package"
-msgstr "Lazarusパッケージ"
-
-#: lazarusidestrconsts.lislazarusproject
-msgid "Lazarus project"
-msgstr "Lazarusプロジェクト"
-
-#: lazarusidestrconsts.lislazarusprojectinfofile
-msgid "Lazarus Project Info file"
-msgstr "Lazarusプロジェクト情報ファイル"
-
-#: lazarusidestrconsts.lislazarusprojectsource
-msgid "Lazarus project source"
-msgstr "Lazarusプロジェクトソース"
-
-#: lazarusidestrconsts.lislazarusunit
-msgid "Lazarus unit"
-msgstr "Lazarusユニット"
 
 #: lazarusidestrconsts.lislazbuildaboaction
 msgctxt "lazarusidestrconsts.lislazbuildaboaction"
@@ -10976,6 +11429,10 @@ msgstr ""
 msgid "Manage Source Editors ..."
 msgstr "ソースエディタの管理 ..."
 
+#: lazarusidestrconsts.lismaximumnumberofthreadsforcompilinginparalleldefaul
+msgid "Maximum number of threads for compiling in parallel. Default is 0, which guesses the number of cores in the system."
+msgstr ""
+
 #: lazarusidestrconsts.lismaximumparallelprocesses0meansdefault
 msgid "Maximum parallel processes, 0 means default (%s)"
 msgstr ""
@@ -11400,6 +11857,22 @@ msgstr "次へ移動："
 #: lazarusidestrconsts.lismenujumptoimplementation
 msgid "Jump to Implementation"
 msgstr "実装部へ移動"
+
+#: lazarusidestrconsts.lismenujumptoimplementationuses
+msgid "Jump to Implementation uses"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptoinitialization
+msgid "Jump to Initialization"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptointerface
+msgid "Jump to Interface"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptointerfaceuses
+msgid "Jump to Interface uses"
+msgstr ""
 
 #: lazarusidestrconsts.lismenujumptonextbookmark
 msgid "Jump to Next Bookmark"
@@ -12198,6 +12671,10 @@ msgctxt "lazarusidestrconsts.lismore"
 msgid "More"
 msgstr "その他"
 
+#: lazarusidestrconsts.lismore2
+msgid "More ..."
+msgstr ""
+
 #: lazarusidestrconsts.lismoresub
 msgctxt "lazarusidestrconsts.lismoresub"
 msgid "More >>"
@@ -12258,6 +12735,10 @@ msgstr ""
 #: lazarusidestrconsts.lisms
 msgid "(ms)"
 msgstr "(ms)"
+
+#: lazarusidestrconsts.lismsgcolors
+msgid "Message colors"
+msgstr ""
 
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
@@ -12473,6 +12954,7 @@ msgid "Not a valid Pascal identifier"
 msgstr "Pascal の有効な識別子ではありません"
 
 #: lazarusidestrconsts.lisnote
+msgctxt "lazarusidestrconsts.lisnote"
 msgid "Note"
 msgstr ""
 
@@ -12786,6 +13268,12 @@ msgstr ""
 msgid "Open XML"
 msgstr "Open XML"
 
+#: lazarusidestrconsts.lisoptions
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisoptions"
+msgid "Options"
+msgstr "オプション"
+
 #: lazarusidestrconsts.lisoptionschangedrecompilingcleanwithb
 msgid "Options changed, recompiling clean with -B"
 msgstr "オプションが変更されたので、-Bでクリーン再コンパイルしています"
@@ -12882,6 +13370,10 @@ msgstr "パッケージ出力ディレクトリ"
 msgid "Package source directories"
 msgstr "パッケージソースディレクトリ"
 
+#: lazarusidestrconsts.lispackagesunitsidentifierslinesbytes
+msgid "packages=%s/%s units=%s/%s identifiers=%s/%s lines=%s bytes=%s"
+msgstr ""
+
 #: lazarusidestrconsts.lispackageunit
 msgid "package unit"
 msgstr "パッケージユニット"
@@ -12899,6 +13391,7 @@ msgid "Page name \"%s\" already exists. Not added."
 msgstr ""
 
 #: lazarusidestrconsts.lispanic
+msgctxt "lazarusidestrconsts.lispanic"
 msgid "Panic"
 msgstr ""
 
@@ -12909,10 +13402,6 @@ msgstr ", 構文解析済み"
 #: lazarusidestrconsts.lisparser
 msgid "parser \"%s\": %s"
 msgstr ""
-
-#: lazarusidestrconsts.lispascalfile
-msgid "Pascal file"
-msgstr "Pascalファイル"
 
 #: lazarusidestrconsts.lispasscount
 msgid "Pass Count"
@@ -12929,6 +13418,10 @@ msgstr "クリップボードを貼り付け"
 
 #: lazarusidestrconsts.lispastefromclipboard
 msgid "Paste from clipboard"
+msgstr ""
+
+#: lazarusidestrconsts.lispastelcolors
+msgid "Pastel Colors"
 msgstr ""
 
 #: lazarusidestrconsts.lispath
@@ -13005,8 +13498,8 @@ msgstr "パッケージ名を利用するためにクリア"
 msgid "Disable I18N of lfm"
 msgstr "lfmの国際化を無効化"
 
-#: lazarusidestrconsts.lispckeditaddfiles
-msgid "Add files from the file system"
+#: lazarusidestrconsts.lispckeditaddfilesfromfilesystem
+msgid "Add Files from File System"
 msgstr ""
 
 #: lazarusidestrconsts.lispckeditaddotheritems
@@ -13064,7 +13557,9 @@ msgid "Dependency Properties"
 msgstr "依存関係属性"
 
 #: lazarusidestrconsts.lispckediteditgeneraloptions
-msgid "Edit General Options"
+#, fuzzy
+#| msgid "Edit General Options"
+msgid "Edit general options"
 msgstr "一般的なオプションを編集"
 
 #: lazarusidestrconsts.lispckeditfileproperties
@@ -13074,10 +13569,6 @@ msgstr "ファイルのプロパティ"
 #: lazarusidestrconsts.lispckeditinstall
 msgid "Install"
 msgstr "インストール"
-
-#: lazarusidestrconsts.lispckeditinstallpackageintheide
-msgid "Install package in the IDE"
-msgstr "IDEにパッケージをインストール"
 
 #: lazarusidestrconsts.lispckeditinvalidmaximumversion
 msgid "Invalid maximum version"
@@ -13539,9 +14030,9 @@ msgstr "パッケージを復帰しますか？"
 msgid "The file \"%s\"%sis currently not in the unit path of the package.%sAdd \"%s\" to unit path?"
 msgstr "ファイル %s%s%s%sはまだパッケージのユニットパスにありません。%s%s %s%s%s をユニットパスに追加しますか？"
 
-#: lazarusidestrconsts.lispkgedtherearemorefunctionsinthepopupmenu
-msgid "There are more functions in the popupmenu"
-msgstr "ポップアップメニューの中にもっと多くの機能があります。"
+#: lazarusidestrconsts.lispkgedmorefunctionsforthepackage
+msgid "More functions for the package"
+msgstr ""
 
 #: lazarusidestrconsts.lispkgfiletypebinary
 msgctxt "lazarusidestrconsts.lispkgfiletypebinary"
@@ -13629,9 +14120,9 @@ msgstr "壊れた依存性"
 msgid "Circular dependencies found"
 msgstr "循環参照が見つかりました"
 
-#: lazarusidestrconsts.lispkgmangcompilingpackage
-msgid "Compiling package %s"
-msgstr "パッケージ%sをコンパイル中"
+#: lazarusidestrconsts.lispkgmangcompilepackage
+msgid "Compile package %s"
+msgstr ""
 
 #: lazarusidestrconsts.lispkgmangdeletefailed
 msgid "Delete failed"
@@ -14220,13 +14711,13 @@ msgstr "グローバル"
 msgid "Package Links"
 msgstr "パッケージリンク"
 
-#: lazarusidestrconsts.lispldshowgloballinks
-msgid "Show global links"
-msgstr "グローバルリンクを表示"
+#: lazarusidestrconsts.lispldshowgloballinksin
+msgid "Show global links in "
+msgstr ""
 
-#: lazarusidestrconsts.lispldshowuserlinks
-msgid "Show user links"
-msgstr "ユーザーリンクを表示"
+#: lazarusidestrconsts.lispldshowuserlinksin
+msgid "Show user links in "
+msgstr ""
 
 #: lazarusidestrconsts.lisplduser
 msgid "User"
@@ -14320,12 +14811,20 @@ msgstr "セッション情報を次に保存"
 msgid ".lpi is the project main info file, .lps is a separate file for session data only."
 msgstr ""
 
+#: lazarusidestrconsts.lisposition
+msgid "Position"
+msgstr ""
+
 #: lazarusidestrconsts.lispositionoutsideofsource
 msgid "%s (position outside of source)"
 msgstr ""
 
 #: lazarusidestrconsts.lisppuinwrongdirectory
 msgid "ppu in wrong directory=%s."
+msgstr ""
+
+#: lazarusidestrconsts.lisppunotfoundcheckyourfpccfg
+msgid "%s.ppu not found. Check your fpc.cfg."
 msgstr ""
 
 #: lazarusidestrconsts.lisprecedingword
@@ -15367,6 +15866,10 @@ msgstr ""
 msgid "Scanning"
 msgstr "走査"
 
+#: lazarusidestrconsts.lisscanning2
+msgid "%s. Scanning ..."
+msgstr ""
+
 #: lazarusidestrconsts.lisscanparentdir
 msgid "Scanning parent directory"
 msgstr "親ディレクトリを走査"
@@ -15386,6 +15889,10 @@ msgstr "Lazarusが設定テンプレートファイルを検索する二次的�
 #: lazarusidestrconsts.lissecondaryconfigpath
 msgid "Secondary config path"
 msgstr "第2設定パス"
+
+#: lazarusidestrconsts.lissecondtest
+msgid "&Second test"
+msgstr ""
 
 #: lazarusidestrconsts.lisseemessages
 msgid "See messages."
@@ -15503,6 +16010,10 @@ msgstr ""
 #: lazarusidestrconsts.lissetupdefaultindentation
 msgid "(Set up default indentation)"
 msgstr "（既定のインデント合わせを設定）"
+
+#: lazarusidestrconsts.lissetutf8inrtl
+msgid "Set UTF-8 in RTL"
+msgstr ""
 
 #: lazarusidestrconsts.lisshort
 msgid "Short:"
@@ -15676,6 +16187,10 @@ msgstr "そのファイルをとばして読み込みを続行"
 #: lazarusidestrconsts.lisskiploadinglastproject
 msgid "Skip loading last project"
 msgstr "最後のプロジェクトの読み込みをスキップ"
+
+#: lazarusidestrconsts.lisskipthesewarnings
+msgid "Skip these warnings"
+msgstr ""
 
 #: lazarusidestrconsts.lisslowerbutmoreaccurate
 msgid "Slower but more accurate."
@@ -15912,10 +16427,6 @@ msgstr ""
 #: lazarusidestrconsts.lissuggestdefaultnameofnewfileinlowercase
 msgid "Suggest default name of new file in lowercase"
 msgstr "新しいデフォルトファイル名を小文字で提案"
-
-#: lazarusidestrconsts.lissupportutf8rtl
-msgid "Support UTF-8 RTL"
-msgstr ""
 
 #: lazarusidestrconsts.lissuspiciousincludepath
 msgid "Suspicious include path"
@@ -16622,6 +17133,10 @@ msgstr "%s%s%sのユニット検索パスはパッケージ %sのソースディ
 msgid "The working directory \"%s\" does not exist.%sPlease check the working directory in Menu > Run > Run parameters."
 msgstr "作業ディレクトリ %s%s%s が存在しません。%sメニュー>実行>実行パラメータで作業ディレクトリをチェックしてください。"
 
+#: lazarusidestrconsts.listhisbuildmodenowsetsutf8inthertlflagsareinpagesoth
+msgid "This build mode now sets UTF-8 in the RTL.%s Flags are in pages \"Other\" and \"Additions and Overrides\"."
+msgstr ""
+
 #: lazarusidestrconsts.listhiscomponentalreadycontainsaclasswiththename
 msgid "This component already contains a class with the name %s."
 msgstr "このコンポーネントは既に %s という名前のクラスを含んでいます。"
@@ -16659,6 +17174,10 @@ msgstr "このLazarus構築オプションセットは、このインストー�
 #: lazarusidestrconsts.listhisstatementcannotbeextractedpleaseselectsomecode
 msgid "This statement can not be extracted.%sPlease select some code to extract a new procedure/method."
 msgstr "この文は抽出できません。%s新しい手続き/メソッドを抽出するためにコードの一部を選択してください。"
+
+#: lazarusidestrconsts.listhiswillallowchangingallbuildmodesatoncenotimpleme
+msgid "This will allow changing all build modes at once. Not implemented yet."
+msgstr ""
 
 #: lazarusidestrconsts.listhiswillcreateacirculardependency
 msgid "This will create a circular dependency."
@@ -16718,6 +17237,10 @@ msgstr "タスクバーのタイトルはproject1.lpi - Lazarusなどと表示�
 msgid "Title (leave empty for default)"
 msgstr "タイトル（デフォルトの場合空欄にしておいて下さい）"
 
+#: lazarusidestrconsts.listitleopencomponenticon24x24
+msgid "Choose a component icon 24x24"
+msgstr ""
+
 #: lazarusidestrconsts.listmfunctionappendpathdelimiter
 msgid "Function: append path delimiter"
 msgstr "機能：パスの区切り記号を添える"
@@ -16754,6 +17277,34 @@ msgstr "パス："
 msgid "Toggle showing filenames with full path or with relative path"
 msgstr "ファイル名をフルパスで表示するか相対パスで表示するかの切り替え"
 
+#: lazarusidestrconsts.listoolbarconfiguration
+msgid "Toolbar Configuration"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptions
+msgid "Toolbar"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionshighlight
+msgid "Highlight toolbars buttons"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsraise
+msgid "Raise toolbars"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsstandardvisible
+msgid "Standard toolbar visible"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionstoolbarsvisible
+msgid "Toolbars visible"
+msgstr ""
+
+#: lazarusidestrconsts.listoolbaroptionsviewdebugvisible
+msgid "Debug toolbar visible"
+msgstr ""
+
 #: lazarusidestrconsts.listoolhasnoexecutable
 msgid "tool \"%s\" has no executable"
 msgstr ""
@@ -16778,6 +17329,12 @@ msgstr ""
 msgid "tool stopped with exit code %s. Use context menu to get more information."
 msgstr ""
 
+#: lazarusidestrconsts.listop
+#, fuzzy
+msgctxt "lazarusidestrconsts.listop"
+msgid "Top"
+msgstr "上端"
+
 #: lazarusidestrconsts.listopanchoring
 msgid "Top anchoring"
 msgstr "上端アンカー"
@@ -16801,6 +17358,10 @@ msgstr "これは上側がアンカーされる兄弟のコントロールです
 #: lazarusidestrconsts.listopspaceequally
 msgid "Top space equally"
 msgstr "上端の間隔を均等に"
+
+#: lazarusidestrconsts.listotalpages
+msgid "Total Pages: %s"
+msgstr ""
 
 #: lazarusidestrconsts.listranslatetheenglishmessages
 msgid "Translate the English Messages"
@@ -17005,7 +17566,9 @@ msgid "Included by:"
 msgstr "次に含まれる："
 
 #: lazarusidestrconsts.lisuidinproject
-msgid "in Project:"
+#, fuzzy
+#| msgid "in Project:"
+msgid "In project:"
 msgstr "プロジェクト内"
 
 #: lazarusidestrconsts.lisuidlines
@@ -17680,6 +18243,7 @@ msgid "Variable"
 msgstr "変数"
 
 #: lazarusidestrconsts.lisverbose
+msgctxt "lazarusidestrconsts.lisverbose"
 msgid "Verbose"
 msgstr ""
 
@@ -17918,10 +18482,6 @@ msgstr "%sに間違ったバージョン: %s"
 msgid "XML Error"
 msgstr "XMLエラー"
 
-#: lazarusidestrconsts.lisxmlfiles
-msgid "XML files"
-msgstr "XML ファイル"
-
 #: lazarusidestrconsts.lisxmlparsererrorinfileerror
 msgid "XML parser error in file %s%sError: %s"
 msgstr "ファイル%s%sでXMLパーサエラー: %s"
@@ -18066,10 +18626,6 @@ msgstr "PIDに入る"
 #: lazarusidestrconsts.rsfilterthelistwithstring
 msgid "Filter the lines in list with a string"
 msgstr "リスト内の行を文字列で選別"
-
-#: lazarusidestrconsts.rsformdatafiledfm
-msgid "Form data file (*.dfm)|*.dfm"
-msgstr "フォームデータファイル(*.dfm)|*.dfm"
 
 #: lazarusidestrconsts.rsfoundbutnotlistedhere
 msgid "Found, but not listed here: "
@@ -18348,6 +18904,10 @@ msgstr "マクロ"
 #: lazarusidestrconsts.srkmcatmarker
 msgid "Text marker commands"
 msgstr "テキストマーカーコマンド"
+
+#: lazarusidestrconsts.srkmcatmulticaret
+msgid "Multi caret commands"
+msgstr ""
 
 #: lazarusidestrconsts.srkmcatpackagemenu
 msgid "Package menu commands"
@@ -18911,6 +19471,18 @@ msgctxt "lazarusidestrconsts.srkmecinvertassignment"
 msgid "Invert Assignment"
 msgstr "代入を反転"
 
+#: lazarusidestrconsts.srkmeckeymapleft
+#, fuzzy
+msgctxt "lazarusidestrconsts.srkmeckeymapleft"
+msgid "Left"
+msgstr "左"
+
+#: lazarusidestrconsts.srkmeckeymapright
+#, fuzzy
+msgctxt "lazarusidestrconsts.srkmeckeymapright"
+msgid "Right"
+msgstr "右"
+
 #: lazarusidestrconsts.srkmecleft
 msgid "Move cursor left"
 msgstr "カーソルを左に移動"
@@ -19034,6 +19606,30 @@ msgstr "クリップボードから現在の位置に貼り付け"
 #: lazarusidestrconsts.srkmecpause
 msgid "pause program"
 msgstr "プログラムを一時停止"
+
+#: lazarusidestrconsts.srkmecpluginmulticaretclearall
+msgid "Clear all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretmodecancelonmove
+msgid "Cursor keys clear all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretmodemoveall
+msgid "Cursor keys move all extra carets"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretsetcaret
+msgid "Add extra caret"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
+#: lazarusidestrconsts.srkmecpluginmulticaretunsetcaret
+msgid "Remove extra caret"
+msgstr ""
 
 #: lazarusidestrconsts.srkmecprevbookmark
 msgid "Previous Bookmark"
@@ -19603,6 +20199,10 @@ msgstr "カーソルを単語の右側に移動"
 msgid "Edit keys of command"
 msgstr "コマンドのキーを編集"
 
+#: lazarusidestrconsts.synfcontinuewithnextmouseupaction
+msgid "Continue with next mouse up action"
+msgstr ""
+
 #: lazarusidestrconsts.synffoldcomments
 msgid "Fold comments"
 msgstr "コメントを折り畳み"
@@ -19634,6 +20234,26 @@ msgstr "コメントを隠す"
 #: lazarusidestrconsts.synfhidecommentsinselection
 msgid "Hide comments in selection"
 msgstr "選択範囲のコメントを隠す"
+
+#: lazarusidestrconsts.synfmatchactionbuttonofmousedown
+msgid "Match action button of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionlineofmousedown
+msgid "Match action line of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionmodifiersofmousedown
+msgid "Match action modifiers of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfmatchactionposofmousedown
+msgid "Match action pos of mouse down"
+msgstr ""
+
+#: lazarusidestrconsts.synfsearchallactionofmousedown
+msgid "Search all action of mouse down"
+msgstr ""
 
 #: lazarusidestrconsts.synfunfoldactiveifdef
 msgid "Unfold active Ifdef"

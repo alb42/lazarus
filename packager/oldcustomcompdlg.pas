@@ -28,7 +28,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  Buttons, FileUtil, lazutf8classes, LazUTF8, IDEProcs, OldCustomCompAddDlg;
+  Buttons, LazFileUtils, lazutf8classes, LazUTF8, IDEProcs, OldCustomCompAddDlg;
   
 Type
   TRComponent = class(TObject)
@@ -430,10 +430,9 @@ var
   Count: Integer;
 begin
   Count := 0;
-  if MyFile.Count < 0 then begin
-    Result := 0;
+  Result := 0;
+  if MyFile.Count < 0 then
     exit;
-  end;
   for I := 0 to MyFile.Count -1 do begin
     // find start of TYPE
     if pos('TYPE', uppercase(MyFile[i])) > 0 then begin
@@ -448,12 +447,10 @@ begin
         if 'IMPLEMENTATION' = uppercase(MyFile[J]) then begin
           // that's it
           //messagedlg('Found IMPLEMENTATION at '+inttostr(J),mtInformation,[mbOk],0);
-          Result := Count;
-          exit;
+          exit(Count);
         end;
       end; // For J
-      Result := Count;
-      exit;
+      exit(Count);
     end; // if pos('TYPE');
   end; // for I
 
@@ -462,14 +459,12 @@ end;
 function TFrmComponentMan.GetComponent(I: Integer): String;
 var
   K, J: integer;
-  TempStr: String;
   Count: Integer;
 begin
+  Result := '';
   Count := 0;
-  if MyFile.Count < 0 then begin
-    Result := '';
+  if MyFile.Count < 0 then
     exit;
-  end;
   for K := 0 to MyFile.Count -1 do begin
     // find start of TYPE
     if pos('TYPE', uppercase(MyFile[K])) > 0 then begin
@@ -478,20 +473,15 @@ begin
           (pos('=CLASS', uppercase(MyFile[j])) > 0)) then begin
           // found one!
           Count := Count + 1;
-          if Count = I then begin
-            TempStr := Trim(copy(MyFile[J],1,pos('=',MyFile[j])-1));
-            Result := TempStr;
-            exit;
-          end;
+          if Count = I then
+            exit(Trim(copy(MyFile[J],1,pos('=',MyFile[j])-1)));
         end; // if class
         if 'IMPLEMENTATION' = uppercase(MyFile[J]) then begin
           // that's it
           //messagedlg('Found IMPLEMENTATION at '+inttostr(J),mtInformation,[mbOk],0);
-          Result := '';
           exit;
         end;
       end; // For J
-      Result := '';
       exit;
     end; // if pos('TYPE');
   end; // for I
@@ -503,14 +493,14 @@ var
   I: Integer;
   TempStr: String;
 begin
+  Result := '';
   if MyFile.Count < 1 then exit;
   for I := 0 to MyFile.Count - 1 do begin
     if uppercase(copy(MyFile[i],1,4)) = 'UNIT' then begin
       TempStr := copy(MyFile[i],5,64);
       TempStr := trim(TempStr);
       if copy(TempStr,length(TempStr),1) = ';' then TempStr := copy(TempStr,1,length(TempStr)-1);
-      Result := TempStr;
-      exit;
+      exit(TempStr);
     end; // if UNIT found
   end; // for I
 end;

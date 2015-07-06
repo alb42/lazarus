@@ -59,7 +59,7 @@ uses
   SynHighlighterPas, SynHighlighterPerl, SynHighlighterPHP, SynHighlighterSQL,
   SynHighlighterPython, SynHighlighterUNIXShellScript, SynHighlighterXML,
   SynHighlighterJScript, SynHighlighterDiff, SynHighlighterBat, SynHighlighterIni,
-  SynHighlighterPo,
+  SynHighlighterPo, SynHighlighterPike, SynPluginMultiCaret,
   // codetools
   LinkScanner, CodeToolManager,
   // IDEIntf
@@ -86,7 +86,7 @@ type
   TLazSyntaxHighlighter =
     (lshNone, lshText, lshFreePascal, lshDelphi, lshLFM, lshXML, lshHTML,
     lshCPP, lshPerl, lshJava, lshBash, lshPython, lshPHP, lshSQL, lshJScript,
-    lshDiff, lshBat, lshIni, lshPo);
+    lshDiff, lshBat, lshIni, lshPo, lshPike);
 
   TColorSchemeAttributeFeature =
     ( hafBackColor, hafForeColor, hafFrameColor, hafAlpha, hafPrior,
@@ -399,7 +399,8 @@ const
       (Count: 0; Info: nil), // Diff
       (Count: 0; Info: nil), // Ini
       (Count: 0; Info: nil), // Bat
-      (Count: 0; Info: nil)  // PO
+      (Count: 0; Info: nil), // PO
+      (Count: 0; Info: nil)  // Pike
     );
 
 type
@@ -599,11 +600,12 @@ const
       (Count:  3; Info: @EditorOptionsFoldInfoDiff[0]), // Diff
       (Count:  0; Info: nil), // Bat
       (Count:  0; Info: nil), // Ini
-      (Count:  0; Info: nil)  // PO
+      (Count:  0; Info: nil), // PO
+      (Count:  0; Info: nil)  // Pike
     );
 
 const
-  EditorOptsFormatVersion = 10;
+  EditorOptsFormatVersion = 11;
   { * Changes in Version 6:
        - ColorSchemes now have a Global settings part.
          Language specific changes must save UseSchemeGlobals=False (Default is true)
@@ -618,6 +620,8 @@ const
          set sfeBottom
     * Changes in Version 10:
          eoTabIndent was added to SynEditDefaultOptions
+    * Changes in Version 11:
+         Default for GutterLeft set to moglUpClickAndSelect (was moGLDownClick)
   }
   EditorMouseOptsFormatVersion = 1;
   { * Changes in Version 6:
@@ -629,7 +633,7 @@ const
     (nil, nil, TIDESynFreePasSyn, TIDESynPasSyn, TSynLFMSyn, TSynXMLSyn,
     TSynHTMLSyn, TSynCPPSyn, TSynPerlSyn, TSynJavaSyn, TSynUNIXShellScriptSyn,
     TSynPythonSyn, TSynPHPSyn, TSynSQLSyn, TSynJScriptSyn, TSynDiffSyn,
-    TSynBatSyn, TSynIniSyn, TSynPoSyn);
+    TSynBatSyn, TSynIniSyn, TSynPoSyn, TSynPikeSyn);
 
 
 { Comments }
@@ -653,7 +657,8 @@ const
     comtNone,  // Diff
     comtNone,  // Bat
     comtNone,  // Ini
-    comtNone   // po
+    comtNone,  // po
+    comtCPP    // lshPike
     );
 
 const
@@ -715,7 +720,11 @@ type
   end;
 
   TEditorOptions = class;
-  TMouseOptGutterLeftType = (moGLDownClick, moglUpClickAndSelect);
+  TMouseOptGutterLeftType = (
+    moGLDownClick,
+    moglUpClickAndSelect,
+    moglUpClickAndSelectRighHalf   // Changes and fold gutter (parts close to the text)
+  );
   TMouseOptButtonActionOld = (
     mbaNone,
     mbaSelect, mbaSelectColumn, mbaSelectLine,
@@ -734,6 +743,8 @@ type
     mbaContextMenuDebug,
     mbaContextMenuTab,
 
+    mbaMultiCaretToggle,
+
     // Old values, needed to load old config
     moTCLNone, moTMIgnore,
     moTMPaste,
@@ -741,7 +752,7 @@ type
     moTCLJumpOrBlock
   );
 
-  TMouseOptButtonAction = mbaNone..mbaContextMenuTab;
+  TMouseOptButtonAction = mbaNone..mbaMultiCaretToggle;
 
 const
   MouseOptButtonActionOld: Array [moTCLNone..moTCLJumpOrBlock] of TMouseOptButtonActionOld = (
@@ -771,7 +782,9 @@ type
     FUserSchemes: TQuickStringlist;
   private
     FCustomSavedActions: Boolean;
+    FGutterActionsChanges: TSynEditMouseActions;
     FMainActions, FSelActions, FTextActions: TSynEditMouseActions;
+    FSelectOnLineNumbers: Boolean;
     FName: String;
     FGutterActions: TSynEditMouseActions;
     FGutterActionsFold, FGutterActionsFoldExp, FGutterActionsFoldCol: TSynEditMouseActions;
@@ -860,7 +873,7 @@ type
     procedure Assign(Src: TEditorMouseOptions); reintroduce;
     function  IsPresetEqualToMouseActions: Boolean;
     function  CalcCustomSavedActions: Boolean;
-    procedure LoadFromXml(aXMLConfig: TRttiXMLConfig; aPath: String; aOldPath: String = '');
+    procedure LoadFromXml(aXMLConfig: TRttiXMLConfig; aPath: String; aOldPath: String; FileVersion: Integer);
     procedure SaveToXml(aXMLConfig: TRttiXMLConfig; aPath: String);
     procedure ImportFromXml(aXMLConfig: TRttiXMLConfig; aPath: String);
     procedure ExportToXml(aXMLConfig: TRttiXMLConfig; aPath: String);
@@ -883,9 +896,12 @@ type
     property GutterActionsFoldExp: TSynEditMouseActions read FGutterActionsFoldExp;
     property GutterActionsFoldCol: TSynEditMouseActions read FGutterActionsFoldCol;
     property GutterActionsLines: TSynEditMouseActions read FGutterActionsLines;
+    property GutterActionsChanges: TSynEditMouseActions read FGutterActionsChanges;
   published
     property GutterLeft: TMouseOptGutterLeftType read FGutterLeft write FGutterLeft
-             default moGLDownClick;
+             default moglUpClickAndSelect;
+    property SelectOnLineNumbers: Boolean read FSelectOnLineNumbers write FSelectOnLineNumbers
+             default True;
     property TextDrag: Boolean read FTextDrag write FTextDrag
              default True;
     property TextRightMoveCaret: Boolean read FTextRightMoveCaret  write FTextRightMoveCaret
@@ -911,7 +927,7 @@ type
     property TextAltLeftClick: TMouseOptButtonAction read FTextAltLeftClick write FTextAltLeftClick
              default mbaSelectColumn;
     property TextShiftCtrlLeftClick: TMouseOptButtonAction read FTextShiftCtrlLeftClick write FTextShiftCtrlLeftClick
-             default mbaNone;  // continue selection
+             default mbaMultiCaretToggle;  // continue selection
     property TextShiftAltLeftClick: TMouseOptButtonAction read FTextShiftAltLeftClick write FTextShiftAltLeftClick
              default mbaNone;  // continue selection
     property TextAltCtrlLeftClick: TMouseOptButtonAction read FTextAltCtrlLeftClick write FTextAltCtrlLeftClick
@@ -1283,6 +1299,8 @@ type
     FBlockTabIndent: Integer;
     FCompletionLongLineHintInMSec: Integer;
     FCompletionLongLineHintType: TSynCompletionLongHintType;
+    FMultiCaretDefaultColumnSelectMode: TSynPluginMultiCaretDefaultMode;
+    FMultiCaretDefaultMode: TSynPluginMultiCaretDefaultMode;
     FPasExtendedKeywordsMode: Boolean;
     FHideSingleTabInWindow: Boolean;
     FPasStringKeywordMode: TSynPasStringMode;
@@ -1295,6 +1313,7 @@ type
     // general options
     fFindTextAtCursor: Boolean;
     fShowTabCloseButtons: Boolean;
+    FMultiLineTab: Boolean;
     fShowTabNumbers: Boolean;
     fUseTabHistory: Boolean;
     fTabPosition: TTabPosition;
@@ -1310,6 +1329,7 @@ type
     fUndoLimit: Integer;
     fTabWidth:  Integer;
     FBracketHighlightStyle: TSynEditBracketHighlightStyle;
+    FMultiCaretOnColumnSelect: Boolean;
 
     // Display options
     fVisibleRightMargin: Boolean;
@@ -1448,6 +1468,10 @@ type
       read fSynEditOptions2 write fSynEditOptions2 default SynEditDefaultOptions2;
     property ShowTabCloseButtons: Boolean
       read fShowTabCloseButtons write fShowTabCloseButtons;
+  published
+    property MultiLineTab: Boolean
+      read FMultiLineTab write FMultiLineTab default False;
+  public
     property HideSingleTabInWindow: Boolean
       read FHideSingleTabInWindow write FHideSingleTabInWindow;
     property ShowTabNumbers: Boolean read fShowTabNumbers write fShowTabNumbers;
@@ -1584,6 +1608,12 @@ type
     property ReverseFoldPopUpOrder: Boolean
         read FReverseFoldPopUpOrder write FReverseFoldPopUpOrder default True;
     property UseTabHistory: Boolean read fUseTabHistory write fUseTabHistory;
+    property MultiCaretOnColumnSelect: Boolean
+      read FMultiCaretOnColumnSelect write FMultiCaretOnColumnSelect default True;
+    property MultiCaretDefaultMode: TSynPluginMultiCaretDefaultMode
+             read FMultiCaretDefaultMode write FMultiCaretDefaultMode default mcmMoveAllCarets;
+    property MultiCaretDefaultColumnSelectMode: TSynPluginMultiCaretDefaultMode
+             read FMultiCaretDefaultColumnSelectMode write FMultiCaretDefaultColumnSelectMode default mcmCancelOnCaretMove;
 
     // Highlighter Pas
     property PasExtendedKeywordsMode: Boolean
@@ -1662,7 +1692,8 @@ const
     'Diff',
     'Bat',
     'Ini',
-    'PO'
+    'PO',
+    'Pike'
     );
 
 var
@@ -1712,7 +1743,8 @@ const
     lshDiff,
     lshBat,
     lshIni,
-    lshPo
+    lshPo,
+    lshPike
     );
 
 var
@@ -2321,8 +2353,8 @@ var
     Stream: TLazarusResourceStream;
   begin
     FPResource := FindResource(HInstance, PChar(AResName), PChar(RT_RCDATA));
-    if FPResource <> 0 then
-      Stream := TLazarusResourceStream.CreateFromHandle(HInstance, FPResource);
+    if FPResource = 0 then exit;
+    Stream := TLazarusResourceStream.CreateFromHandle(HInstance, FPResource);
     XMLConfig := TRttiXMLConfig.Create('');
     XMLConfig.ReadFromStream(Stream);
     Singleton.RegisterScheme(XMLConfig, ASchemeName, 'Lazarus/ColorSchemes/');
@@ -2536,10 +2568,7 @@ function TEditOptLanguageInfo.SampleLineToAddAttr(
   Line: Integer): TAdditionalHilightAttribute;
 begin
   if Line < 1 then
-  begin
-    Result := ahaNone;
-    exit;
-  end;
+    exit(ahaNone);
   for Result := Low(TAdditionalHilightAttribute)
     to High(TAdditionalHilightAttribute) do
     if (Result <> ahaNone) and (AddAttrSampleLines[Result] = Line) then
@@ -3114,6 +3143,32 @@ begin
   end;
   Add(NewInfo);
 
+  // create info for Pike
+  NewInfo := TEditOptLanguageInfo.Create;
+  NewInfo.TheType := lshPike;
+  NewInfo.DefaultCommentType := DefaultCommentTypes[NewInfo.TheType];
+  NewInfo.SynClass := LazSyntaxHighlighterClasses[NewInfo.TheType];
+  NewInfo.SetBothFilextensions('pike;pmod');
+  NewInfo.SampleSource := TSynPikeSyn.Pike_GetSampleSource();
+  with NewInfo do
+  begin
+    AddAttrSampleLines[ahaTextBlock] := 12;
+    MappedAttributes := TStringList.Create;
+    with MappedAttributes do
+    begin
+      Add('Comment=Comment');
+      Add('Documentation=Comment');
+      Add('Identifier=Identifier');
+      Add('Reserved_word=Reserved_word');
+      Add('Number=Number');
+      Add('Space=Space');
+      Add('String=String');
+      Add('Symbol=Symbol');
+    end;
+    CaretXY := Point(1,1);
+  end;
+  Add(NewInfo);
+
 end;
 
 destructor TEditOptLangList.Destroy;
@@ -3222,6 +3277,7 @@ begin
   FGutterActionsFoldExp := TSynEditMouseActions.Create(nil);
   FGutterActionsFoldCol := TSynEditMouseActions.Create(nil);
   FGutterActionsLines   := TSynEditMouseActions.Create(nil);
+  FGutterActionsChanges := TSynEditMouseActions.Create(nil);
   FUserSchemes := TQuickStringlist.Create;
   FVersion := 0;
 end;
@@ -3238,13 +3294,14 @@ begin
   FGutterActionsFoldExp.Free;
   FGutterActionsFoldCol.Free;
   FGutterActionsLines.Free;
+  FGutterActionsChanges.Free;
   inherited Destroy;
 end;
 
 procedure TEditorMouseOptions.Reset;
 begin
   FCustomSavedActions  := False;
-  FGutterLeft          := moGLDownClick;
+  FGutterLeft          := moglUpClickAndSelect;
   // left multi
   FTextDoubleLeftClick       := mbaSelectWords;
   FTextTripleLeftClick       := mbaSelectSetLineSmart;
@@ -3258,7 +3315,7 @@ begin
   FTextAltCtrlLeftClick      := mbaNone;
   FTextShiftLeftClick        := mbaNone;
   FTextShiftAltLeftClick     := mbaNone;
-  FTextShiftCtrlLeftClick    := mbaNone;
+  FTextShiftCtrlLeftClick    := mbaMultiCaretToggle;
   FTextShiftAltCtrlLeftClick := mbaNone;
   // middle
   FTextMiddleClick             := mbaPaste;
@@ -3309,17 +3366,27 @@ begin
 
   FTextRightMoveCaret  := False;
   FTextDrag            := True;
+  FSelectOnLineNumbers := True;
 end;
 
 procedure TEditorMouseOptions.ResetGutterToDefault;
+  procedure AddStartSel(List: TSynEditMouseActions);
+  begin
+    with List do begin
+      AddCommand(emcStartSelections,   True, mbXLeft, ccAny, cdDown, [],               [ssShift], emcoSelectionStart);
+      AddCommand(emcStartSelections,   True, mbXLeft, ccAny, cdDown, [ssShift],        [ssShift], emcoSelectionContinue);
+    end;
+  end;
 var
   CDir: TSynMAClickDir;
+  R: TSynMAUpRestrictions;
 begin
   FGutterActions.Clear;
   FGutterActionsFold.Clear;
   FGutterActionsFoldExp.Clear;
   FGutterActionsFoldCol.Clear;
   FGutterActionsLines.Clear;
+  FGutterActionsChanges.Clear;
   //TMouseOptGutterLeftType = (moGLDownClick, moglUpClickAndSelect);
 
   with FGutterActions do begin
@@ -3329,36 +3396,69 @@ begin
     AddCommand(emcCodeFoldContextMenu, False, mbXRight,  ccSingle, cdUp, [], []);
   end;
 
+
   CDir := cdDown;
+  R := [];
   if FGutterLeft = moglUpClickAndSelect then begin
     CDir := cdUp;
-    with FGutterActions do begin
-      AddCommand(emcStartSelections,   True, mbXLeft, ccAny, cdDown, [],               [ssShift], emcoSelectionStart);
-      AddCommand(emcStartSelections,   True, mbXLeft, ccAny, cdDown, [ssShift],        [ssShift], emcoSelectionContinue);
+    R := crRestrictAll;
+    AddStartSel(FGutterActions);
+  end;
+
+  with FGutterActions do begin
+    AddCommand(emcOnMainGutterClick,   False, mbXLeft,   ccAny,    CDir, R, [], []);  // breakpoint
+  end;
+
+
+  if FGutterLeft in [moglUpClickAndSelect, moglUpClickAndSelectRighHalf] then begin
+    CDir := cdUp;
+    R := crRestrictAll;
+    AddStartSel(FGutterActionsChanges);
+  end;
+
+  with FGutterActionsChanges do begin
+    if FGutterLeft = moGLDownClick then
+      AddCommand(emcNone,   False, mbXLeft,   ccAny,    cdDown, [], []);
+    AddCommand(emcNone,   False, mbXLeft,   ccAny,    cdUp, [], []);
+  end;
+
+
+  if FGutterLeft = moglUpClickAndSelectRighHalf then begin
+    if not FSelectOnLineNumbers then
+      AddStartSel(FGutterActionsLines);
+    AddStartSel(FGutterActionsFold);
+  end;
+
+
+  if FSelectOnLineNumbers then begin
+    with FGutterActionsLines do begin
+      AddCommand(emcStartLineSelectionsNoneEmpty,   True, mbXLeft, ccAny, cdDown, [],               [ssShift], emcoSelectionStart);
+      AddCommand(emcStartLineSelectionsNoneEmpty,   True, mbXLeft, ccAny, cdDown, [ssShift],        [ssShift], emcoSelectionContinue);
+      AddCommand(emcNone,   False, mbXLeft,   ccAny,    cdUp, [], []);
     end;
   end;
-  with FGutterActions do begin
-    AddCommand(emcOnMainGutterClick,   False, mbXLeft,   ccAny,    CDir, [], []);  // breakpoint
-  end;
+
   with FGutterActionsFold do begin
-    AddCommand(emcNone,                False, mbXLeft,   ccAny,    CDir, [], []);
+    AddCommand(emcNone,                False, mbXLeft,   ccAny,    CDir, R, [], []);
   end;
   with FGutterActionsFoldCol do begin
-    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, [ssAlt],   [ssAlt, SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsOne);
-    AddCommand(emcCodeFoldExpand,      False, mbXLeft,   ccAny,    CDir, [SYNEDIT_LINK_MODIFIER],  [ssAlt, SYNEDIT_LINK_MODIFIER], emcoCodeFoldExpandAll);
-    AddCommand(emcCodeFoldExpand,      False, mbXLeft,   ccAny,    CDir, [],        [],              emcoCodeFoldExpandOne);
+    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, R, [ssAlt],   [ssAlt, SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsOne);
+    AddCommand(emcCodeFoldExpand,      False, mbXLeft,   ccAny,    CDir, R, [SYNEDIT_LINK_MODIFIER],  [ssAlt, SYNEDIT_LINK_MODIFIER], emcoCodeFoldExpandAll);
+    AddCommand(emcCodeFoldExpand,      False, mbXLeft,   ccAny,    CDir, R, [],        [],              emcoCodeFoldExpandOne);
     // TODO: why depend on FTextMiddleClick?
     if FTextMiddleClick <> mbaNone then
-      AddCommand(emcCodeFoldCollaps,   False, mbXMiddle, ccAny,    CDir, [],       [],               emcoCodeFoldCollapsOne);
+      AddCommand(emcCodeFoldCollaps,   False, mbXMiddle, ccAny,    CDir, R, [],       [],               emcoCodeFoldCollapsOne);
+    // do not allow selection, over colapse/expand icons. Those may depend cursor pos (e.g. hide selected lines)
     if CDir = cdUp then
       AddCommand(emcNone,              False, mbXLeft,   ccAny,    cdDown, [], []);
   end;
   with FGutterActionsFoldExp do begin
-    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, [],       [SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsOne);
-    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, [SYNEDIT_LINK_MODIFIER], [SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsAll);
+    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, R, [],       [SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsOne);
+    AddCommand(emcCodeFoldCollaps,     False, mbXLeft,   ccAny,    CDir, R, [SYNEDIT_LINK_MODIFIER], [SYNEDIT_LINK_MODIFIER], emcoCodeFoldCollapsAll);
     // TODO: why depend on FTextMiddleClick?
     if FTextMiddleClick <> mbaNone then
-      AddCommand(emcCodeFoldCollaps,   False, mbXMiddle, ccAny,    CDir, [],       [],       emcoCodeFoldCollapsOne);
+      AddCommand(emcCodeFoldCollaps,   False, mbXMiddle, ccAny,    CDir, R, [],       [],       emcoCodeFoldCollapsOne);
+    // do not allow selection, over colapse/expand icons. Those may depend cursor pos (e.g. hide selected lines)
     if CDir = cdUp then
       AddCommand(emcNone,              False, mbXLeft,   ccAny,    cdDown, [], []);
   end;
@@ -3429,6 +3529,11 @@ procedure TEditorMouseOptions.ResetTextToDefault;
             AddCommand(emcContextMenu, True,       AButton, AClickCount, ADir, AShift, AShiftMask, emcoSelectionCaretMoveOutside, 0, 1);
         mbaContextMenuTab:
             AddCommand(emcContextMenu, True,       AButton, AClickCount, ADir, AShift, AShiftMask, emcoSelectionCaretMoveOutside, 0, 2);
+        mbaMultiCaretToggle:
+          begin
+            AddCommand(emcPluginMultiCaretToggleCaret, False, AButton, AClickCount, ADir, AShift, AShiftMask);
+            FSelActions.AddCommand(emcPluginMultiCaretSelectionToCarets, False, AButton, AClickCount, ADir, AShift, AShiftMask);
+          end;
       end;
     end;
   end;
@@ -3503,8 +3608,8 @@ begin
   if FTextShiftCtrlLeftClick = mbaNone
   then SelKey := [ssShift]
   else SelKey := [];
-  AddBtnClick(FTextCtrlLeftClick,         mbXLeft,   [SYNEDIT_LINK_MODIFIER], ModKeys, False, SelKey);
-  AddBtnClick(FTextShiftCtrlLeftClick,    mbXLeft,   [ssShift, SYNEDIT_LINK_MODIFIER],               ModKeys, False, SelKey);
+  AddBtnClick(FTextCtrlLeftClick,         mbXLeft,   [SYNEDIT_LINK_MODIFIER],          ModKeys, False, SelKey);
+  AddBtnClick(FTextShiftCtrlLeftClick,    mbXLeft,   [ssShift, SYNEDIT_LINK_MODIFIER], ModKeys, False, SelKey);
 
   if FTextShiftAltLeftClick = mbaNone
   then SelKey := [ssShift]
@@ -3619,8 +3724,9 @@ begin
 
   if FTextDrag then
     with FSelActions do begin
-      AddCommand(emcStartDragMove, False, mbXLeft, ccSingle, cdDown, [], []);
+      AddCommand(emcStartDragMove, False, mbXLeft, ccSingle, cdDown, [], [], emcoNotDragedNoCaretOnUp);
     end;
+    FTextActions.AddCommand(emcNone, True, mbXLeft, ccSingle, cdUp, [], [], 0, 99);
 end;
 
 procedure TEditorMouseOptions.ResetToUserScheme;
@@ -3642,6 +3748,7 @@ begin
   FGutterActionsFoldExp.Assign(Src.GutterActionsFoldExp);
   FGutterActionsFoldCol.Assign(Src.GutterActionsFoldCol);
   FGutterActionsLines.Assign  (Src.GutterActionsLines);
+  FGutterActionsChanges.Assign(Src.GutterActionsChanges);
 end;
 
 procedure TEditorMouseOptions.SetTextCtrlLeftClick(AValue: TMouseOptButtonActionOld);
@@ -3669,6 +3776,7 @@ begin
   FName                 := Src.FName;
 
   FGutterLeft           := Src.GutterLeft;
+  FSelectOnLineNumbers  := Src.SelectOnLineNumbers;
   FTextDrag             := Src.TextDrag;
   FTextRightMoveCaret   := Src.TextRightMoveCaret;
   FSelectedUserScheme   := Src.FSelectedUserScheme;
@@ -3775,7 +3883,8 @@ begin
     Temp.GutterActionsFold.Equals   (self.GutterActionsFold) and
     Temp.GutterActionsFoldCol.Equals(self.GutterActionsFoldCol) and
     Temp.GutterActionsFoldExp.Equals(self.GutterActionsFoldExp) and
-    Temp.GutterActionsLines.Equals  (self.GutterActionsLines);
+    Temp.GutterActionsLines.Equals  (self.GutterActionsLines) and
+    Temp.GutterActionsChanges.Equals(Self.GutterActionsChanges);
   Temp.Free;
 end;
 
@@ -3785,8 +3894,8 @@ begin
   FCustomSavedActions := Result;
 end;
 
-procedure TEditorMouseOptions.LoadFromXml(aXMLConfig: TRttiXMLConfig;
-  aPath: String; aOldPath: String = '');
+procedure TEditorMouseOptions.LoadFromXml(aXMLConfig: TRttiXMLConfig; aPath: String;
+  aOldPath: String; FileVersion: Integer);
 
   Procedure LoadMouseAct(Path: String; MActions: TSynEditMouseActions);
   var
@@ -3826,6 +3935,8 @@ var
   TextDoubleSelLine: Boolean;
 begin
   Reset;
+  if (FileVersion > 0) and (FileVersion < 11) then
+    FGutterLeft := moGLDownClick;
   AltColumnMode := False;
   TextDoubleSelLine := False;
   if aOldPath <> '' then begin
@@ -3878,6 +3989,7 @@ begin
     LoadMouseAct(aPath + 'GutterFoldExp/', GutterActionsFoldExp);
     LoadMouseAct(aPath + 'GutterFoldCol/', GutterActionsFoldCol);
     LoadMouseAct(aPath + 'GutterLineNum/', GutterActionsLines);
+    LoadMouseAct(aPath + 'GutterLineChange/', GutterActionsChanges);
 
     if Version < 1 then begin
       try
@@ -3936,6 +4048,7 @@ begin
     SaveMouseAct(aPath + 'GutterFoldExp/', GutterActionsFoldExp);
     SaveMouseAct(aPath + 'GutterFoldCol/', GutterActionsFoldCol);
     SaveMouseAct(aPath + 'GutterLineNum/', GutterActionsLines);
+    SaveMouseAct(aPath + 'GutterLineChange/', GutterActionsChanges);
   end else begin
     // clear unused entries
     aXMLConfig.DeletePath(aPath + 'Main');
@@ -3988,6 +4101,7 @@ begin
   LoadMouseAct(aPath + 'GutterFoldExp/', GutterActionsFoldExp);
   LoadMouseAct(aPath + 'GutterFoldCol/', GutterActionsFoldCol);
   LoadMouseAct(aPath + 'GutterLineNum/', GutterActionsLines);
+  LoadMouseAct(aPath + 'GutterLineChange/', GutterActionsChanges);
 end;
 
 procedure TEditorMouseOptions.ExportToXml(aXMLConfig: TRttiXMLConfig; aPath: String);
@@ -4018,6 +4132,7 @@ begin
   SaveMouseAct(aPath + 'GutterFoldExp/', GutterActionsFoldExp);
   SaveMouseAct(aPath + 'GutterFoldCol/', GutterActionsFoldCol);
   SaveMouseAct(aPath + 'GutterLineNum/', GutterActionsLines);
+  SaveMouseAct(aPath + 'GutterLineChange/', GutterActionsChanges);
   MAct.Free;
 end;
 
@@ -4369,6 +4484,7 @@ procedure TEditorOptions.Init;
 begin
   // General options
   fShowTabCloseButtons := True;
+  FMultiLineTab := False;
   FHideSingleTabInWindow := False;
   fTabPosition := tpTop;
   FCopyWordAtCursorOnCopyNone := True;
@@ -4383,6 +4499,9 @@ begin
   FGutterSeparatorIndex := 3;
   fSynEditOptions := SynEditDefaultOptions;
   fSynEditOptions2 := SynEditDefaultOptions2;
+  FMultiCaretOnColumnSelect := True;
+  FMultiCaretDefaultMode := mcmMoveAllCarets;
+  FMultiCaretDefaultColumnSelectMode := mcmCancelOnCaretMove;
 
   // Display options
   fEditorFont := SynDefaultFontName;
@@ -4605,7 +4724,7 @@ begin
       XMLConfig.GetValue('EditorOptions/Display/ExtraLineSpacing', 1);
     fDisableAntialiasing :=
       XMLConfig.GetValue('EditorOptions/Display/DisableAntialiasing',
-                         FileVersion<7);
+                         (FileVersion>0) and (FileVersion<7));
     FDoNotWarnForFont :=
       XMLConfig.GetValue('EditorOptions/Display/DoNotWarnForFont', '');
 
@@ -4682,7 +4801,7 @@ begin
       'EditorOptions/CodeFolding/UseCodeFolding', True);
 
     FUserMouseSettings.LoadFromXml(XMLConfig, 'EditorOptions/Mouse/',
-                                  'EditorOptions/General/Editor/');
+                                  'EditorOptions/General/Editor/', FileVersion);
 
     FMultiWinEditAccessOrder.LoadFromXMLConfig(XMLConfig, 'EditorOptions/MultiWin/');
     UserColorSchemeGroup.LoadFromXml(XMLConfig, 'EditorOptions/Color/',
@@ -5535,6 +5654,13 @@ begin
       end;
     end;
 
+    {$IFnDEF WithoutSynMultiCaret}
+    if ASynEdit is TIDESynEditor then begin
+      TIDESynEditor(ASynEdit).MultiCaret.EnableWithColumnSelection := MultiCaretOnColumnSelect;
+      TIDESynEditor(ASynEdit).MultiCaret.DefaultMode := FMultiCaretDefaultMode;
+      TIDESynEditor(ASynEdit).MultiCaret.DefaultColumnSelectMode := FMultiCaretDefaultColumnSelectMode;
+    end;
+    {$ENDIF}
 
     // Display options
     ASynEdit.Gutter.Visible := fVisibleGutter;
@@ -5600,6 +5726,14 @@ begin
     if ASynEdit.Gutter.LineNumberPart <> nil then begin
       ASynEdit.Gutter.LineNumberPart.MouseActions.Assign(FUserMouseSettings.GutterActionsLines);
     end;
+    if ASynEdit.Gutter.ChangesPart<> nil then
+      ASynEdit.Gutter.ChangesPart.MouseActions.Assign(FUserMouseSettings.GutterActionsChanges);
+
+    if (ASynEdit.Gutter.SeparatorPart <> nil) and (GutterSeparatorIndex = 2) and ShowLineNumbers then
+      ASynEdit.Gutter.SeparatorPart.MouseActions.Assign(FUserMouseSettings.GutterActionsLines)
+    else
+    if (ASynEdit.Gutter.SeparatorPart <> nil) and (GutterSeparatorIndex >= 2) then
+      ASynEdit.Gutter.SeparatorPart.MouseActions.Assign(FUserMouseSettings.GutterActionsChanges);
   finally
     ASynEdit.EndUpdate;
   end;

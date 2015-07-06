@@ -237,8 +237,7 @@ type
     function ConsistencyCheck: integer;
     procedure SetValuesEditable(AValue: boolean);
   public
-    procedure SetOptions(ACodeToolBoss: TCodeToolManager;
-      Options: TCodeToolsOptions);
+    procedure SetOptions(ACodeToolBoss: TCodeToolManager);
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
     property DefineTree: TDefineTree read FDefineTree;
@@ -260,7 +259,7 @@ function ShowCodeToolsDefinesEditor(ACodeToolBoss: TCodeToolManager;
 var CodeToolsDefinesEditor: TCodeToolsDefinesEditor;
 begin
   CodeToolsDefinesEditor:=TCodeToolsDefinesEditor.Create(nil);
-  CodeToolsDefinesEditor.SetOptions(ACodeToolBoss,Options);
+  CodeToolsDefinesEditor.SetOptions(ACodeToolBoss);
   CodeToolsDefinesEditor.Macros:=Macros;
   Result:=CodeToolsDefinesEditor.ShowModal;
   if Result=mrOk then begin
@@ -388,7 +387,8 @@ begin
   else if Sender=InsertAsChildIfDefMenuItem then DefAction:=da_IfDef
   else if Sender=InsertAsChildIfNotDefMenuItem then DefAction:=da_IfNDef
   else if Sender=InsertAsChildElseIfMenuItem then DefAction:=da_ElseIf
-  else if Sender=InsertAsChildElseMenuItem then DefAction:=da_Else;
+  else if Sender=InsertAsChildElseMenuItem then DefAction:=da_Else
+  else DefAction:=da_None;
   InsertNewNode(Behind,DefAction);
 end;
 
@@ -540,7 +540,8 @@ begin
   else if Sender=ConvertActionToIfDefMenuItem then NewAction:=da_IfDef
   else if Sender=ConvertActionToIfNotDefMenuItem then NewAction:=da_IfNDef
   else if Sender=ConvertActionToElseIfMenuItem then NewAction:=da_ElseIf
-  else if Sender=ConvertActionToElseMenuItem then NewAction:=da_Else;
+  else if Sender=ConvertActionToElseMenuItem then NewAction:=da_Else
+  else NewAction:=da_None;
   SelDefNode.Action:=NewAction;
   SetNodeImages(SelTreeNode,false);
   SetTypeLabel;
@@ -1390,8 +1391,7 @@ begin
   InsertFilePathBitBtn.Enabled:=AValue;
 end;
 
-procedure TCodeToolsDefinesEditor.SetOptions(ACodeToolBoss: TCodeToolManager;
-  Options: TCodeToolsOptions);
+procedure TCodeToolsDefinesEditor.SetOptions(ACodeToolBoss: TCodeToolManager);
 begin
   FLastSelectedNode:=nil;
   FBoss:=ACodeToolBoss;

@@ -37,11 +37,11 @@ unit FindOverloadsDlg;
 interface
 
 uses
-  Classes, SysUtils, LCLProc,FileUtil, Forms, Controls, Graphics,
+  Classes, SysUtils, LCLProc, LazFileUtils, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Buttons, ButtonPanel, ComCtrls, AvgLvlTree,
   // codetools
-  FindDeclarationTool, PascalParserTool, CodeTree, CodeCache, CodeAtom,
-  CodeToolManager, CodeGraph, FindOverloads,
+  FindDeclarationTool, PascalParserTool, CodeTree, CodeCache,
+  CodeToolManager, FindOverloads,
   // IDE
   LazIDEIntf, ProjectIntf, SrcEditorIntf, IDEProcs;
 
@@ -471,7 +471,7 @@ function TFindOverloadsWorker.AddFileToScan(const Filename: string;
   CheckExtension: boolean): TFOWFile;
 begin
   if CheckExtension and (not FilenameIsPascalSource(Filename)) then
-    exit;
+    exit(nil);
   Result:=FindFile(Filename);
   if Result<>nil then exit;
   Result:=TFOWFile.Create(Filename);

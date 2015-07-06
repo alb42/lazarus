@@ -485,6 +485,14 @@ msgstr "ללא פעולה"
 msgid "Quick Paste Selection"
 msgstr "העתקה מהירה של הבחירה"
 
+#: syneditstrconst.syns_emcpluginmulticaretselectiontocarets
+msgid "Set carets at EOL in selected lines"
+msgstr ""
+
+#: syneditstrconst.syns_emcpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
 #: syneditstrconst.syns_emcselection_opt
 msgid "Mode,Begin,Continue"
 msgstr "מצב, התחלה, המשך"
@@ -513,9 +521,17 @@ msgstr "בחירת עמודה"
 msgid "Drag Selection"
 msgstr "גרור את הבחירה"
 
+#: syneditstrconst.syns_emcstartdragmove_opt
+msgid "\"Caret on up if not dragged\",yes,no"
+msgstr ""
+
 #: syneditstrconst.syns_emcstartlineselections
 msgid "Line Selection"
 msgstr "בחירת שורה"
+
+#: syneditstrconst.syns_emcstartlineselectionsnoneempty
+msgid "Line Selection (select immediate)"
+msgstr ""
 
 #: syneditstrconst.syns_emcstartselection
 msgid "Selection"
@@ -766,6 +782,7 @@ msgid "XML Document (*.xml,*.xsd,*.xsl,*.xslt,*.dtd)|*.xml;*.xsd;*.xsl;*.xslt;*.
 msgstr "מסמכי XML  (*.xml,*.xsd,*.xsl,*.xslt,*.dtd)|*.xml;*.xsd;*.xsl;*.xslt;*.dtd"
 
 #: syneditstrconst.syns_previewscrollinfofmt
+#, fuzzy,badformat
 msgid "Page: %d"
 msgstr "דף: d%"
 
@@ -774,6 +791,7 @@ msgid "%d - %d"
 msgstr "%d - %d"
 
 #: syneditstrconst.syns_scrollinfofmttop
+#, fuzzy,badformat
 msgid "Top Line: %d"
 msgstr "שורה עליונה: d%"
 

@@ -34,7 +34,7 @@ type
     procedure SelectOnlyThisAutoCreateForm(Index: integer);
   public
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -263,6 +263,11 @@ begin
   FillAutoCreateFormsListbox;
   FillAvailFormsListBox;
   FormsAutoCreateNewFormsCheckBox.Checked := Project.AutoCreateForms;
+
+  FormsMoveAutoCreatedFormUpBtn.ShowHint := true;
+  FormsMoveAutoCreatedFormsDownBtn.ShowHint := true;
+  FormsMoveAutoCreatedFormUpBtn.Hint := lisMMMoveSelectedItemUp;
+  FormsMoveAutoCreatedFormsDownBtn.Hint := lisMMMoveSelectedItemDown;
 end;
 
 procedure TProjectFormsOptionsFrame.WriteSettings(AOptions: TAbstractIDEOptions);

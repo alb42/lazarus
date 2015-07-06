@@ -73,11 +73,11 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormResize(Sender: TObject);
     procedure pbAsmClick(Sender: TObject);
-    procedure pbAsmMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    procedure pbAsmMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
-    procedure pbAsmMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X,
-      Y: Integer);
-    procedure pbAsmMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure pbAsmMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; {%H-}X, Y: Integer);
+    procedure pbAsmMouseMove(Sender: TObject; {%H-}Shift: TShiftState; {%H-}X, Y: Integer);
+    procedure pbAsmMouseUp(Sender: TObject; {%H-}Button: TMouseButton; {%H-}Shift: TShiftState; {%H-}X,
+      {%H-}Y: Integer);
+    procedure pbAsmMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; {%H-}MousePos: TPoint; var Handled: Boolean);
     procedure pbAsmPaint(Sender: TObject);
     procedure sbHorizontalChange(Sender: TObject);
     procedure sbVerticalChange(Sender: TObject);
@@ -117,8 +117,8 @@ type
     FImgSourceLine: Integer;
     FImgNoSourceLine: Integer;
 
-    procedure BreakPointChanged(const ASender: TIDEBreakPoints;
-      const ABreakpoint: TIDEBreakPoint);
+    procedure BreakPointChanged(const {%H-}ASender: TIDEBreakPoints;
+      const {%H-}ABreakpoint: TIDEBreakPoint);
     function  GetBreakpointFor(AnAsmDlgLineEntry: TAsmDlgLineEntry): TIDEBreakPoint;
     procedure CheckImageIndexFor(var AnAsmDlgLineEntry: TAsmDlgLineEntry);
     procedure DoDebuggerDestroyed(Sender: TObject);
@@ -141,7 +141,7 @@ type
     procedure SetSelection(ALine: Integer; AMakeVisible: Boolean; AKeepSelEnd: Boolean = False);
     procedure SetLineCount(ALineCount: Integer);
     procedure SetTopLine(ALine: Integer);
-    function  IndexOfAddr(const AAddr: TDBGPtr): Integer;
+    function IndexOfAddr(const AnAddr: TDBGPtr): Integer;
     procedure UpdateLocation(const AAddr: TDBGPtr);
     procedure DoEditorOptsChanged(Sender: TObject; Restore: boolean);
   protected
@@ -408,6 +408,7 @@ procedure TAssemblerDlg.actStepOverInstrExecute(Sender: TObject);
 var
   Handled: Boolean;
 begin
+  Handled:=false;
   if Assigned(OnProcessCommand)
   then OnProcessCommand(Self, ecStepOverInstr, Handled);
 end;
@@ -421,8 +422,8 @@ end;
 
 function TAssemblerDlg.GetBreakpointFor(AnAsmDlgLineEntry: TAsmDlgLineEntry): TIDEBreakPoint;
 begin
-  if BreakPoints = nil then exit;
   Result := nil;
+  if BreakPoints = nil then exit;
   case AnAsmDlgLineEntry.State of
     lmsStatement: Result := BreakPoints.Find(AnAsmDlgLineEntry.Addr);
     lmsSource:    Result := BreakPoints.Find(AnAsmDlgLineEntry.FullFileName, AnAsmDlgLineEntry.SourceLine);
@@ -450,6 +451,7 @@ procedure TAssemblerDlg.actStepIntoInstrExecute(Sender: TObject);
 var
   Handled: Boolean;
 begin
+  Handled:=false;
   if Assigned(OnProcessCommand)
   then OnProcessCommand(Self, ecStepIntoInstr, Handled);
 end;
@@ -801,11 +803,11 @@ begin
   UpdateView;
 end;
 
-function TAssemblerDlg.IndexOfAddr(const AAddr: TDBGPtr): Integer;
+function TAssemblerDlg.IndexOfAddr(const AnAddr: TDBGPtr): Integer;
 begin
   Result := length(FLineMap) - 1;
   while Result >= 0  do begin
-    if (FLineMap[Result].State = lmsStatement) and (FLineMap[Result].Addr = FCurrentLocation)
+    if (FLineMap[Result].State = lmsStatement) and (FLineMap[Result].Addr = AnAddr)
     then exit;
     dec(Result);
   end;
@@ -839,6 +841,7 @@ procedure TAssemblerDlg.DoEditorOptsChanged(Sender: TObject; Restore: boolean);
 var
   TM: TTextMetric;
 begin
+  if Restore then exit;
   pbAsm.Font.Size := EditorOpts.EditorFontSize;
   pbAsm.Font.Name := EditorOpts.EditorFont;
   if EditorOpts.DisableAntialiasing then
@@ -846,7 +849,7 @@ begin
   else
     pbAsm.Font.Quality := fqDefault;
 
-  GetTextMetrics(pbAsm.Canvas.Handle, TM);
+  GetTextMetrics(pbAsm.Canvas.Handle, TM{%H-});
   FCharWidth := TM.tmMaxCharWidth; // EditorOpts.ExtraCharSpacing +
   sbHorizontal.SmallChange := FCHarWidth;
 

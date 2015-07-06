@@ -115,7 +115,7 @@ type
     procedure ReplaceText(const StartPos, EndPos: TPoint; const NewText: string);
     procedure AskReplace(Sender: TObject; const ASearch, AReplace: string;
                         Line, Column: integer;
-                        var Action: TSrcEditReplaceAction); virtual; abstract;
+                        out Action: TSrcEditReplaceAction); virtual; abstract;
     procedure CopyToClipboard; virtual; abstract;
     procedure CutToClipboard; virtual; abstract;
 
@@ -285,7 +285,7 @@ type
     // Messages
     procedure ClearErrorLines; virtual; abstract;
     // General source functions
-    function ReIndent(const Src: string; OldIndent: integer = 0; OldTabWidth: integer = 4): string; virtual; abstract;
+    function Beautify(const Src: string): string; virtual; abstract;
   protected
     // Completion Plugins
     function GetActiveCompletionPlugin: TSourceEditorCompletionPlugin; virtual; abstract;

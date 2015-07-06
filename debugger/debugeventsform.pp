@@ -35,7 +35,7 @@ interface
 uses
   Classes, SysUtils, Controls, ComCtrls, ActnList,
   BaseDebugManager, IDEWindowIntf,
-  StdActns, ClipBrd, Menus, Dialogs, FileUtil, Debugger, DebuggerDlg,
+  StdActns, ClipBrd, Menus, Dialogs, LazFileUtils, Debugger, DebuggerDlg,
   LazarusIDEStrConsts, EnvironmentOpts, InputHistory,
   IDEImagesIntf, LazIDEIntf, DbgIntfDebuggerBase, debugger_eventlog_options;
 
@@ -65,7 +65,7 @@ type
     procedure EditCopy1Update(Sender: TObject);
     procedure tvFilteredEventsAdvancedCustomDrawItem(Sender: TCustomTreeView;
       Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
-      var PaintImages, DefaultDraw: Boolean);
+      var {%H-}PaintImages, DefaultDraw: Boolean);
   private
     function GetFilter: TDBGEventCategories;
   private

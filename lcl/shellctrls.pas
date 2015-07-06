@@ -20,8 +20,8 @@ unit ShellCtrls;
 interface
 
 uses
-  Classes, SysUtils, Forms, Graphics, LCLType,
-  ComCtrls, FileUtil, LazUtf8;
+  Classes, SysUtils, Forms, Graphics, LCLType, AvgLvlTree,
+  ComCtrls, FileUtil, LazFileUtils, LazUtf8, LCLStrConsts;
 
 {$if defined(Windows) or defined(darwin)}
 {$define CaseInsensitiveFilenames}
@@ -62,7 +62,9 @@ type
     procedure SetRoot(const AValue: string);
     procedure SetShellListView(const Value: TCustomShellListView);
   protected
+    procedure DoCreateNodeClass(var NewNodeClass: TTreeNodeClass); override;
     procedure Loaded; override;
+    function CreateNode: TTreeNode; override;
     { Other methods specific to Lazarus }
     function  PopulateTreeNodeWithFiles(
       ANode: TTreeNode; ANodePath: string): Boolean;
@@ -81,7 +83,7 @@ type
       AMask: string; AObjectTypes: TObjectTypes; AResult: TStrings; AFileSortType: TFileSortType = fstNone);
     { Other methods specific to Lazarus }
     function  GetPathFromNode(ANode: TTreeNode): string;
-    function  GetSelectedNodePath: string;
+    function  GetSelectedNodePath: string; deprecated 'Use property Path instead';
     procedure Refresh(ANode: TTreeNode); overload;
 
     { Properties }
@@ -143,8 +145,17 @@ type
     property OnChange;
     property OnChanging;
     property OnClick;
+    property OnCollapsed;
+    property OnCollapsing;
     property OnCustomDraw;
     property OnCustomDrawItem;
+    property OnDblClick;
+    property OnEdited;
+    property OnEditing;
+    property OnEnter;
+    property OnExit;
+    property OnExpanded;
+    property OnExpanding;
     property OnKeyDown;
     property OnKeyPress;
     property OnKeyUp;
@@ -170,12 +181,15 @@ type
 
   { TCustomShellListView }
 
+  TCSLVFileAddedEvent = procedure(Sender: TObject; Item: TListItem) of object;
+
   TCustomShellListView = class(TCustomListView)
   private
     FMask: string;
     FObjectTypes: TObjectTypes;
     FRoot: string;
     FShellTreeView: TCustomShellTreeView;
+    FOnFileAdded: TCSLVFileAddedEvent;
     { Setters and getters }
     procedure SetMask(const AValue: string);
     procedure SetShellTreeView(const Value: TCustomShellTreeView);
@@ -184,6 +198,7 @@ type
     { Methods specific to Lazarus }
     procedure PopulateWithRoot();
     procedure Resize; override;
+    property OnFileAdded: TCSLVFileAddedEvent read FOnFileAdded write FOnFileAdded;
   public
     { Basic methods }
     constructor Create(AOwner: TComponent); override;
@@ -202,6 +217,8 @@ type
   { TShellListView }
 
   TShellListView = class(TCustomShellListView)
+  public
+    property Columns;
   published
     { TCustomListView properties
       The same as TListView excluding data properties }
@@ -212,7 +229,6 @@ type
     property BorderWidth;
 //    property Checkboxes;
     property Color default clWindow;
-//    property Columns;
 //    property ColumnClick;
     property Constraints;
     property DragCursor;
@@ -282,20 +298,31 @@ type
     property OnSelectItem;
     property OnStartDrag;
     property OnUTF8KeyPress;
+    property OnFileAdded;
     { TCustomShellListView properties }
     property ObjectTypes;
     property Root;
     property ShellTreeView;
   end;
 
-  EInvalidPath = class(Exception);
+  { TShellTreeNode }
 
-const
-  //ToDo: make it a resource string
-  SShellCtrlsInvalidRoot         = 'Invalid pathname:'#13'"%s"';
-  SShellCtrlsInvalidPath         = 'Invalid pathname:'#13'"%s"';
-  SShellCtrlsInvalidPathRelative = 'Invalid relative pathname:'#13'"%s"'#13
-                                    +'in relation to rootpath:'#13'"%s"';
+  TShellTreeNode = class(TTreeNode)
+  private
+    FFileInfo: TSearchRec;
+    FBasePath: String;
+  protected
+    procedure SetBasePath(ABasePath: String);
+  public
+    function ShortFilename: String;
+    function FullFilename: String;
+    function IsDirectory: Boolean;
+
+    property BasePath: String read FBasePath;
+  end;
+
+  EShellCtrl = class(Exception);
+  EInvalidPath = class(EShellCtrl);
 
 function DbgS(OT: TObjectTypes): String; overload;
 
@@ -307,7 +334,9 @@ implementation
 uses Windows;
 {$endif}
 
-
+const
+  //no need to localize, it's a message for the programmer
+  sShellTreeViewIncorrectNodeType = 'TShellTreeView: the newly created node is not a TShellTreeNode!';
 
 function DbgS(OT: TObjectTypes): String; overload;
 begin
@@ -319,40 +348,62 @@ begin
   Result := Result + ']';
 end;
 
+{ TFileItem : internal helper class used for temporarily storing info in an internal TStrings component}
+type
+  { TFileItem }
+  TFileItem = class(TObject)
+  private
+    FFileInfo: TSearchRec;
+    FBasePath: String;
+  public
+    //more data to sort by size, date... etc
+    isFolder: Boolean;
+    constructor Create(const DirInfo: TSearchRec; ABasePath: String);
+    property FileInfo: TSearchRec read FFileInfo write FFileInfo;
+  end;
 
-{
-uses ShlObj;
 
-//  $I shellctrlswin32.inc
-
-procedure PopulateTreeViewWithShell(ATreeView: TCustomShellTreeView);
-var
-  ShellFolder: IShellFolder = nil;
-  Win32ObjectTypes: Integer;
-//  pidl: LPITEMIDLIST;
-  pidlParent: LPITEMIDLIST;
+constructor TFileItem.Create(const DirInfo:TSearchRec; ABasePath: String);
 begin
-  SHGetSpecialFolderLocation(0, CSIDL_DESKTOP, @pidl);
+  FFileInfo := DirInfo;
+  FBasePath:= ABasePath;
+  isFolder:=DirInfo.Attr and FaDirectory > 0;
+end;
 
-  SHGetDesktopFolder(ShellFolder);
 
-  if ShellFolder = nil then Exit;
 
-  // Converts the control data into Windows constants
+{ TShellTreeNode }
 
-  Win32ObjectTypes := 0;
+procedure TShellTreeNode.SetBasePath(ABasePath: String);
+begin
+  FBasePath := ABasePath;
+end;
 
-  if otFolders in ATreeView.ObjectTypes then
-    Win32ObjectTypes := Win32ObjectTypes or SHCONTF_FOLDERS;
 
-  if otNonFolders in ATreeView.ObjectTypes then
-    Win32ObjectTypes := Win32ObjectTypes or SHCONTF_NONFOLDERS;
+function TShellTreeNode.ShortFilename: String;
+begin
+  Result := ExtractFileName(FFileInfo.Name);
+  if (Result = '') then Result := FFileInfo.Name;
+end;
 
-  if otHidden in ATreeView.ObjectTypes then
-    Win32ObjectTypes := Win32ObjectTypes or SHCONTF_INCLUDEHIDDEN;
+function TShellTreeNode.FullFilename: String;
+begin
+  if (FBasePath <> '') then
+    Result := AppendPathDelim(FBasePath) + FFileInfo.Name
+  else
+    //root nodes
+    Result := FFileInfo.Name;
+  {$if defined(windows) and not defined(wince)}
+  if (Length(Result) = 2) and (Result[2] = DriveSeparator) then
+    Result := Result + PathDelim;
+  {$endif}
+end;
 
-  // Now gets the name of the desktop folder
-}
+function TShellTreeNode.IsDirectory: Boolean;
+begin
+  Result := ((FFileInfo.Attr and faDirectory) > 0);
+end;
+
 
 { TCustomShellTreeView }
 
@@ -379,6 +430,14 @@ begin
     Value.ShellTreeView := Self;
 end;
 
+
+procedure TCustomShellTreeView.DoCreateNodeClass(
+  var NewNodeClass: TTreeNodeClass);
+begin
+  NewNodeClass := TShellTreeNode;
+  inherited DoCreateNodeClass(NewNodeClass);
+end;
+
 procedure TCustomShellTreeView.Loaded;
 begin
   inherited Loaded;
@@ -386,6 +445,14 @@ begin
     PopulateWithBaseFiles()
   else
     SetRoot(FInitialRoot);
+end;
+
+function TCustomShellTreeView.CreateNode: TTreeNode;
+begin
+  Result := inherited CreateNode;
+  //just in case someone attaches a new OnCreateNodeClass which does not return a TShellTreeNode (sub)class
+  if not (Result is TShellTreeNode) then
+    Raise EShellCtrl.Create(sShellTreeViewIncorrectNodeType);
 end;
 
 procedure TCustomShellTreeView.SetRoot(const AValue: string);
@@ -398,11 +465,11 @@ begin
     FInitialRoot := AValue;
     Exit;
   end;
-  //Delphi raises an unspecified exception in this case, but don't crash the IDE at designtime
+  //Delphi raises an exception in this case, but don't crash the IDE at designtime
   if not (csDesigning in ComponentState)
      and (AValue <> '')
      and not DirectoryExistsUtf8(ExpandFilenameUtf8(AValue)) then
-     Raise Exception.CreateFmt(SShellCtrlsInvalidRoot,[ExpandFileNameUtf8(AValue)]);
+     Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidRoot,[ExpandFileNameUtf8(AValue)]);
   if (AValue = '') then
     FRoot := GetBasePath
   else
@@ -419,6 +486,9 @@ begin
     FRoot := ExpandFileNameUtf8(FRoot);
     //Set RootNode.Text to AValue so user can choose if text is fully qualified path or not
     RootNode := Items.AddChild(nil, AValue);
+    TShellTreeNode(RootNode).FFileInfo.Attr := FileGetAttr(FRoot);
+    TShellTreeNode(RootNode).FFileInfo.Name := FRoot;
+    TShellTreeNode(RootNode).SetBasePath('');
     RootNode.HasChildren := True;
     RootNode.Expand(False);
   end;
@@ -499,8 +569,7 @@ begin
   FInitialRoot := '';
 
   // Initial property values
-
-  ObjectTypes:= [otFolders];
+  FObjectTypes:= [otFolders];
 
   // Populating the base dirs is done in Loaded
 end;
@@ -511,22 +580,6 @@ begin
   inherited Destroy;
 end;
 
-type
-  { TFileItem }
-  TFileItem = class(TObject)
-    Name: string;
-    isFolder: Boolean;
-    //more data to sort by size, date... etc
-    constructor Create(const DirInfo: TSearchRec);
-  end;
-
-{ TFileItem }
-
-constructor TFileItem.Create(const DirInfo:TSearchRec);
-begin
-  Name:=DirInfo.Name;
-  isFolder:=DirInfo.Attr and FaDirectory > 0;
-end;
 
 function FilesSortAlphabet(p1, p2: Pointer): Integer;
 var
@@ -534,7 +587,7 @@ var
 begin
   f1:=TFileItem(p1);
   f2:=TFileItem(p2);
-  Result:=CompareText(f1.Name, f2.Name);
+  Result:=CompareText(f1.FileInfo.Name, f2.FileInfo.Name);
 end;
 
 function FilesSortFoldersFirst(p1,p2: Pointer): Integer;
@@ -552,9 +605,16 @@ begin
 
 end;
 
+function STVCompareFiles(f1, f2: Pointer): integer;
+begin
+  Result:=CompareFilenames(AnsiString(f1),AnsiString(f2));
+end;
+
 { Helper routine.
   Finds all files/directories directly inside a directory.
   Does not recurse inside subdirectories.
+
+  AResult will contain TFileItem objects upon return, make sure to free them in the calling routine
 
   AMask may contain multiple file masks separated by ;
   Don't add a final ; after the last mask.
@@ -565,13 +625,15 @@ var
   DirInfo: TSearchRec;
   FindResult: Integer;
   IsDirectory, IsValidDirectory, IsHidden, AddFile: Boolean;
-  ObjectData: TObject;
   SearchStr: string;
   MaskStr: string;
   Files: TList;
   FileItem: TFileItem;
   i: Integer;
   MaskStrings: TStringList;
+  FileTree: TAvgLvlTree;
+  ShortFilename: AnsiString;
+  j: Integer;
   {$if defined(windows) and not defined(wince)}
   ErrMode : LongWord;
   {$endif}
@@ -590,6 +652,7 @@ begin
   // The string list implements support for multiple masks separated
   // by semi-comma ";"
   MaskStrings := TStringList.Create;
+  FileTree:=TAvgLvlTree.Create(@STVCompareFiles);
   try
     MaskStrings.Delimiter := ';';
     MaskStrings.DelimitedText := MaskStr;
@@ -597,6 +660,7 @@ begin
     if AFileSortType=fstNone then Files:=nil
     else Files:=TList.Create;
 
+    j:=0;
     for i := 0 to MaskStrings.Count - 1 do
     begin
       if MaskStrings.IndexOf(MaskStrings[i]) < i then Continue; // From patch from bug 17761: TShellListView Mask: duplicated items if mask is " *.ext;*.ext "
@@ -606,18 +670,20 @@ begin
 
       while FindResult = 0 do
       begin
-        Application.ProcessMessages;
+        inc(j);
+        if j=100 then
+        begin
+          Application.ProcessMessages;
+          j:=0;
+        end;
+
+        ShortFilename := DirInfo.Name;
 
         IsDirectory := (DirInfo.Attr and FaDirectory = FaDirectory);
 
-        IsValidDirectory := (DirInfo.Name <> '.') and (DirInfo.Name <> '..');
+        IsValidDirectory := (ShortFilename <> '.') and (ShortFilename <> '..');
 
         IsHidden := (DirInfo.Attr and faHidden = faHidden);
-        //LinuxToWinAttr already does this in FF/FN
-        //{$IFDEF Unix}
-        //if (DirInfo.Name<>'') and (DirInfo.Name[1]='.') then
-        //  IsHidden:=true;
-        //{$ENDIF}
 
         // First check if we show hidden files
         if IsHidden then AddFile := (otHidden in AObjectTypes)
@@ -633,13 +699,14 @@ begin
         if AddFile then
         begin
           if not Assigned(Files) then begin
-            // Mark if it is a directory (ObjectData <> nil)
-            if IsDirectory then ObjectData := AResult
-            else ObjectData := nil;
-            if AResult.IndexOf(DirInfo.Name) < 0 then // From patch from bug 17761: TShellListView Mask: duplicated items if mask is " *.ext;*.ext "
-              AResult.AddObject(DirInfo.Name, ObjectData)
+            if FileTree.Find(Pointer(ShortFilename))=nil then
+            begin
+              // From patch from bug 17761: TShellListView Mask: duplicated items if mask is " *.ext;*.ext "
+              FileTree.Add(Pointer(ShortFilename));
+              AResult.AddObject(ShortFilename, TFileItem.Create(DirInfo, ABaseDir));
+            end;
           end else
-            Files.Add ( TFileItem.Create(DirInfo));
+            Files.Add ( TFileItem.Create(DirInfo, ABaseDir));
         end;
 
         FindResult := FindNextUTF8(DirInfo);
@@ -648,11 +715,11 @@ begin
       FindCloseUTF8(DirInfo);
     end;
   finally
+    FileTree.Free;
     MaskStrings.Free;
   end;
 
   if Assigned(Files) then begin
-    Objectdata:=AResult;
 
     case AFileSortType of
       fstAlphabet:     Files.Sort(@FilesSortAlphabet);
@@ -662,15 +729,14 @@ begin
     for i:=0 to Files.Count-1 do
     begin
       FileItem:=TFileItem(Files[i]);
-      if (i < Files.Count - 1) and (TFileItem(Files[i]).Name = TFileItem(Files[i + 1]).Name) then
+      if (i < Files.Count - 1) and (TFileItem(Files[i]).FileInfo.Name = TFileItem(Files[i + 1]).FileInfo.Name) then
+      begin
+        FileItem.Free;
         Continue; // cause Files is sorted // From patch from bug 17761: TShellListView Mask: duplicated items if mask is " *.ext;*.ext "
-      if FileItem.isFolder then
-        AResult.AddObject(FileItem.Name, ObjectData)
-      else
-        AResult.AddObject(FileItem.Name, nil);
+      end;
+      AResult.AddObject(FileItem.FileInfo.Name, FileItem);
     end;
-    for i:=0 to Files.Count-1 do
-      TFileItem(Files[i]).Free;
+    //don't free the TFileItems here, they will freed by the calling routine
     Files.Free;
   end;
 
@@ -730,11 +796,6 @@ var
             (SR.Name <> '..')) then
          begin
            IsHidden := ((Attr and faHidden) > 0);
-           //LinuxToWinAttr already does this in FF/FN
-           //{$IFDEF Unix}
-           //if (SR.Name<>'') and (SR.Name[1]='.') then
-           //  IsHidden := True;
-           //{$ENDIF}
            if not (IsHidden and (not ((otHidden in fObjectTypes)))) then
            begin
              Result := True;
@@ -755,18 +816,21 @@ begin
 
   Files := TStringList.Create;
   try
+    Files.OwnsObjects := True;
     GetFilesInDir(ANodePath, AllFilesMask, FObjectTypes, Files, FFileSortType);
     Result := Files.Count > 0;
 
     for i := 0 to Files.Count - 1 do
     begin
-      NewNode := Items.AddChildObject(ANode, Files.Strings[i], nil); //@Files.Strings[i]);
-      // This marks if the node is a directory
+      NewNode := Items.AddChildObject(ANode, Files.Strings[i], nil);
+      TShellTreeNode(NewNode).FFileInfo := TFileItem(Files.Objects[i]).FileInfo;
+      TShellTreeNode(NewNode).SetBasePath(TFileItem(Files.Objects[i]).FBasePath);
+
       if (fObjectTypes * [otNonFolders] = []) then
-        NewNode.HasChildren := ((Files.Objects[i] <> nil) and
+        NewNode.HasChildren := (TShellTreeNode(NewNode).IsDirectory and
                                HasSubDir(AppendpathDelim(ANodePath)+Files[i]))
       else
-        NewNode.HasChildren := (Files.Objects[i] <> nil);
+        NewNode.HasChildren := TShellTreeNode(NewNode).IsDirectory;
     end;
   finally
     Files.Free;
@@ -775,14 +839,6 @@ end;
 
 procedure TCustomShellTreeView.PopulateWithBaseFiles;
 {$if defined(windows) and not defined(wince)}
-const
-  DRIVE_UNKNOWN = 0;
-  DRIVE_NO_ROOT_DIR = 1;
-  DRIVE_REMOVABLE = 2;
-  DRIVE_FIXED = 3;
-  DRIVE_REMOTE = 4;
-  DRIVE_CDROM = 5;
-  DRIVE_RAMDISK = 6;
 var
   r: LongWord;
   Drives: array[0..128] of char;
@@ -796,15 +852,16 @@ begin
   if r = 0 then Exit;
   if r > SizeOf(Drives) then Exit;
 //    raise Exception.Create(SysErrorMessage(ERROR_OUTOFMEMORY));
-
   pDrive := Drives;
   while pDrive^ <> #0 do
   begin
-//    r := GetDriveType(pDrive);
-
     NewNode := Items.AddChildObject(nil, ExcludeTrailingBackslash(pDrive), pDrive);
+    //Yes, we want to remove the backslash,so don't use ChompPathDelim here
+    TShellTreeNode(NewNode).FFileInfo.Name := ExcludeTrailingBackslash(pDrive);
+    //On NT platforms drive-roots really have these attributes
+    TShellTreeNode(NewNode).FFileInfo.Attr := faDirectory + faSysFile + faHidden;
+    TShellTreeNode(NewNode).SetBasePath('');
     NewNode.HasChildren := True;
-
     Inc(pDrive, 4);
   end;
 end;
@@ -830,35 +887,48 @@ end;
 {$endif}
 
 procedure TCustomShellTreeView.DoSelectionChanged;
+var
+  ANode: TTreeNode;
+  CurrentNodePath: String;
 begin
   inherited DoSelectionChanged;
-  if Assigned(FShellListView) then
-    FShellListView.Root := GetPathFromNode(Selected);
+  ANode := Selected;
+  if Assigned(FShellListView) and Assigned(ANode) then
+  begin
+    //You cannot rely on HasChildren here, because it can become FALSE when user
+    //clicks the expand sign and folder is empty
+    //Issue 0027571
+    CurrentNodePath := ChompPathDelim(GetPathFromNode(ANode));
+    if TShellTreeNode(ANode).IsDirectory then
+    begin
+      //Note: the folder may have been deleted in the mean time
+      //an exception will be raised by the next line in that case
+      FShellListView.Root := GetPathFromNode(ANode)
+    end
+    else
+    begin
+      if not FileExistsUtf8(CurrentNodePath) then
+        Raise EShellCtrl.CreateFmt(sShellCtrlsSelectedItemDoesNotExists,[CurrentNodePath]);
+      if Assigned(Anode.Parent) then
+        FShellListView.Root := GetPathFromNode(ANode.Parent)
+      else
+        FShellListView.Root := '';
+    end;
+  end;
 end;
 
 function TCustomShellTreeView.GetPathFromNode(ANode: TTreeNode): string;
 begin
-  Result := '';
-  if ANode <> nil then  // Will return the root if nothing is selected (ANode=nil)
+  if Assigned(ANode) then
   begin
-    // Build the path. In the future use ANode.Data instead of ANode.Text
-    if (ANode.Parent = nil) and (GetRootPath <> '') then
-      //This node is RootNode and GetRooPath contains fully qualified root path
-      Result := ''
-    else
-      Result := ANode.Text;
-    while (ANode.Parent <> nil) do
-    begin
-      ANode := ANode.Parent;
-      if (ANode.Parent = nil) and (GetRootPath <> '') then
-        //Node.Text of rootnode may not be fully qualified
-        Result := GetRootPath + Result
-      else
-        Result := IncludeTrailingPathDelimiter(ANode.Text) + Result;
-    end;
-  end;
-  if not FilenameIsAbsolute(Result) then
-    Result := GetRootPath() + Result;    // Include root directory
+    Result := TShellTreeNode(ANode).FullFilename;
+    if TShellTreeNode(ANode).IsDirectory then
+      Result := AppendPathDelim(Result);
+    if not FilenameIsAbsolute(Result) then
+      Result := GetRootPath() + Result;    // Include root directory
+  end
+  else
+    Result := '';
 end;
 
 function TCustomShellTreeView.GetSelectedNodePath: string;
@@ -913,6 +983,7 @@ var
   i: integer;
   FQRootPath, RelPath: String;
   RootIsAbsolute: Boolean;
+  IsRelPath: Boolean;
 
   function GetAdjustedNodeText(ANode: TTreeNode): String;
   begin
@@ -925,6 +996,95 @@ var
     end
     else Result := ANode.Text;
   end;
+
+  function Exists(Fn: String): Boolean;
+  //Fn should be fully qualified
+  var
+    Attr: LongInt;
+    Dirs: TStringList;
+    i: Integer;
+  begin
+    Result := False;
+    Attr := FileGetAttrUtf8(Fn);
+    //writeln('TCustomShellTreeView.SetPath.Exists: Attr = ', Attr);
+    if (Attr = -1) then Exit;
+    if not (otNonFolders in FObjectTypes) then
+      Result := ((Attr and faDirectory) > 0)
+    else
+      Result := True;
+    //writeln('TCustomShellTreeView.SetPath.Exists: Result = ',Result);
+  end;
+
+  function PathIsDriveRoot({%H-}Path: String): Boolean;  {$if not (defined(windows) and not defined(wince))}inline;{$endif}
+  //WinNT filesystem reports faHidden on all physical drive-roots (e.g. C:\)
+  begin
+    {$if defined(windows) and not defined(wince)}
+    Result := (Length(Path) = 3) and
+              (Upcase(Path[1]) in ['A'..'Z']) and
+              (Path[2] = DriveSeparator) and
+              (Path[3] in AllowDirectorySeparators);
+    {$else}
+    Result := False;
+    {$endif windows}
+  end;
+
+  function ContainsHiddenDir(Fn: String): Boolean;
+  var
+    i: Integer;
+    Attr: LongInt;
+    Dirs: TStringList;
+    RelPath: String;
+  begin
+    //if fn=root then always return false
+    if (CompareFileNames(Fn, FQRootPath) = 0) then
+      Result := False
+    else
+    begin
+      Attr := FileGetAttrUtf8(Fn);
+      Result := ((Attr and faHidden) = faHidden) and not PathIsDriveRoot(Fn);
+      if not Result then
+      begin
+        //it also is not allowed that any folder above is hidden
+        Fn := ChompPathDelim(Fn);
+        Fn := ExtractFileDir(Fn);
+        Dirs := TStringList.Create;
+        try
+          Dirs.StrictDelimiter := True;
+          Dirs.Delimiter := PathDelim;
+          Dirs.DelimitedText := Fn;
+          Fn := '';
+          for i := 0 to Dirs.Count - 1 do
+          begin
+            if (i = 0) then
+              Fn := Dirs.Strings[i]
+            else
+              Fn := Fn + PathDelim + Dirs.Strings[i];
+            if (Fn = '') then Continue;
+            RelPath := CreateRelativePath(Fn, FQRootPath, False, True);
+            //don't check if Fn now is "higher up the tree" than the current root
+            if (RelPath = '') or ((Length(RelPath) > 1) and (RelPath[1] = '.') and (RelPath[2] = '.')) then
+            begin
+              //writeln('Fn is higher: ',Fn);
+              Continue;
+            end;
+            {$if defined(windows) and not defined(wince)}
+            if (Length(Fn) = 2) and (Fn[2] = ':') then Continue;
+            {$endif}
+            Attr := FileGetAttrUtf8(Fn);
+            if (Attr <> -1) and ((Attr and faHidden) > 0) and not PathIsDriveRoot(Fn) then
+            begin
+              Result := True;
+              //writeln('TCustomShellTreeView.SetPath.Exists: a subdir is hidden: Result := False');
+              Break;
+            end;
+          end;
+        finally
+          Dirs.Free;
+        end;
+      end;
+    end;
+  end;
+
 begin
   RelPath := '';
 
@@ -932,7 +1092,7 @@ begin
 
   if (GetRootPath <> '') then
     //FRoot is already Expanded in SetRoot, just add PathDelim if needed
-    FQRootPath := IncludeTrailingPathDelimiter(GetRootPath)
+    FQRootPath := AppendPathDelim(GetRootPath)
   else
     FQRootPath := '';
   RootIsAbsolute := (FQRootPath = '') or (FQRootPath = PathDelim)
@@ -947,16 +1107,17 @@ begin
 
   if not FileNameIsAbsolute(AValue) then
   begin
-    if DirectoryExistsUtf8(FQRootPath + AValue) then
+    if Exists(FQRootPath + AValue) then
     begin
       //Expand it, since it may be in the form of ../../foo
       AValue := ExpandFileNameUtf8(FQRootPath + AValue);
     end
     else
     begin
-      if not DirectoryExistsUtf8(ExpandFileNameUtf8(AValue)) then
-        Raise EInvalidPath.CreateFmt(SShellCtrlsInvalidPath,[ExpandFileNameUtf8(FQRootPath + AValue)]);
-      //Directory Exists
+      //don't expand Avalue yet, we may need it in error message
+      if not Exists(ExpandFileNameUtf8(AValue)) then
+        Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidPath,[ExpandFileNameUtf8(FQRootPath + AValue)]);
+      //Directory (or file) exists
       //Make it fully qualified
       AValue := ExpandFileNameUtf8(AValue);
     end;
@@ -964,23 +1125,31 @@ begin
   else
   begin
     //AValue is an absoulte path to begin with
-    if not DirectoryExistsUtf8(AValue) then
-      Raise EInvalidPath.CreateFmt(SShellCtrlsInvalidPath,[AValue]);
+    //if not DirectoryExistsUtf8(AValue) then
+    if not Exists(AValue) then
+      Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidPath,[AValue]);
   end;
 
   //AValue now is a fully qualified path and it exists
   //Now check if it is a subdirectory of FQRootPath
-  RelPath := CreateRelativePath(AValue, FQRootPath, False);
+  //RelPath := CreateRelativePath(AValue, FQRootPath, False);
+  IsRelPath := (FQRootPath = '') or TryCreateRelativePath(AValue, FQRootPath, False, True, RelPath);
 
-  //writeln('SetPath: CreaterealtivePath = ',RelPath);
+  //writeln('TCustomShellTreeView.SetPath: ');
+  //writeln('  IsRelPath = ',IsRelPath);
+  //writeln('  RelPath = "',RelPath,'"');
+  //writeln('  FQRootPath = "',FQRootPath,'"');
 
-  if (RelPath <> '') and (RelPath[1] = '.') then
+
+  if (not IsRelpath) or ((RelPath <> '') and ((Length(RelPath) > 1) and (RelPath[1] = '.') and (RelPath[2] = '.'))) then
   begin
     // CreateRelativePath retruns a string beginning with ..
     // so AValue is not a subdirectory of FRoot
-    Raise EInvalidPath.CreateFmt(SShellCtrlsInvalidPathRelative,[AValue, FQRootPath]);
+    Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidPathRelative,[AValue, FQRootPath]);
   end;
 
+  if (RelPath = '') and (FQRootPath = '') then
+    RelPath := AValue;
   //writeln('RelPath = ',RelPath);
   if (RelPath = '') then
   begin
@@ -994,6 +1163,9 @@ begin
     Exit;
   end;
 
+  if not (otHidden in FObjectTypes) and ContainsHiddenDir(AValue) then
+    Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidPath,[AValue, FQRootPath]);
+
   sl := TStringList.Create;
   sl.Delimiter := PathDelim;
   sl.StrictDelimiter := True;
@@ -1001,7 +1173,11 @@ begin
   if (sl.Count > 0) and (sl[0] = '') then  // This happens when root dir is empty
     sl[0] := PathDelim;                    //  and PathDelim was the first char
   if (sl.Count > 0) and (sl[sl.Count-1] = '') then sl.Delete(sl.Count-1); //remove last empty string
-  if (sl.Count = 0) then Exit;
+  if (sl.Count = 0) then
+  begin
+    sl.Free;
+    Exit;
+  end;
 
   //for i := 0 to sl.Count - 1 do writeln('sl[',i:2,']="',sl[i],'"');
 
@@ -1109,7 +1285,7 @@ begin
     if not (csDesigning in ComponentState)
        and (Value <> '')
        and not DirectoryExistsUtf8(ExpandFilenameUtf8(Value)) then
-       Raise Exception.CreateFmt(SShellCtrlsInvalidRoot,[Value]);
+       Raise EInvalidPath.CreateFmt(sShellCtrlsInvalidRoot,[Value]);
     FRoot := Value;
     Clear;
     Items.Clear;
@@ -1128,9 +1304,9 @@ begin
   Self.Columns.Add;
   Self.Columns.Add;
   Self.Columns.Add;
-  Self.Column[0].Caption := 'Name';
-  Self.Column[1].Caption := 'Size';
-  Self.Column[2].Caption := 'Type';
+  Self.Column[0].Caption := sShellCtrlsName;
+  Self.Column[1].Caption := sShellCtrlsSize;
+  Self.Column[2].Caption := sShellCtrlsType;
   // Initial sizes, necessary under Windows CE
   Resize;
 end;
@@ -1157,6 +1333,7 @@ begin
 
   Files := TStringList.Create;
   try
+    Files.OwnsObjects := True;
     TCustomShellTreeView.GetFilesInDir(FRoot, FMask, FObjectTypes, Files);
 
     for i := 0 to Files.Count - 1 do
@@ -1171,13 +1348,14 @@ begin
       CurFileSize := FileSize(CurFilePath); // in Bytes
       NewItem.Data := Pointer(PtrInt(CurFileSize));
       if CurFileSize < 1024 then
-        NewItem.SubItems.Add(IntToStr(CurFileSize) + ' bytes')
+        NewItem.SubItems.Add(Format(sShellCtrlsBytes, [IntToStr(CurFileSize)]))
       else if CurFileSize < 1024 * 1024 then
-        NewItem.SubItems.Add(IntToStr(CurFileSize div 1024) + ' kB')
+        NewItem.SubItems.Add(Format(sShellCtrlsKB, [IntToStr(CurFileSize div 1024)]))
       else
-        NewItem.SubItems.Add(IntToStr(CurFileSize div (1024 * 1024)) + ' MB');
+        NewItem.SubItems.Add(Format(sShellCtrlsMB, [IntToStr(CurFileSize div (1024 * 1024))]));
       // Third column - Type
       NewItem.SubItems.Add(ExtractFileExt(CurFileName));
+      if Assigned(FOnFileAdded) then FOnFileAdded(Self,NewItem);
     end;
     Sort;
   finally

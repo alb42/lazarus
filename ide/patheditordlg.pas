@@ -21,10 +21,9 @@ unit PathEditorDlg;
 interface
 
 uses
-  Classes, SysUtils, types, Forms, Controls, Buttons, StdCtrls, Dialogs,
-  FileUtil, ButtonPanel, ExtCtrls, EditBtn, MacroIntf, IDEImagesIntf, LCLType,
-  Graphics, Menus, TransferMacros, LazarusIDEStrConsts, shortpathedit, Clipbrd,
-  LCLProc;
+  Classes, SysUtils, types, Forms, Controls, Buttons, StdCtrls, Dialogs, Graphics,
+  Menus, ButtonPanel, ExtCtrls, FileUtil, LazFileUtils, MacroIntf, IDEImagesIntf,
+  LCLType, TransferMacros, LazarusIDEStrConsts, ShortPathEdit, Clipbrd, LCLProc;
 
 type
 
@@ -68,15 +67,15 @@ type
     procedure FormShow(Sender: TObject);
     procedure MoveDownButtonClick(Sender: TObject);
     procedure MoveUpButtonClick(Sender: TObject);
-    procedure PathListBoxDrawItem(Control: TWinControl; Index: Integer;
-      ARect: TRect; State: TOwnerDrawState);
+    procedure PathListBoxDrawItem({%H-}Control: TWinControl; Index: Integer;
+      ARect: TRect; {%H-}State: TOwnerDrawState);
     procedure PathListBoxKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
-    procedure PathListBoxSelectionChange(Sender: TObject; User: boolean);
+    procedure PathListBoxSelectionChange(Sender: TObject; {%H-}User: boolean);
     procedure ReplaceButtonClick(Sender: TObject);
     procedure ImportMenuItemClick(Sender: TObject);
     procedure TemplatesListBoxDblClick(Sender: TObject);
-    procedure TemplatesListBoxSelectionChange(Sender: TObject; User: boolean);
+    procedure TemplatesListBoxSelectionChange(Sender: TObject; {%H-}User: boolean);
   private
     FBaseDirectory: string;
     FEffectiveBaseDirectory: string;
@@ -266,10 +265,13 @@ begin
   UpdateButtons;
 end;
 
-procedure TPathEditorDialog.DirectoryEditAcceptDirectory(Sender: TObject;
-  var Value: String);
+procedure TPathEditorDialog.DirectoryEditAcceptDirectory(Sender: TObject; var Value: String);
 begin
   DirectoryEdit.Text := BaseRelative(Value);
+  {$IFDEF LCLCarbon}
+  // Not auto-called on Mac. ToDo: fix it in the component instead of here.
+  DirectoryEdit.OnChange(nil);
+  {$ENDIF}
 end;
 
 procedure TPathEditorDialog.DeleteInvalidPathsButtonClick(Sender: TObject);

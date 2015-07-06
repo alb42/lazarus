@@ -33,8 +33,8 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, Forms, Controls, Graphics, Dialogs, FileUtil,
-  Clipbrd, StdCtrls, Buttons, Process, AVL_Tree, AsyncProcess, Menus, ExtCtrls,
-  UTF8Process, ButtonPanel, ComCtrls,
+  Clipbrd, StdCtrls, Buttons, Process, AVL_Tree, Menus, ExtCtrls,
+  ButtonPanel, ComCtrls,
   // codetools
   KeywordFuncLists, CodeToolManager, FileProcs, DefineTemplates,
   CodeToolsStructs,
@@ -75,7 +75,7 @@ type
     TestMemo: TMemo;
     TestGroupbox: TGroupBox;
     OutputGroupBox: TGroupBox;
-    procedure ApplicationOnIdle(Sender: TObject; var Done: Boolean);
+    procedure ApplicationOnIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure CopyOutputMenuItemClick(Sender: TObject);
   private
     FIdleConnected: boolean;
@@ -327,7 +327,7 @@ begin
   end;
   try
     // create compiler command line options
-    CmdLineParams:=Options.MakeOptionsString(BogusFilename,
+    CmdLineParams:=Options.MakeOptionsString(
               [ccloAddVerboseAll,ccloDoNotAppendOutFileOption,ccloAbsolutePaths])
               +' '+BogusFilename;
     CompileTool:=ExternalToolList.Add(dlgCCOTestToolCompilingEmptyFile);
@@ -504,13 +504,18 @@ begin
   TestGroupbox.Caption:=dlgCCOTestMissingPPU;
 
   Result:=mrCancel;
-  // rtl
+
   if not Check('system',ccmlError) then exit;
-  if not Check('sysutils',ccmlError) then exit;
-  if not Check('classes',ccmlError) then exit;
-  // fcl
-  if not Check('avl_tree',ccmlError) then exit;
-  if not Check('zstream',ccmlError) then exit;
+  if not Check('objpas',ccmlError) then exit;
+
+  if CfgCache.TargetCPU='jvm' then begin
+    if not Check('uuchar',ccmlError) then exit;
+  end else begin
+    if not Check('sysutils',ccmlError) then exit;
+    if not Check('classes',ccmlError) then exit;
+    if not Check('avl_tree',ccmlError) then exit;
+    if not Check('zstream',ccmlError) then exit;
+  end;
 
   Result:=mrOk;
 end;

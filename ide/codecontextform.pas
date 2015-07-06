@@ -41,7 +41,7 @@ uses
   Graphics, Dialogs, LCLType, LCLIntf, Themes, Buttons, SynEdit, SynEditKeyCmds,
   BasicCodeTools, KeywordFuncLists, LinkScanner, CodeCache, FindDeclarationTool,
   IdentCompletionTool, CodeTree, CodeAtom, PascalParserTool, CodeToolManager,
-  SourceChanger, SrcEditorIntf, LazIDEIntf, IDEProcs, LazarusIDEStrConsts;
+  SrcEditorIntf, LazIDEIntf, IDEProcs, LazarusIDEStrConsts;
 
 type
 
@@ -59,7 +59,7 @@ type
   { TCodeContextFrm }
 
   TCodeContextFrm = class(THintWindow)
-    procedure ApplicationIdle(Sender: TObject; var Done: Boolean);
+    procedure ApplicationIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure CopyAllBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -80,7 +80,7 @@ type
     procedure ClearMarksInHints;
     function GetHints(Index: integer): TCodeContextItem;
     procedure MarkCurrentParameterInHints(ParameterIndex: integer); // 0 based
-    procedure CalculateHintsBounds(const CodeContexts: TCodeContextInfo);
+    procedure CalculateHintsBounds;
     procedure DrawHints(var MaxWidth, MaxHeight: Integer; Draw: boolean);
     procedure CompleteParameters(DeclCode: string);
     procedure ClearHints;
@@ -262,7 +262,7 @@ begin
   end;
   
   CreateHints(CodeContexts);
-  CalculateHintsBounds(CodeContexts);
+  CalculateHintsBounds;
 end;
 
 procedure TCodeContextFrm.UpdateHints;
@@ -378,7 +378,7 @@ procedure TCodeContextFrm.CreateHints(const CodeContexts: TCodeContextInfo);
     ExprNode: TCodeTreeNode;
   begin
     Result:=false;
-    Params:=TFindDeclarationParams.Create;
+    Params:=TFindDeclarationParams.Create(Tool, Node);
     try
       try
         Expr:=Tool.ConvertNodeToExpressionType(Node,Params);
@@ -673,8 +673,7 @@ begin
   Invalidate;
 end;
 
-procedure TCodeContextFrm.CalculateHintsBounds(const
-  CodeContexts: TCodeContextInfo);
+procedure TCodeContextFrm.CalculateHintsBounds;
 var
   DrawWidth: LongInt;
   SrcEdit: TSourceEditorInterface;

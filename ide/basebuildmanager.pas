@@ -40,12 +40,14 @@ type
   { TBaseBuildManager }
 
   TBaseBuildManager = class(TComponent)
-  private
-    FHasGUI: boolean;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    property HasGUI: boolean read FHasGUI write FHasGUI;
+
+    // methods for building IDE (will be changed when project groups are there)
+    procedure SetBuildTargetProject1; virtual; abstract;
+    procedure SetBuildTargetIDE; virtual; abstract;
+    function BuildTargetIDEIsDefault: boolean; virtual; abstract;
 
     function GetBuildMacroOverride(const MacroName: string): string; virtual; abstract;
     function GetBuildMacroOverrides: TStrings; virtual; abstract;
@@ -59,7 +61,6 @@ type
     function GetProjectPublishDir: string; virtual; abstract;
     function GetProjectTargetFilename(aProject: TProject): string; virtual; abstract;
     function GetProjectUsesAppBundle: Boolean; virtual; abstract;
-    function GetTestProjectFilename(aProject: TProject): string; virtual; abstract;
     function GetTestUnitFilename(AnUnitInfo: TUnitInfo): string; virtual; abstract;
     function GetTestBuildDirectory: string; virtual; abstract;
     function IsTestUnitFilename(const AFilename: string): boolean; virtual; abstract;

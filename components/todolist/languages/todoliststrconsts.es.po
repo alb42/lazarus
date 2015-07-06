@@ -1,4 +1,4 @@
-﻿msgid ""
+msgid ""
 msgstr ""
 "Last-Translator: Lucas Martín <codedeep@hotmail.com>\n"
 "PO-Revision-Date: \n"
@@ -8,6 +8,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: \n"
 "MIME-Version: 1.0\n"
+
+#: todoliststrconsts.dlgfiltercsv
+msgid "CSV files"
+msgstr ""
 
 #: todoliststrconsts.dlgfropts
 msgid "Options"
@@ -31,7 +35,7 @@ msgstr "Imprimir"
 
 #: todoliststrconsts.listddinserttodo
 msgid "Insert ToDo"
-msgstr "Insertar ToDo"
+msgstr "Insertar Pendiente (ToDo)"
 
 #: todoliststrconsts.listodoexport
 msgid "Export"

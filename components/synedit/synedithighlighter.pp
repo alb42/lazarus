@@ -33,7 +33,7 @@ interface
 
 uses
   SysUtils, Classes,
-  Graphics, FileUtil, LCLProc, LCLIntf, LCLType, Registry, IniFiles,
+  Graphics, LazUTF8, LCLProc, LCLIntf, LCLType, Registry, IniFiles,
   SynEditTypes, SynEditTextBase;
 
 type
@@ -350,7 +350,8 @@ type
     procedure BeforeDetachedFromRangeList(ARangeList: TSynHighlighterRangeList); virtual;
     function UpdateRangeInfoAtLine(Index: Integer): Boolean; virtual; // Returns true if range changed
     // code fold - only valid if hcCodeFolding in Capabilities
-    procedure SetCurrentLines(const AValue: TSynEditStringsBase); virtual;
+    procedure SetCurrentLines(const AValue: TSynEditStringsBase); virtual; // todo remove virtual
+    procedure DoCurrentLinesChanged; virtual;
     property  LineIndex: Integer read FLineIndex;
     property CurrentRanges: TSynHighlighterRangeList read FCurrentRanges;
     function GetDrawDivider(Index: integer): TSynDividerDrawConfigSetting; virtual;
@@ -916,7 +917,7 @@ end;
 
 function TSynHighlighterAttributes.GetFrameEdgesStored: boolean;
 begin
-  Result := FrameEdges = FFrameEdgesDefault;
+  Result := FrameEdges <> FFrameEdgesDefault;
 end;
 
 function TSynHighlighterAttributes.GetFrameStyleStored: boolean;
@@ -1733,6 +1734,12 @@ begin
   if FCurrentLines <> nil
   then FCurrentRanges := TSynHighlighterRangeList(AValue.Ranges[GetRangeIdentifier])
   else FCurrentRanges := nil;
+  DoCurrentLinesChanged;
+end;
+
+procedure TSynCustomHighlighter.DoCurrentLinesChanged;
+begin
+  //
 end;
 
 procedure TSynCustomHighlighter.AttachToLines(Lines: TSynEditStringsBase);

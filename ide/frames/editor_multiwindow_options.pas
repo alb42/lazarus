@@ -38,11 +38,14 @@ type
     Bevel2a: TBevel;
     Bevel2: TBevel;
     CenterLabel: TLabel;
+    chkMultiLine: TCheckBox;
     chkCtrlMiddleCloseOthers: TCheckBox;
     chkUseTabHistory: TCheckBox;
     chkShowCloseBtn: TCheckBox;
     chkShowNumbers: TCheckBox;
     chkHideSingleTab: TCheckBox;
+    EditorTabPositionCheckBox: TComboBox;
+    EditorTabPositionLabel: TLabel;
     lblAccessTypeDesc: TLabel;
     lblMultiWinTabSection: TLabel;
     listAccessType: TCheckListBox;
@@ -57,7 +60,7 @@ type
     Panel2: TPanel;
     Splitter1: TSplitter;
     procedure listAccessTypeClickCheck(Sender: TObject);
-    procedure listAccessTypeKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure listAccessTypeKeyUp(Sender: TObject; var {%H-}Key: Word; {%H-}Shift: TShiftState);
     procedure radioAccessOrderEditChange(Sender: TObject);
   private
     { private declarations }
@@ -66,7 +69,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -127,6 +130,7 @@ var
 begin
   TmpNB := TSourceNotebook.Create(nil, -1);
   chkShowCloseBtn.Enabled := nbcShowCloseButtons in TmpNB.GetCapabilities;
+  chkMultiLine.Enabled := nbcMultiLine in TmpNB.GetCapabilities;
   TmpNB.Free;
 
   lblMultiWinTabSection.Caption := dlgMultiWinTabGroup;
@@ -140,11 +144,19 @@ begin
   chkShowCloseBtn.Caption := dlgCloseButtonsNotebook;
   chkUseTabHistory.Caption := dlgUseTabsHistory;
   chkCtrlMiddleCloseOthers.Caption := dlgCtrlMiddleTabCloseOtherPages;
+  chkMultiLine.Caption := dlgSourceEditTabMultiLine;
+  EditorTabPositionCheckBox.Items.Add(lisNotebookTabPosTop);
+  EditorTabPositionCheckBox.Items.Add(lisNotebookTabPosBottom);
+  EditorTabPositionCheckBox.Items.Add(lisNotebookTabPosLeft);
+  EditorTabPositionCheckBox.Items.Add(lisNotebookTabPosRight);
+  EditorTabPositionLabel.Caption := dlgNotebookTabPos;
 
 end;
 
 procedure TEditorMultiWindowOptionsFrame.ReadSettings(
   AOptions: TAbstractIDEOptions);
+const
+  TabPosToIndex : Array [TTabPosition] of Integer = (0, 1, 2, 3);
 var
   i: Integer;
 begin
@@ -154,6 +166,8 @@ begin
     chkShowCloseBtn.Checked := ShowTabCloseButtons and chkShowCloseBtn.Enabled;
     chkUseTabHistory.Checked := UseTabHistory;
     chkCtrlMiddleCloseOthers.Checked := CtrlMiddleTabClickClosesOthers;
+    chkMultiLine.Checked := MultiLineTab;
+    EditorTabPositionCheckBox.ItemIndex := TabPosToIndex[TabPosition];
   end;
   FMultiWinEditAccessOrder.Assign(TEditorOptions(AOptions).MultiWinEditAccessOrder);
 
@@ -171,6 +185,8 @@ end;
 
 procedure TEditorMultiWindowOptionsFrame.WriteSettings(
   AOptions: TAbstractIDEOptions);
+const
+  TabIndexToPos : Array [0..3] of TTabPosition = (tpTop, tpBottom, tpLeft, tpRight);
 begin
   TEditorOptions(AOptions).MultiWinEditAccessOrder.Assign(FMultiWinEditAccessOrder);
   with TEditorOptions(AOptions) do begin
@@ -179,6 +195,8 @@ begin
     ShowTabCloseButtons := chkShowCloseBtn.Checked;
     UseTabHistory := chkUseTabHistory.Checked;
     CtrlMiddleTabClickClosesOthers := chkCtrlMiddleCloseOthers.Checked;
+    MultiLineTab := chkMultiLine.Checked;
+    TabPosition := TabIndexToPos[EditorTabPositionCheckBox.ItemIndex];
   end;
 end;
 

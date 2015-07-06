@@ -20,6 +20,7 @@ uses
   CocoaAll,
   // lcl
   LCLType, LCLProc, LCLIntf, Graphics, Themes, TmSchema,
+  customdrawndrawers,
   // widgetset
   CocoaProc, CocoaUtils, CocoaGDIObjects;
   
@@ -39,8 +40,8 @@ type
 (*    function DrawButtonElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
     function DrawComboBoxElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
     function DrawHeaderElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
-    function DrawRebarElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
-    function DrawToolBarElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;*)
+    function DrawRebarElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;*)
+    function DrawToolBarElement(DC: TCocoaContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
     function DrawTreeviewElement(DC: TCocoaContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
 (*    function DrawWindowElement(DC: TCarbonDeviceContext; Details: TThemedElementDetails; R: TRect; {%H-}ClipRect: PRect): TRect;
 *)
@@ -270,7 +271,7 @@ begin
   end;
   
   Result := CGRectToRect(ARect);
-end;
+end;*)
 
 {------------------------------------------------------------------------------
   Method:  TCarbonThemeServices.DrawToolBarElement
@@ -282,62 +283,72 @@ end;
 
   Draws a tool bar element with native Carbon look
  ------------------------------------------------------------------------------}
-function TCarbonThemeServices.DrawToolBarElement(DC: TCarbonDeviceContext;
+function TCocoaThemeServices.DrawToolBarElement(DC: TCocoaContext;
   Details: TThemedElementDetails; R: TRect; ClipRect: PRect): TRect;
 var
-  ButtonDrawInfo: HIThemeButtonDrawInfo;
-  LabelRect: HIRect;
+  lCanvas: TCanvas;
+  lSize: TSize;
+  lCDToolbarItem: TCDToolBarItem;
+  lCDToolbar: TCDToolBarStateEx;
+  lDrawer: TCDDrawer;
 begin
-  if Details.Part in [TP_BUTTON, TP_DROPDOWNBUTTON, TP_SPLITBUTTON, TP_SPLITBUTTONDROPDOWN] then
-  begin
-    ButtonDrawInfo.version := 0;
-    ButtonDrawInfo.State := GetDrawState(Details);
+  lCDToolbarItem := TCDToolBarItem.Create;
+  lCDToolbar := TCDToolBarStateEx.Create;
+  lCanvas := TCanvas.Create;
+  try
+    lSize.CX := R.Right - R.Left;
+    lSize.CY := R.Bottom - R.Top;
     case Details.Part of
-      TP_BUTTON, TP_SPLITBUTTON: ButtonDrawInfo.kind := kThemeBevelButtonSmall;
-      TP_DROPDOWNBUTTON: ButtonDrawInfo.kind := kThemePopupButtonSmall;
-      TP_SPLITBUTTONDROPDOWN: ButtonDrawInfo.kind := kThemeDisclosureButton;
-    end;
-
-    if Details.Part = TP_SPLITBUTTONDROPDOWN then
-    begin
-      ButtonDrawInfo.value := kThemeDisclosureDown;
-    end
+      TP_BUTTON, TP_DROPDOWNBUTTON, TP_SPLITBUTTON:
+        lCDToolbarItem.Kind := tikButton;
+      TP_SPLITBUTTONDROPDOWN:
+      begin
+        lCDToolbarItem.Kind := tikDropDownButton;
+        lCDToolbarItem.SubpartKind := tiskArrow;
+      end
+      //TP_SEPARATOR, TP_SEPARATORVERT, TP_DROPDOWNBUTTONGLYPH: // tikSeparator, tikDivider
     else
-    begin
-      if IsChecked(Details) then
-        ButtonDrawInfo.value := kThemeButtonOn
-      else
-        ButtonDrawInfo.value := kThemeButtonOff;
+      Exit;
     end;
-    ButtonDrawInfo.adornment := kThemeAdornmentNone;
+    lCDToolbarItem.Width := lSize.CX;
+    lCDToolbarItem.Down := IsChecked(Details);
 
-    LabelRect := RectToCGRect(R);
+    lCDToolbarItem.State := [];
+    if IsHot(Details) then
+      lCDToolbarItem.State := lCDToolbarItem.State + [csfMouseOver];
+    if IsPushed(Details) then
+      lCDToolbarItem.State := lCDToolbarItem.State + [csfSunken];
+    if IsChecked(Details) then
+      lCDToolbarItem.State := lCDToolbarItem.State + [csfSunken];
+    if not IsDisabled(Details) then
+      lCDToolbarItem.State := lCDToolbarItem.State + [csfEnabled];
 
-    // if button is normal or disabled, draw it to dummy context, to eliminate borders
-    if ((ButtonDrawInfo.State = kThemeStateActive) or
-      (ButtonDrawInfo.State = kThemeStateInActive)) and
-      (ButtonDrawInfo.value = kThemeButtonOff) then
-      OSError(
-        HIThemeDrawButton(LabelRect, ButtonDrawInfo, DefaultContext.CGContext,
-          kHIThemeOrientationNormal, @LabelRect),
-        Self, 'DrawButtonElement', 'HIThemeDrawButton')
-    else
-      OSError(
-        HIThemeDrawButton(LabelRect, ButtonDrawInfo, DC.CGContext,
-          kHIThemeOrientationNormal, @LabelRect),
-        Self, 'DrawButtonElement', 'HIThemeDrawButton');
-        
-    Result := CGRectToRect(LabelRect);
+    lCDToolbar.ToolBarHeight := lSize.CY;
+
+    lDrawer := GetDrawer(dsMacOSX);
+    lCanvas.Handle := HDC(DC);
+    lDrawer.DrawToolBarItem(lCanvas, lSize, lCDToolbarItem, R.Left, R.Top, lCDToolbarItem.State, lCDToolbar);
+
+    Result := R;
+  finally
+    lCDToolbarItem.Free;
+    lCDToolbar.Free;
+    lCanvas.Handle := 0;
+    lCanvas.Free;
   end;
-end;*)
+end;
 
 function TCocoaThemeServices.DrawTreeviewElement(DC: TCocoaContext;
   Details: TThemedElementDetails; R: TRect; ClipRect: PRect): TRect;
 var
   ButtonDrawInfo: HIThemeButtonDrawInfo;
   LabelRect: HIRect;
-  b: TCocoaBrush;
+  lBrush: TCocoaBrush;
+  lOldBrush: HBRUSH;
+  lPen: TCocoaPen;
+  lOldPen: HGDIOBJ;
   lColor: NSColor;
+  lPoints: array of TPoint;
 begin
   case Details.Part of
     TVP_TREEITEM:
@@ -350,12 +361,16 @@ begin
         TREIS_SELECTEDNOTFOCUS: lColor := ColorToNSColor(ColorToRGB(clBtnFace));
         TREIS_HOTSELECTED: lColor := ColorToNSColor(ColorToRGB(clHighlight));
       end;
-      b := TCocoaBrush.Create(lColor, False);
-      DC.Rectangle(R.Left, R.Top, R.Right, R.Bottom, True, b);
-      b.Free;
+      lBrush := TCocoaBrush.Create(lColor, False);
+      DC.Rectangle(R.Left, R.Top, R.Right, R.Bottom, True, lBrush);
+      lBrush.Free;
     end;
     TVP_GLYPH, TVP_HOTGLYPH:
     begin
+      // HIThemeDrawButton exists only in 32-bits and there is no Cocoa alternative =(
+      {.$define CocoaUseHITheme}
+      {$ifdef CocoaUseHITheme}
+      {$ifdef CPU386}
       ButtonDrawInfo.version := 0;
       ButtonDrawInfo.State := GetDrawState(Details);
       ButtonDrawInfo.kind := kThemeDisclosureTriangle;
@@ -376,6 +391,44 @@ begin
       {$endif}
 
       Result := CGRectToRect(LabelRect);
+      {$endif}
+      {$else}
+      SetLength(lPoints, 3);
+
+      // face right
+      if Details.State = GLPS_CLOSED then
+      begin
+        lPoints[0] := Types.Point(R.Left+1, R.Top);
+        lPoints[1] := Types.Point(R.Left+1, R.Bottom-2);
+        lPoints[2] := Types.Point(R.Right-1, (R.Top + R.Bottom-2) div 2);
+      end
+      // face down
+      else
+      begin
+        lPoints[0] := Types.Point(R.Left, R.Top);
+        lPoints[1] := Types.Point(R.Right-2, R.Top);
+        lPoints[2] := Types.Point((R.Left + R.Right-2) div 2, R.Bottom-2);
+      end;
+
+      // select the appropriate brush & pen
+      lColor := ColorToNSColor(Graphics.RGBToColor(121, 121, 121));
+      lBrush := TCocoaBrush.Create(lColor, False);
+      lOldBrush := LCLIntf.SelectObject(HDC(DC), HGDIOBJ(lBrush));
+
+      lPen := TCocoaPen.Create(Graphics.RGBToColor(121, 121, 121), False);
+      lOldPen := LCLIntf.SelectObject(HDC(DC), HGDIOBJ(lPen));
+
+      // Draw the triangle
+      DC.Polygon(lPoints, 3, True);
+
+      // restore the old brush and pen
+      LCLIntf.SelectObject(HDC(DC), lOldBrush);
+      LCLIntf.SelectObject(HDC(DC), lOldPen);
+      lBrush.Free;
+      lPen.Free;
+
+      Result := R;
+      {$endif}
     end;
   end;
 end;
@@ -533,8 +586,8 @@ begin
 {      teComboBox: DrawComboBoxElement(Context, Details, R, ClipRect);
       teButton: DrawButtonElement(Context, Details, R, ClipRect);
       teHeader: DrawHeaderElement(Context, Details, R, ClipRect);
-      teRebar: DrawRebarElement(Context, Details, R, ClipRect);
-      teToolBar: DrawToolBarElement(Context, Details, R, ClipRect);}
+      teRebar: DrawRebarElement(Context, Details, R, ClipRect);}
+      teToolBar: DrawToolBarElement(Context, Details, R, ClipRect);
       teTreeview: DrawTreeviewElement(Context, Details, R, ClipRect);
 //      teWindow: DrawWindowElement(Context, Details, R, ClipRect);
     else

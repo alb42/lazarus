@@ -7,10 +7,9 @@ unit project_resources_options;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Graphics, Forms, Controls, ComCtrls, Dialogs,
-  LCLType, LazUTF8,
-  IDEOptionsIntf, IDEImagesIntf, IDEDialogs, Project,
-  ProjectUserResources, LCLStrConsts, ExtCtrls, StdCtrls, LazarusIDEStrConsts;
+  Classes, SysUtils, Graphics, Controls, ComCtrls, Dialogs, LCLType,
+  FileUtil, LazFileUtils, LazUTF8, IDEOptionsIntf, IDEImagesIntf, IDEDialogs, Project,
+  ProjectUserResources, LCLStrConsts, StdCtrls, LazarusIDEStrConsts;
 
 type
 
@@ -32,10 +31,10 @@ type
     procedure btnDeleteClick(Sender: TObject);
     procedure cbResourceTypeChange(Sender: TObject);
     procedure edResourceNameEditingDone(Sender: TObject);
-    procedure edResourceNameKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure lbResourcesInsert(Sender: TObject; Item: TListItem);
-    procedure lbResourcesKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure lbResourcesSelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
+    procedure edResourceNameKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
+    procedure lbResourcesInsert(Sender: TObject; {%H-}Item: TListItem);
+    procedure lbResourcesKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
+    procedure lbResourcesSelectItem(Sender: TObject; {%H-}Item: TListItem; {%H-}Selected: Boolean);
   private
     FProject: TProject;
   private
@@ -57,7 +56,7 @@ type
     destructor Destroy; override;
 
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;

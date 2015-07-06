@@ -34,6 +34,14 @@ unit GDBMIDebugger;
 {$mode objfpc}
 {$H+}
 
+{$ifndef VER2}
+  {$define disassemblernestedproc}
+{$endif VER2}
+
+{$ifdef disassemblernestedproc}
+  {$modeswitch nestedprocvars}
+{$endif disassemblernestedproc}
+
 {$IFDEF linux} {$DEFINE DBG_ENABLE_TERMINAL} {$ENDIF}
 
 interface
@@ -94,7 +102,9 @@ type
   TGDBMIDebuggerFlags = set of (
     dfImplicidTypes,     // Debugger supports implicit types (^Type)
     dfForceBreak,        // Debugger supports insertion of not yet known brekpoints
-    dfForceBreakDetected
+    dfForceBreakDetected,
+    dfSetBreakFailed,
+    dfSetBreakPending
   );
 
   // Target info
@@ -120,11 +130,15 @@ type
   TGDBMIUseNoneMiRunCmdsState = (
     gdnmNever, gdnmAlways, gdnmFallback
   );
+  TGDBMIWarnOnSetBreakpointError = (
+    gdbwNone, gdbwAll, gdbwUserBreakPoint, gdbwExceptionsAndRunError
+  );
 
   { TGDBMIDebuggerPropertiesBase }
 
   TGDBMIDebuggerPropertiesBase = class(TDebuggerProperties)
   private
+    FDisableForcedBreakpoint: Boolean;
     FDisableLoadSymbolsForLibraries: Boolean;
     FEncodeCurrentDirPath: TGDBMIDebuggerFilenameEncoding;
     FEncodeExeFileName: TGDBMIDebuggerFilenameEncoding;
@@ -137,6 +151,7 @@ type
     FTimeoutForEval: Integer;
     FUseAsyncCommandMode: Boolean;
     FUseNoneMiRunCommands: TGDBMIUseNoneMiRunCmdsState;
+    FWarnOnSetBreakpointError: TGDBMIWarnOnSetBreakpointError;
     FWarnOnInternalError: Boolean;
     FWarnOnTimeOut: Boolean;
     procedure SetMaxDisplayLengthForString(AValue: Integer);
@@ -165,6 +180,10 @@ type
              read FUseNoneMiRunCommands write FUseNoneMiRunCommands default gdnmFallback;
     property DisableLoadSymbolsForLibraries: Boolean read FDisableLoadSymbolsForLibraries
              write FDisableLoadSymbolsForLibraries default False;
+    property DisableForcedBreakpoint: Boolean read FDisableForcedBreakpoint
+             write FDisableForcedBreakpoint default False;
+    property WarnOnSetBreakpointError: TGDBMIWarnOnSetBreakpointError read FWarnOnSetBreakpointError
+             write FWarnOnSetBreakpointError default gdbwAll;
   end;
 
   TGDBMIDebuggerProperties = class(TGDBMIDebuggerPropertiesBase)
@@ -183,6 +202,8 @@ type
     property UseAsyncCommandMode;
     property UseNoneMiRunCommands;
     property DisableLoadSymbolsForLibraries;
+    property DisableForcedBreakpoint;
+    //property WarnOnSetBreakpointError;
   end;
 
   TGDBMIDebugger = class;
@@ -757,7 +778,6 @@ type
     procedure LockRelease;
     procedure UnlockRelease;
 
-    function  ConvertPascalExpression(var AExpression: String): Boolean;
     // ---
     procedure ClearSourceInfo;
     function  FindBreakpoint(const ABreakpoint: Integer): TDBGBreakPoint;
@@ -1313,21 +1333,11 @@ type
 const
   (*  Some values to calculate how many bytes to disassemble for a given amount of lines
       Those values are only guesses *)
-  // DAssBytesPerCommandAvg: Average len: Used for LinesBefore/LinesAfter.
-  // (should rather be to big than to small)
-  DAssBytesPerCommandAvg = 8;
   // Max possible len of a statement in byte. Only used for up to 5 lines
   DAssBytesPerCommandMax = 24;
   // Maximum alignment between to procedures (for detecion of gaps, after dis-ass with source)
   DAssBytesPerCommandAlign = 16;
-  // If we have a range with more then DAssRangeOverFuncTreshold * DAssBytesPerCommandAvg
-  //  then prefer the Range-end as start, rather than the known func start
-  //  (otherwhise re-dissassemble the whole function, including the part already known)
-  // The assumption is, that no single *source* statement starting before this range,
-  //  will ever reach into the next statement (where the next statement already started / mixed addresses)
-  DAssRangeOverFuncTreshold = 15;
-  // Never dis-assemble more bytes in a single go (actually, max-offset before requested addr)
-  DAssMaxRangeSize = 4096;
+
 type
 
   { TGDBMIDisassembleResultList }
@@ -1422,6 +1432,14 @@ type
     FRangeIterator: TDBGDisassemblerEntryMapIterator;
     FMemDumpsNeeded: array of TGDBMIDisAssAddrRange;
     procedure DoProgress;
+    {$ifndef disassemblernestedproc}
+    function AdjustToKnowFunctionStart(var AStartAddr: TDisassemblerAddress): Boolean;
+    function DoDisassembleRange(AnEntryRanges: TDBGDisassemblerEntryMap; AFirstAddr, ALastAddr: TDisassemblerAddress; StopAfterAddress: TDBGPtr; StopAfterNumLines: Integer): Boolean;
+    function ExecDisassmble(AStartAddr, AnEndAddr: TDbgPtr; WithSrc: Boolean;
+                            AResultList: TGDBMIDisassembleResultList = nil;
+                            ACutBeforeEndAddr: Boolean = False): TGDBMIDisassembleResultList;
+    function OnCheckCancel: boolean;
+    {$endif}
   protected
     function DoExecute: Boolean; override;
   public
@@ -2377,6 +2395,9 @@ var
   R: TGDBMIExecResult;
   List: TGDBMINameValueList;
 begin
+  if DebuggerProperties.DisableForcedBreakpoint then
+    exit;
+
   if not (dfForceBreakDetected in FTheDebugger.FDebuggerFlags) then begin
     // detect if we can insert a not yet known break
     ExecuteCommand('-break-insert -f foo', R);
@@ -3825,33 +3846,13 @@ begin
   then FOnProgress(Self);
 end;
 
+{$ifdef disassemblernestedproc}
 function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
-  type
-    TAddressValidity =
-      (avFoundFunction, avFoundRange, avFoundStatement,  // known address
-       avGuessed,                                        // guessed
-       avExternRequest,                                  // As requested by external caller
-       avPadded                                          // Padded, because address was not known for sure
-      );
-    TAddress = record
-      Value, GuessedValue: TDBGPtr;
-      Offset: Integer;
-      Validity: TAddressValidity;
-    end;
-
+{$endif}
   const
     TrustedValidity = [avFoundFunction, avFoundRange, avFoundStatement];
 
-  function InitAddress(AValue: TDBGPtr; AValidity: TAddressValidity;
-    AnOffset: Integer = -1): TAddress;
-  begin
-    Result.Value          := AValue;
-    Result.GuessedValue   := AValue;;
-    Result.Offset   := AnOffset;
-    Result.Validity := AValidity;
-  end;
-
-  procedure PadAddress(var AnAddr: TAddress; APad: Integer);
+  procedure PadAddress(var AnAddr: TDisassemblerAddress; APad: Integer);
   begin
     {$PUSH}{$Q-}{$R-}// APad can be negative, but will be expanded to TDbgPtr (QWord)
     AnAddr.Value    := AnAddr.Value + APad;
@@ -3860,16 +3861,7 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     AnAddr.Offset   := -1;
   end;
 
-  function DbgsAddr(const AnAddr: TAddress): string;
-  const
-    ValidityName: array [TAddressValidity] of string =
-      ('FoundFunction', 'FoundRange', 'FoundStatemnet', 'Guessed', 'ExternRequest', 'Padded');
-  begin
-    Result := Format('[[ Value=%u, Guessed=%u, Offset=%d, Validity=%s ]]',
-                     [AnAddr.Value, AnAddr.GuessedValue, AnAddr.Offset, ValidityName[AnAddr.Validity]]);
-  end;
-
-  function ExecDisassmble(AStartAddr, AnEndAddr: TDbgPtr; WithSrc: Boolean;
+  function {$ifndef disassemblernestedproc}TGDBMIDebuggerCommandDisassemble.{$endif}ExecDisassmble(AStartAddr, AnEndAddr: TDbgPtr; WithSrc: Boolean;
     AResultList: TGDBMIDisassembleResultList = nil;
     ACutBeforeEndAddr: Boolean = False): TGDBMIDisassembleResultList;
   var
@@ -3890,20 +3882,8 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     do Result.Count :=  Result.Count - 1;
   end;
 
-  function ExecMemDump(AStartAddr: TDbgPtr; ACount: Cardinal;
-    AResultList: TGDBMIMemoryDumpResultList = nil): TGDBMIMemoryDumpResultList;
-  var
-    R: TGDBMIExecResult;
-  begin
-    Result := AResultList;
-    ExecuteCommand('-data-read-memory %u x 1 1 %u', [AStartAddr, ACount], R);
-    if Result <> nil
-    then Result.Init(R)
-    else Result := TGDBMIMemoryDumpResultList.Create(R);
-  end;
-
   // Set Value, based on GuessedValue
-  function AdjustToKnowFunctionStart(var AStartAddr: TAddress): Boolean;
+  function {$ifndef disassemblernestedproc}TGDBMIDebuggerCommandDisassemble.{$endif}AdjustToKnowFunctionStart(var AStartAddr: TDisassemblerAddress): Boolean;
   var
     DisAssList: TGDBMIDisassembleResultList;
     DisAssItm: PDisassemblerEntry;
@@ -3924,51 +3904,6 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
       end;
     end;
     FreeAndNil(DisAssList);
-  end;
-
-  // Set Value, based on GuessedValue
-  function AdjustToRangeOrKnowFunctionStart(var AStartAddr: TAddress;
-    ARangeBefore: TDBGDisassemblerEntryRange): Boolean;
-  begin
-    Result := False;
-    AStartAddr.Offset := -1;
-    AStartAddr.Validity := avGuessed;
-    if AdjustToKnowFunctionStart(AStartAddr)
-    then begin
-      // funtion found, check for range
-      if (ARangeBefore <> nil) and (ARangeBefore.LastAddr > AStartAddr.Value)
-      and (ARangeBefore.Count > DAssRangeOverFuncTreshold)
-      and (ARangeBefore.EntriesPtr[ARangeBefore.Count - 1]^.Offset > DAssRangeOverFuncTreshold  * DAssBytesPerCommandAvg)
-      then begin
-        // got a big overlap, don't redo the whole function
-        debugln(DBG_DISASSEMBLER, ['INFO: Restarting inside previous range for known function-start=', DbgsAddr(AStartAddr),'  and ARangeBefore=', dbgs(ARangeBefore)]);
-        // redo one statement
-        {$PUSH}{$IFnDEF DBGMI_WITH_DISASS_OVERFLOW}{$Q-}{$R-}{$ENDIF} // Overflow is allowed to occur
-        AStartAddr.Value  := ARangeBefore.EntriesPtr[ARangeBefore.Count - 1]^.Addr;
-        AStartAddr.Offset := ARangeBefore.EntriesPtr[ARangeBefore.Count - 1]^.Offset;
-        AStartAddr.Validity := avFoundRange;
-        //AStartAddr - ARangeBefore.EntriesPtr[ARangeBefore.Count - DAssRangeOverFuncTreshold]^.Addr ;
-        {$POP}
-      end
-    end
-    else begin
-      debugln(DBG_DISASSEMBLER, ['INFO: No known function-start for ', DbgsAddr(AStartAddr),'  ARangeBefore=', dbgs(ARangeBefore)]);
-      // no function found // check distance to previous range
-      // The distance of range before has been checked by the caller
-      if (ARangeBefore <> nil)
-      then begin
-        {$PUSH}{$IFnDEF DBGMI_WITH_DISASS_OVERFLOW}{$Q-}{$R-}{$ENDIF} // Overflow is allowed to occur
-        AStartAddr.Value := ARangeBefore.EntriesPtr[ARangeBefore.Count - 1]^.Addr;
-        AStartAddr.Offset := ARangeBefore.EntriesPtr[ARangeBefore.Count - 1]^.Offset;
-        AStartAddr.Validity := avFoundRange;
-        {$POP}
-      end
-      else begin
-        AStartAddr.Value := AStartAddr.GuessedValue;
-        AStartAddr.Offset := -1;
-        AStartAddr.Validity := avGuessed;;
-      end;
-    end;
   end;
 
   procedure AdjustLastEntryEndAddr(const ARange: TDBGDisassemblerEntryRange;
@@ -4164,9 +4099,9 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
   *)
   // Returns   True: If some data was added
   //           False: if failed to add anything
-  function DoDisassembleRange(AFirstAddr, ALastAddr: TAddress;
-    StopAfterAddress: TDBGPtr; StopAfterNumLines: Integer
-    ): Boolean;
+  function {$ifndef disassemblernestedproc}TGDBMIDebuggerCommandDisassemble.{$endif}DoDisassembleRange(AnEntryRanges: TDBGDisassemblerEntryMap;AFirstAddr,
+    ALastAddr: TDisassemblerAddress; StopAfterAddress: TDBGPtr;
+    StopAfterNumLines: Integer): Boolean;
 
     procedure AddRangetoMemDumpsNeeded(NewRange: TDBGDisassemblerEntryRange);
     var
@@ -4248,7 +4183,7 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     DisAssList, DisAssListCurrentSub, DisAssListWithSrc: TGDBMIDisassembleResultList;
     i, Cnt, DisAssStartIdx: Integer;
     NewRange: TDBGDisassemblerEntryRange;
-    OrigLastAddress, OrigFirstAddress: TAddress;
+    OrigLastAddress, OrigFirstAddress: TDisassemblerAddress;
     TmpAddr: TDBGPtr;
     BlockOk, SkipDisAssInFirstLoop, ContinueAfterSource: Boolean;
     Itm: TDisassemblerEntry;
@@ -4284,8 +4219,8 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     if not (ALastAddr.Validity in TrustedValidity)
     then PadAddress(ALastAddr, 2 * DAssBytesPerCommandMax);
 
-    DebugLnEnter(DBG_DISASSEMBLER, ['INFO: DoDisassembleRange for AFirstAddr =', DbgsAddr(AFirstAddr),
-    ' ALastAddr=', DbgsAddr(ALastAddr), ' OrigFirst=', DbgsAddr(OrigFirstAddress), ' OrigLastAddress=', DbgsAddr(OrigLastAddress),
+    DebugLnEnter(DBG_DISASSEMBLER, ['INFO: DoDisassembleRange for AFirstAddr =', Dbgs(AFirstAddr),
+    ' ALastAddr=', Dbgs(ALastAddr), ' OrigFirst=', Dbgs(OrigFirstAddress), ' OrigLastAddress=', Dbgs(OrigLastAddress),
     '  StopAffterAddr=', StopAfterAddress, ' StopAfterLines=',  StopAfterNumLines ]);
     try  // only needed for debugln DBG_DISASSEMBLER,
 
@@ -4362,7 +4297,7 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
       then begin
         AdjustLastEntryEndAddr(NewRange, DisAssList);
         AddRangetoMemDumpsNeeded(NewRange);
-        FKnownRanges.AddRange(NewRange);  // NewRange is now owned by FKnownRanges
+        AnEntryRanges.AddRange(NewRange);  // NewRange is now owned by AnEntryRanges
         NewRange := nil;
         FreeAndNil(DisAssList);
         exit;
@@ -4409,7 +4344,7 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
         Itm.Offset := 0;
         itm.Statement := '<error>';
         NewRange.Append(@Itm);
-        FKnownRanges.AddRange(NewRange);  // NewRange is now owned by FKnownRanges
+        AnEntryRanges.AddRange(NewRange);  // NewRange is now owned by AnEntryRanges
         NewRange := nil;
         FreeAndNil(DisAssList);
         exit;
@@ -4535,7 +4470,7 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     then NewRange.RangeEndAddr := NewRange.LastEntryEndAddr;
 
     AddRangetoMemDumpsNeeded(NewRange);
-    FKnownRanges.AddRange(NewRange);  // NewRange is now owned by FKnownRanges
+    AnEntryRanges.AddRange(NewRange);  // NewRange is now owned by AnEntryRanges
     NewRange := nil;
 
     FreeAndNil(DisAssIterator);
@@ -4545,6 +4480,27 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
     finally
       DebugLnExit(DBG_DISASSEMBLER, ['INFO: DoDisassembleRange finished' ]);
     end;
+  end;
+
+  function {$ifndef disassemblernestedproc}TGDBMIDebuggerCommandDisassemble.{$endif}OnCheckCancel: boolean;
+  begin
+    result := dcsCanceled in SeenStates;
+  end;
+
+{$ifndef disassemblernestedproc}
+function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
+{$endif disassemblernestedproc}
+
+  function ExecMemDump(AStartAddr: TDbgPtr; ACount: Cardinal;
+    AResultList: TGDBMIMemoryDumpResultList = nil): TGDBMIMemoryDumpResultList;
+  var
+    R: TGDBMIExecResult;
+  begin
+    Result := AResultList;
+    ExecuteCommand('-data-read-memory %u x 1 1 %u', [AStartAddr, ACount], R);
+    if Result <> nil
+    then Result.Init(R)
+    else Result := TGDBMIMemoryDumpResultList.Create(R);
   end;
 
   procedure AddMemDumps;
@@ -4575,172 +4531,22 @@ function TGDBMIDebuggerCommandDisassemble.DoExecute: Boolean;
   end;
 
 var
-  TryStartAt, TryEndAt: TAddress;
-  TmpAddr: TDBGPtr;
-  GotCnt, LastGotCnt: Integer;
-  RngBefore, RngAfter: TDBGDisassemblerEntryRange;
+  DisassembleRangeExtender: TDBGDisassemblerRangeExtender;
 begin
-  Result := True;
   FContext.ThreadContext := ccNotRequired;
   FContext.StackContext := ccNotRequired;
 
   if FEndAddr < FStartAddr
   then FEndAddr := FStartAddr;
 
-  (* Try to find the boundaries for the unknown range containing FStartAddr
-     If FStartAddr already has known disassembler data, then this will return
-     the boundaries of the 1ast unknown section after FStartAddr
-  *)
-  // Guess the maximum Addr-Range which needs to be disassembled
-  TryStartAt := InitAddress(FStartAddr, avExternRequest, -1);
-  // Find the begin of the function at TryStartAt
-  // or the rng before (if not to far back)
-
-  RngBefore := FRangeIterator.GetRangeForAddr(FStartAddr, True);
-  {$PUSH}{$IFnDEF DBGMI_WITH_DISASS_OVERFLOW}{$Q-}{$R-}{$ENDIF} // Overflow is allowed to occur
-  if (RngBefore <> nil)
-  and (TryStartAt.Value > RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr)
-  and (TryStartAt.Value - RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr > FLinesBefore * DAssBytesPerCommandAvg)
-  then RngBefore := nil;
-  {$POP}
-  TmpAddr := FStartAddr - Min(FLinesBefore * DAssBytesPerCommandAvg, DAssMaxRangeSize);
-  TryStartAt.GuessedValue := TmpAddr;
-  AdjustToRangeOrKnowFunctionStart(TryStartAt, RngBefore);
-  // check max size
-  if (TryStartAt.Value < FStartAddr - DPtrMin(FStartAddr, DAssMaxRangeSize))
-  then begin
-    DebugLn(DBG_DISASSEMBLER, ['INFO: Limit Range for Disass: FStartAddr=', FStartAddr, '  TryStartAt.Value=', TryStartAt.Value  ]);
-    TryStartAt := InitAddress(TmpAddr, avGuessed);
-  end;
-
-  // Guess Maximum, will adjust later
-  if TryStartAt.Value > FEndAddr then begin
-    if (RngBefore <> nil) then begin
-      GotCnt := RngBefore.IndexOfAddr(FEndAddr);
-      LastGotCnt := RngBefore.IndexOfAddr(TryStartAt.Value);
-      if (GotCnt >= 0) and (LastGotCnt >= 0) and (LastGotCnt > GotCnt) then
-        FLinesAfter := Max(FLinesAfter - (LastGotCnt - GotCnt), 1);
-    end;
-    FEndAddr := TryStartAt.Value; // WARNING: modifying FEndAddr
-  end;
-
-  TryEndAt := InitAddress(FEndAddr + FLinesAfter * DAssBytesPerCommandAvg, avGuessed);
-
-  // Read as many unknown ranges, until LinesAfter is met
-  GotCnt := -1;
-  while(True)
-  do begin
-    // check if we need any LinesAfter
-    if (dcsCanceled in SeenStates) then break;
-    LastGotCnt:= GotCnt;
-    GotCnt := 0;
-    TmpAddr := FEndAddr;
-    if TryStartAt.Value > FEndAddr
-    then
-      TmpAddr := TryStartAt.Value;
-    if RngBefore <> nil
-    then begin
-      TmpAddr := RngBefore.RangeEndAddr;
-      if RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr > TmpAddr
-      then TmpAddr := RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr;
-      GotCnt := RngBefore.IndexOfAddrWithOffs(FEndAddr);
-      if GotCnt >= 0 then begin
-        GotCnt := RngBefore.Count - 1 - GotCnt;  // the amount of LinesAfter, that are already known
-        if (GotCnt >= FLinesAfter)
-        then break;
-        // adjust end address
-        TryEndAt := InitAddress(RngBefore.RangeEndAddr + (FLinesAfter-GotCnt) * DAssBytesPerCommandAvg, avGuessed);
-      end
-      else GotCnt := 0;
-    end;
-    if LastGotCnt >= GotCnt
-    then begin
-      debugln(['Disassembler: *** Failure to get any more lines while scanning forward LastGotCnt=',LastGotCnt, ' now GotCnt=',GotCnt, ' Requested=',FLinesAfter]);
-      break;
-    end;
-
-    if (dcsCanceled in SeenStates) then break;
-    RngAfter := FRangeIterator.NextRange;
-    // adjust TryEndAt
-    if (RngAfter <> nil) and (TryEndAt.Value >= RngAfter.RangeStartAddr)
-    then begin
-      TryEndAt.Value := RngAfter.RangeStartAddr;
-      TryEndAt.Validity := avFoundRange;
-    end;
-
-    if (dcsCanceled in SeenStates) then break;
-    // Try to disassemble the range
-    if not DoDisassembleRange(TryStartAt, TryEndAt, TmpAddr, FLinesAfter-GotCnt)
-    then begin
-      // disassemble failed
-      debugln(['ERROR: Failed to disassemble from ', DbgsAddr(TryStartAt),' to ', DbgsAddr(TryEndAt)]);
-      break;
-    end;
-
-    // prepare the next range
-    RngBefore := FRangeIterator.GetRangeForAddr(FStartAddr, False);
-    if (RngBefore = nil)
-    then begin
-      debugln(['INTERNAL ERROR: (linesafter) Missing the data, that was just  disassembled: from ', DbgsAddr(TryStartAt),' to ', DbgsAddr(TryEndAt)]);
-      break;
-    end;
-
-    TryStartAt.Value := RngBefore.RangeEndAddr;
-    TryStartAt.Validity := avFoundRange;
-    TryEndAt := InitAddress(FEndAddr + FLinesAfter * DAssBytesPerCommandAvg, avGuessed);
-  end;
-
-  // Find LinesBefore
-  RngAfter := FRangeIterator.GetRangeForAddr(FStartAddr, False);
-  GotCnt := -1;
-  while(True)
-  do begin
-    if (dcsCanceled in SeenStates) then break;
-    LastGotCnt:= GotCnt;
-    if (RngAfter = nil)
-    then begin
-      debugln(['INTERNAL ERROR: (linesbefore) Missing the data, that was disassembled: from ', DbgsAddr(TryStartAt),' to ', DbgsAddr(TryEndAt)]);
-      break;
-    end;
-
-    GotCnt := RngAfter.IndexOfAddrWithOffs(FStartAddr);  // already known before
-    if GotCnt >= FLinesBefore
-    then break;
-    if LastGotCnt >= GotCnt
-    then begin
-      debugln(['Disassembler: *** Failure to get any more lines while scanning backward LastGotCnt=',LastGotCnt, ' now GotCnt=',GotCnt, ' Requested=',FLinesBefore]);
-      break;
-    end;
-
-    TryEndAt := InitAddress(RngAfter.RangeStartAddr, avFoundRange);
-    TmpAddr := TryEndAt.Value - Min((FLinesBefore - GotCnt) * DAssBytesPerCommandAvg, DAssMaxRangeSize);
-    TryStartAt := InitAddress(TryEndAt.Value - 1, avGuessed);
-    TryStartAt.GuessedValue := TmpAddr;
-    // and adjust
-    RngBefore := FRangeIterator.PreviousRange;
-    {$PUSH}{$IFnDEF DBGMI_WITH_DISASS_OVERFLOW}{$Q-}{$R-}{$ENDIF} // Overflow is allowed to occur
-    if (RngBefore <> nil)
-    and (TryStartAt.Value > RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr)
-    and (TryStartAt.Value - RngBefore.EntriesPtr[RngBefore.Count - 1]^.Addr > (FLinesBefore - GotCnt) * DAssBytesPerCommandAvg)
-    then RngBefore := nil;
-    {$POP}
-    AdjustToRangeOrKnowFunctionStart(TryStartAt, RngBefore);
-    if (TryStartAt.Value < TryEndAt.Value - DPtrMin(TryEndAt.Value, DAssMaxRangeSize))
-    then begin
-      DebugLn(DBG_DISASSEMBLER, ['INFO: Limit Range for Disass: TryEndAt.Value=', TryEndAt.Value, '  TryStartAt.Value=', TryStartAt.Value  ]);
-      TryStartAt := InitAddress(TmpAddr, avGuessed);
-    end;
-
-    if (dcsCanceled in SeenStates) then break;
-    // Try to disassemble the range
-    if not DoDisassembleRange(TryStartAt, TryEndAt, 0, -1)
-    then begin
-      // disassemble failed
-      debugln(['ERROR: Failed to disassemble from ', DbgsAddr(TryStartAt),' to ', DbgsAddr(TryEndAt)]);
-      break;
-    end;
-
-    RngAfter := FRangeIterator.GetRangeForAddr(FStartAddr, False);
+  DisassembleRangeExtender := TDBGDisassemblerRangeExtender.Create(FKnownRanges);
+  try
+    DisassembleRangeExtender.OnDoDisassembleRange:=@DoDisassembleRange;
+    DisassembleRangeExtender.OnCheckCancel:=@OnCheckCancel;
+    DisassembleRangeExtender.OnAdjustToKnowFunctionStart:=@AdjustToKnowFunctionStart;
+    result := DisassembleRangeExtender.DisassembleRange(FLinesBefore, FLinesAfter, FStartAddr, FStartAddr);
+  finally
+    DisassembleRangeExtender.Free;
   end;
 
   DoProgress;
@@ -5179,9 +4985,11 @@ var
   FileType, EntryPoint: String;
   List: TGDBMINameValueList;
   CanContinue: Boolean;
+  StateStopped: Boolean;
 begin
   Result := True;
   FSuccess := False;
+  StateStopped := False;
 
   try
     if not (DebuggerState in [dsStop])
@@ -5288,6 +5096,8 @@ begin
 
     DebugLn(DBG_VERBOSE, '[Debugger] Target PID: %u', [TargetInfo^.TargetPID]);
 
+    Exclude(FTheDebugger.FDebuggerFlags, dfSetBreakFailed);
+    Exclude(FTheDebugger.FDebuggerFlags, dfSetBreakPending);
     // they may still exist from prev run, addr will be checked
     // TODO: defered setting of below beakpoint / e.g. if debugging a library
 {$IFdef WITH_GDB_FORCE_EXCEPTBREAK}
@@ -5299,9 +5109,17 @@ begin
     FTheDebugger.FBreakErrorBreak.SetByAddr(Self);
     FTheDebugger.FRunErrorBreak.SetByAddr(Self);
 {$ENDIF}
+    if (not (FTheDebugger.FExceptionBreak.IsBreakSet and
+            FTheDebugger.FBreakErrorBreak.IsBreakSet and
+            FTheDebugger.FRunErrorBreak.IsBreakSet)) and
+       (DebuggerProperties.WarnOnSetBreakpointError in [gdbwAll, gdbwExceptionsAndRunError])
+    then
+      Include(FTheDebugger.FDebuggerFlags, dfSetBreakFailed);
 
     SetDebuggerState(dsInit); // triggers all breakpoints to be set.
+    FTheDebugger.RunQueue;  // run all the breakpoints
     Application.ProcessMessages; // workaround, allow source-editor to queue line info request (Async call)
+
     if FTheDebugger.FBreakAtMain <> nil
     then begin
       CanContinue := False;
@@ -5309,6 +5127,16 @@ begin
     end
     else CanContinue := True;
 
+    //if FTheDebugger.DebuggerFlags * [dfSetBreakFailed, dfSetBreakPending] <> [] then begin
+    //  if FTheDebugger.OnFeedback
+    //     (self, Format(synfTheDebuggerWasUnableToSetAllBreakpointsDuringIniti,
+    //          [LineEnding]), '', ftWarning, [frOk, frStop]) = frStop
+    //  then begin
+    //    StateStopped := True;
+    //    SetDebuggerState(dsStop);
+    //    exit;
+    //  end;
+    //end;
 
     if StoppedAtEntryPoint and CanContinue and (FContinueCommand = nil) then begin
       // try to step to pascal code
@@ -5350,7 +5178,7 @@ begin
     then ProcessFrame;
   finally
     ReleaseRefAndNil(FContinueCommand);
-    if not (DebuggerState in [dsInit, dsRun, dsPause]) then
+    if not(StateStopped or (DebuggerState in [dsInit, dsRun, dsPause])) then
       SetDebuggerErrorState(synfFailedToInitializeDebugger);
   end;
 
@@ -7357,6 +7185,8 @@ begin
   FUseAsyncCommandMode := False;
   FDisableLoadSymbolsForLibraries := False;
   FUseNoneMiRunCommands := gdnmFallback;
+  FDisableForcedBreakpoint := False;
+  FWarnOnSetBreakpointError := gdbwAll;
   inherited;
 end;
 
@@ -7376,6 +7206,8 @@ begin
   FUseAsyncCommandMode := TGDBMIDebuggerPropertiesBase(Source).FUseAsyncCommandMode;
   FDisableLoadSymbolsForLibraries := TGDBMIDebuggerPropertiesBase(Source).FDisableLoadSymbolsForLibraries;
   FUseNoneMiRunCommands := TGDBMIDebuggerPropertiesBase(Source).FUseNoneMiRunCommands;
+  FDisableForcedBreakpoint := TGDBMIDebuggerPropertiesBase(Source).FDisableForcedBreakpoint;
+  FWarnOnSetBreakpointError := TGDBMIDebuggerPropertiesBase(Source).FWarnOnSetBreakpointError;
 end;
 
 
@@ -8022,7 +7854,8 @@ begin
                 '" Addr=', dbgs(ExceptAddr), ' Dbg.State=', dbgs(State)]);
   end;
 
-  if (FCommandQueue.Count = 0) and assigned(OnIdle) and (FInExecuteCount=0) and (not FInIdle)
+  if (FCommandQueue.Count = 0) and assigned(OnIdle) and (FInExecuteCount=0) and
+     (not FInIdle) and not(State in [dsError, dsDestroying])
   then begin
     repeat
       DebugLnEnter(DBGMI_QUEUE_DEBUG, ['>> Run OnIdle']);
@@ -8037,7 +7870,7 @@ begin
         FInIdle := False;
       end;
       DebugLnExit(DBGMI_QUEUE_DEBUG, ['<< Run OnIdle']);
-    until not R;
+    until (not R) or (not assigned(OnIdle)) or (State in [dsError, dsDestroying]);
     DebugLn(DBGMI_QUEUE_DEBUG, ['OnIdle: Finished ']);
   end;
 
@@ -8352,7 +8185,7 @@ begin
   end;
 
   R := GDBMIExecResultDefault;
-  Result := ExecuteCommandFull('-gdb-set var %s := %s', [UpperCase(AExpression), S], [cfscIgnoreError], @GDBModifyDone, 0, R)
+  Result := ExecuteCommandFull('-gdb-set var %s := %s', [UpperCaseSymbols(AExpression), S], [cfscIgnoreError], @GDBModifyDone, 0, R)
         and (R.State <> dsError);
 
   FTypeRequestCache.Clear;
@@ -8694,6 +8527,8 @@ var
   env: TStringList;
 begin
   Exclude(FDebuggerFlags, dfForceBreakDetected);
+  Exclude(FDebuggerFlags, dfSetBreakFailed);
+  Exclude(FDebuggerFlags, dfSetBreakPending);
   LockRelease;
   try
     FPauseWaitState := pwsNone;
@@ -8924,157 +8759,6 @@ begin
   FSourceNames.Clear;
 end;
 
-function TGDBMIDebugger.ConvertPascalExpression(var AExpression: String): Boolean;
-var
-  R: String;
-  P: PChar;
-  InString, WasString, IsText, ValIsChar: Boolean;
-  n: Integer;
-  ValMode: Char;
-  Value: QWord;
-
-  function AppendValue: Boolean;
-  var
-    S: String;
-  begin
-    if ValMode = #0 then Exit(True);
-    if not (ValMode in ['h', 'd', 'o', 'b']) then Exit(False);
-
-    if ValIsChar
-    then begin
-      if not IsText
-      then begin
-        R := R + '"';
-        IsText := True;
-      end;
-      R := R + '\' + OctStr(Value, 3);
-      ValIsChar := False;
-    end
-    else begin
-      if IsText
-      then begin
-        R := R + '"';
-        IsText := False;
-      end;
-      Str(Value, S);
-      R := R + S;
-    end;
-    Result := True;
-    ValMode := #0;
-  end;
-
-begin
-  R := '';
-  Instring := False;
-  WasString := False;
-  IsText := False;
-  ValIsChar := False;
-  ValMode := #0;
-  Value := 0;
-
-  P := PChar(AExpression);
-  for n := 1 to Length(AExpression) do
-  begin
-    if InString
-    then begin
-      case P^ of
-        '''': begin
-          InString := False;
-          // delay setting terminating ", more characters defined through # may follow
-          WasString := True;
-        end;
-        #0..#31,
-        '"', '\',
-        #128..#255: begin
-          R := R + '\' + OctStr(Ord(P^), 3);
-        end;
-      else
-        R := R + P^;
-      end;
-      Inc(P);
-      Continue;
-    end;
-
-    case P^ of
-      '''': begin
-        if WasString
-        then begin
-          R := R + '\' + OctStr(Ord(''''), 3)
-        end
-        else begin
-          if not AppendValue then Exit(False);
-          if not IsText
-          then R := R + '"';
-        end;
-        IsText := True;
-        InString := True;
-      end;
-      '#': begin
-        if not AppendValue then Exit(False);
-        Value := 0;
-        ValMode := 'D';
-        ValIsChar := True;
-      end;
-      '$', '&', '%': begin
-        if not (ValMode in [#0, 'D']) then Exit(False);
-        ValMode := P^;
-      end;
-    else
-      case ValMode of
-        'D', 'd': begin
-          case P^ of
-            '0'..'9': Value := Value * 10 + Ord(P^) - Ord('0');
-          else
-            Exit(False);
-          end;
-          ValMode := 'd';
-        end;
-        '$', 'h': begin
-          case P^ of
-            '0'..'9': Value := Value * 16 + Ord(P^) - Ord('0');
-            'a'..'f': Value := Value * 16 + Ord(P^) - Ord('a');
-            'A'..'F': Value := Value * 16 + Ord(P^) - Ord('A');
-          else
-            Exit(False);
-          end;
-          ValMode := 'h';
-        end;
-        '&', 'o': begin
-          case P^ of
-            '0'..'7': Value := Value * 8 + Ord(P^) - Ord('0');
-          else
-            Exit(False);
-          end;
-          ValMode := 'o';
-        end;
-        '%', 'b': begin
-          case P^ of
-            '0': Value := Value shl 1;
-            '1': Value := Value shl 1 or 1;
-          else
-            Exit(False);
-          end;
-          ValMode := 'b';
-        end;
-      else
-        if IsText
-        then begin
-          R := R + '"';
-          IsText := False;
-        end;
-        R := R + P^;
-      end;
-    end;
-    WasString := False;
-    Inc(p);
-  end;
-
-  if not AppendValue then Exit(False);
-  if IsText then R := R + '"';
-  AExpression := R;
-  Result := True;
-end;
-
 function TGDBMIDebugger.StartDebugging(AContinueCommand: TGDBMIExecCommandType): Boolean;
 begin
   Result := StartDebugging(TGDBMIDebuggerCommandExecute.Create(Self, AContinueCommand));
@@ -9212,7 +8896,7 @@ begin
   Result := False;
   if ABreakID = 0 then Exit;
 
-  Result := ExecuteCommand('-break-condition %d %s', [ABreakID, UpperCase(AnExpression)], []);
+  Result := ExecuteCommand('-break-condition %d %s', [ABreakID, UpperCaseSymbols(AnExpression)], []);
 end;
 
 { TGDBMIDebuggerCommandBreakInsert }
@@ -9255,7 +8939,7 @@ begin
     bpkData:
       begin
         if (FWatchData = '') then exit;
-        WatchExpr := UpperCase(WatchData);
+        WatchExpr := UpperCaseSymbols(WatchData);
         if FWatchScope = wpsGlobal then begin
           Result := ExecuteCommand('ptype %s', [WatchExpr], R);
           Result := Result and (R.State <> dsError);
@@ -9279,7 +8963,18 @@ begin
   ResultList := TGDBMINameValueList.Create(R);
   case FKind of
     bpkSource, bpkAddress:
-      ResultList.SetPath('bkpt');
+      begin
+        ResultList.SetPath('bkpt');
+        if (not Result) or (r.State = dsError) and
+           (DebuggerProperties.WarnOnSetBreakpointError in [gdbwAll, gdbwUserBreakPoint])
+        then
+          Include(FTheDebugger.FDebuggerFlags, dfSetBreakFailed);
+        if ((ResultList.IndexOf('pending') >= 0) or
+            (pos('pend', lowercase(ResultList.Values['addr'])) > 0)) and
+           (DebuggerProperties.WarnOnSetBreakpointError in [gdbwAll, gdbwUserBreakPoint])
+        then
+          Include(FTheDebugger.FDebuggerFlags, dfSetBreakPending);
+      end;
     bpkData:
       case FWatchKind of
         wpkWrite: begin
@@ -9532,7 +9227,7 @@ var
   S: String;
 begin
   S := Expression;
-  if TGDBMIDebugger(Debugger).ConvertPascalExpression(S)
+  if ConvertPascalExpression(S)
   then FParsedExpression := S
   else FParsedExpression := Expression;
   if (FBreakID = 0) and Enabled and
@@ -11077,7 +10772,7 @@ begin
       WStr := WStr + OneChar;
       CurLocation := CurLocation + 2;
     end;
-  until (OneChar = #0);
+  until (OneChar = #0) or (Length(WStr) > DebuggerProperties.MaxDisplayLengthForString);
   Result := UTF16ToUTF8(WStr);
 end;
 
@@ -11546,7 +11241,7 @@ begin
   FBreaks[ALoc].BreakAddr := 0;
   FBreaks[ALoc].BreakFunction := '';
 
-  if UseForceFlag and (dfForceBreakDetected in ACmd.FTheDebugger.FDebuggerFlags) then
+  if UseForceFlag and (dfForceBreak in ACmd.FTheDebugger.FDebuggerFlags) then
   begin
     if (not ACmd.ExecuteCommand('-break-insert -f %s', [ABreakLoc], R)) or
        (R.State = dsError)

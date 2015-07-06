@@ -43,7 +43,7 @@ interface
 
 uses
   Classes, SysUtils, FileProcs, CodeToolsStrConsts, CodeCache, BasicCodeTools,
-  typinfo, LinkScanner, AVL_Tree, CodeBeautifier, KeywordFuncLists;
+  typinfo, LinkScanner, AVL_Tree, KeywordFuncLists;
   
 type
   // Insert policy types for class parts (properties, variables, method defs)
@@ -131,7 +131,7 @@ type
     procedure SetTabWidth(AValue: integer);
     procedure SetUseTabs(AValue: boolean);
     procedure StartComment(p: integer);
-    function EndComment(CommentStart: char; p: integer): boolean;
+    function EndComment(CommentStart: char; {%H-}p: integer): boolean;
   public
     LineLength: integer;
     LineEnd: string;
@@ -762,6 +762,7 @@ function TSourceChangeCache.IndentBlock(FromPos, ToPos, IndentDiff: integer): bo
 var
   p: LongInt;
 begin
+  Result:=false;
   if ToPos<1 then ToPos:=1;
   if (IndentDiff=0) or (FromPos>=ToPos) then exit;
   if MainScanner=nil then begin
@@ -1337,7 +1338,7 @@ begin
 
   // start new line if necessary
   if (LastLineEndInAtom<1) and (CurLineLen+length(NewAtom)>LineLength)
-  and (LastSplitPos>1) then begin
+  and (LastSplitPos>LastSrcLineStart) then begin
     // new atom does not fit into the line and there is a split position
     // -> split line
     //DebugLn(['[TBeautifyCodeOptions.AddAtom]  NEW LINE CurLineLen=',CurLineLen,' NewAtom="',dbgstr(NewAtom),'" LastSplitPos="',dbgstr(copy(CurCode,LastSplitPos-5,5))+'|'+dbgstr(copy(CurCode,LastSplitPos,5)),'" LineLength=',LineLength]);
@@ -1379,6 +1380,28 @@ begin
           if WordIsKeyWord.DoItCaseInsensitive(Src,AtomStart,CurPos-AtomStart)
           then
             CurAtomType:=atKeyword;
+        end;
+      '&': //identifier prefixed with '&' or octal number
+        begin
+          inc(CurPos);
+          if CurPos<=SrcLen then
+          case Src[CurPos] of
+            'a'..'z','A'..'Z','_'://identifier prefixed with '&'
+            begin
+              CurAtomType:=atIdentifier;
+              repeat
+                inc(CurPos);
+              until (CurPos>SrcLen) or (not IsIdentChar[Src[CurPos]]);
+            end;
+            '0'..'7'://octal number
+            begin
+              CurAtomType:=atNumber;
+              repeat
+                inc(CurPos);
+              until (CurPos>SrcLen) or (not IsOctNumberChar[Src[CurPos]]);
+            end;
+          end else
+            CurAtomType:=atNone;
         end;
       #128..#255: // UTF8
         begin
@@ -1789,7 +1812,7 @@ begin
       end;
       
       if (not (CurAtomType in DoNotSplitLineInFront))
-      and (not (LastAtomType in DoNotSplitLineAfter))
+      and (not (LastAtomType in DoNotSplitLineAfter+[atNewLine]))
       and (CommentLvl=0) then
         LastSplitPos:=length(Result)+1;
       {DebugLn('SPLIT LINE  CurPos='+dbgs(CurPos)+' CurAtom="'+CurAtom+'"'
@@ -1817,6 +1840,7 @@ var
   KeyWordPos: LongInt;
   Level: Integer;
 begin
+  Result:='';
   p:=1;
   ProcLen:=length(AProcCode);
   // read proc keyword 'procedure', 'function', ...

@@ -39,8 +39,8 @@ unit AddFileToAPackageDlg;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Buttons, ExtCtrls, StdCtrls,
-  Dialogs, AVL_Tree, FileUtil, ButtonPanel,
+  Classes, SysUtils, Forms, Controls, ExtCtrls, StdCtrls,
+  Dialogs, AVL_Tree, FileUtil, LazFileUtils, ButtonPanel,
   IDEWindowIntf, PackageIntf, IDEHelpIntf,
   IDEDefs, LazarusIDEStrConsts, IDEProcs,
   AddToPackageDlg, ComponentReg, PackageDefs, PackageSystem;
@@ -61,7 +61,7 @@ type
     PackagesComboBox: TComboBox;
     ShowAllCheckBox: TCheckBox;
     procedure AddFileToAPackageDlgClose(Sender: TObject;
-      var CloseAction: TCloseAction);
+      var {%H-}CloseAction: TCloseAction);
     procedure HelpButtonClick(Sender: TObject);
     procedure OkButtonClick(Sender: TObject);
     procedure PackagesGroupBoxResize(Sender: TObject);
@@ -343,7 +343,7 @@ end;
 
 destructor TAddFileToAPackageDialog.Destroy;
 begin
-  fPackages.Free;
+  FreeAndNil(fPackages);
   inherited Destroy;
 end;
 

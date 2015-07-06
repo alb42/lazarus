@@ -42,6 +42,7 @@ type
     procedure SetHeight(const AValue: integer);
   public
     constructor Create(const TheName: string; TheList: TIDEDialogLayoutList);
+    procedure Assign(Source: TIDEDialogLayout);
     function SizeValid: boolean;
     property Width: integer read FWidth write SetWidth;
     property Height: integer read FHeight write SetHeight;
@@ -66,6 +67,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    procedure Assign(Source: TIDEDialogLayoutList);
     procedure ApplyLayout(ADialog: TControl;
                           DefaultWidth, DefaultHeight: integer;
                           UseAsMin: boolean = true);
@@ -452,6 +454,8 @@ type
     procedure MakeIDEWindowDockSite(AForm: TCustomForm; ASides: TDockSides = [alBottom]); virtual; abstract; // make AForm a dock site, AForm can not be docked, its Parent must be kept nil, this does not make it visible
     procedure ShowForm(AForm: TCustomForm; BringToFront: boolean); virtual; abstract; // make a form visible, set BringToFront=true if form should be shown on active screen and on front of other windows, normally this focus the form
     function AddableInWindowMenu({%H-}AForm: TCustomForm): boolean; virtual;
+    procedure AdjustMainIDEWindowHeight(const {%H-}AIDEWindow: TCustomForm;
+      const {%H-}AAdjustHeight: Boolean; const {%H-}ANewHeight: Integer); virtual;
     procedure CloseAll; virtual; // close all forms, called after IDE has saved all and shuts down
     property HideSimpleLayoutOptions: boolean read FHideSimpleLayoutOptions;
   end;
@@ -850,13 +854,20 @@ begin
   FList:=TheList;
 end;
 
+procedure TIDEDialogLayout.Assign(Source: TIDEDialogLayout);
+begin
+  FName := Source.FName;
+  FWidth := Source.FWidth;
+  FHeight := Source.FHeight;
+  FModified := True;
+end;
+
 function TIDEDialogLayout.SizeValid: boolean;
 begin
   Result:=(Width>10) and (Height>10);
 end;
 
-procedure TIDEDialogLayout.LoadFromConfig(Config: TConfigStorage;
-  const Path: string);
+procedure TIDEDialogLayout.LoadFromConfig(Config: TConfigStorage; const Path: string);
 begin
   FName:=Config.GetValue(Path+'Name/Value','');
   FWidth:=Config.GetValue(Path+'Size/Width',0);
@@ -864,8 +875,7 @@ begin
   Modified:=false;
 end;
 
-procedure TIDEDialogLayout.SaveToConfig(Config: TConfigStorage;
-  const Path: string);
+procedure TIDEDialogLayout.SaveToConfig(Config: TConfigStorage; const Path: string);
 begin
   Config.SetValue(Path+'Name/Value',Name);
   Config.SetValue(Path+'Size/Width',Width);
@@ -898,6 +908,21 @@ begin
   Clear;
   FreeAndNil(FItems);
   inherited Destroy;
+end;
+
+procedure TIDEDialogLayoutList.Assign(Source: TIDEDialogLayoutList);
+var
+  i: Integer;
+  Layout: TIDEDialogLayout;
+begin
+  FItemClass := Source.FItemClass;
+  Clear;
+  for i:=0 to Source.FItems.Count-1 do begin
+    Layout := TIDEDialogLayout.Create(Source.Items[i].Name, Self);
+    Layout.Assign(Source.Items[i]);
+    FItems.Add(Layout);
+  end;
+  FModified := True;
 end;
 
 procedure TIDEDialogLayoutList.ApplyLayout(ADialog: TControl;
@@ -2118,6 +2143,13 @@ end;
 function TIDEDockMaster.AddableInWindowMenu(AForm: TCustomForm): boolean;
 begin
   Result:=true;
+end;
+
+procedure TIDEDockMaster.AdjustMainIDEWindowHeight(
+  const AIDEWindow: TCustomForm; const AAdjustHeight: Boolean;
+  const ANewHeight: Integer);
+begin
+
 end;
 
 procedure TIDEDockMaster.CloseAll;

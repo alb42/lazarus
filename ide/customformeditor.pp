@@ -40,17 +40,17 @@ uses
 {$ENDIF}
   // LCL+FCL
   Classes, SysUtils, TypInfo, Math, LCLIntf, LCLType, LResources,
-  AVL_Tree, LCLMemManager, FileUtil, LazFileCache,
+  LCLMemManager, FileUtil, LazFileUtils, LazFileCache, AvgLvlTree,
   LCLProc, Graphics, Controls, Forms, Menus, Dialogs,
+  CodeCache, CodeTree, CodeToolManager, FindDeclarationTool,
   // IDEIntf
-  PropEdits, PropEditUtils, ObjectInspector, IDECommands, FormEditingIntf,
-  UnitResources, IDEOptionsIntf,
+  PropEdits, PropEditUtils, ObjectInspector, FormEditingIntf,
+  UnitResources, IDEOptionsIntf, IDEDialogs, ComponentEditors,
   // IDE
-  LazarusIDEStrConsts, ControlSelection, Project, JITForms, MainIntf,
+  LazarusIDEStrConsts, EditorOptions, EnvironmentOpts,
+  ControlSelection, Project, JITForms, MainIntf,
   CustomNonFormDesigner, NonControlDesigner, FrameDesigner, ComponentReg,
-  IDEProcs, ComponentEditors, IDEDialogs, CodeCache, CodeToolManager, CodeTree,
-  FindDeclarationTool, KeyMapping, EditorOptions, EnvironmentOpts,
-  DesignerProcs, PackageDefs;
+  IDEProcs, DesignerProcs, PackageDefs;
 
 const
   OrdinalTypes = [tkInteger,tkChar,tkEnumeration,tkbool];
@@ -68,18 +68,20 @@ type
     FOnSelectFrame: TSelectFrameEvent;
     FSelection: TPersistentSelectionList;
     FObj_Inspector: TObjectInspectorDlg;
-    FDefineProperties: TAVLTree;// tree of TDefinePropertiesCacheItem
+    FDefineProperties: TAvgLvlTree;// tree of TDefinePropertiesCacheItem
     FStandardDefinePropertiesRegistered: Boolean;
     FDesignerBaseClasses: TFPList; // list of TComponentClass
     FDesignerMediatorClasses: TFPList;// list of TDesignerMediatorClass
     FOnNodeGetImageIndex: TOnOINodeGetImageEvent;
     function GetPropertyEditorHook: TPropertyEditorHook;
     function FindDefinePropertyNode(const APersistentClassName: string
-                                    ): TAVLTreeNode;
+                                    ): TAvgLvlTreeNode;
     procedure FrameCompGetCreationClass(Sender: TObject;
       var NewComponentClass: TComponentClass);
+    function OnPropHookGetAncestorInstProp(const InstProp: TInstProp;
+                                      out AncestorInstProp: TInstProp): boolean;
   protected
-    FNonFormForms: TAVLTree; // tree of TNonControlDesignerForm sorted for LookupRoot
+    FNonFormForms: TAvgLvlTree; // tree of TNonControlDesignerForm sorted for LookupRoot
     procedure SetSelection(const ASelection: TPersistentSelectionList);
     procedure OnObjectInspectorModified(Sender: TObject);
     procedure SetObj_Inspector(AnObjectInspector: TObjectInspectorDlg); virtual;
@@ -101,7 +103,7 @@ type
 
     function GetDesignerBaseClasses(Index: integer): TComponentClass; override;
     procedure OnDesignerMenuItemClick(Sender: TObject); virtual;
-    function FindNonFormFormNode(LookupRoot: TComponent): TAVLTreeNode;
+    function FindNonFormFormNode(LookupRoot: TComponent): TAvgLvlTreeNode;
 
     //because we only meet ObjInspectore here, not in abstract ancestor
     procedure DoOnNodeGetImageIndex(APersistent: TPersistent; var AImageIndex: integer); virtual;
@@ -199,7 +201,7 @@ type
                                        ): TComponent; override;
     function GetDefaultComponentPosition(TypeClass: TComponentClass;
                                          ParentComponent: TComponent;
-                                         var X,Y: integer): boolean; override;
+                                         out X,Y: integer): boolean; override;
     function CreateComponent(ParentComponent: TComponent;
                              TypeClass: TComponentClass;
                              const AUnitName: shortstring;
@@ -455,7 +457,7 @@ var
   l: Integer;
 begin
   inherited Create;
-  FNonFormForms := TAVLTree.Create(@CompareNonFormDesignerForms);
+  FNonFormForms := TAvgLvlTree.Create(@CompareNonFormDesignerForms);
   FSelection := TPersistentSelectionList.Create;
   FDesignerBaseClasses:=TFPList.Create;
   FDesignerMediatorClasses:=TFPList.Create;
@@ -473,6 +475,8 @@ begin
   FormEditingHook:=Self;
 
   RegisterDesignerBaseClass(TAbstractIDEOptionsEditor);
+
+  GlobalDesignHook.AddHandlerGetAncestorInstProp(@OnPropHookGetAncestorInstProp);
 end;
 
 destructor TCustomFormEditor.Destroy;
@@ -810,7 +814,7 @@ end;
 
 function TCustomFormEditor.FindNonFormForm(LookupRoot: TComponent): TCustomNonFormDesignerForm;
 var
-  AVLNode: TAVLTreeNode;
+  AVLNode: TAvgLvlTreeNode;
 begin
   AVLNode := FindNonFormFormNode(LookupRoot);
   if AVLNode <> nil then
@@ -823,6 +827,7 @@ function TCustomFormEditor.CreateNonFormForm(LookupRoot: TComponent): TCustomNon
 var
   MediatorClass: TDesignerMediatorClass;
 begin
+  Result := Nil;
   if FindNonFormFormNode(LookupRoot) <> nil then
     RaiseException(lisCFETCustomFormEditorCreateNonFormFormAlreadyExists);
   if LookupRoot is TComponent then
@@ -1435,7 +1440,7 @@ begin
         on E: Exception do begin
           s:=Format(lisCFEErrorDestroyingMediatorOfUnit,
                     [Mediator.ClassName, AUnitName, LineEnding, E.Message]);
-          DebugLn(['TCustomFormEditor.CreateComponent ',UTF8ToConsole(s)]);
+          DebugLn(['TCustomFormEditor.CreateComponent ',s]);
           DumpExceptionBackTrace;
           IDEMessageDialog(lisCFEErrorDestroyingMediator, s, mtError, [mbCancel]);
         end;
@@ -1450,7 +1455,7 @@ begin
           on E: Exception do begin
             s:=Format(lisCFEErrorDestroyingComponentOfTypeOfUnit,
                       [TypeClass.ClassName, AUnitName, LineEnding, E.Message]);
-            DebugLn(['TCustomFormEditor.CreateComponent ',UTF8ToConsole(s)]);
+            DebugLn(['TCustomFormEditor.CreateComponent ',s]);
             DumpExceptionBackTrace;
             IDEMessageDialog(lisCFEErrorDestroyingComponent, s, mtError, [mbCancel]);
           end;
@@ -1592,6 +1597,8 @@ end;
 
 function TCustomFormEditor.GetAncestorLookupRoot(AComponent: TComponent
   ): TComponent;
+{ returns the ancestor of the Owner, if it owns a component with same name.
+}
 var
   CurRoot: TComponent;
   AncestorRoot: TComponent;
@@ -1600,25 +1607,10 @@ begin
   if AComponent=nil then exit;
   CurRoot:=AComponent.Owner;
   if CurRoot=nil then exit;
-  
-  if csInline in CurRoot.ComponentState then begin
-    // inline/embedded components (e.g. nested frame)
-    // find the non inlined instance (the IDE always creates one, it may be hidden)
-    CurRoot:=FindJITComponentByClass(TComponentClass(CurRoot.ClassType));
-    if CurRoot=nil then exit;
-    if CurRoot.FindComponent(AComponent.Name)=nil then exit;
-    Result:=CurRoot;
-  end;
-
-  repeat
-    // search in next ancestor
-    AncestorRoot:=GetAncestorInstance(CurRoot);
-    if AncestorRoot=nil then break;
-    if AncestorRoot.FindComponent(AComponent.Name)=nil then break;
-    // a better ancestor was found
-    Result:=AncestorRoot;
-    CurRoot:=AncestorRoot;
-  until false;
+  AncestorRoot:=GetAncestorInstance(CurRoot);
+  if AncestorRoot=nil then exit;
+  if AncestorRoot.FindComponent(AComponent.Name)=nil then exit;
+  Result:=AncestorRoot;
   {$IFDEF VerboseFormEditor}
   DebugLn(['TCustomFormEditor.GetAncestorLookupRoot AComponent=',DbgSName(AComponent),' Result=',DbgSName(Result)]);
   {$ENDIF}
@@ -1626,6 +1618,16 @@ end;
 
 function TCustomFormEditor.GetAncestorInstance(AComponent: TComponent
   ): TComponent;
+{ Returns the next ancestor instance.
+  For example:
+    TFrame3 = class(TFrame2), TFrame2 = class(TFrame1)
+    Frame1 is the ancestor instance of Frame2.
+    Frame2 is the ancestor instance of Frame3.
+
+    If TFrame1 introduced Button1 then
+    TFrame1.Button1 is the ancestor instance of TFrame2.Button1.
+    TFrame2.Button1 is the ancestor instance of TFrame3.Button1.
+}
 var
   aRoot: TComponent;
 begin
@@ -1639,10 +1641,13 @@ begin
     Result:=FindJITComponentByClass(TComponentClass(AComponent.ClassType));
   end else begin
     // child component
-    aRoot:=GetAncestorLookupRoot(AComponent);
-    if aRoot=nil then exit;
-    Result:=aRoot.FindComponent(AComponent.Name);
+    aRoot:=GetAncestorInstance(AComponent.Owner);
+    if aRoot<>nil then
+      Result:=aRoot.FindComponent(AComponent.Name);
   end;
+  {$IFDEF VerboseFormEditor}
+  debugln(['TCustomFormEditor.GetAncestorInstance ',DbgSName(AComponent),' csAncestor=',csAncestor in AComponent.ComponentState,' Result=',DbgSName(Result)]);
+  {$ENDIF}
 end;
 
 function TCustomFormEditor.RegisterDesignerBaseClass(AClass: TComponentClass
@@ -1716,7 +1721,7 @@ var
   APersistent: TPersistent;
   CacheItem: TDefinePropertiesCacheItem;
   DefinePropertiesReader: TDefinePropertiesReader;
-  ANode: TAVLTreeNode;
+  ANode: TAvgLvlTreeNode;
   OldClassName: String;
   DefinePropertiesPersistent: TDefinePropertiesPersistent;
 
@@ -1874,7 +1879,7 @@ end;
 procedure TCustomFormEditor.RegisterDefineProperty(const APersistentClassName,
   Identifier: string);
 var
-  ANode: TAVLTreeNode;
+  ANode: TAvgLvlTreeNode;
   CacheItem: TDefinePropertiesCacheItem;
 begin
   //DebugLn('TCustomFormEditor.RegisterDefineProperty ',APersistentClassName,' ',Identifier);
@@ -2057,7 +2062,7 @@ begin
   end;
 end;
 
-function TCustomFormEditor.FindNonFormFormNode(LookupRoot: TComponent): TAVLTreeNode;
+function TCustomFormEditor.FindNonFormFormNode(LookupRoot: TComponent): TAvgLvlTreeNode;
 begin
   Result := FNonFormForms.FindKey(Pointer(LookupRoot),
                                    @CompareLookupRootAndNonFormDesignerForm);
@@ -2187,6 +2192,23 @@ begin
     OnSelectFrame(Sender,NewComponentClass);
 end;
 
+function TCustomFormEditor.OnPropHookGetAncestorInstProp(
+  const InstProp: TInstProp; out AncestorInstProp: TInstProp): boolean;
+var
+  aComponent: TComponent;
+begin
+  Result:=false;
+  if (InstProp.Instance=nil) or (InstProp.PropInfo=nil) then exit;
+  if InstProp.Instance is TComponent then begin
+    aComponent:=TComponent(InstProp.Instance);
+    AncestorInstProp.Instance:=GetAncestorInstance(aComponent);
+    if AncestorInstProp.Instance=nil then exit;
+    AncestorInstProp.PropInfo:=GetPropInfo(AncestorInstProp.Instance,InstProp.PropInfo^.Name);
+    if AncestorInstProp.PropInfo<>InstProp.PropInfo then exit;
+    Result:=true;
+  end;
+end;
+
 function TCustomFormEditor.GetPropertyEditorHook: TPropertyEditorHook;
 begin
   Result:=GlobalDesignHook;
@@ -2195,11 +2217,11 @@ begin
 end;
 
 function TCustomFormEditor.FindDefinePropertyNode(
-  const APersistentClassName: string): TAVLTreeNode;
+  const APersistentClassName: string): TAvgLvlTreeNode;
 begin
   if FDefineProperties=nil then
     FDefineProperties:=
-                   TAVLTree.Create(TListSortCompare(@CompareDefPropCacheItems));
+                   TAvgLvlTree.Create(TListSortCompare(@CompareDefPropCacheItems));
   Result:=FDefineProperties.FindKey(PChar(APersistentClassName),
                     TListSortCompare(@ComparePersClassNameAndDefPropCacheItem));
 end;
@@ -2290,7 +2312,7 @@ begin
 end;
 
 function TCustomFormEditor.GetDefaultComponentPosition(
-  TypeClass: TComponentClass; ParentComponent: TComponent; var X, Y: integer
+  TypeClass: TComponentClass; ParentComponent: TComponent; out X, Y: integer
   ): boolean;
 var
   i: Integer;

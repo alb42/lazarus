@@ -1,15 +1,15 @@
 msgid ""
 msgstr ""
-"Last-Translator: Laurent Jacques <wile64@gmail.com>\n"
-"PO-Revision-Date: 2008-09-04 11:40+0100\n"
+"Last-Translator: Vasseur Gilles <gillesvasseur58@gmail.com>\n"
+"PO-Revision-Date: 2015-04-12 18:41+0100\n"
 "Language-Team: Laurent Jacques <wile64@gmail.com>\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "MIME-Version: 1.0\n"
 "POT-Creation-Date: \n"
 "Project-Id-Version: \n"
-"X-Poedit-Bookmarks: -1,190,-1,-1,-1,-1,-1,-1,-1,-1\n"
-"X-Poedit-Language: French\n"
+"Language: fr\n"
+"X-Generator: Poedit 1.7.5\n"
 
 #: lclstrconsts.hhshelpbrowsernotexecutable
 msgid "Browser \"%s\" not executable."
@@ -21,15 +21,15 @@ msgstr "Navigateur \"%s\" non trouvé."
 
 #: lclstrconsts.hhshelperrorwhileexecuting
 msgid "Error while executing \"%s\":%s%s"
-msgstr "Erreur pendant l'exécution \"%s\":%s%s"
+msgstr "Erreur pendant l'exécution de \"%s\":%s%s"
 
 #: lclstrconsts.hhshelpnohtmlbrowserfound
 msgid "Unable to find a HTML browser."
-msgstr "Impossible de trouver un navigateur de HTML. "
+msgstr "Impossible de trouver un navigateur HTML. "
 
 #: lclstrconsts.hhshelpnohtmlbrowserfoundpleasedefineone
 msgid "No HTML Browser found.%sPlease define one in Tools -> Options -> Help -> Help Options"
-msgstr "Aucun navigateur HTML n'a été trouvé.%sDéfinissez-en un dans Outils > Options > AideTools -> Options -> Help -> Options de l'aide"
+msgstr "Aucun navigateur HTML n'a été trouvé.%sDéfinissez-en un dans Outils -> Options -> Aide -> Options de l'aide"
 
 #: lclstrconsts.hhshelpthehelpdatabasewasunabletofindfile
 msgid "The help database \"%s\" was unable to find file \"%s\"."
@@ -37,7 +37,7 @@ msgstr "La base de données d'aide \"%s\" ne trouve pas le fichier \"%s\"."
 
 #: lclstrconsts.hhshelpthemacrosinbrowserparamswillbereplacedbytheurl
 msgid "The macro %s in BrowserParams will be replaced by the URL."
-msgstr "La macro %s dans BrowserParams sera remplacée par l'URL."
+msgstr "La macro %s dans \"BrowserParams\" sera remplacée par l'URL."
 
 #: lclstrconsts.ifsalt
 msgid "Alt"
@@ -53,7 +53,7 @@ msgstr "Accepter"
 
 #: lclstrconsts.ifsvk_apps
 msgid "application key"
-msgstr "Touche Application"
+msgstr "touche application"
 
 #: lclstrconsts.ifsvk_back
 msgid "Backspace"
@@ -74,7 +74,7 @@ msgstr "Effacer"
 
 #: lclstrconsts.ifsvk_cmd
 msgid "Cmd"
-msgstr ""
+msgstr "Commande"
 
 #: lclstrconsts.ifsvk_control
 msgid "Control"
@@ -101,7 +101,7 @@ msgstr "Fin"
 
 #: lclstrconsts.ifsvk_escape
 msgid "Escape"
-msgstr "Echappement"
+msgstr "Échappement"
 
 #: lclstrconsts.ifsvk_execute
 msgid "Execute"
@@ -178,11 +178,11 @@ msgstr "Non converti"
 
 #: lclstrconsts.ifsvk_numlock
 msgid "Numlock"
-msgstr "Verr num."
+msgstr "Verr. num."
 
 #: lclstrconsts.ifsvk_numpad
 msgid "Numpad %d"
-msgstr "%d pav num."
+msgstr "%d pavé num."
 
 #: lclstrconsts.ifsvk_pause
 msgid "Pause key"
@@ -216,15 +216,15 @@ msgstr "Touche Windows droite"
 
 #: lclstrconsts.ifsvk_scroll
 msgid "Scroll"
-msgstr "Défilement"
+msgstr "Défiler"
 
 #: lclstrconsts.ifsvk_select
 msgid "Select"
-msgstr "Sélectionner"
+msgstr "Choisir"
 
 #: lclstrconsts.ifsvk_shift
 msgid "Shift"
-msgstr "Maj"
+msgstr "Maj."
 
 #: lclstrconsts.ifsvk_snapshot
 msgid "Snapshot"
@@ -241,7 +241,7 @@ msgstr "Super"
 #: lclstrconsts.ifsvk_tab
 msgctxt "lclstrconsts.ifsvk_tab"
 msgid "Tab"
-msgstr "Tab"
+msgstr "Tabulation"
 
 #: lclstrconsts.ifsvk_unknown
 msgid "Unknown"
@@ -255,7 +255,7 @@ msgstr "Haut"
 #: lclstrconsts.lislclresourcesnotfound
 msgctxt "lclstrconsts.lislclresourcesnotfound"
 msgid "Resource %s not found"
-msgstr "Ressource %s non trouvée"
+msgstr "Ressource %s introuvable"
 
 #: lclstrconsts.rs3ddkshadowcolorcaption
 msgid "3D Dark Shadow"
@@ -275,7 +275,7 @@ msgstr "Bord actif"
 
 #: lclstrconsts.rsactivecaptioncolorcaption
 msgid "Active Caption"
-msgstr "Etiquette active"
+msgstr "Étiquette active"
 
 #: lclstrconsts.rsallfiles
 msgid "All files (%s)|%s|%s"
@@ -287,7 +287,7 @@ msgstr "Espace d'application"
 
 #: lclstrconsts.rsaquacolorcaption
 msgid "Aqua"
-msgstr "Eau"
+msgstr "Aqua"
 
 #: lclstrconsts.rsbackgroundcolorcaption
 msgid "Desktop"
@@ -331,7 +331,7 @@ msgstr "Texte de bouton"
 
 #: lclstrconsts.rscalculator
 msgid "Calculator"
-msgstr "Calculateur"
+msgstr "Calculatrice"
 
 #: lclstrconsts.rscancelrecordhint
 msgctxt "lclstrconsts.rscancelrecordhint"
@@ -344,7 +344,7 @@ msgstr "Impossible de focaliser"
 
 #: lclstrconsts.rscanvasdoesnotallowdrawing
 msgid "Canvas does not allow drawing"
-msgstr "Dessin sur le Canvas non autorisé"
+msgstr "Dessin sur le canevas non autorisé"
 
 #: lclstrconsts.rscaptiontextcolorcaption
 msgid "Caption Text"
@@ -356,15 +356,15 @@ msgstr "Respecter la casse"
 
 #: lclstrconsts.rscontrolclasscantcontainchildclass
 msgid "Control of class '%s' can't have control of class '%s' as a child"
-msgstr "Le contrôle de la classe '%s' ne peut pas contenir un contrôle de la classe '%s' comme enfant"
+msgstr "Le contrôle de la classe \"%s\" ne peut pas contenir un contrôle de la classe \"%s\" comme enfant"
 
 #: lclstrconsts.rscontrolhasnoparentwindow
 msgid "Control '%s' has no parent window"
-msgstr "Le contrôle '%s' n'a pas de fenêtre parent"
+msgstr "Le contrôle \"%s\" n'a pas de fenêtre parent"
 
 #: lclstrconsts.rscontrolisnotaparent
 msgid "'%s' is not a parent of '%s'"
-msgstr "\"%s\" n'est pas un parent de \"\"%s\""
+msgstr "\"%s\" n'est pas un parent de \"%s\""
 
 #: lclstrconsts.rscreamcolorcaption
 msgid "Cream"
@@ -372,7 +372,7 @@ msgstr "Crème"
 
 #: lclstrconsts.rscreatinggdbcatchableerror
 msgid "Creating gdb catchable error:"
-msgstr "Créer une erreur d'arrêt de gdb :"
+msgstr "Création d'une erreur capturable de \"gdb\" :"
 
 #: lclstrconsts.rscursor
 msgid "Cursor"
@@ -384,7 +384,7 @@ msgstr "Personnalisé..."
 
 #: lclstrconsts.rsdefaultcolorcaption
 msgid "Default"
-msgstr "Défaut"
+msgstr "Par défaut"
 
 #: lclstrconsts.rsdefaultfileinfovalue
 msgid "permissions user group size date time"
@@ -392,7 +392,7 @@ msgstr "permissions utilisateur groupe taille date heure"
 
 #: lclstrconsts.rsdeleterecord
 msgid "Delete record?"
-msgstr "Supprimer l'enregistrement ?"
+msgstr "Voulez-vous supprimer l'enregistrement ?"
 
 #: lclstrconsts.rsdeleterecordhint
 msgctxt "lclstrconsts.rsdeleterecordhint"
@@ -417,11 +417,11 @@ msgstr "Dupliquer le format d'icône."
 
 #: lclstrconsts.rseditrecordhint
 msgid "Edit"
-msgstr "Editer"
+msgstr "Éditer"
 
 #: lclstrconsts.rsentirescope
 msgid "Search entire file"
-msgstr "Cherche dans tout le fichier"
+msgstr "Chercher dans tout le fichier"
 
 #: lclstrconsts.rserror
 msgctxt "lclstrconsts.rserror"
@@ -434,11 +434,11 @@ msgstr "Erreur en créant le contexte de dispositif pour %s.%s"
 
 #: lclstrconsts.rserrorinlcl
 msgid "ERROR in LCL: "
-msgstr "ERREUR dans LCL : "
+msgstr "ERREUR dans la LCL : "
 
 #: lclstrconsts.rserroroccurredinataddressframe
 msgid "Error occurred in %s at %sAddress %s%s Frame %s"
-msgstr "Une erreur s'est produite dans %s  %s à l'adresse %s%s page %s"
+msgstr "Une erreur s'est produite dans %s à %sl'adresse %s%s page %s"
 
 #: lclstrconsts.rserrorwhilesavingbitmap
 msgid "Error while saving bitmap."
@@ -466,11 +466,11 @@ msgstr "Le fichier doit exister"
 
 #: lclstrconsts.rsfdfilenotexist
 msgid "The file \"%s\" does not exist."
-msgstr "Le fichier \"%s\" n'existe pas"
+msgstr "Le fichier \"%s\" n'existe pas."
 
 #: lclstrconsts.rsfdfilereadonly
 msgid "The file \"%s\" is not writable."
-msgstr "Le fichier \"%s\" est en lecture seule"
+msgstr "Le fichier \"%s\" est en lecture seule."
 
 #: lclstrconsts.rsfdfilereadonlytitle
 msgid "File is not writable"
@@ -486,7 +486,7 @@ msgstr "Ouvrir un fichier existant"
 
 #: lclstrconsts.rsfdoverwritefile
 msgid "Overwrite file ?"
-msgstr "Ecraser le fichier ?"
+msgstr "Voulez-vous écraser le fichier ?"
 
 #: lclstrconsts.rsfdpathmustexist
 msgid "Path must exist"
@@ -494,7 +494,7 @@ msgstr "Le chemin doit exister"
 
 #: lclstrconsts.rsfdpathnoexist
 msgid "The path \"%s\" does not exist."
-msgstr "Le répertoire \"%s\" n'existe pas"
+msgstr "Le répertoire \"%s\" n'existe pas."
 
 #: lclstrconsts.rsfdselectdirectory
 msgid "Select Directory"
@@ -506,7 +506,7 @@ msgstr "(Fichier \"%s\" non trouvé)"
 
 #: lclstrconsts.rsfileinformation
 msgid "File information"
-msgstr "Informations fichier"
+msgstr "Informations du fichier"
 
 #: lclstrconsts.rsfilter
 msgctxt "lclstrconsts.rsfilter"
@@ -527,11 +527,11 @@ msgstr "Premier"
 
 #: lclstrconsts.rsfixedcolstoobig
 msgid "FixedCols can't be > ColCount"
-msgstr "FixedCols ne peut pas être > ColCount"
+msgstr "\"FixedCols\" ne peut pas être > \"ColCount\""
 
 #: lclstrconsts.rsfixedrowstoobig
 msgid "FixedRows can't be > RowCount"
-msgstr "FixedRows ne peut pas être > RowCount"
+msgstr "\"FixedRows\" ne peut pas être > \"RowCount\""
 
 #: lclstrconsts.rsformcolorcaption
 msgid "Form"
@@ -539,7 +539,7 @@ msgstr "Fiche"
 
 #: lclstrconsts.rsformresourcesnotfoundforresourcelessformscreatenew
 msgid "Form resource %s not found. For resourceless forms CreateNew constructor must be used. See the global variable RequireDerivedFormResource."
-msgstr "Ressource de fiche %s introuvable. Pour les fiches sans ressources, le contructeur 'CreateNew' doit être utilisé. Voir la variable globale RequireDerivedFormResource."
+msgstr "Ressource de fiche %s introuvable. Pour les fiches sans ressources, le contructeur \"CreateNew\" doit être utilisé. Voir la variable globale \"RequireDerivedFormResource\"."
 
 #: lclstrconsts.rsformstreamingerror
 msgid "Form streaming \"%s\" error: %s"
@@ -547,7 +547,7 @@ msgstr "Dans le flux de fiche \"%s\" : erreur %s"
 
 #: lclstrconsts.rsforward
 msgid "Forward"
-msgstr "Avant"
+msgstr "En avant"
 
 #: lclstrconsts.rsfuchsiacolorcaption
 msgid "Fuchsia"
@@ -555,11 +555,11 @@ msgstr "Fuchsia"
 
 #: lclstrconsts.rsgdkoptiondebug
 msgid "--gdk-debug flags     Turn on specific GDK trace/debug messages."
-msgstr "--gdk-debug flags     Activer les messages spécifiques GDK+ trace/debug."
+msgstr "--gdk-debug flags     Activer les messages spécifiques GDK+ trace/débogage."
 
 #: lclstrconsts.rsgdkoptionnodebug
 msgid "--gdk-no-debug flags  Turn off specific GDK trace/debug messages."
-msgstr "--gdk-no-debug flags  Arrêter les messages spécifiques GDK+ trace/debug."
+msgstr "--gdk-no-debug flags  Arrêter les messages spécifiques GDK+ trace/débogage."
 
 #: lclstrconsts.rsgif
 msgid "Graphics Interchange Format"
@@ -571,11 +571,11 @@ msgstr "--g-fatal-warnings    Les avertissements et les erreurs produits par Gtk
 
 #: lclstrconsts.rsgradientactivecaptioncolorcaption
 msgid "Gradient Active Caption"
-msgstr "Couleur droite d'un dégradé (active)"
+msgstr "Couleur droite d'un dégradé (actif)"
 
 #: lclstrconsts.rsgradientinactivecaptioncolorcaption
 msgid "Gradient Inactive Caption"
-msgstr "Couleur gauche d'un dégradé (inactive)"
+msgstr "Couleur gauche d'un dégradé (inactif)"
 
 #: lclstrconsts.rsgraphic
 msgid "Graphic"
@@ -611,7 +611,7 @@ msgstr "Index de grille hors limites."
 
 #: lclstrconsts.rsgroupindexcannotbelessthanprevious
 msgid "GroupIndex cannot be less than a previous menu item's GroupIndex"
-msgstr "GroupIndex ne peut pas être inférieur au GroupIndex des éléments précédents"
+msgstr "\"GroupIndex\" ne peut pas être inférieur au \"GroupIndex\" d'un élément de menu précédent"
 
 #: lclstrconsts.rsgtkfilter
 msgid "Filter:"
@@ -627,7 +627,7 @@ msgstr "--class classname     Suivant les conventions Xt, la classe d'un program
 
 #: lclstrconsts.rsgtkoptiondebug
 msgid "--gtk-debug flags     Turn on specific Gtk+ trace/debug messages."
-msgstr "--gtk-debug flags     Activer les messages spécifiques Gtk+ trace/debug."
+msgstr "--gtk-debug flags     Activer les messages spécifiques Gtk+ trace/débogage."
 
 #: lclstrconsts.rsgtkoptiondisplay
 msgid "--display h:s:d       Connect to the specified X server, where \"h\" is the hostname, \"s\" is the server number (usually 0), and \"d\" is the display number (typically omitted). If --display is not specified, the DISPLAY environment variable is used."
@@ -639,11 +639,11 @@ msgstr "--gtk-module module   Charger le module indiqué au démarrage."
 
 #: lclstrconsts.rsgtkoptionname
 msgid "--name programe       Set program name to \"progname\". If not specified, program name will be set to ParamStrUTF8(0)."
-msgstr "--name programme     Fixe le nom du programme à \"progname\". Si non spécifié, le nom du programme sera fixé à ParamStrUTF8(0)."
+msgstr "--name programme     Définir le nom du programme à \"progname\". Si non spécifié, le nom du programme sera fixé à ParamStrUTF8(0)."
 
 #: lclstrconsts.rsgtkoptionnodebug
 msgid "--gtk-no-debug flags  Turn off specific Gtk+ trace/debug messages."
-msgstr "--gtk-no-debug flags  Arrêter les messages spécifiques Gtk+ trace/debug."
+msgstr "--gtk-no-debug flags  Arrêter les messages spécifiques Gtk+ trace/débogage."
 
 #: lclstrconsts.rsgtkoptionnotransient
 msgid "--lcl-no-transient    Do not set transient order for modal forms"
@@ -655,11 +655,11 @@ msgstr "--no-xshm             Désactiver l'utilisation de la mémoire étendue 
 
 #: lclstrconsts.rsgtkoptionsync
 msgid "--sync                Call XSynchronize (display, True) after the Xserver connection has been established. This makes debugging X protocol errors easier, because X request buffering will be disabled and X errors will be received immediately after the protocol request that generated the error has been processed by the X server."
-msgstr "--sync                Appeler XSynchronize(display, True) après que la connexion au serveur X a été établie. Le débogage des erreurs du protocole X sera ainsi plus facile, parce que les demandes de buffer par X seront désactivées et que les erreurs de X seront reçues immédiatement après que la requête du protocole qui aura produit l'erreur aura été traitée par le serveur X."
+msgstr "--sync                Appeler \"XSynchronize(display, True)\" après que la connexion au serveur X a été établie. Le débogage des erreurs du protocole X sera ainsi plus facile parce que les demandes de buffer par X seront désactivées et que les erreurs de X seront reçues immédiatement après que la requête du protocole qui aura produit l'erreur aura été traitée par le serveur X."
 
 #: lclstrconsts.rshelpalreadyregistered
 msgid "%s: Already registered"
-msgstr "%s : Déjà enregistré"
+msgstr "%s : déjà enregistré"
 
 #: lclstrconsts.rshelpcontextnotfound
 msgid "A help database was found for this topic, but this topic was not found"
@@ -682,10 +682,8 @@ msgid "Help context %s not found in Database \"%s\"."
 msgstr "Contexte d'aide %s introuvable dans la base de données \"%s\"."
 
 #: lclstrconsts.rshelphelpdatabasedidnotfoundaviewerforahelppageoftype
-#, fuzzy
-#| msgid "Help Database \"%s\" did not found a viewer for a help page of type %s"
 msgid "Help Database \"%s\" did not find a viewer for a help page of type %s"
-msgstr "La base de données d'aide \"%s\" n'a pas trouvé une visionneuse pour une page d'aide du type %s"
+msgstr "La base de données d'aide \"%s\" n'a pas trouvé de visionneuse pour une page d'aide du type %s"
 
 #: lclstrconsts.rshelphelpdatabasenotfound
 msgid "Help Database \"%s\" not found"
@@ -709,7 +707,7 @@ msgstr "Mot-clé d'aide \"%s\" introuvable dans la base de données \"%s\". "
 
 #: lclstrconsts.rshelphelpnodehasnohelpdatabase
 msgid "Help node \"%s\" has no Help Database"
-msgstr "Le noeud d'aide \"%s\" n'a aucune base de données"
+msgstr "Le nœud d'aide \"%s\" n'a aucune base de données"
 
 #: lclstrconsts.rshelpnohelpfoundforsource
 msgid "No help found for line %d, column %d of %s."
@@ -725,7 +723,7 @@ msgstr "Aucune aide disponible pour ce sujet"
 
 #: lclstrconsts.rshelpnotregistered
 msgid "%s: Not registered"
-msgstr "%s : Non enregistré"
+msgstr "%s : non enregistré"
 
 #: lclstrconsts.rshelpselectorerror
 msgid "Help Selector Error"
@@ -785,7 +783,7 @@ msgstr "Impossible de modifier la taille d'image de l'icône"
 
 #: lclstrconsts.rsiconnocurrent
 msgid "Icon has no current image"
-msgstr "L'icône n'a pas d'image"
+msgstr "L'icône n'a pas d'image en cours"
 
 #: lclstrconsts.rsinactivebordercolorcaption
 msgid "Inactive Border"
@@ -794,12 +792,12 @@ msgstr "Bord inactif"
 #: lclstrconsts.rsinactivecaptioncolorcaption
 msgctxt "lclstrconsts.rsinactivecaptioncolorcaption"
 msgid "Inactive Caption"
-msgstr "Etiquette inactive"
+msgstr "Légende inactive"
 
 #: lclstrconsts.rsinactivecaptiontext
 msgctxt "lclstrconsts.rsinactivecaptiontext"
 msgid "Inactive Caption"
-msgstr "Etiquette inactive"
+msgstr "Légende inactive"
 
 #: lclstrconsts.rsindexoutofbounds
 msgid "%s Index %d out of bounds 0 .. %d"
@@ -828,7 +826,7 @@ msgstr "Date incorrecte : %s"
 
 #: lclstrconsts.rsinvaliddaterangehint
 msgid "Invalid Date: %s. Must be between %s and %s"
-msgstr "Date invalide : %s. Doit être entre %s et %s "
+msgstr "Date incorrecte : %s. Doit être entre %s et %s "
 
 #: lclstrconsts.rsinvalidformobjectstream
 msgid "invalid Form object stream"
@@ -1004,7 +1002,7 @@ msgstr "N'est pas un fichier de grille correct"
 
 #: lclstrconsts.rsnowidgetset
 msgid "No widgetset object. Please check if the unit \"interfaces\" was added to the programs uses clause."
-msgstr "Aucun objet widgetset. Vérifiez si l'unité \"interfaces\" est ajoutée à la clause uses du programme."
+msgstr "Aucun objet \"widgetset\". Vérifiez si l'unité \"interfaces\" est ajoutée à la clause uses des programmes."
 
 #: lclstrconsts.rsolivecolorcaption
 msgid "Olive"
@@ -1040,7 +1038,7 @@ msgstr "Poster"
 
 #: lclstrconsts.rspressoktoignoreandriskdatacorruptionpresscanceltok
 msgid "%s%sPress OK to ignore and risk data corruption.%sPress Cancel to kill the program."
-msgstr "%s%sPressez OK pour ignorer et risquer la corruption des données.%sPressez Annuler pour fermer le programme."
+msgstr "%s%sPressez \"OK\" pour ignorer et risquer la corruption des données.%sPressez \"Annuler\" pour fermer le programme."
 
 #: lclstrconsts.rspriorrecordhint
 msgctxt "lclstrconsts.rspriorrecordhint"
@@ -1065,99 +1063,99 @@ msgstr "-dograb (seulement sous X11), l'exécution avec un débogueur peut provo
 
 #: lclstrconsts.rsqtoptiongraphicsstyle
 msgid "-graphicssystem param, sets the backend to be used for on-screen widgets and QPixmaps. Available options are native, raster and opengl. OpenGL is still unstable."
-msgstr ""
+msgstr "-graphicssystem param détermine l'arrière-plan à utiliser pour les objets graphiques et les QPixmaps. Les options possibles sont 'native', 'raster' et 'opengl'. OpenGL est encore instable."
 
 #: lclstrconsts.rsqtoptionnograb
 msgid "-nograb, tells Qt that it must never grab the mouse or the keyboard. Need QT_DEBUG."
-msgstr ""
+msgstr "-nograb dit à Qt qu'il ne doit jamais s'emparer de la souris ou du clavier. Besoin de QT_DEBUG."
 
 #: lclstrconsts.rsqtoptionreverse
 msgid "-reverse, sets the application's layout direction to Qt::RightToLeft."
-msgstr ""
+msgstr "-reverse fixe la direction de mise en page à Qt::RightToLeft."
 
 #: lclstrconsts.rsqtoptionsession
 msgid "-session session, restores the application from an earlier session."
-msgstr ""
+msgstr "-session session rétablit l'application à partir d'une session plus ancienne."
 
 #: lclstrconsts.rsqtoptionstyle
 msgid "-style style or -style=style, sets the application GUI style. Possible values are motif, windows, and platinum. If you compiled Qt with additional styles or have additional styles as plugins these will be available to the -style  command line option. NOTE: Not all styles are available on all platforms. If style param does not exist Qt will start an application with default common style (windows)."
-msgstr ""
+msgstr "-style style ou -style=style détremine le style GUI. Les valeurs possibles sont 'motif', 'windows' et 'platinum'. Si vous avez compilé Qt avec d'autres styles ou si vous disposez d'autres style en tant que plugins, ces styles seront disponibles grâce à l'option de commande en ligne -style. N.B. : Tous les styles ne sont pas disponibles sur toutes les plates-formes. Si le style en paramètre fourni n'existe pas, Qt démarrera l'application avec le style par défaut ('windows')."
 
 #: lclstrconsts.rsqtoptionstylesheet
 msgid "-stylesheet stylesheet or -stylesheet=stylesheet, sets the application Style Sheet. The value must be a path to a file that contains the Style Sheet. Note: Relative URLs in the Style Sheet file are relative to the Style Sheet file's path."
-msgstr ""
+msgstr "-stylesheet stylesheet ou -stylesheet=stylesheet détremine la feuille de style de l'application. La valeur associée doit être le chemin vers un fichier qui contient la feuille de style. N.B. : Les URLs relatives dans la feuille de style sont relatives au chemin du fichier de la feuille de style."
 
 #: lclstrconsts.rsqtoptionsync
 msgid "-sync (only under X11), switches to synchronous mode for debugging."
-msgstr ""
+msgstr "-sync (seulement avec X11), bascule en mode synchronisé pour le débogage."
 
 #: lclstrconsts.rsqtoptionwidgetcount
 msgid "-widgetcount, prints debug message at the end about number of widgets left undestroyed and maximum number of widgets existed at the same time."
-msgstr ""
+msgstr "-widgetcount écrit un message de débogage indiquant le nombre d'objets graphiques non détruits et le nombre maximum d'objets graphiques qui ont pu exister au même moment."
 
 #: lclstrconsts.rsqtoptionx11bgcolor
 msgid "-bg or -background color, sets the default background color and an application palette (light and dark shades are calculated)."
-msgstr ""
+msgstr "-bg or -background color détermine la couleur par défaut du fond et une palette pour l'application (la lumière et les ombres sont calculées)."
 
 #: lclstrconsts.rsqtoptionx11btncolor
 msgid "-btn or -button color, sets the default button color."
-msgstr ""
+msgstr "-btn or -button color détermine la couleur par défaut des boutons."
 
 #: lclstrconsts.rsqtoptionx11cmap
 msgid "-cmap, causes the application to install a private color map on an 8-bit display."
-msgstr ""
+msgstr "-cmap fait que l'application installera une table de correspondance des couleurs particulières pour un écran 8 bits."
 
 #: lclstrconsts.rsqtoptionx11display
 msgid "-display display, sets the X display (default is $DISPLAY)."
-msgstr ""
+msgstr "-display display détremine l'affichage pour X (par défaut $DISPLAY)."
 
 #: lclstrconsts.rsqtoptionx11fgcolor
 msgid "-fg or -foreground color, sets the default foreground color."
-msgstr ""
+msgstr "-fg or -foreground color détermine la couleur d'avant-plan."
 
 #: lclstrconsts.rsqtoptionx11font
 msgid "-fn or -font font, defines the application font. The font should be specified using an X logical font description."
-msgstr ""
+msgstr "-fn or -font font définit la police de caractères de l'application. Cette police doit être spécifiée en utilisant une description de police logique pour X."
 
 #: lclstrconsts.rsqtoptionx11geometry
 msgid "-geometry geometry, sets the client geometry of the first window that is shown."
-msgstr "-geometry geometry, définit la géométrie de client de la première fenêtre qui s'affiche."
+msgstr "-geometry geometry définit la géométrie de client de la première fenêtre qui s'affiche."
 
 #: lclstrconsts.rsqtoptionx11im
 msgid "-im, sets the input method server (equivalent to setting the XMODIFIERS environment variable)."
-msgstr "-im, définit le serveur de méthode d'entrée (équivalent à définir la variable d'environnement XMODIFIERS)"
+msgstr "-im définit le serveur de méthode d'entrée (équivalent à définir la variable d'environnement XMODIFIERS)"
 
 #: lclstrconsts.rsqtoptionx11inputstyle
 msgid "-inputstyle, defines how the input is inserted into the given widget, e.g. onTheSpot makes the input appear directly in the widget, while overTheSpot makes the input appear in a box floating over the widget and is not inserted until the editing is done."
-msgstr "-inputstyle, définit la façon dont l'entrée est insérée dans le widget donné, par exemple OnTheSpot fait  apparaître l'entrée directement dans le widget, tandis que OverTheSpot fait apparaître l'entrée dans une fenêtre flottant sur le widget et n'est pas inséré jusqu’à ce que l’édition soit terminée."
+msgstr "-inputstyle définit la façon dont l'entrée est insérée dans l'objet graphique donné, par exemple OnTheSpot fait apparaître l'entrée directement dans l'objet graphique, tandis que OverTheSpot fait apparaître l'entrée dans une fenêtre flottant sur l'objet graphique et n'est pas inséré jusqu’à ce que l’édition soit terminée."
 
 #: lclstrconsts.rsqtoptionx11name
 msgid "-name name, sets the application name."
-msgstr "-name nom, définit le nom de l'application."
+msgstr "-name nom définit le nom de l'application."
 
 #: lclstrconsts.rsqtoptionx11ncols
 msgid "-ncols count, limits the number of colors allocated in the color cube on an 8-bit display, if the application is using the QApplication::ManyColor color specification. If count is 216 then a 6x6x6 color cube is used (i.e. 6 levels of red, 6 of green, and 6 of blue); for other values, a cube approximately proportional to a 2x3x1 cube is used."
-msgstr ""
+msgstr "-ncols count limite le nombre de couleurs allouées pour le cube de couleurs d'un écran 8bits, si l'application utilise la spécification de couleur QApplication::ManyColor. Si 'count' vaut 216 alors le cube de couleurs a 6x6x6 est utilisé (c'est-à-dire 6 niveaux de rouge, 6 de vert et 6 de bleu). Pour les autres valeurs, un cube approximativement proportionnel à un cube 2x3x1 est utilisé."
 
 #: lclstrconsts.rsqtoptionx11title
 msgid "-title title, sets the application title."
-msgstr "-title title, définit le titre de l'application."
+msgstr "-title title définit le titre de l'application."
 
 #: lclstrconsts.rsqtoptionx11visual
 msgid "-visual TrueColor, forces the application to use a TrueColor visual on an 8-bit display."
-msgstr "-visual TrueColor, force l'application à utiliser un TrueColor sur un écran 8 bits."
+msgstr "-visual TrueColor force l'application à utiliser un TrueColor sur un écran 8 bits."
 
 #: lclstrconsts.rsrasterimageendupdate
 msgid "Endupdate while no update in progress"
-msgstr "EndUpdate alors qu'aucune mise à jour n'est en cours"
+msgstr "\"EndUpdate\" alors qu'aucune mise à jour n'est en cours"
 
 #: lclstrconsts.rsrasterimagesaveinupdate
 msgid "Cannot save image while update in progress"
-msgstr "Vous ne pouvez pas enregistrer l'image alors que la mise à jour est en cours"
+msgstr "Impossible d'enregistrer l'image alors que la mise à jour est en cours"
 
 #: lclstrconsts.rsrasterimageupdateall
 msgid "Cannot begin update all when canvas only update in progress"
-msgstr "Vous ne pouvez pas tout mettre à jour pendant la mise à jour du canvas"
+msgstr "Impossible de tout mettre à jour pendant la mise à jour du \"canvas\""
 
 #: lclstrconsts.rsredcolorcaption
 msgid "Red"
@@ -1210,7 +1208,7 @@ msgstr "Bleu ciel"
 
 #: lclstrconsts.rstcustomtabcontrolaccessibilitydescription
 msgid "A control with tabs"
-msgstr "Un contrôle avec des tabulations"
+msgstr "Un contrôle avec des onglets"
 
 #: lclstrconsts.rstealcolorcaption
 msgid "Teal"
@@ -1245,7 +1243,7 @@ msgstr "Impossible de charger la police par défaut"
 
 #: lclstrconsts.rsunknownerrorpleasereportthisbug
 msgid "Unknown Error, please report this bug"
-msgstr "Erreur inconnue, rapporter ce bogue svp"
+msgstr "Erreur inconnue, veuillez rapporter ce bogue"
 
 #: lclstrconsts.rsunknownpictureextension
 msgid "Unknown picture extension"
@@ -1261,11 +1259,11 @@ msgstr "Format de bitmap non supporté."
 
 #: lclstrconsts.rsunsupportedclipboardformat
 msgid "Unsupported clipboard format: %s"
-msgstr "Format %s de presse-papiers non supporté"
+msgstr "Format %s de presse-papier non supporté"
 
 #: lclstrconsts.rswarningunreleaseddcsdump
 msgid " WARNING: There are %d unreleased DCs, a detailed dump follows:"
-msgstr " ATTENTION : Il y a %d DCs non libres, en voici le détail : "
+msgstr " ATTENTION : Il y a %d DCs non libres, en voici le détail :"
 
 #: lclstrconsts.rswarningunreleasedgdiobjectsdump
 msgid " WARNING: There are %d unreleased GDIObjects, a detailed dump follows:"
@@ -1329,7 +1327,7 @@ msgstr "Création d'action incorrecte"
 
 #: lclstrconsts.sinvalidactionenumeration
 msgid "Invalid action enumeration"
-msgstr "Enumération d'action incorrecte"
+msgstr "Énumération d'action incorrecte"
 
 #: lclstrconsts.sinvalidactionregistration
 msgid "Invalid action registration"
@@ -1341,7 +1339,7 @@ msgstr "Déréférencement d'action incorrecte"
 
 #: lclstrconsts.sinvalidcharset
 msgid "The char set in mask \"%s\" is not valid!"
-msgstr "Le caractère placédans le masque \"%s\" est incorrect !"
+msgstr "Le caractère placé dans le masque \"%s\" est incorrect !"
 
 #: lclstrconsts.sinvalidimagesize
 msgid "Invalid image size"
@@ -1361,7 +1359,7 @@ msgstr "Index de menu hors limites"
 
 #: lclstrconsts.smenuitemisnil
 msgid "MenuItem is nil"
-msgstr "MenuItem n'est pas assigné (nil)"
+msgstr "\"MenuItem\" n'est pas assigné (nil)"
 
 #: lclstrconsts.smenunotfound
 msgid "Sub-menu is not in menu"
@@ -1381,7 +1379,7 @@ msgstr "Ctrl+"
 
 #: lclstrconsts.smkcdel
 msgid "Del"
-msgstr "Sup"
+msgstr "Suppr"
 
 #: lclstrconsts.smkcdown
 msgctxt "lclstrconsts.smkcdown"
@@ -1399,7 +1397,7 @@ msgstr "Entrée"
 
 #: lclstrconsts.smkcesc
 msgid "Esc"
-msgstr "Echap"
+msgstr "Échap"
 
 #: lclstrconsts.smkchome
 msgctxt "lclstrconsts.smkchome"
@@ -1452,19 +1450,19 @@ msgstr "Haut"
 
 #: lclstrconsts.snomdiform
 msgid "No MDI form present."
-msgstr "Aucune fiche MDI présente"
+msgstr "Aucune fiche MDI présente."
 
 #: lclstrconsts.snotimers
 msgid "No timers available"
-msgstr "Aucun temporisateur disponible"
+msgstr "Aucun temporisateur disponible \"timer\")"
 
 #: lclstrconsts.sparentrequired
 msgid "Control \"%s\" has no parent window."
-msgstr "Le contrôle \"%s\" n'a pas de fenêtre parent"
+msgstr "Le contrôle \"%s\" n'a pas de fenêtre parent."
 
 #: lclstrconsts.sparexpected
 msgid "Wrong token type: %s expected"
-msgstr "Mauvais type d'identificateur: %s attendu"
+msgstr "Mauvais type d'identificateur : %s attendu"
 
 #: lclstrconsts.sparinvalidfloat
 msgid "Invalid floating point number: %s"
@@ -1493,4 +1491,66 @@ msgstr "Mauvais symbole d'identificateur : %s attendu mais %s trouvé"
 #: lclstrconsts.sparwrongtokentype
 msgid "Wrong token type: %s expected but %s found"
 msgstr "Mauvais type d'identificateur : %s attendu mais %s trouvé"
+
+#: lclstrconsts.sshellctrlsbytes
+msgid "%s bytes"
+msgstr "%s octets"
+
+#: lclstrconsts.sshellctrlsinvalidpath
+msgctxt "lclstrconsts.sshellctrlsinvalidpath"
+msgid ""
+"Invalid pathname:\n"
+"\"%s\"\n"
+msgstr ""
+"Nom de chemin incorrect :\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlsinvalidpathrelative
+msgid ""
+"Invalid relative pathname:\n"
+"\"%s\"\n"
+"in relation to rootpath:\n"
+"\"%s\"\n"
+msgstr ""
+"Nom de chemin relatif incorrect :\n"
+"\"%s\"\n"
+"en relation avec le chemin de la racine :\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlsinvalidroot
+msgctxt "lclstrconsts.sshellctrlsinvalidroot"
+msgid ""
+"Invalid pathname:\n"
+"\"%s\"\n"
+msgstr ""
+"Nom de chemin incorrect :\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlskb
+msgid "%s kB"
+msgstr "%s kB"
+
+#: lclstrconsts.sshellctrlsmb
+msgid "%s MB"
+msgstr "%s MB"
+
+#: lclstrconsts.sshellctrlsname
+msgid "Name"
+msgstr "Nom"
+
+#: lclstrconsts.sshellctrlsselecteditemdoesnotexists
+msgid ""
+"The selected item does not exist on disk:\n"
+"\"%s\"\n"
+msgstr ""
+"L'élément choisi n'existe pas sur le disque :\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlssize
+msgid "Size"
+msgstr "Taille"
+
+#: lclstrconsts.sshellctrlstype
+msgid "Type"
+msgstr "Type"
 

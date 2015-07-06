@@ -31,7 +31,7 @@ type
     ToolButton4: TToolButton;
     tbImport: TToolButton;
     procedure lvHistoryDblClick(Sender: TObject);
-    procedure lvHistorySelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
+    procedure lvHistorySelectItem(Sender: TObject; {%H-}Item: TListItem; {%H-}Selected: Boolean);
     procedure tbClearClick(Sender: TObject);
     procedure tbHistClick(Sender: TObject);
     procedure tbHistorySelectedClick(Sender: TObject);
@@ -362,6 +362,11 @@ begin
   for i := low(COL_WIDTHS) to high(COL_WIDTHS) do
     lvHistory.Column[i].Width := COL_WIDTHS[i];
 
+  OpenDialog1.Title := lisImport;
+  SaveDialog1.Title := lisExport;
+
+  OpenDialog1.Filter := Format('%s|*.xml|%s|*.*|', [dlgFilterXML, dlgFilterAll]);
+  SaveDialog1.Filter := OpenDialog1.Filter;
 end;
 
 initialization

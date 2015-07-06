@@ -38,8 +38,8 @@ unit BreakPointsDlg;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Dialogs,
-  IDEWindowIntf, DebuggerStrConst, Menus, ComCtrls, IDEProcs, Debugger, DebuggerDlg, ActnList, MainBase,
+  Classes, SysUtils, LazFileUtils, Forms, Controls, Dialogs,
+  IDEWindowIntf, DebuggerStrConst, Menus, ComCtrls, Debugger, DebuggerDlg, ActnList, MainBase,
   IDEImagesIntf, DbgIntfDebuggerBase, DbgIntfMiscClasses, SourceEditor, MainIntf;
 
 type
@@ -114,7 +114,7 @@ type
     procedure BreakpointsDlgCREATE(Sender: TObject);
     procedure lvBreakPointsClick(Sender: TObject);
     procedure lvBreakPointsDBLCLICK(Sender: TObject);
-    procedure lvBreakPointsSelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
+    procedure lvBreakPointsSelectItem(Sender: TObject; {%H-}Item: TListItem; {%H-}Selected: Boolean);
     procedure mnuPopupPopup(Sender: TObject);
     procedure popDeleteAllSameSourceCLICK(Sender: TObject);
     procedure popDisableAllSameSourceCLICK(Sender: TObject);
@@ -129,11 +129,11 @@ type
     FBaseDirectory: string;
     FStates: TBreakPointsDlgStates;
     FLockActionUpdate: Integer;
-    procedure BreakPointAdd(const ASender: TIDEBreakPoints;
+    procedure BreakPointAdd(const {%H-}ASender: TIDEBreakPoints;
                             const ABreakpoint: TIDEBreakPoint);
     procedure BreakPointUpdate(const ASender: TIDEBreakPoints;
                                const ABreakpoint: TIDEBreakPoint);
-    procedure BreakPointRemove(const ASender: TIDEBreakPoints;
+    procedure BreakPointRemove(const {%H-}ASender: TIDEBreakPoints;
                                const ABreakpoint: TIDEBreakPoint);
     procedure SetBaseDirectory(const AValue: string);
     procedure popSetGroupItemClick(Sender: TObject);
@@ -874,6 +874,7 @@ begin
         case ABreakpoint.WatchScope of
           wpsGlobal: s:= lisWatchScopeGlobal;
           wpsLocal:  s:= lisWatchScopeLocal;
+          else s := '';
         end;
         s := s +' / ';
         case ABreakpoint.WatchKind of

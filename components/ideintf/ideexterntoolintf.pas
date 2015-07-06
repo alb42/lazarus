@@ -411,13 +411,14 @@ type
   TExtToolViewClass = class of TExtToolView;
 
   TExternalToolStage = (
-    etsInit,
+    etsInit,            // just created, set your parameters, then call Execute
+    etsInitializing,    // set in Execute, during resolving macros
     etsWaitingForStart, // waiting for a process slot
-    etsStarting,      // creating the process
-    etsRunning,
-    etsWaitingForStop,
-    etsStopped,
-    etsDestroying
+    etsStarting,        // creating the thread and process
+    etsRunning,         // process started
+    etsWaitingForStop,  // waiting for process to stop
+    etsStopped,         // process has stopped
+    etsDestroying       // during destructor
     );
   TExternalToolStages = set of TExternalToolStage;
 
@@ -447,6 +448,7 @@ type
     FFreeData: boolean;
     FGroup: TExternalToolGroup;
     FHint: string;
+    FReadStdOutBeforeErr: boolean;
     FResolveMacrosOnExecute: boolean;
     FThread: TThread;
     FWorkerDirectory: string;
@@ -530,6 +532,7 @@ type
     property Terminated: boolean read FTerminated;
     property ExitStatus: integer read FExitStatus write FExitStatus;
     property ErrorMessage: string read FErrorMessage write FErrorMessage; // error executing tool
+    property ReadStdOutBeforeErr: boolean read FReadStdOutBeforeErr write FReadStdOutBeforeErr;
 
     // output
     property WorkerOutput: TStrings read FWorkerOutput; // the raw output
@@ -1149,6 +1152,9 @@ destructor TAbstractExternalTool.Destroy;
 var
   h: TExternalToolHandler;
 begin
+  {$IFDEF VerboseCheckInterPkgFiles}
+  debugln(['TAbstractExternalTool.Destroy ',Title]);
+  {$ENDIF}
   EnterCriticalSection;
   try
     if FreeData then FreeAndNil(FData);

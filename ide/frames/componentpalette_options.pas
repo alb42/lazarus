@@ -25,10 +25,10 @@ unit componentpalette_options;
 interface
 
 uses
-  Classes, SysUtils, fgl, Graphics, Forms, Controls, StdCtrls, Dialogs, Buttons,
+  Classes, SysUtils, Graphics, Forms, Controls, StdCtrls, Dialogs, Buttons,
   ComCtrls, ExtCtrls, FileUtil, LCLProc, LCLType, Menus, IDEProcs, Laz2_XMLCfg,
-  LazConfigStorage, EnvironmentOpts, LazarusIDEStrConsts, IDEOptionsIntf,
-  IDEImagesIntf, DividerBevel, ComponentReg, ComponentPalette, IDEOptionDefs,
+  EnvironmentOpts, LazarusIDEStrConsts, IDEOptionsIntf,
+  IDEImagesIntf, DividerBevel, ComponentReg, IDEOptionDefs,
   PackageDefs;
 
 type
@@ -36,16 +36,15 @@ type
 
   TCompPaletteOptionsFrame = class(TAbstractIDEOptionsEditor)
     AddPageButton: TBitBtn;
+    cbPaletteVisible: TCheckBox;
     ImportButton: TBitBtn;
     ComponentsListView: TListView;
     CompMoveDownBtn: TSpeedButton;
     DeleteMenuItem: TMenuItem;
     RenameMenuItem: TMenuItem;
     PagesPopupMenu: TPopupMenu;
-    RecentLabel: TLabel;
     ExportButton: TBitBtn;
     ImportDividerBevel: TDividerBevel;
-    RecentButton: TButton;
     ImportDialog: TOpenDialog;
     PageMoveDownBtn: TSpeedButton;
     CompMoveUpBtn: TSpeedButton;
@@ -58,16 +57,16 @@ type
     Splitter1: TSplitter;
     procedure AddPageButtonClick(Sender: TObject);
     procedure ComponentsListViewChange(Sender: TObject; Item: TListItem;
-      Change: TItemChange);
+      {%H-}Change: TItemChange);
     procedure ComponentsListViewClick(Sender: TObject);
     procedure ComponentsListViewCustomDraw(Sender: TCustomListView;
-      const ARect: TRect; var DefaultDraw: Boolean);
+      const {%H-}ARect: TRect; var {%H-}DefaultDraw: Boolean);
     procedure ComponentsListViewCustomDrawItem(Sender: TCustomListView;
-      Item: TListItem; State: TCustomDrawState; var DefaultDraw: Boolean);
+      Item: TListItem; {%H-}State: TCustomDrawState; var {%H-}DefaultDraw: Boolean);
     procedure ComponentsListViewDragDrop(Sender, Source: TObject; X, Y: Integer);
-    procedure ComponentsListViewDragOver(Sender, Source: TObject; X, Y: Integer;
-      State: TDragState; var Accept: Boolean);
-    procedure ComponentsListViewItemChecked(Sender: TObject; Item: TListItem);
+    procedure ComponentsListViewDragOver(Sender, Source: TObject; {%H-}X, {%H-}Y: Integer;
+      {%H-}State: TDragState; var Accept: Boolean);
+    procedure ComponentsListViewItemChecked(Sender: TObject; {%H-}Item: TListItem);
     procedure ComponentsListViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure CompMoveDownBtnClick(Sender: TObject);
     procedure ImportButtonClick(Sender: TObject);
@@ -77,9 +76,9 @@ type
     procedure PageMoveUpBtnClick(Sender: TObject);
     procedure PagesListBoxDragDrop(Sender, Source: TObject; X, Y: Integer);
     procedure PagesListBoxDragOver(Sender, Source: TObject; X, Y: Integer;
-      State: TDragState; var Accept: Boolean);
+      {%H-}State: TDragState; var Accept: Boolean);
     procedure PagesListBoxKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure PagesListBoxSelectionChange(Sender: TObject; User: boolean);
+    procedure PagesListBoxSelectionChange(Sender: TObject; {%H-}User: boolean);
     procedure PagesPopupMenuPopup(Sender: TObject);
     procedure RestoreButtonClick(Sender: TObject);
     procedure DeleteMenuItemClick(Sender: TObject);
@@ -117,6 +116,8 @@ type
 
 implementation
 
+uses MainBar;
+
 {$R *.lfm}
 
 { TCompPaletteOptionsFrame }
@@ -147,6 +148,7 @@ end;
 procedure TCompPaletteOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
   fDialog := ADialog;
+  cbPaletteVisible.Caption := lisCmpPaletteVisible;
   // Component pages
   PagesGroupBox.Caption := lisCmpPages;
   AddPageButton.Caption := lisBtnDlgAdd;
@@ -159,7 +161,7 @@ begin
   ExportButton.Caption := lisDlgExport;
   // File dialogs
   ImportDialog.Title := lisImport;
-  ImportDialog.Filter := 'XML file (*.xml)|*.xml|All files (*)|*';
+  ImportDialog.Filter := Format('%s|*.xml|%s|%s|', [dlgFilterXML, dlgFilterAll, GetAllFilesMask]);
   ExportDialog.Title := lisExport;
   ExportDialog.Filter := ImportDialog.Filter;
   // Components in one page
@@ -185,9 +187,13 @@ begin
 end;
 
 procedure TCompPaletteOptionsFrame.ReadSettings(AOptions: TAbstractIDEOptions);
+var
+  Opts: TCompPaletteOptions;
 begin
-  fLocalOptions.Assign((AOptions as TEnvironmentOptions).ComponentPaletteOptions);
-  fLocalUserOrder.Options:=fLocalOptions;
+  Opts := (AOptions as TEnvironmentOptions).Desktop.ComponentPaletteOptions;
+  fLocalOptions.Assign(Opts);
+  fLocalUserOrder.Options := fLocalOptions;
+  cbPaletteVisible.Checked := Opts.Visible;
   ActualReadSettings;
 end;
 
@@ -202,9 +208,15 @@ begin
 end;
 
 procedure TCompPaletteOptionsFrame.WriteSettings(AOptions: TAbstractIDEOptions);
+var
+  Opts: TCompPaletteOptions;
 begin
+  Opts := (AOptions as TEnvironmentOptions).Desktop.ComponentPaletteOptions;
+  Opts.Visible := cbPaletteVisible.Checked;
+  MainIDEBar.DoSetViewComponentPalette(cbPaletteVisible.Checked);
   if not fConfigChanged then Exit;
-  ActualWriteSettings((AOptions as TEnvironmentOptions).ComponentPaletteOptions);
+  ActualWriteSettings(Opts);
+  IDEComponentPalette.Update(True);
   IDEComponentPalette.IncChangeStamp;
 end;
 
@@ -792,7 +804,7 @@ begin
     XMLConfig := OpenXML(ImportDialog.Filename);
     if Assigned(XMLConfig) then
     try
-      fLocalOptions.Load(XMLConfig);
+      fLocalOptions.Load(XMLConfig, '');
       ActualReadSettings;                  // Read from options to GUI.
       ShowMessageFmt(lisSuccessfullyImported, [ImportDialog.Filename]);
       fConfigChanged := True;
@@ -812,7 +824,7 @@ begin
     if Assigned(XMLConfig) then
     try
       ActualWriteSettings(fLocalOptions);  // Write from GUI to options.
-      fLocalOptions.Save(XMLConfig);
+      fLocalOptions.Save(XMLConfig, '');
       ShowMessageFmt(lisSuccessfullyExported, [ExportDialog.Filename]);
     finally
       XMLConfig.Free;

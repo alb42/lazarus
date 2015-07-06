@@ -30,9 +30,9 @@ unit etMessagesWnd;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, LazConfigStorage, IDEMsgIntf, IDEImagesIntf,
-  IDEExternToolIntf, LazIDEIntf, SrcEditorIntf, BaseIDEIntf, SynEditMarks,
-  Forms, Controls, Graphics, Dialogs, LCLProc, etMessageFrame, etSrcEditMarks,
+  Classes, SysUtils, FileUtil, IDEMsgIntf, IDEImagesIntf, IDEOptionDefs,
+  IDEExternToolIntf, LazIDEIntf, SynEditMarks,
+  Forms, Controls, Graphics, Dialogs, LCLProc, etMessageFrame,
   etQuickFixes, LazarusIDEStrConsts;
 
 type
@@ -96,6 +96,7 @@ implementation
 
 procedure TMessagesView.FormCreate(Sender: TObject);
 begin
+  Name := NonModalIDEWindowNames[nmiwMessagesViewName];
   IDEMessagesWindow:=Self;
   Caption:=lisMenuViewMessages;
   try
@@ -220,6 +221,7 @@ function TMessagesView.CreateView(aCaptionPrefix: string): TExtToolView;
 var
   i: Integer;
 begin
+  Result:=nil;
   if TryCaption(aCaptionPrefix,Result) then exit;
   if (aCaptionPrefix<>'') and (aCaptionPrefix[length(aCaptionPrefix)] in ['0'..'9'])
   then

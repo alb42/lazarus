@@ -32,8 +32,8 @@ unit TabOrderDlg;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Dialogs, Buttons, ComCtrls,
-  LCLType, PropEdits, IDEDialogs, LazarusIDEStrConsts;
+  Classes, SysUtils, Forms, Controls, Dialogs, Buttons, ComCtrls, IDEOptionDefs,
+  LCLType, LCLProc, PropEdits, IDEDialogs, LazarusIDEStrConsts, AvgLvlTree;
 
 type
 
@@ -47,20 +47,22 @@ type
     procedure SortByPositionButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure ItemTreeviewClick(Sender: TObject);
-    procedure TabOrderDialogCREATE(Sender: TObject);
-    procedure UpSpeedbuttonCLICK(Sender: TObject);
-    procedure DownSpeedbuttonCLICK(Sender: TObject);
+    procedure TabOrderDialogCreate(Sender: TObject);
+    procedure UpSpeedbuttonClick(Sender: TObject);
+    procedure DownSpeedbuttonClick(Sender: TObject);
     procedure ItemTreeviewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   private
     FUpdating: Boolean;
     procedure SwapNodes(ANode1, ANode2, NewSelected: TTreeNode);
     procedure CheckButtonsEnabled;
-    procedure CreateNodes(ParentControl: TWinControl; ParentNode: TTreeNode);
+    procedure CreateCandidates(OwnerComponent: TComponent; Candidates: TAvgLvlTree);
+    procedure CreateNodes(ParentControl: TWinControl; ParentNode: TTreeNode;
+      Candidates: TAvgLvlTree);
     procedure RefreshTree;
     procedure OnSomethingChanged;
-    procedure OnPersistentAdded(APersistent: TPersistent; Select: boolean);
-    procedure OnPersistentDeleting(APersistent: TPersistent);
-    procedure OnDeletePersistent(var APersistent: TPersistent);
+    procedure OnPersistentAdded({%H-}APersistent: TPersistent; {%H-}Select: boolean);
+    procedure OnPersistentDeleting({%H-}APersistent: TPersistent);
+    procedure OnDeletePersistent(var {%H-}APersistent: TPersistent);
     procedure OnSetSelection(const ASelection: TPersistentSelectionList);
   end;
 
@@ -119,8 +121,10 @@ end;
 
 { TTabOrderDialog }
 
-procedure TTabOrderDialog.TabOrderDialogCREATE(Sender: TObject);
+procedure TTabOrderDialog.TabOrderDialogCreate(Sender: TObject);
 begin
+  Name := NonModalIDEWindowNames[nmiwTabOrderEditor];
+
   GlobalDesignHook.AddHandlerChangeLookupRoot(@OnSomethingChanged);
   GlobalDesignHook.AddHandlerRefreshPropertyValues(@OnSomethingChanged);
   GlobalDesignHook.AddHandlerPersistentAdded(@OnPersistentAdded);
@@ -200,7 +204,7 @@ begin
   CheckButtonsEnabled;
 end;
 
-procedure TTabOrderDialog.UpSpeedbuttonCLICK(Sender: TObject);
+procedure TTabOrderDialog.UpSpeedbuttonClick(Sender: TObject);
 var
   CurItem, NewItem: TTreeNode;
 begin
@@ -210,7 +214,7 @@ begin
   SwapNodes(NewItem, CurItem, CurItem);
 end;
 
-procedure TTabOrderDialog.DownSpeedbuttonCLICK(Sender: TObject);
+procedure TTabOrderDialog.DownSpeedbuttonClick(Sender: TObject);
 var
   CurItem, NewItem: TTreeNode;
 begin
@@ -279,7 +283,32 @@ begin
   SortByPositionButton.Enabled := Assigned(ItemTreeview.Items.GetFirstNode);
 end;
 
-procedure TTabOrderDialog.CreateNodes(ParentControl: TWinControl; ParentNode: TTreeNode);
+procedure TTabOrderDialog.CreateCandidates(OwnerComponent: TComponent;
+  Candidates: TAvgLvlTree);
+var
+  i: Integer;
+  AComponent: TComponent;
+begin
+  if OwnerComponent = nil then Exit;
+  if csDestroying in OwnerComponent.ComponentState then exit;
+  for i := 0 to OwnerComponent.ComponentCount - 1 do
+  begin
+    AComponent := OwnerComponent.Components[i];
+    if csDestroying in AComponent.ComponentState then continue;
+    if Candidates.Find(AComponent)<>nil then
+    begin
+      DebugLn('WARNING: TTabOrderDialog.CreateCandidates doppelganger found ', AComponent.Name);
+    end
+    else
+    begin
+      Candidates.Add(AComponent);
+      if csInline in AComponent.ComponentState then
+        CreateCandidates(AComponent, Candidates);
+    end;
+  end;
+end;
+
+procedure TTabOrderDialog.CreateNodes(ParentControl: TWinControl; ParentNode: TTreeNode; Candidates: TAvgLvlTree);
 // Add all controls in Designer to ItemTreeview.
 var
   AControl: TControl;
@@ -299,7 +328,9 @@ begin
   begin
     AControl := ParentControl.Controls[i];
     // skip non TWinControls and invisible form designer controls
-    if not (AControl is TWinControl) or (csNoDesignVisible in AControl.ControlStyle) then
+    if not (AControl is TWinControl) or (csNoDesignVisible in AControl.ControlStyle) or
+      not Assigned(Candidates.Find(AControl))
+    then
       continue;
     AWinControl := TWinControl(AControl);
     CurTab      := AWinControl.TabOrder;
@@ -313,7 +344,7 @@ begin
       NewNode := ItemTreeview.Items.AddChildObject(ParentNode, NodeText, AControl);
     if (FirstSibling = nil) or (NewNode.GetPrevSibling = nil) then
       FirstSibling := NewNode;
-    CreateNodes(AWinControl, NewNode);
+    CreateNodes(AWinControl, NewNode, Candidates);
     NewNode.Expanded := True;
   end;
   ItemTreeview.EndUpdate;
@@ -322,6 +353,7 @@ end;
 procedure TTabOrderDialog.RefreshTree;
 var
   LookupRoot: TPersistent;
+  Candidates: TAvgLvlTree;
 begin
   if IsVisible and not FUpdating then
   begin
@@ -331,9 +363,16 @@ begin
       ItemTreeview.Items.Clear;
       LookupRoot := GlobalDesignHook.LookupRoot;
       if Assigned(LookupRoot) and (LookupRoot is TWinControl) then begin
-        CreateNodes(TWinControl(LookupRoot), nil);
+        Candidates := TAvgLvlTree.Create;
+        try
+          CreateCandidates(TComponent(LookupRoot), Candidates);
+          CreateNodes(TWinControl(LookupRoot), nil, Candidates);
+        finally
+          Candidates.Free;
+        end;
         Caption := Format(lisTabOrderOf, [TWinControl(LookupRoot).Name]);
-      end;
+      end else
+        Caption := lisMenuViewTabOrder;
     finally
       ItemTreeview.EndUpdate;
       FUpdating := false;

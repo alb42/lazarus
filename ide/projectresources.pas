@@ -37,12 +37,11 @@ unit ProjectResources;
 interface
 
 uses
-  Classes, SysUtils, Contnrs, Controls, LCLProc, LResources, FileUtil,
+  Classes, SysUtils, Contnrs, Controls, LCLProc, LResources, LazFileUtils,
   Dialogs, AvgLvlTree, Laz2_XMLCfg, resource, reswriter,
   KeywordFuncLists, BasicCodeTools, CodeToolManager, CodeCache,
   ProjectIntf, ProjectResourcesIntf, CompOptsIntf,
-  LazarusIDEStrConsts,
-  IDEProcs, DialogProcs,
+  LazarusIDEStrConsts, IDEProcs, DialogProcs,
   W32Manifest, W32VersionInfo, ProjectIcon, ProjectUserResources;
 
 type
@@ -778,13 +777,12 @@ function TProjectResources.Save(SaveToTestDir: string): Boolean;
     CodeBuf: TCodeBuffer;
     TestFilename: String;
   begin
+    Result := True;
     CodeBuf := CodeToolBoss.FindFile(Filename);
-    if (CodeBuf = nil) or CodeBuf.IsDeleted then
-      Exit(True);
+    if (CodeBuf = nil) or CodeBuf.IsDeleted then Exit;
     if not CodeBuf.IsVirtual then
-    begin
-      Result := SaveCodeBuffer(CodeBuf) in [mrOk,mrIgnore];
-    end else if SaveToTestDir<>'' then
+      Result := SaveCodeBuffer(CodeBuf) in [mrOk,mrIgnore]
+    else if SaveToTestDir<>'' then
     begin
       TestFilename := AppendPathDelim(SaveToTestDir) + CodeBuf.Filename;
       Result := SaveCodeBufferToFile(CodeBuf, TestFilename) in [mrOk, mrIgnore];

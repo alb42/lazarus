@@ -30,11 +30,11 @@ unit IDEInfoDlg;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ComCtrls, LCLProc, LazHelpHTML, LazHelpIntf, DefineTemplates, CodeToolManager,
-  EnvironmentOpts, AboutFrm, LazConf, IDEHelpIntf, IDEWindowIntf, LazIDEIntf,
-  LazarusIDEStrConsts, Project, SourceEditor, InitialSetupProc, PackageSystem,
-  PackageDefs;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls,
+  LCLProc, LazFileUtils, LazUTF8, IDEHelpIntf, IDEWindowIntf, LazIDEIntf, LazHelpIntf,
+  LazHelpHTML, DefineTemplates, CodeToolManager, EnvironmentOpts, AboutFrm,
+  LazConf, LazarusIDEStrConsts,
+  Project, SourceEditor, InitialSetupProc, PackageSystem, PackageDefs;
 
 type
 
@@ -48,7 +48,7 @@ type
     GeneralTabSheet: TTabSheet;
     ModifiedTabSheet: TTabSheet;
     HelpTabSheet: TTabSheet;
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
   private
     // general
@@ -192,8 +192,6 @@ begin
 end;
 
 procedure TIDEInfoDialog.GatherIDEVersion(sl: TStrings);
-const
-  LazarusVersionStr= {$I version.inc};
 begin
   sl.Add('Lazarus version: '+GetLazarusVersionString);
   sl.Add('Lazarus svn revision: '+LazarusRevisionStr);

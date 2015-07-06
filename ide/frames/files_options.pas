@@ -29,9 +29,8 @@ unit files_options;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, FileUtil, CodeToolManager, DefineTemplates, Forms,
-  StdCtrls, Dialogs, Controls, Spin, EnvironmentOpts, MacroIntf,
-  IDEOptionsIntf, IDEDialogs,
+  SysUtils, StdCtrls, Dialogs, Controls, Spin, FileUtil, LazFileUtils,
+  EnvironmentOpts, CodeToolManager, DefineTemplates, IDEOptionsIntf, IDEDialogs,
   LazarusIDEStrConsts, InputHistory, LazConf, IDEProcs,
   IDEUtils, InitialSetupProc, DialogProcs;
 
@@ -97,7 +96,7 @@ type
   public
     function Check: Boolean; override;
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     procedure RestoreSettings(AOptions: TAbstractIDEOptions); override;
@@ -156,7 +155,7 @@ begin
     InputHistories.ApplyFileDialogSettings(OpenDialog);
     OpenDialog.Options:=OpenDialog.Options+[ofPathMustExist];
     OpenDialog.Title:=lisChooseCompilerMessages;
-    OpenDialog.Filter:=lisFPCMessageFile+' (*.msg)|*.msg|'+dlgAllFiles+'|'+
+    OpenDialog.Filter:=dlgFilterFPCMessageFile+' (*.msg)|*.msg|'+dlgFilterAll+'|'+
       GetAllFilesMask;
     if OpenDialog.Execute then begin
       AFilename:=CleanAndExpandFilename(OpenDialog.Filename);

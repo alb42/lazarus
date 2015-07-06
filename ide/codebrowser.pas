@@ -49,16 +49,16 @@ uses
   Dialogs, Clipbrd, LCLIntf, AVL_Tree, StdCtrls, ExtCtrls, ComCtrls, Buttons,
   Menus, HelpIntfs,
   // codetools
-  CodeAtom, BasicCodeTools, DefineTemplates, CodeTree, CodeCache,
+  BasicCodeTools, DefineTemplates, CodeTree, CodeCache,
   CodeToolsStructs, CodeToolManager, PascalParserTool, LinkScanner, FileProcs,
   CodeIndex, StdCodeTools, SourceLog, CustomCodeTool,
   // IDEIntf
   IDEWindowIntf, SrcEditorIntf, IDEMsgIntf, IDEDialogs, LazConfigStorage,
-  IDEHelpIntf, PackageIntf, TextTools, IDECommands, LazIDEIntf,
+  IDEHelpIntf, PackageIntf, IDECommands, LazIDEIntf,
   IDEExternToolIntf,
   // IDE
   Project, DialogProcs, PackageSystem, PackageDefs, LazarusIDEStrConsts,
-  IDEOptionDefs, etFPCMsgParser, BasePkgManager, AddToProjectDlg,
+  IDEOptionDefs, etFPCMsgParser, BasePkgManager,
   EnvironmentOpts;
 
 
@@ -217,14 +217,14 @@ type
     UnitFilterBeginsSpeedButton: TSpeedButton;
     UnitFilterContainsSpeedButton: TSpeedButton;
     UnitFilterEdit: TEdit;
-    procedure BrowseTreeViewMouseMove(Sender: TObject; Shift: TShiftState; X,
-      Y: Integer);
+    procedure BrowseTreeViewMouseMove(Sender: TObject; {%H-}Shift: TShiftState; {%H-}X,
+      {%H-}Y: Integer);
     procedure FormDeactivate(Sender: TObject);
     procedure UseIdentifierInCurUnitMenuItemClick(Sender: TObject);
     procedure UsePkgInCurUnitMenuItemClick(Sender: TObject);
     procedure UsePkgInProjectMenuItemClick(Sender: TObject);
     procedure UseUnitInCurUnitMenuItemClick(Sender: TObject);
-    procedure BrowseTreeViewMouseDown(Sender: TOBject; Button: TMouseButton;
+    procedure BrowseTreeViewMouseDown(Sender: TOBject; {%H-}Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure BrowseTreeViewShowHint(Sender: TObject; HintInfo: PHintInfo);
     procedure CollapseAllPackagesMenuItemClick(Sender: TObject);
@@ -383,7 +383,7 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out Identifier: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 var
   CodeBrowserView: TCodeBrowserView = nil;
@@ -468,7 +468,7 @@ begin
   Name:=NonModalIDEWindowNames[nmiwCodeBrowser];
   Caption:=lisCodeBrowser;
 
-  ScopeGroupBox.Caption:=dlgScope;
+  ScopeGroupBox.Caption:=dlgSearchScope;
   ScopeWithRequiredPackagesCheckBox.Caption:=lisWithRequiredPackages;
   RescanButton.Caption:=lisRescan;
   LevelsGroupBox.Caption:=lisLevels;
@@ -1844,13 +1844,12 @@ begin
     exit;
   end;
   fLastStatusBarUpdate:=Now;
-  s:='packages='+BigIntToStr(VisiblePackages)+'/'+BigIntToStr(ScannedPackages)
-    +' units='+BigIntToStr(VisibleUnits)+'/'+BigIntToStr(ScannedUnits)
-    +' identifiers='+BigIntToStr(VisibleIdentifiers)+'/'+BigIntToStr(ScannedIdentifiers)
-    +' lines='+BigIntToStr(ScannedLines)
-    +' bytes='+BigIntToStr(ScannedBytes);
+  s:=Format(lisPackagesUnitsIdentifiersLinesBytes, [BigIntToStr(VisiblePackages)
+    , BigIntToStr(ScannedPackages), BigIntToStr(VisibleUnits), BigIntToStr(
+    ScannedUnits), BigIntToStr(VisibleIdentifiers), BigIntToStr(
+    ScannedIdentifiers), BigIntToStr(ScannedLines), BigIntToStr(ScannedBytes)]);
   if fStage<>cbwsFinished then
-    s:=s+'. Scanning ...';
+    s:=Format(lisScanning2, [s]);
   StatusBar1.SimpleText:=s;
 end;
 
@@ -1878,8 +1877,6 @@ procedure TCodeBrowserView.GetNodeIdentifier(Tool: TStandardCodeTool;
       Result:=LeftStr(Result, MAX_LEN)+'...';
   end;
 
-const
-  NodeFlags = [];
 begin
   if CTNode.StartPos>=CTNode.EndPos then begin
     Identifier:='';
@@ -1955,7 +1952,8 @@ begin
         case CTNode.FirstChild.Desc of
         ctnClass,ctnClassInterface,ctnObject,
         ctnObjCClass,ctnObjCCategory,ctnObjCProtocol,
-        ctnCPPClass:
+        ctnCPPClass,
+        ctnClassHelper,ctnRecordHelper,ctnTypeHelper:
           begin
             case CTNode.FirstChild.Desc of
             ctnClassInterface:
@@ -1970,6 +1968,12 @@ begin
               Description:=Description+' = objcprotocol';
             ctnCPPClass:
               Description:=Description+' = cppclass';
+            ctnClassHelper:
+              Description:=Description+' = class helper';
+            ctnRecordHelper:
+              Description:=Description+' = record helper';
+            ctnTypeHelper:
+              Description:=Description+' = type helper';
             else
               Description:=Description+' = class';
             end;

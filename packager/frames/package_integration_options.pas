@@ -5,8 +5,8 @@ unit package_integration_options;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, ExtCtrls, StdCtrls, Dialogs,
-  IDEOptionsIntf, MacroIntf, PackageIntf,
+  Classes, SysUtils, Forms, Controls, ExtCtrls, StdCtrls, Dialogs,
+  LazFileUtils, IDEOptionsIntf, MacroIntf, PackageIntf,
   LazarusIDEStrConsts, PackageDefs, PathEditorDlg, IDEProcs, CodeHelp;
 
 type
@@ -25,8 +25,6 @@ type
     RunTimeOnlyRadioButton: TRadioButton;
     RunTimeRadioButton: TRadioButton;
     UpdateRadioGroup: TRadioGroup;
-    procedure FPDocPackageNameEditEnter(Sender: TObject);
-    procedure FPDocPackageNameEditExit(Sender: TObject);
     procedure PkgTypeGroupBoxClick(Sender: TObject);
   private
     FLazPackage: TLazPackage;
@@ -40,7 +38,7 @@ type
   public
     function Check: Boolean; override;
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -68,20 +66,6 @@ begin
   end;
 end;
 
-procedure TPackageIntegrationOptionsFrame.FPDocPackageNameEditEnter(Sender: TObject);
-begin
-  if FPDocPackageNameEdit.Text=lisDefaultPlaceholder then
-    FPDocPackageNameEdit.Text:='';
-end;
-
-procedure TPackageIntegrationOptionsFrame.FPDocPackageNameEditExit(Sender: TObject);
-begin
-  if GetFPDocPkgNameEditValue='' then
-    FPDocPackageNameEdit.Text:=lisDefaultPlaceholder
-  else
-    FPDocPackageNameEdit.Text:=GetFPDocPkgNameEditValue;
-end;
-
 function TPackageIntegrationOptionsFrame.GetSelectedPkgType: TLazPackageType;
 begin
   if RunTimeOnlyRadioButton.Checked then
@@ -100,6 +84,7 @@ var
   CurDir: string;
   StartPos, OldStartPos: integer;
   DlgResult: TModalResult;
+  s: String;
 begin
   // check NewPath
   StartPos := 1;
@@ -112,8 +97,11 @@ begin
       FLazPackage.LongenFilename(CurDir);
       if not DirPathExists(CurDir) then
       begin
+        s:=Format(lisDirectoryNotFound, [CurDir]);
+        if Context<>'' then
+          s:=Context+LineEnding+s;
         DlgResult := QuestionDlg(lisEnvOptDlgDirectoryNotFound,
-          Format(lisDirectoryNotFound, [CurDir]),
+          s,
           mtError, [mrIgnore, mrYes, lisRemoveFromSearchPath, mrCancel], 0);
         case DlgResult of
           mrIgnore: ;
@@ -200,10 +188,9 @@ begin
       UpdateRadioGroup.ItemIndex := 2;
   end;
   SetPathTextAndHint(FLazPackage.FPDocPaths, FPDocSearchPathsEdit);
-  if FLazPackage.FPDocPackageName='' then
-    FPDocPackageNameEdit.Text:=lisDefaultPlaceholder
-  else
-    FPDocPackageNameEdit.Text:=FLazPackage.FPDocPackageName;
+
+  FPDocPackageNameEdit.TextHint:=lisDefaultPlaceholder;
+  FPDocPackageNameEdit.Text:=FLazPackage.FPDocPackageName;
 end;
 
 function TPackageIntegrationOptionsFrame.ShowMsgPackageTypeMustBeDesign: boolean;
@@ -222,10 +209,7 @@ end;
 
 function TPackageIntegrationOptionsFrame.GetFPDocPkgNameEditValue: string;
 begin
-  if FPDocPackageNameEdit.Text=lisDefaultPlaceholder then
-    Result:=''
-  else
-    Result:=MakeValidFPDocPackageName(FPDocPackageNameEdit.Text);
+  Result:=MakeValidFPDocPackageName(FPDocPackageNameEdit.Text);
 end;
 
 function TPackageIntegrationOptionsFrame.Check: Boolean;

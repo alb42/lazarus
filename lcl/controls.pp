@@ -1958,6 +1958,7 @@ type
     procedure CalculatePreferredSize(var PreferredWidth,
                                      PreferredHeight: integer;
                                      WithThemeSpace: Boolean); override;
+    procedure GetPreferredSizeClientFrame(out aWidth, aHeight: integer); virtual;
     procedure GetChildren(Proc: TGetChildProc; Root: TComponent); override;
     function ChildClassAllowed(ChildClass: TClass): boolean; override;
     procedure PaintControls(DC: HDC; First: TControl);
@@ -2110,7 +2111,7 @@ type
     property DoubleBuffered: Boolean read FDoubleBuffered write FDoubleBuffered default False;
     property Handle: HWND read GetHandle write SetHandle;
     property IsResizing: Boolean read GetIsResizing;
-    property TabOrder: TTabOrder read GetTabOrder write SetTaborder default -1;
+    property TabOrder: TTabOrder read GetTabOrder write SetTabOrder default -1;
     property TabStop: Boolean read FTabStop write SetTabStop default false;
     property OnAlignInsertBefore: TAlignInsertBeforeEvent read FOnAlignInsertBefore write FOnAlignInsertBefore;
     property OnAlignPosition: TAlignPositionEvent read FOnAlignPosition write FOnAlignPosition;
@@ -2222,6 +2223,7 @@ type
     procedure DoOnChangeBounds; override;
     procedure DoOnParentHandleDestruction; override;
     property OnPaint: TNotifyEvent read FOnPaint write FOnPaint;
+    procedure CMCursorChanged(var Message: TLMessage); message CM_CURSORCHANGED;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -2490,7 +2492,6 @@ type
 
   TMouse = class
   private
-    FCapture: HWND;
     FWheelScrollLines: Integer;
     procedure SetCapture(const Value: HWND);
     function GetCapture: HWND;

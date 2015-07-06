@@ -52,9 +52,6 @@ unit SynEdit;
 
 {$I synedit.inc}
 
-{$ifdef AROS}
-{$DEFINE EnableDoubleBuf}
-{$endif}
 
 {$IFDEF LCLGTK1}
 {$DEFINE EnableDoubleBuf} // gtk1 does not have double buffering
@@ -140,6 +137,8 @@ type
     var Handled: boolean; var Command: TSynEditorCommand;
     FinishComboOnly: Boolean; var ComboKeyStrokes: TSynEditKeyStrokes) of object;
 
+  TSynUndoRedoItemEvent = function (Caller: TObject; Item: TSynEditUndoItem): Boolean of object;
+
   TPaintEvent = procedure(Sender: TObject; ACanvas: TCanvas) of object;
 
   TChangeUpdatingEvent = procedure(ASender: TObject; AnUpdating: Boolean) of object;
@@ -185,13 +184,14 @@ type
 
   TSynStateFlag = (sfCaretChanged, sfHideCursor,
     sfEnsureCursorPos, sfEnsureCursorPosAtResize,
+    sfExplicitTopLine, sfExplicitLeftChar,  // when doing EnsureCursorPos keep top/Left, if they where set explicitly after the caret (only applies before handle creation)
     sfIgnoreNextChar, sfPainting, sfHasPainted, sfHasScrolled,
     sfScrollbarChanged, sfHorizScrollbarVisible, sfVertScrollbarVisible,
     sfAfterLoadFromFileNeeded,
     // Mouse-states
     sfLeftGutterClick, sfRightGutterClick,
-    sfDblClicked, sfTripleClicked, sfQuadClicked,
-    sfWaitForDragging, sfIsDragging, sfWaitForMouseSelecting, sfMouseSelecting, sfMouseDoneSelecting,
+    sfInClick, sfDblClicked, sfTripleClicked, sfQuadClicked,
+    sfWaitForDragging, sfWaitForDraggingNoCaret, sfIsDragging, sfWaitForMouseSelecting, sfMouseSelecting, sfMouseDoneSelecting,
     sfIgnoreUpClick,
     sfSelChanged
     );                                           //mh 2000-10-30
@@ -371,6 +371,13 @@ type
     );
   end;
 
+  { TSynUndoRedoItemHandlerList }
+
+  TSynUndoRedoItemHandlerList = Class(TMethodList)
+  public
+    function CallUndoRedoItemHandlers(Caller: TObject; Item: TSynEditUndoItem): Boolean;
+  end;
+
   { TLazSynMouseDownEventList }
 
   TLazSynMouseDownEventList = Class(TMethodList)
@@ -515,6 +522,10 @@ type
     FBookMarks: array[0..9] of TSynEditMark;
     fMouseDownX: integer;
     fMouseDownY: integer;
+    FMouseDownButton: TMouseButton;
+    FMouseDownShift: TShiftState;
+    FConfirmMouseDownMatchAct: TSynEditMouseAction;
+    FConfirmMouseDownMatchFound: Boolean;
     fBookMarkOpt: TSynBookMarkOpt;
     FMouseWheelAccumulator, FMouseWheelLinesAccumulator: integer;
     fHideSelection: boolean;
@@ -541,6 +552,7 @@ type
     fTSearch: TSynEditSearch;
     fHookedCommandHandlers: TList;
     FHookedKeyTranslationList: TSynHookedKeyTranslationList;
+    FUndoRedoItemHandlerList: TSynUndoRedoItemHandlerList;
     FMouseDownEventList: TLazSynMouseDownEventList;
     FKeyDownEventList: TLazSynKeyDownEventList;
     FKeyPressEventList: TLazSynKeyPressEventList;
@@ -798,6 +810,8 @@ type
     procedure DragOver(Source: TObject; X, Y: Integer;
       State: TDragState; var Accept: Boolean); override;
     procedure DoOnResize; override;
+    procedure CalculatePreferredSize(var PreferredWidth,
+      PreferredHeight: integer; WithThemeSpace: Boolean); override;
     function  RealGetText: TCaption; override;
     procedure RealSetText(const Value: TCaption); override;
     function GetLines: TStrings; override;
@@ -846,7 +860,7 @@ type
     function DoOnReplaceText(const ASearch, AReplace: string;
       Line, Column: integer): TSynReplaceAction; virtual;
     procedure DoOnStatusChange(Changes: TSynStatusChanges); virtual;
-    property LastMouseCaret: TPoint read FLastMouseCaret write SetLastMouseCaret;
+    property LastMouseCaret: TPoint read FLastMouseCaret write SetLastMouseCaret; // TODO: deprecate? see MouseMove
     function GetSelEnd: integer;                                                 //L505
     function GetSelStart: integer;
     procedure SetSelEnd(const Value: integer);
@@ -982,6 +996,15 @@ type
                                   Index, PhysicalPos: integer): integer;
     function PhysicalLineLength(Line: String; Index: integer): integer;
 
+    (* from SynMemo - NOT recommended to use - Extremly slow code
+       SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
+       Warning: This ignoces trailing spaces (same as in SynMemo). Result may be incorrect.
+       If the caret must be adjusted use      SetTextBetweenPoints()
+    *)
+    function CharIndexToRowCol(Index: integer): TPoint;   experimental; deprecated 'SynMemo compatibility - very slow / SynEdit operates on x/y';
+    function RowColToCharIndex(RowCol: TPoint): integer;  experimental; deprecated 'SynMemo compatibility - very slow / SynEdit operates on x/y';
+    // End "from SynMemo"
+
     // Pixel
     function ScreenColumnToXValue(Col: integer): integer;  // map screen column to screen pixel
     // RowColumnToPixels: Physical coords
@@ -1004,6 +1027,9 @@ type
 
     procedure RegisterKeyTranslationHandler(AHandlerProc: THookedKeyTranslationEvent);
     procedure UnRegisterKeyTranslationHandler(AHandlerProc: THookedKeyTranslationEvent);
+
+    procedure RegisterUndoRedoItemHandler(AHandlerProc: TSynUndoRedoItemEvent);
+    procedure UnRegisterUndoRedoItemHandler(AHandlerProc: TSynUndoRedoItemEvent);
 
     procedure RegisterStatusChangedHandler(AStatusChangeProc: TStatusChangeEvent; AChanges: TSynStatusChanges);
     procedure UnRegisterStatusChangedHandler(AStatusChangeProc: TStatusChangeEvent);
@@ -1557,7 +1583,7 @@ begin
     AddCommand(emcStartColumnSelections, True,  mbXLeft, ccSingle, cdDown, [ssShift, ssAlt], [ssShift, ssAlt], emcoSelectionContinue);
   end;
   if (emShowCtrlMouseLinks in AnOptions) then
-    AddCommand(emcMouseLink,             False, mbXLeft, ccSingle, cdUp, [SYNEDIT_LINK_MODIFIER], [ssShift, ssAlt, ssCtrl]);
+    AddCommand(emcMouseLink,             False, mbXLeft, ccSingle, cdUp, [SYNEDIT_LINK_MODIFIER], [ssShift, ssAlt, ssCtrl] + [SYNEDIT_LINK_MODIFIER]);
 
   if (emDoubleClickSelectsLine in AnOptions) then begin
     AddCommand(emcSelectLine,            True,  mbXLeft, ccDouble, cdDown, [], []);
@@ -1632,11 +1658,6 @@ begin
   {$IFDEF LCLcarbon}
     SynDefaultFontName   := 'Monaco'; // Note: carbon is case sensitive
     SynDefaultFontHeight := 12;
-    {$DEFINE SynDefaultFont}  
-  {$ENDIF}
-  {$IFDEF AROS}
-    SynDefaultFontName   := 'ttcourier';
-    SynDefaultFontHeight := 13;
     {$DEFINE SynDefaultFont}
   {$ENDIF}
   // LCLgtk2 and LCLQt use default settings
@@ -1936,7 +1957,8 @@ begin
                                                             (FTrimmedLinesView);
 
   {$IFDEF WithSynExperimentalCharWidth}
-  FSysCharWidthLinesView := TSynEditStringSystemWidthChars.Create(FDoubleWidthChrLinesView, Self.Canvas);
+  //FSysCharWidthLinesView := TSynEditStringSystemWidthChars.Create(FDoubleWidthChrLinesView, Self.Canvas);
+  FSysCharWidthLinesView := TSynEditStringSystemWidthChars.Create(FTrimmedLinesView, Self.Canvas);
 
   FBidiChrLinesView := TSynEditStringBidiChars.Create(FSysCharWidthLinesView);
   FTabbedLinesView := TSynEditStringTabExpander.Create(FBidiChrLinesView);
@@ -2020,6 +2042,9 @@ begin
   {$ENDIF}
 
   fTextDrawer := TheTextDrawer.Create([fsBold], fFontDummy);
+  {$IFDEF WithSynExperimentalCharWidth}
+  FSysCharWidthLinesView.TextDrawer := fTextDrawer;
+  {$ENDIF} // WithSynExperimentalCharWidth
   FPaintLineColor := TSynSelectedColor.Create;
   FPaintLineColor2 := TSynSelectedColor.Create;
   fBookMarkOpt := TSynBookMarkOpt.Create(Self);
@@ -2038,6 +2063,8 @@ begin
   Cursor := crIBeam;
   fPlugins := TList.Create;
   FHookedKeyTranslationList := TSynHookedKeyTranslationList.Create;
+  FUndoRedoItemHandlerList := TSynUndoRedoItemHandlerList.Create;
+
   // needed before setting color
   fMarkupHighCaret := TSynEditMarkupHighlightAllCaret.Create(self);
   fMarkupHighCaret.Selection := FBlockSelection;
@@ -2390,6 +2417,7 @@ begin
   FRightGutter.UnRegisterResizeHandler(@GutterResized);
 
   FreeAndNil(FHookedKeyTranslationList);
+  FreeAndNil(FUndoRedoItemHandlerList);
   fHookedCommandHandlers:=nil;
   fPlugins:=nil;
   FCaret.Lines := nil;
@@ -2400,6 +2428,9 @@ begin
   FreeAndNil(FRightGutterArea);
   FreeAndNil(FTextArea);
   FreeAndNil(fTSearch);
+  {$IFDEF WinIME}
+  FreeAndNil(FImeHandler);
+  {$ENDIF}
   FreeAndNil(fMarkupManager);
   FreeAndNil(fBookMarkOpt);
   FreeAndNil(fKeyStrokes);
@@ -2412,9 +2443,6 @@ begin
   FreeAndNil(FRightGutter);
   FreeAndNil(FPaintLineColor);
   FreeAndNil(FPaintLineColor2);
-  {$IFDEF WinIME}
-  FreeAndNil(FImeHandler);
-  {$ENDIF}
   FreeAndNil(fTextDrawer);
   FreeAndNil(fFontDummy);
   DestroyMarkList; // before detach from FLines
@@ -3001,6 +3029,8 @@ var
   i, j: integer;
   p1, p2: TPoint;
   s: String;
+  AnActionResultDummy: TSynEditMouseActionResult;
+  DownMisMatch: Boolean;
 begin
   AnAction := nil;
   Result := False;
@@ -3008,6 +3038,46 @@ begin
     AnAction := AnActionList.FindCommand(AnInfo, AnAction);
 
     if AnAction = nil then exit(False);
+
+    if (FConfirmMouseDownMatchAct <> nil) then begin
+      // simulated up click at the coordinates of the down click
+      if FConfirmMouseDownMatchAct = AnAction then begin
+        FConfirmMouseDownMatchFound := True;
+        exit(True);
+      end;
+      if not(crLastDownPosSearchAll in FConfirmMouseDownMatchAct.ButtonUpRestrictions) then
+        exit(True);
+
+      continue;
+    end;
+
+    if (AnAction.ClickDir = cdUp) and (AnAction.ButtonUpRestrictions - [crAllowFallback] <> []) then
+    begin
+      DownMisMatch := ( (crLastDownButton in AnAction.ButtonUpRestrictions) and
+                        (SynMouseButtonMap[FMouseDownButton] <> AnInfo.Button) ) or
+                      ( (crLastDownShift in AnAction.ButtonUpRestrictions) and
+                        (FMouseDownShift * [ssShift, ssAlt, ssCtrl, ssMeta, ssSuper, ssHyper, ssAltGr, ssCaps, ssNum, ssScroll]
+                         <> AnInfo.Shift * [ssShift, ssAlt, ssCtrl, ssMeta, ssSuper, ssHyper, ssAltGr, ssCaps, ssNum, ssScroll]) ) or
+                      ( (crLastDownPosSameLine in AnAction.ButtonUpRestrictions) and
+                        (PixelsToRowColumn(Point(fMouseDownX, fMouseDownY)).y <> AnInfo.NewCaret.LinePos) );
+
+      If (not DownMisMatch) and (crLastDownPos in AnAction.ButtonUpRestrictions) then begin
+        try
+          FConfirmMouseDownMatchAct := AnAction;
+          FConfirmMouseDownMatchFound := False;
+          // simulate up click at the coordinates of the down click
+          FindAndHandleMouseAction(AnInfo.Button, AnInfo.Shift, fMouseDownX, fMouseDownY, AnInfo.CCount, cdUp, AnActionResultDummy);
+        finally
+          FConfirmMouseDownMatchAct := nil;
+        end;
+        DownMisMatch := not FConfirmMouseDownMatchFound;
+      end;
+
+      If DownMisMatch then
+        exit(not(crAllowFallback in AnAction.ButtonUpRestrictions));
+    end;
+
+
     ACommand := AnAction.Command;
     AnInfo.CaretDone := False;
 
@@ -3066,7 +3136,7 @@ begin
 
     case ACommand of
       emcNone: ; // do nothing, but result := true
-      emcStartSelections, emcStartColumnSelections, emcStartLineSelections,
+      emcStartSelections, emcStartColumnSelections, emcStartLineSelections, emcStartLineSelectionsNoneEmpty,
       emcStartSelectTokens, emcStartSelectWords, emcStartSelectLines:
         begin
           FMouseSelectionCmd := emcNone;
@@ -3079,6 +3149,13 @@ begin
               FMouseSelectionMode := smColumn;
             emcStartLineSelections:
                 FMouseSelectionMode := smLine;
+            emcStartLineSelectionsNoneEmpty: begin
+                FMouseSelectionMode := smLine;
+                if (AnAction.Option <> emcoSelectionContinue) or (not SelAvail) then
+                  FBlockSelection.StartLineBytePos := FCaret.LineBytePos;
+                FBlockSelection.ActiveSelectionMode := smLine;
+                FBlockSelection.ForceSingleLineSelected := True;
+              end;
             emcStartSelectTokens, emcStartSelectWords, emcStartSelectLines: begin
                 FMouseSelectionCmd := ACommand;
                 AnInfo.NewCaret.LineCharPos := PixelsToRowColumn(Point(AnInfo.MouseX, AnInfo.MouseY), [scmLimitToLines, scmForceLeftSidePos]);
@@ -3160,6 +3237,8 @@ begin
         begin
           if SelAvail and (SelectionMode = smNormal) then begin
             Include(fStateFlags, sfWaitForDragging);
+            if AnAction.Option = emcoNotDragedNoCaretOnUp then
+              Include(fStateFlags, sfWaitForDraggingNoCaret);
             MouseCapture := True;
             ResetMouseCapture := False;
           end
@@ -3189,8 +3268,11 @@ begin
         begin
           if assigned(fMarkupCtrlMouse) and fMarkupCtrlMouse.IsMouseOverLink and
              assigned(FOnClickLink)
-          then
-            FOnClickLink(Self, SynMouseButtonBackMap[AnInfo.Button], AnInfo.Shift, AnInfo.MouseX, AnInfo.MouseY)
+          then begin
+            if AnAction.MoveCaret then
+              MoveCaret;
+            FOnClickLink(Self, SynMouseButtonBackMap[AnInfo.Button], AnInfo.Shift, AnInfo.MouseX, AnInfo.MouseY);
+          end
           else
             Result := False;
         end;
@@ -3390,12 +3472,16 @@ begin
   LastMouseCaret:=PixelsToRowColumn(Point(X,Y));
   fMouseDownX := X;
   fMouseDownY := Y;
+  FMouseDownButton := Button;
+  FMouseDownShift := Shift;
 
   fStateFlags := fStateFlags - [sfDblClicked, sfTripleClicked, sfQuadClicked,
                                 sfLeftGutterClick, sfRightGutterClick,
                                 sfWaitForMouseSelecting, sfMouseSelecting, sfMouseDoneSelecting,
-                                sfWaitForDragging, sfIgnoreUpClick
+                                sfWaitForDragging, sfWaitForDraggingNoCaret, sfIgnoreUpClick
                                ];
+
+  Include(fStateFlags, sfInClick);
 
   if ssQuad in Shift then begin
     CType := ccQuad;
@@ -3450,7 +3536,7 @@ begin
     FRightGutter.MouseMove(Shift, X, Y);
 
   FLastMousePoint := Point(X,Y);
-  LastMouseCaret := PixelsToRowColumn(Point(X,Y));
+  LastMouseCaret := PixelsToRowColumn(Point(X,Y)); // TODO: Used for ctrl-Link => Use LastMousePoint, and calculate only, if modifier is down
   UpdateCursor;
 
   if (sfWaitForMouseSelecting in fStateFlags) and MouseCapture and
@@ -3467,7 +3553,7 @@ begin
       or (Abs(fMouseDownY - Y) >= GetSystemMetrics(SM_CYDRAG))
     then begin
       FStateFlags := FStateFlags
-                   -[sfWaitForDragging, sfWaitForMouseSelecting, sfMouseSelecting]
+                   -[sfWaitForDragging, sfWaitForDraggingNoCaret, sfWaitForMouseSelecting, sfMouseSelecting]
                    + [sfIsDragging];
       FBlockSelection.StickyAutoExtend := False;
       //debugln('TCustomSynEdit.MouseMove BeginDrag');
@@ -3554,8 +3640,9 @@ begin
       if (sfMouseSelecting in fStateFlags) and ((fScrollDeltaX <> 0) or (fScrollDeltaY <> 0)) then
         Include(fStateFlags, sfMouseDoneSelecting);
     end;
-    if sfMouseDoneSelecting in fStateFlags then
+    if sfMouseDoneSelecting in fStateFlags then begin
       FBlockSelection.ActiveSelectionMode := FMouseSelectionMode;
+    end;
     if sfIsDragging in fStateFlags then
       FBlockSelection.DecPersistentLock;
   end
@@ -3658,24 +3745,23 @@ begin
   fScrollTimer.Enabled := False;
   inherited MouseUp(Button, Shift, X, Y);
   MouseCapture := False;
+  if not (sfInClick in fStateFlags) then
+    exit;
 
   if sfQuadClicked in fStateFlags then begin
     CType := ccQuad;
-    Include(fStateFlags, sfQuadClicked);
   end
   else if sfTripleClicked in fStateFlags then begin
     CType := ccTriple;
-    Include(fStateFlags, sfTripleClicked);
   end
   else if sfDblClicked in fStateFlags then begin
     CType := ccDouble;
-    Include(fStateFlags, sfDblClicked);
   end
   else
     CType := ccSingle;
-  fStateFlags:=fStateFlags - [sfDblClicked,sfTripleClicked,sfQuadClicked];
+  fStateFlags:=fStateFlags - [sfInClick, sfDblClicked,sfTripleClicked,sfQuadClicked];
 
-  if sfWaitForDragging in fStateFlags then
+  if fStateFlags * [sfWaitForDragging, sfWaitForDraggingNoCaret] = [sfWaitForDragging] then
   begin
     ComputeCaret(X, Y);
     SetBlockBegin(LogicalCaretXY);
@@ -4284,6 +4370,7 @@ end;
 procedure TCustomSynEdit.CaretChanged(Sender: TObject);
 begin
   Include(fStateFlags, sfCaretChanged);
+  fStateFlags := fStateFlags - [sfExplicitTopLine, sfExplicitLeftChar];
   if FCaret.OldCharPos <> FCaret.CharPos then
     Include(fStatusChanges, scCaretX);
   if FCaret.OldLinePos <> FCaret.LinePos then begin
@@ -4320,6 +4407,8 @@ begin
   //{BUG21996} DebugLn(['TCustomSynEdit.SetLeftChar=',Value,'  Caret=',dbgs(CaretXY),', BlockBegin=',dbgs(BlockBegin),' BlockEnd=',dbgs(BlockEnd), ' StateFlags=',dbgs(fStateFlags), ' paintlock', FPaintLock]);
   Value := Min(Value, CurrentMaxLeftChar);
   Value := Max(Value, 1);
+  if not HandleAllocated then
+    Include(fStateFlags, sfExplicitLeftChar);
   if Value <> FTextArea.LeftChar then begin
     FTextArea.LeftChar := Value;
     UpdateScrollBars;
@@ -4441,6 +4530,8 @@ begin
   if FFoldedLinesView.FoldedAtTextIndex[Value-1] then
     Value := FindNextUnfoldedLine(Value, True);
 
+  if not HandleAllocated then
+    Include(fStateFlags, sfExplicitTopLine);
   NewTopView := FFoldedLinesView.TextIndexToViewPos(Value-1);
   if NewTopView <> TopView then begin
     TopView := NewTopView;
@@ -4729,6 +4820,7 @@ procedure TCustomSynEdit.WMKillFocus(var Msg: TWMKillFocus);
 begin
   if fCaret = nil then exit; // This SynEdit is in Destroy
   Exclude(FStateFlags, sfHideCursor);
+  Exclude(fStateFlags, sfInClick);
   {$IFDEF VerboseFocus}
   DebugLn(['[TCustomSynEdit.WMKillFocus] A ',DbgSName(Self), ' time=', dbgs(Now*86640)]);
   {$ENDIF}
@@ -4786,6 +4878,14 @@ begin
   end;
   //debugln('TCustomSynEdit.Resize ',dbgs(Width),',',dbgs(Height),',',dbgs(ClientWidth),',',dbgs(ClientHeight));
   // SetLeftChar(LeftChar);                                                     //mh 2000-10-19
+end;
+
+procedure TCustomSynEdit.CalculatePreferredSize(var PreferredWidth,
+  PreferredHeight: integer; WithThemeSpace: Boolean);
+begin
+  // synedit has no preferred size
+  PreferredWidth:=0;
+  PreferredHeight:=0;
 end;
 
 var
@@ -5030,6 +5130,9 @@ begin
   AValue := Min(AValue, CurrentMaxTopView);
   AValue := Max(AValue, 1);
 
+  if not HandleAllocated then
+    Include(fStateFlags, sfExplicitTopLine);
+
   (* ToDo: FFoldedLinesView.TopLine := AValue;
     Required, if "TopView := TopView" or "TopLine := TopLine" is called,
     after ScanRanges (used to be: LineCountChanged / LineTextChanged)
@@ -5251,7 +5354,8 @@ begin
     end
     else
       if not Item.PerformUndo(self) then
-        FTheLinesView.EditRedo(Item);
+        if not FUndoRedoItemHandlerList.CallUndoRedoItemHandlers(Self, Item) then
+          FTheLinesView.EditRedo(Item);
   finally
     FCaret.DecForcePastEOL;
     Item.Free;
@@ -5384,7 +5488,8 @@ begin
 
     else
       if not Item.PerformUndo(self) then
-        FTheLinesView.EditUndo(Item);
+        if not FUndoRedoItemHandlerList.CallUndoRedoItemHandlers(Self, Item) then
+          FTheLinesView.EditUndo(Item);
   finally
     FTrimmedLinesView.UndoTrimmedSpaces := False;
     FCaret.DecForcePastEOL;
@@ -6168,24 +6273,28 @@ begin
           MaxX:=Min(PhysBlockEndXY.X,MinX+CharsInWindow-1);
       end;
     end;
-    {DebugLn('TCustomSynEdit.EnsureCursorPosVisible A CaretX=',dbgs(PhysCaretXY.X),
-      ' BlockX=',dbgs(PhysBlockBeginXY.X)+'-'+dbgs(PhysBlockEndXY.X),
-      ' CharsInWindow='+dbgs(CharsInWindow), MinX='+dbgs(MinX),' MaxX='+dbgs(MaxX),
-      ' LeftChar='+dbgs(LeftChar), '');}
-    if MinX < LeftChar then
-      LeftChar := MinX
-    else if LeftChar < MaxX - (Max(1, CharsInWindow) - 1 - FScreenCaret.ExtraLineChars) then
-      LeftChar := MaxX - (Max(1, CharsInWindow) - 1 - FScreenCaret.ExtraLineChars)
-    else
-      LeftChar := LeftChar;                                                     //mh 2000-10-19
-    //DebugLn(['TCustomSynEdit.EnsureCursorPosVisible B LeftChar=',LeftChar,' MinX=',MinX,' MaxX=',MaxX,' CharsInWindow=',CharsInWindow]);
-    // Make sure Y is visible
-    if CaretY < TopLine then
-      TopLine := CaretY
-    else if CaretY > ScreenRowToRow(Max(1, LinesInWindow) - 1) then             //mh 2000-10-19
-      TopLine := FFoldedLinesView.TextPosAddLines(CaretY, -Max(0, LinesInWindow-1))
-    else
-      TopView := TopView;                                                       //mh 2000-10-19
+    if not (sfExplicitLeftChar in fStateFlags) then begin
+      {DebugLn('TCustomSynEdit.EnsureCursorPosVisible A CaretX=',dbgs(PhysCaretXY.X),
+        ' BlockX=',dbgs(PhysBlockBeginXY.X)+'-'+dbgs(PhysBlockEndXY.X),
+        ' CharsInWindow='+dbgs(CharsInWindow), MinX='+dbgs(MinX),' MaxX='+dbgs(MaxX),
+        ' LeftChar='+dbgs(LeftChar), '');}
+      if MinX < LeftChar then
+        LeftChar := MinX
+      else if LeftChar < MaxX - (Max(1, CharsInWindow) - 1 - FScreenCaret.ExtraLineChars) then
+        LeftChar := MaxX - (Max(1, CharsInWindow) - 1 - FScreenCaret.ExtraLineChars)
+      else
+        LeftChar := LeftChar;                                                     //mh 2000-10-19
+    end;
+    if not (sfExplicitTopLine in fStateFlags) then begin
+      //DebugLn(['TCustomSynEdit.EnsureCursorPosVisible B LeftChar=',LeftChar,' MinX=',MinX,' MaxX=',MaxX,' CharsInWindow=',CharsInWindow]);
+      // Make sure Y is visible
+      if CaretY < TopLine then
+        TopLine := CaretY
+      else if CaretY > ScreenRowToRow(Max(1, LinesInWindow) - 1) then             //mh 2000-10-19
+        TopLine := FFoldedLinesView.TextPosAddLines(CaretY, -Max(0, LinesInWindow-1))
+      else
+        TopView := TopView;                                                       //mh 2000-10-19
+    end;
   finally
     DoDecPaintLock(Self);
     //{BUG21996} DebugLnExit(['TCustomSynEdit.EnsureCursorPosVisible Caret=',dbgs(CaretXY),', BlockBegin=',dbgs(BlockBegin),' BlockEnd=',dbgs(BlockEnd), ' StateFlags=',dbgs(fStateFlags), ' paintlock', FPaintLock]);
@@ -7878,7 +7987,7 @@ begin
     FScreenCaret.Lock;
     try
       FScreenCaret.CharWidth := CharWidth;
-      FScreenCaret.CharHeight := LineHeight - Max(0, ExtraLineSpacing);
+      FScreenCaret.CharHeight := LineHeight - Max(0, FPaintArea.TextArea.ExtraLineSpacing);
       SizeOrFontChanged(TRUE);
     finally
       FScreenCaret.UnLock;
@@ -8924,6 +9033,16 @@ begin
   FHookedKeyTranslationList.Remove(TMEthod(AHandlerProc));
 end;
 
+procedure TCustomSynEdit.RegisterUndoRedoItemHandler(AHandlerProc: TSynUndoRedoItemEvent);
+begin
+  FUndoRedoItemHandlerList.Add(TMEthod(AHandlerProc));
+end;
+
+procedure TCustomSynEdit.UnRegisterUndoRedoItemHandler(AHandlerProc: TSynUndoRedoItemEvent);
+begin
+  FUndoRedoItemHandlerList.Remove(TMEthod(AHandlerProc));
+end;
+
 procedure TCustomSynEdit.RegisterStatusChangedHandler(AStatusChangeProc: TStatusChangeEvent;
   AChanges: TSynStatusChanges);
 begin
@@ -9089,6 +9208,51 @@ end;
 function TCustomSynEdit.PhysicalLineLength(Line: String; Index: integer): integer;
 begin
   Result:=LogicalToPhysicalCol(Line, Index, length(Line)+1) - 1
+end;
+
+(* from SynMemo - NOT recommended to use - Extremly slow code
+   SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
+*)
+function TCustomSynEdit.CharIndexToRowCol(Index: integer): TPoint;
+var
+  x, y, Chars: integer;
+  e: string;
+  LineEndLen: Integer;
+begin
+  x := 0;
+  y := 0;
+  e:=LineEnding;
+  LineEndLen:=length(e);
+  Chars := 0;
+  while y < TextBuffer.Count do begin
+    x := Length(TextBuffer[y]);
+    if Chars + x + LineEndLen > Index then begin
+      x := Index - Chars;
+      break;
+    end;
+    Inc(Chars, x + LineEndLen);
+    x := 0;
+    Inc(y);
+  end;
+  Result := Point(x + 1, y + 1);
+end;
+
+(* from SynMemo - NOT recommended to use - Extremly slow code
+   SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
+*)
+function TCustomSynEdit.RowColToCharIndex(RowCol: TPoint): integer;
+var
+  i: integer;
+  e: string;
+  LineEndLen: Integer;
+begin
+  Result := 0;
+  RowCol.y := Min(TextBuffer.Count, RowCol.y) - 1;
+  e:=LineEnding;
+  LineEndLen:=length(e);
+  for i := 0 to RowCol.y - 1 do
+    Result := Result + Length(TextBuffer[i]) + LineEndLen;
+  Result := Result + RowCol.x;
 end;
 
 function TCustomSynEdit.PhysicalToLogicalPos(const p: TPoint): TPoint;
@@ -9302,6 +9466,19 @@ begin
   i:=Count;
   while NextDownIndex(i) do
     TKeyPressEvent(Items[i])(Sender, Key);
+end;
+
+{ TSynUndoRedoItemHandlerList }
+
+function TSynUndoRedoItemHandlerList.CallUndoRedoItemHandlers(Caller: TObject;
+  Item: TSynEditUndoItem): Boolean;
+var
+  i: LongInt;
+begin
+  i:=Count;
+  Result := False;
+  while NextDownIndex(i) and (not Result) do
+    Result := TSynUndoRedoItemEvent(Items[i])(Caller, Item);
 end;
 
 { TLazSynMouseDownEventList }

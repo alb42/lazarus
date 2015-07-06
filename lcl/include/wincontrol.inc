@@ -30,8 +30,8 @@ const CheckClientRectName = 'LCLInterfaceRadioGroup';
 {off $DEFINE VerboseSizeMsg}
 {off $DEFINE CHECK_POSITION}
 {$IFDEF CHECK_POSITION}
-const CheckPostionClassName = 'TBreakPropertyDlg';
-const CheckPostionName = 'xxxTBreakPropertyDlg';
+const CheckPostionClassName = 'xxxTBreakPropertyDlg';
+const CheckPostionName = 'FakeStatusBar';
 const CheckPostionParentName = 'xxxEnvVarsPage';
 
 function CheckPosition(AControl: TControl): boolean;
@@ -461,6 +461,7 @@ type
     if (Side in CurAnchors) then begin
       // this side is anchored
       SiblingData:=ChildData.Sides[Side].CtrlData;
+      NewDist:=0;
       if (SiblingData=nil) or (SiblingData=Self) then begin
         // this side is anchored to parent
         // Note: SiblingData=nil can happen, if the reference control
@@ -583,7 +584,7 @@ type
         end;
         if FoundSides=[] then begin
           ChildData.Sides[Side].DistanceState[Direction]:=assdfUncomputable;
-          exit;
+          exit(crSuccess);
         end;
 
         // this side is anchored to a sibling and some needed sibling sides are valid
@@ -857,6 +858,14 @@ begin
       end else begin
         SetFixedLeftTop(ChildData,Side,Child.GetSidePosition(Side)-MoveDiff);
       end;
+    {end else if (Child.Align=alNone) and (Side in Child.Anchors) then begin
+      // e.g. Align=alNone, Anchors=[akLeft,akTop,akRight]
+      if FindMinimum then begin
+        // no auto move
+      end else begin
+        // don't move, but use them for bounds computation
+        SetFixedLeftTop(ChildData,Side,Child.GetSidePosition(Side));
+      end;}
     end else if (Child.Align=alCustom)
     and (Side in AnchorAlign[alCustom]) then begin
       if FindMinimum then begin
@@ -1024,7 +1033,7 @@ procedure TAutoSizeCtrlData.ComputePreferredClientArea(
         if (not UseCurrentWidth) or (not UseCurrentHeight) then
           Child.GetPreferredSize(CurPreferredWidth,CurPreferredHeight,true,true);
 
-        //if Child.Name='ToolTipBevel' then debugln(['InitPreferredSizes ',DbgSName(Child),' Bounds=',dbgs(Child.BoundsRect),' Anchors=',dbgs(Child.Anchors),' CurAnchors=',dbgs(CurAnchors),' UseW=',UseCurrentWidth,' UseH=',UseCurrentHeight,' Pref=',CurPreferredWidth,'x',CurPreferredHeight]);
+        //if Child.Name='OtherInfoGroupBox' then debugln(['InitPreferredSizes ',DbgSName(Child),' Bounds=',dbgs(Child.BoundsRect),' Anchors=',dbgs(Child.Anchors),' CurAnchors=',dbgs(CurAnchors),' UseW=',UseCurrentWidth,' UseH=',UseCurrentHeight,' Pref=',CurPreferredWidth,'x',CurPreferredHeight]);
         if UseCurrentWidth then
           NewWidth:=Child.Width
         else if (CurPreferredWidth>0)
@@ -1153,7 +1162,7 @@ begin
   until ComputePositions;
   
   {$IFDEF VerboseAutoSizeCtrlData}
-  //if WinControl.ClassName='TBreakPropertyDlg' then
+  if WinControl.ClassName='TScrollBox' then
     WriteDebugReport('Positions completed','');
   {$ENDIF}
   
@@ -1216,6 +1225,7 @@ begin
   end;
 
   {$IFDEF VerboseAutoSizeCtrlData}
+  //if WinControl.ClassName='TProjectVersionInfoOptionsFrame' then
   DebugLn(['TAutoSizeCtrlData.ComputePreferredClientArea END ',DbgSName(Control),' PreferredClientWidth/height=',PreferredClientWidth,',',PreferredClientHeight]);
   {$ENDIF}
 end;
@@ -3649,7 +3659,8 @@ begin
     InvalidateClientRectCache(False);
   R := GetClientRect;
   AdjustClientRect(R);
-  //DebugLn(['TWinControl.DoAdjustClientRectChange ',DbgSName(Self),' ',r.Right,',',r.Bottom,' ',CompareRect(@r,@FAdjustClientRectRealized)]);
+  //if CheckPosition(Self) then
+    //DebugLn(['TWinControl.DoAdjustClientRectChange ',DbgSName(Self),' new=',dbgs(r),' old=',dbgs(FAdjustClientRectRealized),' ',CompareRect(@r,@FAdjustClientRectRealized)]);
   if not CompareRect(@R, @FAdjustClientRectRealized) then
   begin
     // client rect changed since last AlignControl
@@ -4729,7 +4740,8 @@ begin
 
   try
     // check if child controls need clipping
-    //DebugLn('[TWinControl.PaintHandler] ',DbgSName(Self),' B');
+    //if Name='GroupBox1' then
+      //DebugLn('[TWinControl.PaintHandler] ',DbgSName(Self),' B');
     ControlsNeedsClipping:=false;
     if FControls<>nil then
       for I := 0 to FControls.Count - 1 do
@@ -4738,6 +4750,8 @@ begin
           break;
         end;
     // exclude child controls and send new paint message
+    //if Name='GroupBox1' then
+      //debugln(['TWinControl.PaintHandler ControlsNeedsClipping=',ControlsNeedsClipping,' ControlCount=',ControlCount]);
     if not ControlsNeedsClipping then begin
       //DebugLn('[TWinControl.PaintHandler] ',DbgSName(Self),' no clipping ...');
       PaintWindow(DC)
@@ -4809,20 +4823,26 @@ begin
       I := FControls.IndexOf(First);
       if I < 0 then I := 0;
     end;
+    //debugln(['TWinControl.PaintControls ',DbgSName(Self),' ClientRect=',dbgs(ClientRect)]);
     Count := FControls.Count;
     while I < Count do
     begin
       TempControl := TControl(FControls.Items[I]);
       {$ifdef DEBUG_WINDOW_ORG}
-      DebugLn(
-        Format(':> [TWinControl.PaintControls] C  DC=%d TempControl=%s Left=%d Top=%d Width=%d Height=%d',
-        [DC, TempControl.Name, TempControl.Left, TempControl.Top, TempControl.Width, TempControl.Height]));
+      if Name='GroupBox1' then
+        DebugLn(
+        Format(':> [TWinControl.PaintControls] C  DC=%d TempControl=%s Left=%d Top=%d Width=%d Height=%d IsVisible=%s RectVisible=%s',
+        [DC, DbgSName(TempControl),
+          TempControl.Left, TempControl.Top, TempControl.Width, TempControl.Height,
+          dbgs(IsVisible),
+          dbgs(RectVisible(DC, TempControl.BoundsRect))
+          ]));
       {$endif}
       if not (TempControl is TWinControl) then begin
         //DebugLn('TWinControl.PaintControls B Self=',Self.Name,':',Self.ClassName,' Control=',TempControl.Name,':',TempControl.ClassName,' ',TempControl.Left,',',TempControl.Top,',',TempControl.Width,',',TempControl.Height);
         with TempControl do
           if IsVisible
-          and RectVisible(DC, Rect(Left, Top, Left + Width, Top + Height)) then
+          and RectVisible(DC, TempControl.BoundsRect) then
           begin
             if csPaintCopy in Self.ControlState then
               Include(FControlState, csPaintCopy);
@@ -4863,7 +4883,7 @@ procedure TWinControl.PaintWindow(DC: HDC);
 var
   Message: TLMessage;
 begin
-  //DebugLn('[TWinControl.PaintWindow] ',Name,':',Classname,'  DC=',DbgS(DC,8));
+  //DebugLn('[TWinControl.PaintWindow] ',Name,':',Classname,'  DC=',DbgS(DC));
   if (csDestroying in ComponentState)
   or ((DC=0) and (not HandleAllocated)) then
     exit;
@@ -5835,6 +5855,7 @@ function TWinControl.SendDialogChar(var Message : TLMKey): Boolean;
 var
   ParentForm: TCustomForm;
 begin
+  Result := False;
   ParentForm := GetParentForm(Self);
   if ParentForm <> nil then
   begin
@@ -6287,6 +6308,11 @@ begin
 
   DisableAlign;
   try
+    // store
+    ARect := GetClientRect;
+    AdjustClientRect(ARect);
+    FAdjustClientRectRealized:=ARect;
+
     ARect:=GetLogicalClientRect;
     AlignControls(AControl, ARect);
     // some widgetsets updates their clientrect when the first child was moved
@@ -6634,7 +6660,7 @@ var
   PS : TPaintStruct;
   ClientBoundRect: TRect;
 begin
-  //DebugLn('[TWinControl.WMPaint] ',Name,':',ClassName,'  ',DbgS(Msg.DC,8));
+  //DebugLn('[TWinControl.WMPaint] ',DbgSName(Self),'  ',DbgS(Msg.DC));
   {$IFDEF VerboseResizeFlicker}
   DebugLn('[TWinControl.WMPaint] ',DbgSName(Self),'  Bounds=',dbgs(BoundsRect),' ClientRect=',dbgs(ClientRect));
   {$ENDIF}
@@ -6646,7 +6672,8 @@ begin
     DebugLn('TWinControl.WMPaint A ',Name,':',ClassName);
   {$ENDIF}
 
-  //DebugLn(Format('Trace:> [TWinControl.WMPaint] %s Msg.DC: 0x%x', [ClassName, Msg.DC]));
+  //if Name='GroupBox1' then
+  //  debugln(['TWinControl.WMPaint ',DbgSName(Self),' DoubleBuffered=',DoubleBuffered,' Msg.DC=',dbgs(Msg.DC),' csCustomPaint=',csCustomPaint in ControlState,' ControlCount=',ControlCount,' ClientRect=',dbgs(ClientRect)]);
   if (Msg.DC <> 0) or not DoubleBuffered then
   begin
     if not (csCustomPaint in ControlState) and (ControlCount = 0) then
@@ -6780,7 +6807,7 @@ begin
       //    size algorithm to take care of the new bounds
       // => do not call SetBounds, as this will set the Bounds to the widgetset
       //    default values.
-      //DebugLn(['TWinControl.WMSize from intf ignored, because phases=',dbgs(AutoSizePhases),' boundsrealized=',wcfBoundsRealized in FWinControlFlags]);
+      //DebugLn(['TWinControl.WMMove from intf ignored, because phases=',dbgs(AutoSizePhases),' boundsrealized=',wcfBoundsRealized in FWinControlFlags]);
       exit;
     end;
   end;
@@ -6856,7 +6883,8 @@ begin
     NewTop := FBoundsRealized.Top;
     if HandleAllocated then
       GetWindowRelativePosition(Handle, NewLeft, NewTop);
-    //DebugLn('TWinControl.WMSize B ',Name,':',ClassName,' ',NewLeft,',',NewTop);
+    //if CheckPosition(Self) then
+      //DebugLn(['TWinControl.WMSize GetWindowRelativePosition: ',DbgSName(Self),' ',NewLeft,',',NewTop,' ClientRectNeedsInterfaceUpdate=',ClientRectNeedsInterfaceUpdate]);
     NewBoundsRealized := Bounds(NewLeft, NewTop, Message.Width, Message.Height);
     OldClientSize := Size(0, 0);
     NewClientSize := Size(0, 0);
@@ -6872,9 +6900,13 @@ begin
       end;
     end;
     {$IFDEF VerboseAllAutoSize}
+    {$IFDEF CHECK_POSITION}
+    if CheckPosition(Self) then
+    {$ENDIF}
     DebugLn(['TWinControl.WMSize Changed From Intf ',dbgsname(Self),' Message=',Message.Width,',',Message.Height,
       ' BoundsRealized=',dbgs(FBoundsRealized),
-      ' wcfClientRectNeedsUpdate=',wcfClientRectNeedsUpdate in FWinControlFlags]);
+      ' wcfClientRectNeedsUpdate=',wcfClientRectNeedsUpdate in FWinControlFlags,
+      ' ClientRectNeedsInterfaceUpdate=',ClientRectNeedsInterfaceUpdate]);
     {$ENDIF}
 
     TopParent := GetTopParent;
@@ -6892,7 +6924,10 @@ begin
       //    size algorithm to take care of the new bounds
       // => do not call SetBounds, as this will set the Bounds to the widgetset
       //    default values.
-      //DebugLn(['TWinControl.WMSize from intf ignored, because phases=',dbgs(AutoSizePhases),' boundsrealized=',wcfBoundsRealized in FWinControlFlags]);
+      {$IFDEF CHECK_POSITION}
+      if CheckPosition(Self) then
+      {$ENDIF}
+      // DebugLn(['TWinControl.WMSize from intf ignored, because phases=',dbgs(AutoSizePhases),' boundsrealized=',wcfBoundsRealized in FWinControlFlags]);
       Exit;
     end;
 
@@ -6904,10 +6939,14 @@ begin
     SetBoundsKeepBase(NewLeft, NewTop, Message.Width, Message.Height)
   else
     SetBounds(NewLeft, NewTop, Message.Width, Message.Height);
+  //if CheckPosition(Self) then
+    //debugln(['TWinControl.WMSize ',DbgSName(Self),' ClientRectNeedsInterfaceUpdate=',ClientRectNeedsInterfaceUpdate]);
   if ((Message.SizeType and Size_SourceIsInterface) > 0) and ClientRectNeedsInterfaceUpdate then
     DoAdjustClientRectChange;
   {$IFDEF VerboseClientRectBugFix}
-  //if Name=CheckClientRectName then
+  {$IFDEF CHECK_POSITION}
+  if CheckPosition(Self) then
+  {$ENDIF}
   if ((Message.SizeType and Size_SourceIsInterface) > 0) then
   DebugLn(['TWinControl.WMSize END ',dbgsname(Self),' Message=',Message.Width,',',Message.Height,
     ' BoundsRealized=',dbgs(FBoundsRealized),' ClientRect=',dbgs(ClientRect),
@@ -7966,32 +8005,48 @@ end;
  ------------------------------------------------------------------------------}
 procedure TWinControl.CalculatePreferredSize(var PreferredWidth,
   PreferredHeight: integer; WithThemeSpace: Boolean);
+
+  {$IFDEF VerboseCalculatePreferredSize}
+  procedure trav(aControl: TControl; Prefix: string);
+  var
+    w: integer;
+    h: integer;
+    i: Integer;
+  begin
+    if not aControl.IsVisible then exit;
+    if aControl<>Self then begin
+      aControl.GetPreferredSize(w,h,true,true);
+      debugln([Prefix,'Child ',DbgSName(aControl),' ',dbgs(aControl.BoundsRect),' Pref=',w,'x',h]);
+    end;
+    if aControl is TWinControl then
+      for i:=0 to TWinControl(aControl).ControlCount-1 do
+        trav(TWinControl(aControl).Controls[i],Prefix+'  ');
+  end;
+
+  function IsVerbose: boolean;
+  begin
+    Result:=(Name='MainScrollBox');
+  end;
+  {$ENDIF}
+
 var
   Layout: TAutoSizeCtrlData;
   NewClientWidth: Integer;
   NewClientHeight: Integer;
   CurClientRect: TRect;
-  NewWidth: Integer;
-  NewHeight: Integer;
   NewMoveLeft, NewMoveRight: integer;
-  AdjustedClientRect: TRect;
+  FrameWidth: integer;
+  FrameHeight: integer;
 begin
   inherited CalculatePreferredSize(PreferredWidth,PreferredHeight,WithThemeSpace);
   
   if HandleAllocated then begin
     TWSWinControlClass(WidgetSetClass).GetPreferredSize(Self,
                                PreferredWidth, PreferredHeight, WithThemeSpace);
-    //DebugLn(['TWinControl.CalculatePreferredSize WidgetSet ',DbgSName(Self),' Preferred=',PreferredWidth,'x',PreferredHeight]);
+    {$IFDEF VerboseCalculatePreferredSize}
+    if IsVerbose then debugln(['TWinControl.CalculatePreferredSize Widget ',DbgSName(Self),' ',DbgSName(WidgetSetClass),' Pref=',PreferredWidth,'x',PreferredHeight]);
+    {$ENDIF}
   end;
-
-  // check AdjustClientRect
-  CurClientRect:=Rect(0,0,1000,1000);
-  AdjustedClientRect:=CurClientRect;
-  AdjustClientRect(AdjustedClientRect);
-  PreferredWidth:=Max(PreferredWidth,
-           AdjustedClientRect.Left+CurClientRect.Right-AdjustedClientRect.Right);
-  PreferredHeight:=Max(PreferredHeight,
-          AdjustedClientRect.Top+CurClientRect.Bottom-AdjustedClientRect.Bottom);
 
   if ControlCount>0 then begin
     // Beware: ControlCount>0 does not mean that there are visible children
@@ -8002,44 +8057,57 @@ begin
       Layout:=TAutoSizeCtrlData.Create(Self);
       Layout.ComputePreferredClientArea(false,false,NewMoveLeft,NewMoveRight,
                                         NewClientWidth,NewClientHeight);
+      //if (Name='OtherInfoGroupBox') or (Name='ProjectVersionInfoOptionsFrame') then
+      //  debugln(['TWinControl.CalculatePreferredSize NewClientWidth=',NewClientWidth,' NewClientHeight=',NewClientHeight]);
       if (NewMoveLeft<>0) or (NewMoveRight<>0) then ;
     finally
       Layout.Free;
     end;
 
-    NewWidth:=0;
-    NewHeight:=0;
-    // add the control border around the client area
-    CurClientRect := GetClientRect;
-    if (NewClientWidth>0)
-    or ((NewClientWidth=0) and (csAutoSize0x0 in ControlStyle)) then
-      NewWidth:=Width-CurClientRect.Right+NewClientWidth;
-    if (NewClientHeight>0)
-    or ((NewClientHeight=0) and (csAutoSize0x0 in ControlStyle)) then
-      NewHeight:=Height-CurClientRect.Bottom+NewClientHeight;
-    {$IF defined(VerboseAutoSize) or defined(VerboseAllAutoSize)}
+    // add clientarea frame
+    GetPreferredSizeClientFrame(FrameWidth,FrameHeight);
+
+    {$IF defined(VerboseAutoSize) or defined(VerboseAllAutoSize) or defined(VerboseCalculatePreferredSize)}
+    {$IFDEF VerboseCalculatePreferredSize}
+    if IsVerbose then
+      trav(Self,'  ');
+    if IsVerbose then
+    {$ENDIF}
+    //if (Name='OtherInfoGroupBox') or (Name='ProjectVersionInfoOptionsFrame') then
     debugln(['TWinControl.CalculatePreferredSize ',DbgSName(Self),
       ' HandleAllocated=',HandleAllocated,
       ' Cur=',Width,'x',Height,
-      ' Client=',CurClientRect.Right,'x',CurClientRect.Bottom,
-      ' NewWidth=',NewWidth,' NewHeight=',NewHeight,
-      ' NewClientWidth=',NewClientWidth,' NewClientHeight=',NewClientHeight,
-      ' IntfPref+AdjustClientRect=',PreferredWidth,'x',PreferredHeight]);
+      ' Client=',ClientWidth,'x',ClientHeight,
+      ' PrefClient=',NewClientWidth,'x',NewClientHeight]);
     {$ENDIF}
-    PreferredWidth:=Max(PreferredWidth,NewWidth);
-    PreferredHeight:=Max(PreferredHeight,NewHeight);
+    if NewClientWidth>0 then
+      PreferredWidth:=Max(PreferredWidth,NewClientWidth+FrameWidth);
+    if NewClientHeight>0 then
+      PreferredHeight:=Max(PreferredHeight,NewClientHeight+FrameHeight);
   end;
+
+  // add borderspacing
   if (PreferredWidth>0)
   or ((PreferredWidth=0) and (csAutoSize0x0 in ControlStyle)) then
     inc(PreferredWidth,BorderSpacing.InnerBorder*2);
   if (PreferredHeight>0)
   or ((PreferredHeight=0) and (csAutoSize0x0 in ControlStyle)) then
     inc(PreferredHeight,BorderSpacing.InnerBorder*2);
-  {$IFDEF VerboseAutoSize}
-  debugln('TWinControl.CalculatePreferredSize ',DbgSName(Self),
-    ' HandleAllocated=',dbgs(HandleAllocated),
-    ' Preferred=',dbgs(PreferredWidth),'x',dbgs(PreferredHeight));
+  {$IF defined(VerboseAutoSize) or defined(VerboseCalculatePreferredSize)}
+  {$IFDEF VerboseCalculatePreferredSize}
+  if IsVerbose then
   {$ENDIF}
+  debugln(['TWinControl.CalculatePreferredSize ',DbgSName(Self),
+    ' HandleAllocated=',dbgs(HandleAllocated),
+    ' ClientFrame=',FrameWidth,'x',FrameHeight,
+    ' Preferred=',dbgs(PreferredWidth),'x',dbgs(PreferredHeight)]);
+  {$ENDIF}
+end;
+
+procedure TWinControl.GetPreferredSizeClientFrame(out aWidth, aHeight: integer);
+begin
+  aWidth:=Width-ClientWidth;
+  aHeight:=Height-ClientHeight;
 end;
 
 {------------------------------------------------------------------------------

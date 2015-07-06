@@ -25,12 +25,11 @@ unit debugger_general_options;
 interface
 
 uses
-  Classes, SysUtils, TypInfo, FileUtil, LazFileCache, Forms, Controls, StdCtrls,
-  ExtCtrls, Buttons, Dialogs, LCLProc, PropEdits, ObjectInspector,
-  TransferMacros, LazarusIDEStrConsts, IDEOptionsIntf, IDEUtils,
+  Classes, SysUtils, TypInfo, Forms, Controls, StdCtrls,
+  ExtCtrls, Buttons, Dialogs, LCLProc, FileUtil, LazFileUtils, LazFileCache, PropEdits,
+  ObjectInspector, TransferMacros, LazarusIDEStrConsts, IDEOptionsIntf, IDEUtils,
   DbgIntfDebuggerBase, PathEditorDlg, InputHistory, IDEProcs, DialogProcs,
-  EnvironmentOpts,
-  BaseDebugManager, Debugger;
+  EnvironmentOpts, BaseDebugManager, Debugger;
 
 type
 
@@ -68,10 +67,10 @@ type
     destructor Destroy; override;
     function Check: Boolean; override;
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
-    procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
-    procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
-    procedure RestoreSettings(AOptions: TAbstractIDEOptions); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
+    procedure ReadSettings({%H-}AOptions: TAbstractIDEOptions); override;
+    procedure WriteSettings({%H-}AOptions: TAbstractIDEOptions); override;
+    procedure RestoreSettings({%H-}AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
   end;
 

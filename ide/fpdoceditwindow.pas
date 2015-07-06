@@ -31,18 +31,18 @@ interface
 
 uses
   // FCL
-  Classes, SysUtils, StrUtils, contnrs,
-  Laz2_DOM, Laz2_XMLRead, Laz2_XMLWrite,
+  Classes, SysUtils,
+  Laz2_DOM, Laz2_XMLRead,
   // LCL
   LCLProc, LResources, StdCtrls, Buttons, ComCtrls, Controls, Dialogs,
   ExtCtrls, Forms, Graphics, LCLType,
   // Synedit
   SynEdit,
   // codetools
-  BasicCodeTools, FileProcs, CodeAtom, CodeCache, CodeToolManager,
+  FileProcs, CodeCache, CodeToolManager,
   CTXMLFixFragment,
   // IDEIntf
-  IDEWindowIntf, ProjectIntf, LazIDEIntf, IDEHelpIntf, LazHelpIntf, Menus,
+  IDEWindowIntf, ProjectIntf, LazIDEIntf, IDEHelpIntf, Menus,
   SrcEditorIntf, IDEDialogs,
   // IDE
   IDEOptionDefs, EnvironmentOpts, PackageSystem, IDEProcs, LazarusIDEStrConsts,
@@ -859,7 +859,8 @@ procedure TFPDocEditor.OnFPDocChanged(Sender: TObject;
   FPDocFPFile: TLazFPDocFile);
 begin
   if fpdefWriting in FFlags then exit;
-
+  if FPDocFPFile=nil then exit;
+  // maybe eventually update the editor
 end;
 
 procedure TFPDocEditor.LoadGUIValues(Element: TCodeHelpElement);
@@ -1033,7 +1034,7 @@ begin
   fpdiDescription:
     begin
       PageControl.ActivePage:=DescrTabSheet;
-
+      DescrMemo.CaretPos:=LineCol;
     end;
   fpdiErrors: PageControl.ActivePage:=ErrorsTabSheet;
   fpdiSeeAlso: PageControl.ActivePage:=SeeAlsoTabSheet;
@@ -1055,7 +1056,7 @@ end;
 
 function TFPDocEditor.GUIModified: boolean;
 begin
-  if fpdefReading in FFlags then exit;
+  if fpdefReading in FFlags then exit(false);
   Result:=(ShortEdit.Text<>FOldVisualValues[fpdiShort])
     or (LinkEdit.Text<>FOldVisualValues[fpdiElementLink])
     or (DescrMemo.Text<>FOldVisualValues[fpdiDescription])
@@ -1577,7 +1578,7 @@ begin
   if Doc=nil then exit;
   InitIDEFileDialog(OpenDialog);
   OpenDialog.Title:=lisChooseAnExampleFile;
-  OpenDialog.Filter:=lisPascalFile+'|*.pas;*.pp;*.p|'+dlgAllFiles+'|'+FileMask;
+  OpenDialog.Filter:=dlgFilterPascalFile+'|*.pas;*.pp;*.p|'+dlgFilterAll+'|'+FileMask;
   OpenDialog.InitialDir:=ExtractFilePath(DocFile.Filename);
   if OpenDialog.Execute then begin
     ExampleEdit.Text := ExtractRelativepath(

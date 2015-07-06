@@ -34,7 +34,7 @@ unit fpIDEExtEditorInsertFileNameUnit;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  Classes, SysUtils, LazFileUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ButtonPanel;
 
 type
@@ -78,7 +78,7 @@ end;
 procedure TfpIDEExtEditorInsertFileNameForm.FillFilesList;
 var
   i:integer;
-  S, Ext:string;
+  S:string;
 begin
   LBFiles.Items.Clear;
   if Assigned(LazarusIDE) and Assigned(LazarusIDE.ActiveProject) then

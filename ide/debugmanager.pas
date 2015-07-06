@@ -41,7 +41,7 @@ uses
   MemCheck,
   {$ENDIF}
   // LCL
-  Classes, SysUtils, Forms, Controls, Dialogs, ExtCtrls, FileUtil,
+  Classes, SysUtils, Forms, Controls, Dialogs, ExtCtrls, LazFileUtils,
   LCLType, LCLIntf, LazLoggerBase, Laz2_XMLCfg, LazFileCache, LazUTF8,
   // codetools
   CodeCache, CodeToolManager, PascalParserTool, CodeTree,
@@ -49,7 +49,7 @@ uses
   IDEWindowIntf, SrcEditorIntf, MenuIntf, IDECommands, LazIDEIntf, ProjectIntf,
   CompOptsIntf, IDEDialogs,
   // IDE
-  LazConf, CompilerOptions, EnvironmentOpts,
+  CompilerOptions, EnvironmentOpts,
   SourceEditor, ProjectDefs, Project, IDEProcs, InputHistory, Debugger,
   LazarusIDEStrConsts, TransferMacros,
   MainBar, MainIntf, MainBase, BaseBuildManager, SourceMarks,
@@ -80,7 +80,7 @@ type
     procedure mnuAddBpDataAtCursor(Sender: TObject);
 
     // Debugger events
-    procedure DebuggerBreakPointHit(ADebugger: TDebuggerIntf; ABreakPoint: TBaseBreakPoint; var ACanContinue: Boolean);
+    procedure DebuggerBreakPointHit({%H-}ADebugger: TDebuggerIntf; ABreakPoint: TBaseBreakPoint; var {%H-}ACanContinue: Boolean);
     procedure DebuggerBeforeChangeState(ADebugger: TDebuggerIntf; AOldState: TDBGState);
     procedure DebuggerChangeState(ADebugger: TDebuggerIntf; OldState: TDBGState);
     procedure DebuggerCurrentLine(Sender: TObject; const ALocation: TDBGLocationRec);
@@ -305,8 +305,6 @@ type
     procedure Update(Item: TCollectionItem); override;
   end;
 
-  TDBGEventCategories = set of TDBGEventCategory;
-
 { TProjectExceptions }
 
 procedure TProjectExceptions.SetIgnoreAll(const AValue: Boolean);
@@ -435,6 +433,7 @@ begin
         [lisHitCount, Hitcount,
         lisAction, GetBreakPointActionsDescription(Self),
         lisCondition, Expression]);
+  if SenderMark<>nil then ;
 end;
 
 procedure TManagedBreakPoint.OnSourceMarkCreatePopupMenu(
@@ -446,6 +445,7 @@ begin
     AddMenuItem(lisEnableBreakPoint, True, @OnToggleEnableMenuItemClick);
   AddMenuItem(lisDeleteBreakPoint, True, @OnDeleteMenuItemClick);
   AddMenuItem(lisViewBreakPointProperties, True, @OnViewPropertiesMenuItemClick);
+  if SenderMark<>nil then ;
 end;
 
 procedure TManagedBreakPoint.DoChanged;
@@ -782,6 +782,7 @@ end;
 
 function TDebugManager.DoProjectClose(Sender: TObject; AProject: TLazProject): TModalResult;
 begin
+  if AProject<>Project1 then exit(mrCancel);
   ResetDebugger;
   Result := mrOK;
 end;
@@ -1082,6 +1083,7 @@ var
 begin
   if Destroying or (MainIDE=nil) or (MainIDE.ToolStatus=itExiting)
   then exit;
+  if AOldState=dsNone then ;
   assert((ADebugger=FDebugger) and (ADebugger<>nil), 'TDebugManager.OnDebuggerChangeState');
 
   FInStateChange := True;
@@ -1171,7 +1173,7 @@ begin
   if (FDebugger.State in [dsRun])
   then begin
     // hide IDE during run
-    if EnvironmentOptions.HideIDEOnRun and (MainIDE.ToolStatus=itDebugger) and not FStepping
+    if EnvironmentOptions.Desktop.HideIDEOnRun and (MainIDE.ToolStatus=itDebugger) and not FStepping
     then MainIDE.HideIDE;
 
     if (FPrevShownWindow <> 0) and not FStepping then
@@ -1192,10 +1194,10 @@ begin
       if not FStepping then
       begin
         FPrevShownWindow := GetForegroundWindow;
-        if EnvironmentOptions.HideIDEOnRun then
+        if EnvironmentOptions.Desktop.HideIDEOnRun then
           MainIDE.UnhideIDE;
-        if not EnvironmentOptions.SingleTaskBarButton and
-          not EnvironmentOptions.HideIDEOnRun then
+        if not EnvironmentOptions.Desktop.SingleTaskBarButton and
+          not EnvironmentOptions.Desktop.HideIDEOnRun then
             Application.BringToFront;
       end;
     end;
@@ -1347,8 +1349,10 @@ begin
       SrcLine := -1;
     end;
   end
-  else
+  else begin
+    NewSource := Nil;
     SrcLine := -1;
+  end;
 
   ReleaseRefAndNil(CurrentSourceUnitInfo);
 
@@ -1866,34 +1870,28 @@ begin
                and (pfRunnable in Project1.Flags)
               );
     // Run
-    RunSpeedButton.Enabled := CanRun and (not DebuggerIsValid
+    itmRunMenuRun.Enabled := CanRun and (not DebuggerIsValid
             or (dcRun in FDebugger.Commands) or (FDebugger.State = dsIdle));
-    itmRunMenuRun.Enabled := RunSpeedButton.Enabled;
     // Pause
-    PauseSpeedButton.Enabled := CanRun and DebuggerIsValid
+    itmRunMenuPause.Enabled := CanRun and DebuggerIsValid
             and (dcPause in FDebugger.Commands);
-    itmRunMenuPause.Enabled := PauseSpeedButton.Enabled;
     // Show execution point
     itmRunMenuShowExecutionPoint.Enabled := CanRun and DebuggerIsValid
             and (FDebugger.State = dsPause);
     // Step into
-    StepIntoSpeedButton.Enabled := CanRun and (not DebuggerIsValid
+    itmRunMenuStepInto.Enabled := CanRun and (not DebuggerIsValid
             or (dcStepInto in FDebugger.Commands) or (FDebugger.State = dsIdle));
-    itmRunMenuStepInto.Enabled := StepIntoSpeedButton.Enabled;
     // Step over
-    StepOverSpeedButton.Enabled := CanRun and (not DebuggerIsValid
+    itmRunMenuStepOver.Enabled := CanRun and (not DebuggerIsValid
             or (dcStepOver in FDebugger.Commands)  or (FDebugger.State = dsIdle));
-    itmRunMenuStepOver.Enabled := StepOverSpeedButton.Enabled;
     // Step out
-    StepOutSpeedButton.Enabled := CanRun and DebuggerIsValid
+    itmRunMenuStepOut.Enabled := CanRun and DebuggerIsValid
             and (dcStepOut in FDebugger.Commands) and (FDebugger.State = dsPause);
-    itmRunMenuStepOut.Enabled := StepOutSpeedButton.Enabled;
     // Run to cursor
     itmRunMenuRunToCursor.Enabled := CanRun and DebuggerIsValid
             and (dcRunTo in FDebugger.Commands);
     // Stop
     itmRunMenuStop.Enabled := CanRun and DebuggerIsValid;
-    StopSpeedButton.Enabled := itmRunMenuStop.Enabled;
 
     //Attach / Detach
     itmRunMenuAttach.Enabled := (not DebuggerIsValid) or (dcAttach in FDebugger.Commands);

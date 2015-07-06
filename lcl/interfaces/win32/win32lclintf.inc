@@ -54,7 +54,7 @@ function TWin32WidgetSet.AddPipeEventHandler(AHandle: THandle;
 var
   lHandler: PPipeEventInfo;
 begin
-  if AEventHandler = nil then exit;
+  if AEventHandler = nil then exit(nil);
   New(lHandler);
   lHandler^.Handle := AHandle;
   lHandler^.UserData := AData;
@@ -72,7 +72,7 @@ function TWin32WidgetSet.AddProcessEventHandler(AHandle: THandle;
 var
   lProcessEvent: PProcessEvent;
 begin
-  if AEventHandler = nil then exit;
+  if AEventHandler = nil then exit(nil);
   New(lProcessEvent);
   lProcessEvent^.Handle := AHandle;
   lProcessEvent^.UserData := AData;
@@ -267,7 +267,7 @@ var
   Msg: TLMessage;
   PMethod: ^TLCLWndMethod;
 begin
-  FillChar(Msg, SizeOf(Msg), #0);
+  FillChar(Msg{%H-}, SizeOf(Msg), #0);
   
   Msg.msg := uMsg;
   Msg.wParam := wParam;
@@ -276,7 +276,7 @@ begin
   {------------------------------------------------------------------------------
     Here we get the callback WndMethod associated with this window
    ------------------------------------------------------------------------------}
-  PMethod := Pointer(Widgetset.GetWindowLong(ahwnd, GWL_USERDATA));
+  PMethod := {%H-}Pointer(Widgetset.GetWindowLong(ahwnd, GWL_USERDATA));
 
   if Assigned(PMethod) then PMethod^(Msg);
    
@@ -311,10 +311,10 @@ begin
     Getmem(PMethod, SizeOf(TMethod));
     PMethod^ := Method;
 
-    Self.SetWindowLong(Result, GWL_USERDATA, PtrInt(PMethod));
+    Self.SetWindowLong(Result, GWL_USERDATA, {%H-}PtrInt(PMethod));
   end;
   
-  Self.SetWindowLong(Result, GWL_WNDPROC, PtrInt(@CallbackAllocateHWnd))
+  Self.SetWindowLong(Result, GWL_WNDPROC, {%H-}PtrInt(@CallbackAllocateHWnd))
 end;
 
 function TWin32WidgetSet.AskUser(const DialogCaption, DialogMessage: string;
@@ -326,9 +326,13 @@ var
   DialogButtons: PTASKDIALOG_BUTTON;
   State: TApplicationState;
 begin
-  if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
+  //TaskDialogIndirect is available in Vista and up, but only if app was built with manifest.
+  //The check for the latter is done by checking for ComCtlVersionIE6 (which is set in the manifest)
+  //The availability of TaskDialogIndirect does not depend on the status of ThemeServices
+  //Issue #0027664
+  if (WindowsVersion >= wvVista) and (GetFileVersion(comctl32) >= ComCtlVersionIE6) then
   begin
-    FillChar(TaskConfig, SizeOf(TaskConfig), 0);
+    FillChar(TaskConfig{%H-}, SizeOf(TaskConfig), 0);
     TaskConfig.cbSize := SizeOf(TaskConfig);
     // if we skip hwndParent our form will be a root window - with the taskbar item and icon
     // this is unwanted
@@ -410,7 +414,7 @@ procedure TWin32WidgetSet.DeallocateHWnd(Wnd: HWND);
 var
   PMethod: ^TLCLWndMethod;
 begin
-  PMethod := Pointer(Self.GetWindowLong(Wnd, GWL_USERDATA));
+  PMethod := {%H-}Pointer(Self.GetWindowLong(Wnd, GWL_USERDATA));
 
   if Wnd <> 0 then Windows.DestroyWindow(Wnd);
 
@@ -620,17 +624,17 @@ var
 begin
   WindowInfo := GetWin32WindowInfo(WindowHandle);
   OverlayWindow := WindowInfo^.Overlay;
-  if OverlayWindow = HWND(nil) then
+  if OverlayWindow = {%H-}HWND(nil) then
   begin
     // create 'overlay' window
     Windows.GetClientRect(WindowHandle, @ARect);
     OverlayWindow := Windows.CreateWindowEx(WS_EX_TRANSPARENT,
         @ClsName, '', WS_CHILD or WS_VISIBLE,
         ARect.Left, ARect.Top, ARect.Right, ARect.Bottom,
-        WindowHandle, HMENU(nil), HInstance, nil);
+        WindowHandle, {%H-}HMENU(nil), HInstance, nil);
     OverlayWindowInfo := AllocWindowInfo(OverlayWindow);
-    OverlayWindowInfo^.DefWndProc := Windows.WNDPROC(SetWindowLong(
-        OverlayWindow, GWL_WNDPROC, PtrInt(@OverlayWindowProc)));
+    OverlayWindowInfo^.DefWndProc := {%H-}Windows.WNDPROC(SetWindowLong(
+        OverlayWindow, GWL_WNDPROC, {%H-}PtrInt(@OverlayWindowProc)));
     OverlayWindowInfo^.WinControl := WindowInfo^.WinControl;
     WindowInfo^.Overlay := OverlayWindow;
   end;
@@ -660,7 +664,11 @@ var
   DialogButtons: PTASKDIALOG_BUTTON;
   State: TApplicationState;
 begin
-  if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
+  //TaskDialogIndirect is available in Vista and up, but only if app was built with manifest.
+  //The check for the latter is done by checking for ComCtlVersionIE6 (which is set in the manifest)
+  //The availability of TaskDialogIndirect does not depend on the status of ThemeServices
+  //Issue #0027664
+  if (WindowsVersion >= wvVista) and (GetFileVersion(comctl32) >= ComCtlVersionIE6) then
   begin
     FillChar(TaskConfig, SizeOf(TaskConfig), 0);
     TaskConfig.cbSize := SizeOf(TaskConfig);
@@ -807,7 +815,7 @@ var
     // align to DWord
     Align := DstLineSize and 3;
     if Align > 0
-    then Inc(DstLineSize, 4 - Align);
+    then Inc(DstLineSize, PtrUInt(4 - Align));
 
     SrcLinePtr := ARawImage.Data;
     SrcLineSize := ADesc.BytesPerLine;
@@ -1113,7 +1121,9 @@ var
 begin
   OverlayWindow := GetWin32WindowInfo(Window)^.Overlay;
   if OverlayWindow <> 0 then
-    Result := Windows.ReleaseDC(OverlayWindow, DC);
+    Result := Windows.ReleaseDC(OverlayWindow, DC)
+  else
+    Result := 0;
 end;
 
 procedure TWin32WidgetSet.RemoveEventHandler(var AHandler: PEventHandler);

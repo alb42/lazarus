@@ -268,6 +268,7 @@ type
     FOnToken: TWikiTokenEvent;
     FVerbosity: TWikiPageVerbosity;
     FInPre: integer; // >0 means in a pre range
+    FInTableHeader: Boolean;
     procedure HandleAngleBracket; // tags
     procedure HandleCode; // <code>
     procedure HandleApostroph; // bold, italic
@@ -1064,12 +1065,11 @@ begin
     while not (FCurP^ in [#0..#31, ']']) do inc(FCurP);
     FLinkToken.CaptionEndPos:=StrPos(FCurP);
   end;
+
   if FCurP^=']' then begin
     inc(FCurP);
     if (FLinkToken.SubToken=wptInternLink) and (FCurP^=']') then
       inc(FCurP);
-
-
     DoToken(FLinkToken);
   end;
   FLastEmitPos:=FCurP;
@@ -1089,10 +1089,19 @@ begin
   CloseTableCell;
   if TopToken=wptTable then
     EmitFlag(wptTableRow, wprOpen, 0);
-  if AtLineStart(FCurP) then
-    EmitFlag(wptTableCell, wprOpen, 1) // linestart | or linestart !
-  else
-    EmitFlag(wptTableCell, wprOpen, 2); // ||
+
+  if AtLineStart(FCurP) then begin
+    FInTableHeader := (FCurP^='!');
+    if FInTableHeader then
+      EmitFlag(wptTableHeadCell, wprOpen, 1)    // linestart !
+    else
+      EmitFlag(wptTableCell, wprOpen, 1)        // linestart |
+  end else begin
+    if FInTableHeader then
+      EmitFlag(wptTableHeadCell, wprOpen, 2)    // !!
+    else
+      EmitFlag(wptTableCell, wprOpen, 2);       // ||
+  end;
   NextBar:=FCurP;
   while not (NextBar^ in [#0, #10, #13, '|']) do begin
     if NextBar^='[' then begin
@@ -1437,7 +1446,9 @@ begin
     FNameValueToken:=TWPNameValueToken.Create(Self,Data);
     while FCurP^<>#0 do begin
       case FCurP^ of
-
+      { wp: this case is responsible that backslashes do no appear in converted
+            windows pathnames. I don't know if a backslash has a special meaning
+            in the wiki syntax.
       '\':
         begin
           // special character as normal character
@@ -1446,7 +1457,7 @@ begin
           FLastEmitPos:=FCurP;
           if FCurP^<>#0 then inc(FCurP);
         end;
-
+      }
       #10,#13:
         begin
           EmitTextToken;

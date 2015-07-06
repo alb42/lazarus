@@ -15,12 +15,12 @@ interface
 {$I LR_Vers.inc}
 
 uses
-  SysUtils, Classes, Graphics, Controls,
+  SysUtils, Classes, strutils, Graphics, Controls,
   LR_DBRel, Forms, StdCtrls, ClipBrd, Menus, db,
   {$IFDEF WIN32}
   Windows,
   {$ENDIF}
-  LCLType, LCLIntf, LazUTF8, LConvEncoding;
+  LCLType, LCLIntf, LConvEncoding, LazFileUtils, LazUTF8;
 
 type
   TUTF8Item=packed record
@@ -69,6 +69,11 @@ function lrStrToDateTime(AValue: string): TDateTime;
 function lrExpandVariables(const S:string):string;
 procedure lrNormalizeLocaleFloats(DisableLocale: boolean);
 function lrConfigFolderName(ACreatePath: boolean): string;
+function lrCanReadName(Stream: TStream): boolean;
+
+procedure CanvasTextRectJustify(const Canvas:TCanvas;
+  const ARect: TRect; X1, X2, Y: integer; const Text: string;
+  Trimmed: boolean);
 
 // utf8 tools
 function UTF8Desc(S:string; var Desc: string): Integer; deprecated;
@@ -82,8 +87,7 @@ function UTF8CountWords(const str:string; out WordCount,SpcCount,SpcSize:Integer
 
 implementation
 
-uses LR_Class, LR_Const, LR_Pars, FileUtil, LazUtilsStrConsts, LR_DSet,
-  LR_DBComponent, strutils;
+uses LR_Class, LR_Const, LR_Pars, LazUtilsStrConsts, LR_DSet, LR_DBComponent;
 
 var
   PreviousFormatSettings: TFormatSettings;
@@ -390,7 +394,7 @@ end;
 procedure frGetDataSetAndField(ComplexName: String; var DataSet: TfrTDataSet;
   out Field: TfrTField);
 var
-  n, i, j: Integer;
+  n: Integer;
   Owner, Component: TComponent;
   s1, s2, s3, s4: String;
   frDS, F:TfrObject;
@@ -919,6 +923,34 @@ begin
     raise EInOutError.Create(SysUtils.Format(lrsUnableToCreateConfigDirectoryS,[Result]));
 end;
 
+function lrCanReadName(Stream: TStream): boolean;
+var
+  oldPosition: Int64;
+  aName: string;
+  n: Integer;
+begin
+  // normally stream is seek-able so this should work....
+  oldPosition := stream.Position;
+  result := false;
+  try
+    try
+      n := stream.ReadWord;
+      setLength(aName, n);
+      stream.Read(aName[1], n);
+      if (n>0) and (stream.ReadByte=0) then begin
+        // unfortunately, objects names are not validated
+        // only check standard names here
+        while (n>0) and (aName[n] in ['a'..'z','A'..'Z','0'..'9','_']) do
+          dec(n);
+        result := (n=0);
+      end;
+    except
+    end;
+  finally
+    Stream.Position := oldPosition;
+  end;
+end;
+
 function UTF8Desc(S: string; var Desc: string): Integer;
 // create Desc as an array with Desc[i] is the size of the UTF-8 codepoint
 var
@@ -1049,7 +1081,7 @@ end;
 
 function UTF8CountWords(const str:string; out WordCount,SpcCount,SpcSize:Integer): TArrUTF8Item;
 var
-  b,i,j,n,len: Integer;
+  b,i,j,len: Integer;
   spc: boolean;
 begin
   i := 1;
@@ -1084,6 +1116,83 @@ begin
     if Spc then
       Inc(SpcSize);
   end;
+end;
+
+procedure CanvasTextRectJustify(const Canvas:TCanvas;
+  const ARect: TRect; X1, X2, Y: integer; const Text: string;
+  Trimmed: boolean);
+var
+  WordCount,SpcCount,SpcSize:Integer;
+  Arr: TArrUTF8Item;
+  PxSpc,RxSpc,Extra: Integer;
+  i: Integer;
+  Cini,Cend: Integer;
+  SpaceWidth, AvailWidth: Integer;
+  s:string;
+begin
+
+  AvailWidth := (X2-X1);
+  // count words
+  Arr := UTF8CountWords(Text, WordCount, SpcCount, SpcSize);
+
+  // handle trimmed text
+  s := Text;
+  if (SpcCount>0) then
+  begin
+    Cini := 0;
+    CEnd := Length(Arr)-1;
+    if Trimmed then
+    begin
+      s := UTF8Trim(Text, [u8tKeepStart]);
+      if Arr[CEnd].Space then
+      begin
+        Dec(CEnd);
+        Dec(SpcCount);
+      end;
+    end;
+    AvailWidth := AvailWidth - Canvas.TextWidth(s);
+  end;
+
+  // check if long way is needed
+  if (SpcCount>0) and (AvailWidth>0) then
+  begin
+
+    SpaceWidth := Canvas.TextWidth(' ');
+    PxSpc := AvailWidth div SpcCount;
+    RxSpc := AvailWidth mod SpcCount;
+    if PxSPC=0 then
+    begin
+      PxSPC := 1;
+      RxSpc := 0;
+    end;
+
+    for i:=CIni to CEnd do
+      if Arr[i].Space then
+      begin
+        X1 := X1 + Arr[i].Count * SpaceWidth;
+        if AvailWidth>0 then
+        begin
+          Extra := PxSpc;
+          if RxSpc>0 then
+          begin
+            Inc(Extra);
+            Dec(RxSpc);
+          end;
+          X1 := X1 + Extra;
+          Dec(AvailWidth, Extra);
+        end;
+      end
+      else
+      begin
+        s := Copy(Text, Arr[i].Index, Arr[i].Count);
+        Canvas.TextRect(ARect, X1, Y, s);
+        X1 := X1 + Canvas.TextWidth(s);
+      end;
+
+  end else
+    Canvas.TextRect(ARect, X1, Y, s);
+
+  SetLength(Arr, 0);
 end;
 
 end.

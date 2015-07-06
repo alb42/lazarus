@@ -5,7 +5,7 @@ unit idedatadict;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, fpdatadict, ProjectIntf, LazIDEIntf, ldd_consts;
+  Classes, SysUtils, fpdatadict, LazUTF8, LazIDEIntf, ldd_consts;
 
 Type
 
@@ -298,8 +298,9 @@ Var
 begin
   I:=FKnownDicts.IndexOf(ADict);
   If (I<>-1) then
-    Result:=(FKnownDicts.Objects[i] as TDDFile).FFileName;
-
+    Result:=(FKnownDicts.Objects[i] as TDDFile).FFileName
+  Else
+    Result:='';
 end;
 
 { TDDFile }

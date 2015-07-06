@@ -33,8 +33,8 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, Forms, Controls, Buttons, StdCtrls,
-  Laz2_XMLWrite, lazutf8classes,
-  SynEdit, SynHighlighterDiff, LCLType, ComCtrls, ExtCtrls,
+  lazutf8classes,
+  SynEdit, SynHighlighterDiff, LCLType, ExtCtrls,
   FileProcs, CodeToolManager, CodeCache,
   Project, DiffPatch, LazarusIDEStrConsts, EnvironmentOpts, EditorOptions,
   PackageDefs;
@@ -61,10 +61,9 @@ type
     Splitter: TSplitter;
     SynDiffSyn1: TSynDiffSyn;
     procedure DiskDiffsDlgKeyDown(Sender: TObject; var Key: Word;
-          Shift: TShiftState);
-    procedure FilesListBoxMouseUp(Sender: TOBject; Button: TMouseButton;
-          Shift: TShiftState; X, Y: Integer);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+          {%H-}Shift: TShiftState);
+    procedure FilesListBoxSelectionChange(Sender: TObject; User: boolean);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
   private
     FPackageList: TStringList;
     FUnitList: TFPList;
@@ -208,10 +207,11 @@ begin
     ModalResult := mrYesToAll;
 end;
 
-procedure TDiskDiffsDlg.FilesListBoxMouseUp(Sender: TOBject;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure TDiskDiffsDlg.FilesListBoxSelectionChange(Sender: TObject;
+  User: boolean);
 begin
-  ShowDiff;
+  if User then
+    ShowDiff;
 end;
 
 procedure TDiskDiffsDlg.FormClose(Sender: TObject; var CloseAction: TCloseAction);

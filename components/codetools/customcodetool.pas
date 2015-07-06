@@ -43,7 +43,7 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, math, FileProcs, CodeToolsStrConsts, CodeTree, CodeAtom,
+  Classes, SysUtils, FileProcs, CodeToolsStrConsts, CodeTree, CodeAtom,
   KeywordFuncLists, BasicCodeTools, LinkScanner, CodeCache,
   AVL_Tree;
 
@@ -133,7 +133,7 @@ type
     procedure RaiseLastError;
     procedure DoProgress; inline;
     procedure NotifyAboutProgress;
-    procedure FetchScannerSource(Range: TLinkScannerRange); virtual;
+    procedure FetchScannerSource; virtual;
     function InternalAtomIsIdentifier: boolean; inline;
   public
     Tree: TCodeTree;
@@ -182,6 +182,7 @@ type
     function CleanPosToCaretAndTopLine(CleanPos: integer;
         out Caret:TCodeXYPosition; out NewTopLine: integer): boolean; // true=ok, false=invalid CleanPos
     function CleanPosToStr(CleanPos: integer; WithFilename: boolean = false): string;
+    function CodeXYToStr(const CodePos: TCodeXYPosition; WithFilename: boolean = false): string;
     function CleanPosToRelativeStr(CleanPos: integer;
         const BaseFilename: string): string;
     procedure GetCleanPosInfo(CodePosInFront, CleanPos: integer;
@@ -199,9 +200,6 @@ type
     procedure BeginParsing(Range: TLinkScannerRange); virtual;
     procedure BeginParsingAndGetCleanPos(
         Range: TLinkScannerRange; CursorPos: TCodeXYPosition;
-        out CleanCursorPos: integer);
-    procedure BeginParsingAndGetCleanPosOLD(
-        OnlyInterfaceNeeded: boolean; CursorPos: TCodeXYPosition;
         out CleanCursorPos: integer);
 
     function StringIsKeyWord(const Word: string): boolean;
@@ -311,8 +309,7 @@ type
       const ErrorCleanPos: integer;
       const ErrorNiceCleanPos: TCodeXYPosition
       ): TCodeTreeNodeParseError;
-    procedure RaiseNodeParserError(Node: TCodeTreeNode;
-      CheckIgnoreErrorPos: boolean = true);
+    procedure RaiseNodeParserError(Node: TCodeTreeNode);
     procedure RaiseCursorOutsideCode(CursorPos: TCodeXYPosition);
     property OnParserProgress: TOnParserProgress
       read FOnParserProgress write FOnParserProgress;
@@ -496,7 +493,7 @@ begin
   end;
 end;
 
-procedure TCustomCodeTool.FetchScannerSource(Range: TLinkScannerRange);
+procedure TCustomCodeTool.FetchScannerSource;
 begin
   // update scanned code
   if FLastScannerChangeStep=Scanner.ChangeStep then begin
@@ -577,7 +574,8 @@ begin
       if (SubDesc and ctnsNeedJITParsing)>0 then Result:=ctsUnparsed;
     end;
   ctnClass,ctnObject,ctnRecordType,ctnObjCClass,ctnObjCCategory,ctnObjCProtocol,
-  ctnCPPClass,ctnClassInterface,ctnDispinterface:
+  ctnCPPClass,ctnClassInterface,ctnDispinterface,
+  ctnTypeHelper,ctnRecordHelper,ctnClassHelper:
     begin
       Result:='';
       if (SubDesc and ctnsForwardDeclaration)>0 then Result:=ctsForward;
@@ -836,7 +834,7 @@ begin
   if CurPos.StartPos>SrcLen then exit(false);
   p:=@Src[CurPos.StartPos];
   if p^ in ['0'..'9','%','$'] then exit(true);
-  if (p^='&') and (p[1] in ['0'..'7']) then exit(true);
+  if (p^='&') and IsOctNumberChar[p[1]] then exit(true);
   Result:=false;
 end;
 
@@ -1232,10 +1230,10 @@ begin
     '&': // octal number or keyword as identifier
       begin
         inc(p);
-        if p^ in ['0'..'7'] then begin
-          while p^ in ['0'..'7'] do
+        if IsOctNumberChar[p^] then begin
+          while IsOctNumberChar[p^] do
             inc(p);
-        end else if IsIdentChar[p^] then begin
+        end else if IsIdentStartChar[p^] then begin
           CurPos.Flag:=cafWord;
           while IsIdentChar[p^] do
             inc(p);
@@ -1532,7 +1530,7 @@ begin
             dec(CurPos.StartPos);
             while (CurPos.StartPos>=1) do begin
               if (Src[CurPos.StartPos]=#3) and (CurPos.StartPos>1)
-              and (Src[CurPos.StartPos-1]='}') then begin
+              and (Src[CurPos.StartPos-1]='{') then begin
                 dec(CurPos.StartPos,2);
                 break;
               end;
@@ -1742,7 +1740,7 @@ begin
         if CurPos.StartPos>1 then begin
           c1:=Src[CurPos.StartPos-1];
           // test for double char operators :=, +=, -=, /=, *=, <>, <=, >=, **, ><
-          if ((c2='=') and  (IsEqualOperatorStartChar[c1]))
+          if ((c2='=') and (IsEqualOperatorStartChar[c1]))
           or ((c1='<') and (c2='>'))
           or ((c1='>') and (c2='<'))
           or ((c1='.') and (c2='.'))
@@ -1750,7 +1748,7 @@ begin
           or ((c1='@') and (c2='@'))
           then begin
             dec(CurPos.StartPos);
-            CurPos.Flag:=cafNone;
+            CurPos.Flag:=cafOtherOperator;
           end else begin
             case c2 of
             '=': CurPos.Flag:=cafEqual;
@@ -1985,7 +1983,7 @@ begin
   // scan
   FLastProgressPos:=0;
   Scanner.Scan(Range,CheckFilesOnDisk);
-  FetchScannerSource(Range);
+  FetchScannerSource;
   // init parsing values
   CurPos:=StartAtomPosition;
   LastAtoms.Clear;
@@ -2006,19 +2004,6 @@ begin
     MoveCursorToCleanPos(1);
     RaiseException(ctsCursorPosOutsideOfCode,true);
   end;
-end;
-
-procedure TCustomCodeTool.BeginParsingAndGetCleanPosOLD(
-  OnlyInterfaceNeeded: boolean; CursorPos: TCodeXYPosition;
-  out CleanCursorPos: integer);
-var
-  Range: TLinkScannerRange;
-begin
-  if OnlyInterfaceNeeded then
-    Range:=lsrImplementationStart
-  else
-    Range:=lsrEnd;
-  BeginParsingAndGetCleanPos(Range,CursorPos,CleanCursorPos);
 end;
 
 function TCustomCodeTool.IgnoreErrorAfterPositionIsInFrontOfLastErrMessage: boolean;
@@ -2150,8 +2135,7 @@ begin
   Result.NicePos:=ErrorNiceCleanPos;
 end;
 
-procedure TCustomCodeTool.RaiseNodeParserError(Node: TCodeTreeNode;
-  CheckIgnoreErrorPos: boolean);
+procedure TCustomCodeTool.RaiseNodeParserError(Node: TCodeTreeNode);
 var
   NodeError: TCodeTreeNodeParseError;
 begin
@@ -2178,6 +2162,7 @@ var
   LastPos: Integer;
 begin
   ErrorPosition:=CursorPos;
+  Msg:='';
   // check position in code buffer
   if CursorPos.Code=nil then
     Msg:='cursor position without code buffer'
@@ -2286,7 +2271,7 @@ var NewPos: integer;
 begin
   if Src='' then
     RaiseSrcEmpty;
-  NewPos:=PtrInt(PtrUInt(ACleanPos))-PtrInt(PtrUInt(@Src[1]))+1;
+  NewPos:=PtrInt({%H-}PtrUInt(ACleanPos))-PtrInt({%H-}PtrUInt(@Src[1]))+1;
   if (NewPos<1) or (NewPos>SrcLen) then
     RaiseNotInSrc;
   MoveCursorToCleanPos(NewPos);
@@ -2329,12 +2314,15 @@ begin
 end;
 
 function TCustomCodeTool.IsPCharInSrc(ACleanPos: PChar): boolean;
-var NewPos: integer;
+// Note: the ending #0 is a valid position
+var
+  p: PChar;
 begin
   Result:=false;
   if Src='' then exit;
-  NewPos:=PtrInt(PtrUInt(ACleanPos))-PtrInt(PtrUInt(@Src[1]))+1;
-  if (NewPos<1) or (NewPos>SrcLen) then exit;
+  p:=PChar(Src);
+  if p>ACleanPos then exit;
+  if ACleanPos>p+SrcLen then exit;
   Result:=true;
 end;
 
@@ -2716,12 +2704,18 @@ var
   CodePos: TCodeXYPosition;
 begin
   if CleanPosToCaret(CleanPos,CodePos) then begin
-    Result:='';
-    if WithFilename then
-      Result:=ExtractRelativepath(ExtractFilePath(MainFilename),CodePos.Code.Filename)+',';
-    Result:=Result+'line '+IntToStr(CodePos.Y)+', column '+IntToStr(CodePos.X);
+    Result:=CodeXYToStr(CodePos,WithFilename);
   end else
     Result:='outside scan range, pos='+IntToStr(CleanPos)+'('+dbgstr(copy(Src,CleanPos-5,5)+'|'+copy(Src,CleanPos,5))+')';
+end;
+
+function TCustomCodeTool.CodeXYToStr(const CodePos: TCodeXYPosition;
+  WithFilename: boolean): string;
+begin
+  Result:='';
+  if WithFilename then
+    Result:=ExtractRelativepath(ExtractFilePath(MainFilename),CodePos.Code.Filename)+',';
+  Result:=Result+'line '+IntToStr(CodePos.Y)+', column '+IntToStr(CodePos.X);
 end;
 
 function TCustomCodeTool.CleanPosToRelativeStr(CleanPos: integer;
@@ -2754,7 +2748,7 @@ procedure TCustomCodeTool.GetCleanPosInfo(CodePosInFront, CleanPos: integer;
   ResolveComments: if CleanPos is in a comment, parse again in the comment (not recursive)
   SameArea: area around CleanPos, either an atom, comment, directive or space
             if CleanPos<CodePosInFront then CleanAtomPosition
-            if CleanPos>SrcLen then CurPos.StartPos>SrcLen
+            if CleanPos>SrcLen then SameArea.StartPos>SrcLen
 }
 var
   ANode: TCodeTreeNode;

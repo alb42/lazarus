@@ -38,8 +38,8 @@ uses
   Classes, SysUtils, types, math, AVL_Tree, LazLogger, LazFileUtils, LazUTF8,
   Forms, Controls, ExtCtrls, ComCtrls, StdCtrls, Buttons, Dialogs, Menus,
   Clipbrd, LvlGraphCtrl, LazIDEIntf, ProjectIntf, IDEWindowIntf, PackageIntf,
-  SrcEditorIntf, IDEImagesIntf, IDECommands, IDEDialogs, IDEMsgIntf, TextTools,
-  IDEExternToolIntf,
+  SrcEditorIntf, IDEImagesIntf, IDECommands, IDEDialogs, IDEMsgIntf,
+  IDEExternToolIntf, IDEOptionDefs,
   CodeToolManager, DefineTemplates, CodeToolsStructs,
   CTUnitGraph, CTUnitGroupGraph, FileProcs, CodeCache, LazarusIDEStrConsts,
   UnusedUnitsDlg;
@@ -176,15 +176,12 @@ type
     UnitsTabSheet: TTabSheet;
     UnitsTVPopupMenu: TPopupMenu;
     procedure AllUnitsFilterEditChange(Sender: TObject);
-    procedure AllUnitsFilterEditEnter(Sender: TObject);
-    procedure AllUnitsFilterEditExit(Sender: TObject);
     procedure AllUnitsSearchEditChange(Sender: TObject);
-    procedure AllUnitsSearchEditEnter(Sender: TObject);
-    procedure AllUnitsSearchEditExit(Sender: TObject);
     procedure AllUnitsSearchNextSpeedButtonClick(Sender: TObject);
     procedure AllUnitsSearchPrevSpeedButtonClick(Sender: TObject);
     procedure AllUnitsShowDirsSpeedButtonClick(Sender: TObject);
     procedure AllUnitsShowGroupNodesSpeedButtonClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
     procedure RefreshButtonClick(Sender: TObject);
     procedure SelUnitsTreeViewExpanding(Sender: TObject; Node: TTreeNode;
       var AllowExpansion: Boolean);
@@ -203,8 +200,6 @@ type
     procedure SearchPkgsCheckBoxChange(Sender: TObject);
     procedure SearchSrcEditCheckBoxChange(Sender: TObject);
     procedure SelUnitsSearchEditChange(Sender: TObject);
-    procedure SelUnitsSearchEditEnter(Sender: TObject);
-    procedure SelUnitsSearchEditExit(Sender: TObject);
     procedure SelUnitsSearchNextSpeedButtonClick(Sender: TObject);
     procedure SelUnitsSearchPrevSpeedButtonClick(Sender: TObject);
     procedure SearchCustomFilesBrowseButtonClick(Sender: TObject);
@@ -310,7 +305,7 @@ type
   public
     function IsApplicable(Msg: TMessageLine; out Unitname1, Unitname2: string): boolean;
     procedure CreateMenuItems(Fixes: TMsgQuickFixes); override;
-    procedure QuickFix(Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
+    procedure QuickFix({%H-}Fixes: TMsgQuickFixes; Msg: TMessageLine); override;
   end;
 
 var
@@ -538,6 +533,8 @@ end;
 
 procedure TUnitDependenciesWindow.FormCreate(Sender: TObject);
 begin
+  Name := NonModalIDEWindowNames[nmiwUnitDependenciesName];
+
   FPendingUnitDependencyRoute:=TStringList.Create;
   CreateUsesGraph(FUsesGraph,FGroups);
 
@@ -568,18 +565,6 @@ begin
   IdleConnected:=true;
 end;
 
-procedure TUnitDependenciesWindow.AllUnitsSearchEditEnter(Sender: TObject);
-begin
-  if AllUnitsSearchEdit.Text=ResStrSearch then
-    AllUnitsSearchEdit.Text:='';
-end;
-
-procedure TUnitDependenciesWindow.AllUnitsSearchEditExit(Sender: TObject);
-begin
-  if AllUnitsSearchEdit.Text='' then
-    AllUnitsSearchEdit.Text:=ResStrSearch;
-end;
-
 procedure TUnitDependenciesWindow.AllUnitsSearchNextSpeedButtonClick(Sender: TObject);
 begin
   SelectNextSearchTV(AllUnitsTreeView,AllUnitsTreeView.Selected,true,true);
@@ -602,6 +587,13 @@ procedure TUnitDependenciesWindow.AllUnitsShowGroupNodesSpeedButtonClick(Sender:
 begin
   Include(FFlags,udwNeedUpdateAllUnitsTreeView);
   IdleConnected:=true;
+end;
+
+procedure TUnitDependenciesWindow.FormShow(Sender: TObject);
+begin
+  AllUnitsFilterEdit.TextHint:=ResStrFilter;
+  AllUnitsSearchEdit.TextHint:=ResStrSearch;
+  SelUnitsSearchEdit.TextHint:=ResStrSearch;
 end;
 
 procedure TUnitDependenciesWindow.RefreshButtonClick(Sender: TObject);
@@ -768,17 +760,6 @@ begin
   IdleConnected:=true;
 end;
 
-procedure TUnitDependenciesWindow.AllUnitsFilterEditEnter(Sender: TObject);
-begin
-  if AllUnitsFilterEdit.Text=ResStrFilter then
-    AllUnitsFilterEdit.Text:='';
-end;
-
-procedure TUnitDependenciesWindow.AllUnitsFilterEditExit(Sender: TObject);
-begin
-  if AllUnitsFilterEdit.Text='' then
-    AllUnitsFilterEdit.Text:=ResStrFilter;
-end;
 
 procedure TUnitDependenciesWindow.FormDestroy(Sender: TObject);
 begin
@@ -857,18 +838,6 @@ procedure TUnitDependenciesWindow.SelUnitsSearchEditChange(Sender: TObject);
 begin
   Include(FFlags,udwNeedUpdateSelUnitsTVSearch);
   IdleConnected:=true;
-end;
-
-procedure TUnitDependenciesWindow.SelUnitsSearchEditEnter(Sender: TObject);
-begin
-  if SelUnitsSearchEdit.Text=ResStrSearch then
-    SelUnitsSearchEdit.Text:='';
-end;
-
-procedure TUnitDependenciesWindow.SelUnitsSearchEditExit(Sender: TObject);
-begin
-  if SelUnitsSearchEdit.Text='' then
-    SelUnitsSearchEdit.Text:=ResStrSearch;
 end;
 
 procedure TUnitDependenciesWindow.SelUnitsSearchNextSpeedButtonClick(Sender: TObject);
@@ -1043,7 +1012,7 @@ var
   CurUnit: TUGUnit;
   ProjFile: TLazProjectFile;
 begin
-  if AProject=nil then exit;
+  if AProject=nil then exit(nil);
   Result:=Groups.GetGroup(GroupPrefixProject,true);
   Result.BaseDir:=ExtractFilePath(AProject.ProjectInfoFile);
   if not FilenameIsAbsolute(Result.BaseDir) then
@@ -1070,7 +1039,7 @@ var
   Filename: String;
   CurUnit: TUGUnit;
 begin
-  if APackage=nil then exit;
+  if APackage=nil then exit(nil);
   Result:=Groups.GetGroup(APackage.Name,true);
   Result.BaseDir:=APackage.DirectoryExpanded;
   if not FilenameIsAbsolute(Result.BaseDir) then
@@ -1799,7 +1768,6 @@ begin
   // view all units
   AllUnitsGroupBox.Caption:=lisUDAllUnits;
 
-  AllUnitsFilterEdit.Text:=ResStrFilter;
   AllUnitsShowDirsSpeedButton.Hint:=lisUDShowNodesForDirectories;
   AllUnitsShowDirsSpeedButton.LoadGlyphFromResourceName(HInstance, 'pkg_hierarchical');
   AllUnitsShowDirsSpeedButton.Down:=true;
@@ -1807,7 +1775,6 @@ begin
   AllUnitsShowGroupNodesSpeedButton.LoadGlyphFromResourceName(HInstance, 'pkg_hierarchical');
   AllUnitsShowGroupNodesSpeedButton.Down:=true;
 
-  AllUnitsSearchEdit.Text:=ResStrSearch;
   AllUnitsSearchNextSpeedButton.Hint:=lisUDSearchNextOccurrenceOfThisPhrase;
   AllUnitsSearchNextSpeedButton.LoadGlyphFromResourceName(HInstance, 'arrow_down');
   AllUnitsSearchPrevSpeedButton.Hint:=lisUDSearchPreviousOccurrenceOfThisPhrase;
@@ -1815,7 +1782,6 @@ begin
 
   // selected units
   SelectedUnitsGroupBox.Caption:=lisUDSelectedUnits;
-  SelUnitsSearchEdit.Text:=ResStrSearch;
   SelUnitsSearchNextSpeedButton.Hint:=lisUDSearchNextUnitOfThisPhrase;
   SelUnitsSearchNextSpeedButton.LoadGlyphFromResourceName(HInstance, 'arrow_down');
   SelUnitsSearchPrevSpeedButton.Hint:=lisUDSearchPreviousUnitOfThisPhrase;
@@ -2274,27 +2240,21 @@ end;
 function TUnitDependenciesWindow.GetAllUnitsFilter(Lower: boolean): string;
 begin
   Result:=AllUnitsFilterEdit.Text;
-  if Result=ResStrFilter then
-    Result:=''
-  else if Lower then
+  if Lower then
     Result:=UTF8LowerCase(Result);
 end;
 
 function TUnitDependenciesWindow.GetAllUnitsSearch(Lower: boolean): string;
 begin
   Result:=AllUnitsSearchEdit.Text;
-  if Result=ResStrSearch then
-    Result:=''
-  else if Lower then
+  if Lower then
     Result:=UTF8LowerCase(Result);
 end;
 
 function TUnitDependenciesWindow.GetSelUnitsSearch(Lower: boolean): string;
 begin
   Result:=SelUnitsSearchEdit.Text;
-  if Result=ResStrSearch then
-    Result:=''
-  else if Lower then
+  if Lower then
     Result:=UTF8LowerCase(Result);
 end;
 

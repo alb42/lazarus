@@ -86,7 +86,7 @@ unit Translations;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, FileUtil, StringHashList, AvgLvlTree,
+  Classes, SysUtils, LCLProc, FileUtil, LazFileUtils, StringHashList, AvgLvlTree,
   LConvEncoding, LazUTF8, LazUTF8Classes, jsonparser, fpjson;
 
 type
@@ -1203,6 +1203,7 @@ begin
   begin
     // for each string in lrt/rst list check if it's already in PO
     // if not add it
+    MultilinedValue := false;
     Value := '';
     Identifier := '';
     i := 0;

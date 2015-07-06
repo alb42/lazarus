@@ -31,7 +31,7 @@ interface
 
 uses
   Classes, SysUtils, LCLIntf, LCLProc, Forms, Controls, Buttons, StdCtrls,
-  ExtCtrls, LazarusIDEStrConsts, ButtonPanel;
+  ExtCtrls, LazarusIDEStrConsts, ButtonPanel, Spin;
 
 type
 
@@ -39,29 +39,27 @@ type
 
   TScaleComponentsDialog = class(TForm)
     ButtonPanel1: TButtonPanel;
+    PercentEdit: TSpinEdit;
     ScaleLabel: TLabel;
-    PercentEdit: TEdit;
     PercentLabel: TLabel;
   public
     constructor Create(AOwner: TComponent);  override;
   end;
 
-function ShowScaleComponentsDialog(var ScaleInPercent: integer): TModalResult;
+function ShowScaleComponentsDialog(out ScaleInPercent: integer): TModalResult;
 
 implementation
 
 {$R *.lfm}
 
-function ShowScaleComponentsDialog(var ScaleInPercent: integer): TModalResult;
-var
-  ScaleComponentsDialog: TScaleComponentsDialog;
+function ShowScaleComponentsDialog(out ScaleInPercent: integer): TModalResult;
 begin
-  ScaleComponentsDialog:=TScaleComponentsDialog.Create(nil);
-  with ScaleComponentsDialog do
-  begin
-    PercentEdit.Text:='100';
+  with TScaleComponentsDialog.Create(nil) do
+  try
+    PercentEdit.Value:=100;
     Result:=ShowModal;
-    ScaleInPercent:=StrToIntDef(ScaleComponentsDialog.PercentEdit.Text,100);
+    ScaleInPercent:=PercentEdit.Value;
+  finally
     Free;
   end;
 end;

@@ -32,7 +32,7 @@ unit FindReplaceDialog;
 interface
 
 uses
-  Classes, Math, SysUtils, LCLProc, LCLType, Controls, StdCtrls, Forms, Buttons,
+  Classes, SysUtils, LCLProc, LCLType, Controls, StdCtrls, Forms, Buttons,
   ExtCtrls, Dialogs, Graphics, ButtonPanel,
   SynEditTypes, SynRegExpr, SynEdit,
   IDEHelpIntf, IDEImagesIntf, IDEWindowIntf, IDEDialogs,
@@ -69,7 +69,7 @@ type
     WholeWordsOnlyCheckBox: TCheckBox;
     procedure EnableAutoCompleteSpeedButtonClick(Sender: TObject);
     procedure FormChangeBounds(Sender: TObject);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure HelpButtonClick(Sender: TObject);
     procedure OptionsGroupBoxResize(Sender: TObject);
     procedure ReplaceWithCheckboxChange(Sender: TObject);
@@ -132,7 +132,7 @@ begin
   ReplaceTextComboBox.Text:='';
   ReplaceWithCheckbox.Caption:=dlgReplaceWith;
   EnableAutoCompleteSpeedButton.LoadGlyphFromResourceName(HInstance, 'menu_stepinto');
-  OptionsGroupBox.Caption:=dlgFROpts;
+  OptionsGroupBox.Caption:=lisOptions;
 
   with CaseSensitiveCheckBox do begin
     Caption:=dlgCaseSensitive;
@@ -163,7 +163,7 @@ begin
   FromCursorRadioButton.Caption := dlgFromCursor;
   EntireScopeRadioButton.Caption := dlgFromBeginning;
 
-  ScopeGroupBox.Caption := dlgScope;
+  ScopeGroupBox.Caption := dlgSearchScope;
   GlobalRadioButton.Caption := dlgGlobal;
   SelectedRadioButton.Caption := dlgSelectedText;
 
@@ -452,6 +452,7 @@ begin
   ReplaceWithCheckbox.Checked := ssoReplace in NewOptions;
   ReplaceTextComboBox.Enabled := ssoReplace in NewOptions;
   PromptOnReplaceCheckBox.Enabled := ssoReplace in NewOptions;
+  fReplaceAllClickedLast := ssoReplaceAll in NewOptions;
 
   if ssoReplace in NewOptions then
   begin

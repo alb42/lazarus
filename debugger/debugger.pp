@@ -38,7 +38,7 @@ unit Debugger;
 interface
 
 uses
-  TypInfo, Classes, SysUtils, Laz2_XMLCfg, math, FileUtil, LazLoggerBase,
+  TypInfo, Classes, SysUtils, Laz2_XMLCfg, math, LazFileUtils, LazLoggerBase,
   LCLProc, LazConfigStorage, LazClasses, maps,
   DbgIntfBaseTypes, DbgIntfMiscClasses, DbgIntfDebuggerBase;
 
@@ -1862,7 +1862,7 @@ end;
 
 function TIDEBreakPointGroupList.Add(const AGroup: TIDEBreakPointGroup): Integer;
 begin
-  if (AGroup = nil) or (IndexOf(AGroup) >= 0) then exit;
+  if (AGroup = nil) or (IndexOf(AGroup) >= 0) then exit(-1);
   Result := FList.Add(AGroup);
   AGroup.AddReference(Self);
   FOwner.DoChanged;
@@ -3310,10 +3310,9 @@ function TIdeWatchValue.GetValue: String;
 var
   i: Integer;
 begin
-  if not Watch.Enabled then begin
-    Result := '<disabled>';
-    exit;
-  end;
+  Result := '';
+  if not Watch.Enabled then
+    exit('<disabled>');
   i := DbgStateChangeCounter;  // workaround for state changes during TWatchValue.GetValue
   if Validity = ddsUnknown then begin
     Result := '<evaluating>';

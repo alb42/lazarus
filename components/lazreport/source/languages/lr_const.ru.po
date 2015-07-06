@@ -5,9 +5,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2015-01-23 00:22+0300\n"
+"PO-Revision-Date: 2015-06-18 00:58+0300\n"
 "Last-Translator: Maxim Ganetsky <maxkill@mail.ru>\n"
 "Language-Team: \n"
+"Language: ru\n"
+"X-Generator: Poedit 1.7.7\n"
 
 #: lr_const.saboutformcapt
 msgid "About FastReport"
@@ -102,13 +104,11 @@ msgid "Cross footer"
 msgstr "Cross-примечание"
 
 #: lr_const.sband22
-#| msgid "None"
 msgctxt "lr_const.sband22"
 msgid "Child"
 msgstr "Дочерний"
 
 #: lr_const.sband23
-#| msgid "None"
 msgctxt "lr_const.sband23"
 msgid "None"
 msgstr "Нет"
@@ -301,7 +301,6 @@ msgid "COPY(<String>, <Position>, <Length>)/Returns <Length> characters from <St
 msgstr "COPY(<String>, <Position>, <Length>)/Возвращает <Length> символов из строки <String>, начиная с <Position>."
 
 #: lr_const.sdescriptioncount
-#| msgid "COUNT(<BandName>)/Returns count of data-rows given in the <BandName>. "
 msgid "COUNT(<BandName>)/Returns count of data rows given in the <BandName>. "
 msgstr "COUNT(<BandName>)/Возвращает число строк данных в <BandName>. "
 
@@ -334,7 +333,6 @@ msgid "INC(<Value>)/Increment <Value>."
 msgstr "INC(<Value>)/Увеличивает <Value>."
 
 #: lr_const.sdescriptioninput
-#| msgid "INPUT(<Caption> [,Default])/Shows dialog window with headstring <Caption> and edit box. If [Default] parameter is set, puts this string in edit box. After user clicks OK, returns input string."
 msgid "INPUT(<Caption> [,Default])/Shows dialog window with title <Caption> and edit box. If [Default] parameter is set, puts this string in edit box. After user clicks OK, returns input string."
 msgstr "INPUT(<Caption> [,Default])/Выводит диалоговое окно с заголовком <Caption> и полем ввода. Если задан параметр [Default], помещает эту строку в поле ввода. После нажатия пользователем кнопки OK возвращает введённую строку."
 
@@ -379,12 +377,10 @@ msgid "NAMECASE(<String>)/Converts <String> symbols to lower case, and first sym
 msgstr "NAMECASE(<String>)/Преобразует символы строки <String> в нижний регистр, и первый символ - в верхний регистр."
 
 #: lr_const.sdescriptionnewcolumn
-#| msgid "NEWCOLUMN/Create new collumn on page for current report"
 msgid "NEWCOLUMN/Create new column on page for current report."
 msgstr "NEWCOLUMN/Создаёт новый столбец на странице текущего отчёта."
 
 #: lr_const.sdescriptionnewpage
-#| msgid "NEWPAGE/Create new page for current report"
 msgid "NEWPAGE/Create new page for current report."
 msgstr "NEWPAGE/Создаёт новую страницу текущего отчёта."
 
@@ -397,12 +393,10 @@ msgid "ROUND(<Value>)/Rounds the floating point <Value> to nearest integer numbe
 msgstr "ROUND(<Value>)/Округляет вещественное значение <Value> до ближайшего целого числа."
 
 #: lr_const.sdescriptionshowband
-#| msgid "SHOWBAND(<BandName>)/Show <BandName> in report"
 msgid "SHOWBAND(<BandName>)/Show <BandName> in report."
 msgstr "SHOWBAND(<BandName>)/Показывает имя поля <BandName> в отчёте."
 
 #: lr_const.sdescriptionstopreport
-#| msgid "STOPREPORT/Terminate create report"
 msgid "STOPREPORT/Terminate report creation."
 msgstr "STOPREPORT/Прерывает создание отчёта."
 
@@ -527,7 +521,6 @@ msgid "Report:"
 msgstr "Отчёт:"
 
 #: lr_const.sdocautor
-#| msgid "Autor"
 msgid "Author"
 msgstr "Автор"
 
@@ -552,7 +545,6 @@ msgid "Comments"
 msgstr "Комментарии"
 
 #: lr_const.sdocoptformkeywords
-#| msgid "Keys words"
 msgid "Keywords"
 msgstr "Ключевые слова"
 
@@ -646,7 +638,6 @@ msgid "Error"
 msgstr "Ошибка"
 
 #: lr_const.serroroccured
-#| msgid "An error occured during calculating"
 msgid "An error occurred during calculation"
 msgstr "Во время подсчёта произошла ошибка"
 
@@ -676,7 +667,6 @@ msgid "&Variable"
 msgstr "&Переменная"
 
 #: lr_const.sevformvars
-#| msgid "Va&riables..."
 msgid "Va&riables ..."
 msgstr "Пере&менные ..."
 
@@ -766,7 +756,6 @@ msgid "Variable format"
 msgstr "Формат переменной"
 
 #: lr_const.sfont
-#| msgid "Font..."
 msgid "Font ..."
 msgstr "Шрифт ..."
 
@@ -1162,7 +1151,6 @@ msgid "Width align"
 msgstr "Выравнивание по ширине"
 
 #: lr_const.sfrdesignerform_about
-#| msgid "&About..."
 msgid "&About ..."
 msgstr "&О программе ..."
 
@@ -1203,7 +1191,6 @@ msgid "&Delete"
 msgstr "&Удалить"
 
 #: lr_const.sfrdesignerform_edit
-#| msgid "&Edit..."
 msgctxt "lr_const.sfrdesignerform_edit"
 msgid "&Edit ..."
 msgstr "П&равка ..."
@@ -1213,7 +1200,6 @@ msgid "&Edit"
 msgstr "&Правка"
 
 #: lr_const.sfrdesignerform_editp
-#| msgid "&Edit..."
 msgctxt "lr_const.sfrdesignerform_editp"
 msgid "&Edit ..."
 msgstr "П&равка ..."
@@ -1247,7 +1233,6 @@ msgid "Modified"
 msgstr "Изменён"
 
 #: lr_const.sfrdesignerform_new
-#| msgid "&New..."
 msgid "&New ..."
 msgstr "&Новый ..."
 
@@ -1256,12 +1241,10 @@ msgid "&Objects"
 msgstr "&Объекты"
 
 #: lr_const.sfrdesignerform_open
-#| msgid "&Open..."
 msgid "&Open ..."
 msgstr "&Открыть ..."
 
 #: lr_const.sfrdesignerform_opts
-#| msgid "&Options..."
 msgid "&Options ..."
 msgstr "П&араметры ..."
 
@@ -1270,7 +1253,6 @@ msgid "&Paste"
 msgstr "В&ставить"
 
 #: lr_const.sfrdesignerform_pgopt
-#| msgid "&Page options..."
 msgid "&Page options ..."
 msgstr "Свойства страни&цы ..."
 
@@ -1291,7 +1273,6 @@ msgid "&Remove page"
 msgstr "Уда&лить страницу"
 
 #: lr_const.sfrdesignerform_rptopt
-#| msgid "&Report options..."
 msgid "&Report options ..."
 msgstr "Свойс&тва отчёта ..."
 
@@ -1300,7 +1281,6 @@ msgid "&Save"
 msgstr "&Сохранить"
 
 #: lr_const.sfrdesignerform_saveas
-#| msgid "Save &as..."
 msgid "Save &as ..."
 msgstr "Сохранить &как ..."
 
@@ -1339,7 +1319,6 @@ msgid "&Undo"
 msgstr "&Отменить"
 
 #: lr_const.sfrdesignerform_var
-#| msgid "Variables &list..."
 msgid "Variables &list ..."
 msgstr "Сп&исок переменных ..."
 
@@ -1368,7 +1347,6 @@ msgid "&Clear"
 msgstr "&Очистить"
 
 #: lr_const.sgeditorformload
-#| msgid "&Load..."
 msgid "&Load ..."
 msgstr "&Загрузить ..."
 
@@ -1408,12 +1386,10 @@ msgid "&Bold"
 msgstr "&Жирный"
 
 #: lr_const.shilightformcolor
-#| msgid "C&olor..."
 msgid "C&olor ..."
 msgstr "&Цвет ..."
 
 #: lr_const.shilightformcolor2
-#| msgid "Co&lor..."
 msgid "Co&lor ..."
 msgstr "&Цвет ..."
 
@@ -1508,7 +1484,6 @@ msgid "&Vertical"
 msgstr "&Вертикальное"
 
 #: lr_const.sinsroundrect
-#| msgid "Insert an RoundRect with shadow area"
 msgid "Insert a RoundRect with shadow area"
 msgstr "Вставить прямоугольник со скруглёнными углами (RoundRect) и областью тени"
 
@@ -1583,7 +1558,7 @@ msgstr "Объект \"%s\" не найден"
 
 #: lr_const.sok
 msgid "Ok"
-msgstr "OK"
+msgstr "ОК"
 
 #: lr_const.sonfirstpage
 msgid "On first page"
@@ -1594,7 +1569,6 @@ msgid "On last page"
 msgstr "На последней странице"
 
 #: lr_const.sother
-#| msgid "Other..."
 msgid "Other ..."
 msgstr "Другой ..."
 
@@ -2086,11 +2060,11 @@ msgstr "Страница"
 
 #: lr_const.spgoptformbottom
 msgid "&Bottom, mm"
-msgstr "&Нижнее, мм"
+msgstr "Н&ижнее, мм"
 
 #: lr_const.spgoptformbycolumns
 msgid "By Colum&ns"
-msgstr "По &столбцам"
+msgstr "По стол&бцам"
 
 #: lr_const.spgoptformbyrows
 msgid "By Row&s"
@@ -2156,7 +2130,7 @@ msgstr "Поля страницы"
 
 #: lr_const.spgoptformport
 msgid "&Portrait"
-msgstr "&Портретная"
+msgstr "&Книжная"
 
 #: lr_const.spgoptformprint
 msgid "&Print to previous page"
@@ -2164,7 +2138,7 @@ msgstr "&Печать на предыдущей странице"
 
 #: lr_const.spgoptformright
 msgid "&Right, mm"
-msgstr "&Правое, мм"
+msgstr "П&равое, мм"
 
 #: lr_const.spgoptformsize
 msgid "Size"
@@ -2259,7 +2233,6 @@ msgid "Print child if not visible"
 msgstr "Выводить дочерний в случае невидимости"
 
 #: lr_const.sprintererror
-#| msgid "Printer selected is not valid"
 msgid "Selected printer is not valid"
 msgstr "Выбран некорректный принтер"
 
@@ -2322,12 +2295,10 @@ msgid "Report file"
 msgstr "Файл очёта"
 
 #: lr_const.sreportcreatedate
-#| msgid "Report create date"
 msgid "Report creation date"
 msgstr "Дата создания отчёта"
 
 #: lr_const.sreportlastmodifydate
-#| msgid "Report last modify date"
 msgid "Report last modification date"
 msgstr "Дата последнего изменения отчёта"
 
@@ -2336,7 +2307,6 @@ msgid "Error while loading report"
 msgstr "Ошибка при загрузке отчёта"
 
 #: lr_const.sreportpreparing
-#| msgid "Report preparing"
 msgid "Preparing report"
 msgstr "Подготовка отчёта"
 
@@ -2373,7 +2343,6 @@ msgid "Gradient"
 msgstr "Градиент"
 
 #: lr_const.sroundrectformhint
-#| msgid "Click here to define the shadow color or gradian colors"
 msgid "Click here to define the shadow color or gradient colors"
 msgstr "Щёлкните здесь для задания цвета тени либо цветов градиента"
 
@@ -2579,7 +2548,6 @@ msgid "&Categories and variables"
 msgstr "Категории и переменные"
 
 #: lr_const.svarformat
-#| msgid "Variable format..."
 msgid "Variable format ..."
 msgstr "Формат переменной ..."
 
@@ -2628,4 +2596,3 @@ msgstr "Перенос слов"
 #: lr_const.syes
 msgid "Yes"
 msgstr "Да"
-

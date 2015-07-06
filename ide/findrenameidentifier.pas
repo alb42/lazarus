@@ -31,7 +31,7 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, Forms, Controls, Dialogs,
-  StdCtrls, ExtCtrls, AvgLvlTree, ComCtrls,
+  StdCtrls, ExtCtrls, ComCtrls,
   laz2_DOM,
   // codetools
   FileProcs, AVL_Tree, CTUnitGraph, CodeTree, CodeCache,
@@ -59,7 +59,7 @@ type
     ScopeRadioGroup: TRadioGroup;
     procedure FindOrRenameButtonClick(Sender: TObject);
     procedure FindRenameIdentifierDialogClose(Sender: TObject;
-      var CloseAction: TCloseAction);
+      var {%H-}CloseAction: TCloseAction);
     procedure FindRenameIdentifierDialogCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure RenameCheckBoxChange(Sender: TObject);
@@ -102,7 +102,7 @@ function ShowIdentifierReferences(
   DeclarationCode: TCodeBuffer; const DeclarationCaretXY: TPoint;
   TreeOfPCodeXYPosition: TAVLTree): TModalResult;
 procedure AddReferencesToResultView(DeclarationCode: TCodeBuffer;
-  const DeclarationCaretXY: TPoint; TargetCode: TCodeBuffer;
+  const DeclarationCaretXY: TPoint;
   TreeOfPCodeXYPosition: TAVLTree; ClearItems: boolean; SearchPageIndex: integer);
 
 function GatherFPDocReferencesForPascalFiles(PascalFiles: TStringList;
@@ -312,7 +312,7 @@ begin
     // list results
     SearchResultsView.BeginUpdate(SearchPageIndex.PageIndex);
     AddReferencesToResultView(DeclarationCode,DeclarationCaretXY,
-                   DeclarationCode,TreeOfPCodeXYPosition,true,SearchPageIndex.PageIndex);
+                   TreeOfPCodeXYPosition,true,SearchPageIndex.PageIndex);
     OldSearchPageIndex:=SearchPageIndex;
     SearchPageIndex:=nil;
     SearchResultsView.EndUpdate(OldSearchPageIndex.PageIndex);
@@ -324,9 +324,8 @@ begin
 end;
 
 procedure AddReferencesToResultView(DeclarationCode: TCodeBuffer;
-  const DeclarationCaretXY: TPoint; TargetCode: TCodeBuffer;
-  TreeOfPCodeXYPosition: TAVLTree; ClearItems: boolean;
-  SearchPageIndex: integer);
+  const DeclarationCaretXY: TPoint; TreeOfPCodeXYPosition: TAVLTree;
+  ClearItems: boolean; SearchPageIndex: integer);
 var
   Identifier: string;
   CodePos: PCodeXYPosition;
@@ -522,12 +521,12 @@ begin
   ButtonPanel1.OKButton.Caption:=lisFRIFindReferences;
   ButtonPanel1.OKButton.ModalResult:=mrNone;
   ButtonPanel1.CancelButton.Caption:=lisCancel;
-  NewGroupBox.Caption:=lisFRIRenameTo;
+  NewGroupBox.Caption:=lisFRIRenaming;
   RenameCheckBox.Caption:=lisRename;
   ShowResultCheckBox.Caption:=lisRenameShowResult;
   ScopeCommentsCheckBox.Caption:=lisFRISearchInCommentsToo;
-  ScopeGroupBox.Caption:=lisFRISearchWhere;
-  ScopeRadioGroup.Caption:=dlgScope;
+  ScopeGroupBox.Caption:=lisFRISearch;
+  ScopeRadioGroup.Caption:=dlgSearchScope;
   ScopeRadioGroup.Items[0]:=lisFRIinCurrentUnit;
   ScopeRadioGroup.Items[1]:=lisFRIinMainProject;
   ScopeRadioGroup.Items[2]:=lisFRIinProjectPackageOwningCurrentUnit;

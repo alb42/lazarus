@@ -35,10 +35,12 @@ type
 
   TWindowOptionsFrame = class(TAbstractIDEOptionsEditor)
     ApplyButton: TButton;
+    AutoAdjustIDEHeightFullCompPalCheckBox: TCheckBox;
     lblWindowPosition: TDividerBevel;
     lblShowingWindows: TDividerBevel;
     lblWindowCaption: TDividerBevel;
     NameForDesignedFormList: TCheckBox;
+    AutoAdjustIDEHeightCheckBox: TCheckBox;
     TitleIncludesBuildMode: TCheckBox;
     dropSplitterPlacement: TComboBox;
     CustomGeometryRadioButton: TRadioButton;
@@ -89,7 +91,7 @@ type
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -122,6 +124,10 @@ begin
   TitleIncludesBuildMode.Hint:=lisBuildModeInTitleInExample;
   NameForDesignedFormList.Caption:=lisWindowMenuWithNameForDesignedForm;
   NameForDesignedFormList.Hint:=lisWindowMenuWithNameForDesignedFormHint;
+  AutoAdjustIDEHeightCheckBox.Caption:=lisAutoAdjustIDEHeight;
+  AutoAdjustIDEHeightCheckBox.Hint:=lisAutoAdjustIDEHeightHint;
+  AutoAdjustIDEHeightFullCompPalCheckBox.Caption:=lisAutoAdjustIDEHeightFullComponentPalette;
+  AutoAdjustIDEHeightFullCompPalCheckBox.Hint:=lisAutoAdjustIDEHeightFullComponentPaletteHint;
   ProjectDirInIdeTitleCheckBox.Caption:=lisIDETitleShowsProjectDir;
   ProjectDirInIdeTitleCheckBox.Hint:=lisProjectDirectoryIsShowedInIdeTitleBar;
 end;
@@ -131,7 +137,7 @@ var
   Creator: TIDEWindowCreator;
   i, j: Integer;
 begin
-  with AOptions as TEnvironmentOptions do
+  with (AOptions as TEnvironmentOptions).Desktop do
   begin
     // window minimizing and hiding
     SingleTaskBarButtonCheckBox.Checked := SingleTaskBarButton;
@@ -139,6 +145,8 @@ begin
     TitleStartsWithProjectCheckBox.Checked:=IDETitleStartsWithProject;
     TitleIncludesBuildMode.Checked:=IDETitleIncludesBuildMode;
     NameForDesignedFormList.Checked:=IDENameForDesignedFormList;
+    AutoAdjustIDEHeightCheckBox.Checked:=AutoAdjustIDEHeight;
+    AutoAdjustIDEHeightFullCompPalCheckBox.Checked:=AutoAdjustIDEHeightFullCompPal;
     ProjectDirInIdeTitleCheckBox.Checked:=IDEProjectDirectoryInIdeTitle;
   end;
 
@@ -211,7 +219,7 @@ begin
   SaveLayout;
   IDEWindowCreators.SimpleLayoutStorage.Assign(FLayouts);
 
-  with AOptions as TEnvironmentOptions do
+  with (AOptions as TEnvironmentOptions).Desktop do
   begin
     // window minimizing
     SingleTaskBarButton := SingleTaskBarButtonCheckBox.Checked;
@@ -219,6 +227,8 @@ begin
     IDETitleStartsWithProject:=TitleStartsWithProjectCheckBox.Checked;
     IDETitleIncludesBuildMode := TitleIncludesBuildMode.Checked;
     IDENameForDesignedFormList := NameForDesignedFormList.Checked;
+    AutoAdjustIDEHeight := AutoAdjustIDEHeightCheckBox.Checked;
+    AutoAdjustIDEHeightFullCompPal := AutoAdjustIDEHeightFullCompPalCheckBox.Checked;
     IDEProjectDirectoryInIdeTitle:=ProjectDirInIdeTitleCheckBox.Checked;
   end;
 end;

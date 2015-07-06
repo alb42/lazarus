@@ -1,4 +1,4 @@
-unit customdrawn_android;
+unit CustomDrawn_Android;
 
 {$mode objfpc}{$H+}
 { $define CD_UseImageResources}
@@ -532,6 +532,7 @@ end;
 
 function TCDDrawerAndroid.GetMeasures(AMeasureID: Integer): Integer;
 begin
+  Result := 0;
   case AMeasureID of
 {  TCDEDIT_LEFT_TEXT_SPACING: Result := 4;
   TCDEDIT_RIGHT_TEXT_SPACING: Result := 3;
@@ -542,6 +543,8 @@ begin
   TCDCHECKBOX_SQUARE_HEIGHT: Result := DPIAdjustment(30);
   //
   TCDRADIOBUTTON_CIRCLE_HEIGHT: Result := DPIAdjustment(20); // Must be dividable by 4
+  //
+  TCDCOMBOBOX_DEFAULT_HEIGHT: Result := 50;
   //
 {  TCDSCROLLBAR_BUTTON_WIDTH: Result := 17;
   TCDSCROLLBAR_LEFT_SPACING: Result := 17;

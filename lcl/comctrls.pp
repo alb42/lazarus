@@ -1366,6 +1366,7 @@ type
     FImages: array[TListViewImageList] of TCustomImageList;
     FImageChangeLinks: array[TListViewImageList] of TChangeLink;
     FFlags: TListViewFlags;
+    FShowEditorQueued: boolean;
     FSortDirection: TSortDirection;
 
     FViewStyle: TViewStyle;
@@ -1432,11 +1433,13 @@ type
     procedure SetProperty(const ALvpOrd: Integer; const AIsSet: Boolean);
     procedure SetScrollBars(const AValue: TScrollStyle);
     procedure SetSelection(const AValue: TListItem);
+    procedure SetShowEditorQueued(AValue: boolean);
     procedure SetSortColumn(const AValue: Integer);
     procedure SetSortDirection(const AValue: TSortDirection);
     procedure SetSortType(const AValue: TSortType);
     procedure SetViewOrigin(AValue: TPoint);
     procedure SetViewStyle(const Avalue: TViewStyle);
+    procedure QueuedShowEditor(Data: PtrInt);
     procedure UpdateScrollbars;
     procedure CNNotify(var AMessage: TLMNotify); message CN_NOTIFY;
     procedure CNDrawItem(var Message: TLMDrawListItem); message CN_DRAWITEM;
@@ -1448,6 +1451,7 @@ type
     procedure ShowEditor;
     procedure WMHScroll(var message : TLMHScroll); message LM_HSCROLL;
     procedure WMVScroll(var message : TLMVScroll); message LM_VSCROLL;
+    property ShowEditorQueued: boolean read FShowEditorQueued write SetShowEditorQueued;
   protected
     //called by TListItems
     procedure ItemDeleted(const AItem: TListItem);
@@ -1986,6 +1990,7 @@ type
     FToolButtonFlags: TToolButtonFlags;
     FUpdateCount: Integer;
     FWrap: Boolean;
+    FLastDropDownTick: QWord;
     procedure GetGroupBounds(var StartIndex, EndIndex: integer);
     function GetIndex: Integer;
     function GetTextSize: TSize;
@@ -2108,6 +2113,8 @@ type
   end;
 
   { TToolBar }
+
+  TToolBarOnPaintButton = procedure(Sender: TToolButton; State: integer) of object;
   
   TToolBarFlag = (
     tbfUpdateVisibleBarNeeded,
@@ -2118,6 +2125,8 @@ type
   
   TToolBar = class(TToolWindow)
   private
+    FOnPaint: TNotifyEvent;
+    FOnPaintButton: TToolBarOnPaintButton;
     FButtonHeight: Integer;
     FRealizedButtonHeight,
     FRealizedButtonWidth: integer;
@@ -2253,6 +2262,7 @@ type
     property OnDblClick;
     property OnDragDrop;
     property OnDragOver;
+    property OnPaintButton: TToolBarOnPaintButton read FOnPaintButton write FOnPaintButton;
     property OnEndDrag;
     property OnEnter;
     property OnExit;
@@ -2264,6 +2274,7 @@ type
     property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
+    property OnPaint: TNotifyEvent read FOnPaint write FOnPaint;
     property OnResize;
     property OnChangeBounds;
     property OnStartDrag;
@@ -2327,8 +2338,6 @@ type
     cDefWidth = 180;
     cDivider: SmallInt = 2;
     cGrabIndent: SmallInt = 2;
-    cHorSpacing = 5;
-    cVertSpacing = 3;
   protected
     FControlLeft: Integer;
     FControlTop: Integer;
@@ -2401,11 +2410,13 @@ type
     FFixedOrder: Boolean;
     FGrabStyle: TGrabStyle;
     FGrabWidth: Integer;
+    FHorizontalSpacing: Integer;
     FImages: TCustomImageList;
     FImageChangeLink: TChangeLink;
+    FOnChange: TNotifyEvent;
     FShowText: Boolean;
     FVertical: Boolean;
-    FOnChange: TNotifyEvent;
+    FVerticalSpacing: Integer;
     function GetAlign: TAlign;
     function RowEndHelper(ALeft, AVisibleIdx: Integer): Boolean;
     procedure SetBandBorderStyle(AValue: TBorderStyle);
@@ -2413,12 +2424,16 @@ type
     procedure SetBitmap(AValue: TBitmap);
     procedure SetGrabStyle(AValue: TGrabStyle);
     procedure SetGrabWidth(AValue: Integer);
+    procedure SetHorizontalSpacing(AValue: Integer);
     procedure SetImages(AValue: TCustomImageList);
     procedure SetShowText(AValue: Boolean);
     procedure SetVertical(AValue: Boolean);
+    procedure SetVerticalSpacing(AValue: Integer);
   protected const
     cDefGrabStyle = gsDouble;
     cDefGrabWidth = 10;
+    cDefHorSpacing = 5;
+    cDefVertSpacing = 3;
     cNewRowBelow: SmallInt = -1;
     cNewRowAbove: SmallInt = -2;
   protected
@@ -2475,9 +2490,11 @@ type
     property FixedOrder: Boolean read FFixedOrder write FFixedOrder default False;
     property GrabStyle: TGrabStyle read FGrabStyle write SetGrabStyle default cDefGrabStyle;
     property GrabWidth: Integer read FGrabWidth write SetGrabWidth default cDefGrabWidth;
+    property HorizontalSpacing: Integer read FHorizontalSpacing write SetHorizontalSpacing default cDefHorSpacing;
     property Images: TCustomImageList read FImages write SetImages;
     property ShowText: Boolean read FShowText write SetShowText default True;
     property Vertical: Boolean read FVertical write SetVertical default False;
+    property VerticalSpacing: Integer read FVerticalSpacing write SetVerticalSpacing default cDefVertSpacing;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
   end;
 
@@ -2508,6 +2525,7 @@ type
     property Font;
     property GrabStyle;
     property GrabWidth;
+    property HorizontalSpacing;
     property Images;
     property ParentColor;
     property ParentFont;
@@ -2517,6 +2535,7 @@ type
     property ShowHint;
     property ShowText;
     property Vertical;
+    property VerticalSpacing;
     property Visible;
     property OnChange;
     property OnClick;
@@ -2742,6 +2761,8 @@ type
                                  var DefaultDraw: Boolean) of object;
   TTVCustomDrawItemEvent = procedure(Sender: TCustomTreeView; Node: TTreeNode;
                    State: TCustomDrawState; var DefaultDraw: Boolean) of object;
+  TTVCustomDrawArrowEvent = procedure(Sender: TCustomTreeView;
+                   const ARect: TRect; ACollapsed: Boolean) of object;
   TTVAdvancedCustomDrawEvent = procedure(Sender: TCustomTreeView;
                                     const ARect: TRect; Stage: TCustomDrawStage;
                                     var DefaultDraw: Boolean) of object;
@@ -3192,6 +3213,7 @@ type
     FOnCustomCreateItem: TTVCustomCreateNodeEvent;
     FOnCustomDraw: TTVCustomDrawEvent;
     FOnCustomDrawItem: TTVCustomDrawItemEvent;
+    FOnCustomDrawArrow: TTVCustomDrawArrowEvent;
     FOnDeletion: TTVExpandedEvent;
     FOnEditing: TTVEditingEvent;
     FOnEditingEnd: TTVEditingEndEvent;
@@ -3322,6 +3344,7 @@ type
     procedure CreateWnd; override;
     procedure Delete(Node: TTreeNode); virtual;
     procedure DestroyWnd; override;
+    procedure DoCreateNodeClass(var NewNodeClass: TTreeNodeClass); virtual;
     procedure DoEndDrag(Target: TObject; X, Y: Integer); override;
     function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
                           MousePos: TPoint): Boolean; override;
@@ -3388,8 +3411,8 @@ type
     property OnCreateNodeClass: TTVCreateNodeClassEvent read FOnCreateNodeClass write FOnCreateNodeClass;
     property OnCustomCreateItem: TTVCustomCreateNodeEvent read FOnCustomCreateItem write FOnCustomCreateItem;
     property OnCustomDraw: TTVCustomDrawEvent read FOnCustomDraw write FOnCustomDraw;
-    property OnCustomDrawItem: TTVCustomDrawItemEvent
-      read FOnCustomDrawItem write FOnCustomDrawItem;
+    property OnCustomDrawItem: TTVCustomDrawItemEvent read FOnCustomDrawItem write FOnCustomDrawItem;
+    property OnCustomDrawArrow: TTVCustomDrawArrowEvent read FOnCustomDrawArrow write FOnCustomDrawArrow;
     property OnDeletion: TTVExpandedEvent read FOnDeletion write FOnDeletion;
     property OnEdited: TTVEditedEvent read FOnEdited write FOnEdited;
     property OnEditing: TTVEditingEvent read FOnEditing write FOnEditing;
@@ -3550,6 +3573,7 @@ type
     property OnCustomCreateItem;
     property OnCustomDraw;
     property OnCustomDrawItem;
+    property OnCustomDrawArrow;
     property OnDblClick;
     property OnDeletion;
     property OnDragDrop;

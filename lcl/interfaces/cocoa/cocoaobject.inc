@@ -25,15 +25,19 @@
   Initialize Carbon Widget Set
  ------------------------------------------------------------------------------}
 procedure TCocoaWidgetSet.AppInit(var ScreenInfo: TScreenInfo);
+var
+  lDict: NSDictionary;
 begin
   {$IFDEF VerboseObject}
     DebugLn('TCocoaWidgetSet.AppInit');
   {$ENDIF}
 
-
   { Creates the application NSApp object }
   FNsApp := NSApplication.sharedApplication;
 
+  // Sandboxing
+  lDict := NSProcessInfo.processInfo.environment;
+  SandboxingOn := lDict.valueForKey(NSStr('APP_SANDBOX_CONTAINER_ID')) <> nil;
 end;
 
 {------------------------------------------------------------------------------
@@ -110,6 +114,8 @@ begin
   ScreenContext := TCocoaContext.Create(DefaultContext.ctx);
 
   InitStockItems;
+
+  InitClipboard(); // must be here otherwise clipboard calls before Application.Initialize crash
 end;
 
 {------------------------------------------------------------------------------
@@ -131,6 +137,8 @@ begin
   DefaultBrush.Free;
 
   FreeSysColorBrushes;
+
+  FreeClipboard();
 
   // The CocoaCaret is based WidgetSet timer.
   // The GlobalCaret is freed in finalization section, which is called
@@ -432,13 +440,15 @@ end;
 
 function TCocoaWidgetSet.DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor;
 begin
-  Result:=0;
+  Result := 0;
+  if CanvasHandle <> 0 then
+    Result := TCocoaContext(CanvasHandle).GetPixel(X,Y);
 end;
 
 procedure TCocoaWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
 begin
   if CanvasHandle <> 0 then
-     TCocoaContext(CanvasHandle).SetPixel(X,Y,AColor);
+    TCocoaContext(CanvasHandle).SetPixel(X,Y,AColor);
 end;
 
 procedure TCocoaWidgetSet.DCRedraw(CanvasHandle: HDC);
@@ -487,6 +497,15 @@ class function TCocoaTimerObject.initWithFunc(afunc: TWSTimerProc): TCocoaTimerO
 begin
   Result:=alloc;
   Result.func:=afunc;
+end;
+
+{ TClipboardData }
+
+constructor TClipboardData.Create(AMimeType: string; ACocoaFormat: NSString; ADataType: TCocoaClipboardDataType);
+begin
+  MimeType := AMimeType;
+  CocoaFormat := ACocoaFormat;
+  DataType := ADataType;
 end;
 
 {------------------------------------------------------------------------------

@@ -62,7 +62,7 @@ type
     DomainRadioGroup: TRadioGroup;
     procedure DirectionRadioGroupClick(Sender: TObject);
     procedure DomainRadioGroupClick(Sender: TObject);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure OptionsCheckGroupItemClick(Sender: TObject; Index: integer);
   private
@@ -95,7 +95,7 @@ type
   
 function ShowSortSelectionDialog(const TheText: string;
   Highlighter: TSynCustomHighlighter;
-  var SortedText: string): TModalResult;
+  out SortedText: string): TModalResult;
 function SortText(const TheText: string; Direction: TSortDirection;
   Domain: TSortDomain; CaseSensitive, IgnoreSpace: boolean): string;
 
@@ -104,23 +104,27 @@ implementation
 {$R *.lfm}
 
 function ShowSortSelectionDialog(const TheText: string;
-  Highlighter: TSynCustomHighlighter;
-  var SortedText: string): TModalResult;
+  Highlighter: TSynCustomHighlighter; out SortedText: string): TModalResult;
 var
   SortSelectionDialog: TSortSelectionDialog;
 begin
+  SortedText:='';
   SortSelectionDialog:=TSortSelectionDialog.Create(nil);
-  SortSelectionDialog.BeginUpdate;
-  SortSelectionDialog.TheText:=TheText;
-  SortSelectionDialog.PreviewSynEdit.Highlighter:=Highlighter;
-  EditorOpts.SetMarkupColor(Highlighter, ahaTextBlock, SortSelectionDialog.PreviewSynEdit.SelectedColor);
-  SortSelectionDialog.UpdatePreview;
-  SortSelectionDialog.EndUpdate;
-  Result:=SortSelectionDialog.ShowModal;
-  if Result=mrOk then
-    SortedText:=SortSelectionDialog.SortedText;
-  IDEDialogLayoutList.SaveLayout(SortSelectionDialog);
-  SortSelectionDialog.Free;
+  try
+    SortSelectionDialog.BeginUpdate;
+    SortSelectionDialog.TheText:=TheText;
+    SortSelectionDialog.PreviewSynEdit.Highlighter:=Highlighter;
+    EditorOpts.SetMarkupColor(Highlighter, ahaTextBlock, SortSelectionDialog.PreviewSynEdit.SelectedColor);
+    EditorOpts.ApplyFontSettingsTo(SortSelectionDialog.PreviewSynEdit);
+    SortSelectionDialog.UpdatePreview;
+    SortSelectionDialog.EndUpdate;
+    Result:=SortSelectionDialog.ShowModal;
+    if Result=mrOk then
+      SortedText:=SortSelectionDialog.SortedText;
+    IDEDialogLayoutList.SaveLayout(SortSelectionDialog);
+  finally
+    SortSelectionDialog.Free;
+  end;
 end;
 
 function ShowSortSelectionDialogBase(const TheText: string;

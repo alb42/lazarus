@@ -231,8 +231,8 @@ type
     function GetOperatorLevel(P: PChar): integer;
     function IsKeyWord(P: PChar): boolean;
     function IsFunction(P: PChar): boolean;
-    function IsCustomFunction(FunctionName: PChar): boolean; virtual;
-    procedure RunCustomSimpleFunction(FunctionName: PChar; Value: PCTCfgScriptVariable); virtual;
+    function IsCustomFunction({%H-}FunctionName: PChar): boolean; virtual;
+    procedure RunCustomSimpleFunction({%H-}FunctionName: PChar; {%H-}Value: PCTCfgScriptVariable); virtual;
   public
     Src: PChar;
     AtomStart: PChar;
@@ -1248,7 +1248,7 @@ procedure TCTCfgScriptVariables.Define(Name: PChar; const Value: string);
   var
     p: PChar;
   begin
-    if Value='' then exit;
+    if Value='' then exit(false);
     p:=PChar(Value);
     if p^='-' then inc(p);
     while (p^ in ['0'..'9']) do inc(p);
@@ -2420,6 +2420,7 @@ begin
       inc(Column);
     end;
   end;
+  Result:=true;
 end;
 
 function TCTConfigScriptEngine.PosToStr(p: PChar): string;

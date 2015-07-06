@@ -34,17 +34,17 @@ unit AddToProjectDlg;
 interface
 
 uses
-  Classes, SysUtils, Math, LCLProc, Forms, Controls, Buttons,
-  ComCtrls, StdCtrls, ExtCtrls, Menus, Dialogs, Graphics, FileUtil, ButtonPanel,
-  AVL_Tree,
+  Classes, SysUtils, Forms, Controls, Buttons,
+  ComCtrls, StdCtrls, Dialogs, FileUtil, LazFileUtils, ButtonPanel, AVL_Tree,
   IDEWindowIntf, PackageIntf, IDEDialogs,
-  LazarusIDEStrConsts, IDEProcs, IDEOptionDefs,
-  EnvironmentOpts, Project, PackageDefs, PackageSystem, InputHistory;
+  LazarusIDEStrConsts,
+  Project, PackageDefs, PackageSystem, InputHistory;
   
 type
   TAddToProjectType = (
     a2pFiles,
-    a2pRequiredPkg
+    a2pRequiredPkg,
+    a2pEditorFiles
     );
 
   TAddToProjectResult = class
@@ -80,14 +80,15 @@ type
     // add files page
     FilesListView: TListView;
     procedure AddFileButtonClick(Sender: TObject);
-    procedure AddFileListViewSelectItem(Sender: TObject; Item: TListItem;
-      Selected: Boolean);
+    procedure AddFileListViewSelectItem(Sender: TObject; {%H-}Item: TListItem;
+      {%H-}Selected: Boolean);
     procedure AddToProjectDialogClose(Sender: TObject;
-                                      var CloseAction: TCloseAction);
+                                      var {%H-}CloseAction: TCloseAction);
+    procedure AddToProjectDialogShow(Sender: TObject);
     procedure DependPkgNameComboBoxChange(Sender: TObject);
     procedure FilesDirButtonClick(Sender: TObject);
-    procedure FilesListViewSelectItem(Sender: TObject; Item: TListItem;
-      Selected: Boolean);
+    procedure FilesListViewSelectItem(Sender: TObject; {%H-}Item: TListItem;
+      {%H-}Selected: Boolean);
     procedure NewDependButtonClick(Sender: TObject);
     procedure FilesAddButtonClick(Sender: TObject);
     procedure FilesDeleteButtonClick(Sender: TObject);
@@ -113,7 +114,8 @@ type
   end;
   
 function ShowAddToProjectDlg(AProject: TProject;
-  var AddResult: TAddToProjectResult): TModalResult;
+  var AddResult: TAddToProjectResult;
+  AInitTab: TAddToProjectType): TModalResult;
 function CheckAddingDependency(LazProject: TProject;
   NewDependency: TPkgDependency): boolean;
 
@@ -123,7 +125,9 @@ implementation
 {$R *.lfm}
 
 function ShowAddToProjectDlg(AProject: TProject;
-  var AddResult: TAddToProjectResult): TModalResult;
+  var AddResult: TAddToProjectResult;
+  AInitTab: TAddToProjectType
+  ): TModalResult;
 var
   AddToProjectDialog: TAddToProjectDialog;
 begin
@@ -131,6 +135,19 @@ begin
   AddToProjectDialog.TheProject:=AProject;
   AddToProjectDialog.UpdateAvailableFiles;
   AddToProjectDialog.UpdateAvailableDependencyNames;
+
+  case AInitTab of
+    a2pFiles: AddToProjectDialog.NoteBook.ActivePageIndex:=2;
+    a2pEditorFiles: AddToProjectDialog.NoteBook.ActivePageIndex:=0;
+    a2pRequiredPkg: AddToProjectDialog.NoteBook.ActivePageIndex:=1;
+  end;
+  // hide tabs for simple look
+  AddToProjectDialog.NoteBook.ShowTabs:=false;
+  AddToProjectDialog.NoteBook.TabStop:=false;
+  // press "Add files" btn
+  if AInitTab=a2pFiles then
+    AddToProjectDialog.FilesDirButton.Click;
+
   Result:=AddToProjectDialog.ShowModal;
   if Result=mrOk then begin
     AddResult:=AddToProjectDialog.AddResult;
@@ -195,6 +212,11 @@ procedure TAddToProjectDialog.AddToProjectDialogClose(Sender: TObject;
   var CloseAction: TCloseAction);
 begin
   IDEDialogLayoutList.SaveLayout(Self);
+end;
+
+procedure TAddToProjectDialog.AddToProjectDialogShow(Sender: TObject);
+begin
+  SelectNext(NoteBook.ActivePage, True, True);
 end;
 
 procedure TAddToProjectDialog.DependPkgNameComboBoxChange(Sender: TObject);

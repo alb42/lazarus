@@ -209,6 +209,8 @@ begin
   System.LeaveCriticalsection(FCritSec);
 end;
 
+{$DEFINE DisableMultiThreading}
+
 procedure TFPCSrcScans.Scan(Directory: string);
 var
 {$IFDEF DisableMultiThreading}

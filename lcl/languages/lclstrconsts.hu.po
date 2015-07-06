@@ -13,7 +13,7 @@ msgstr ""
 
 #: lclstrconsts.hhshelpbrowsernotexecutable
 msgid "Browser \"%s\" not executable."
-msgstr "A böngésző nem végrehajtható: \"%s\""
+msgstr "A böngésző nem futtatható: \"%s\""
 
 #: lclstrconsts.hhshelpbrowsernotfound
 msgid "Browser \"%s\" not found."
@@ -783,7 +783,7 @@ msgstr "Az ikon képének méretét nem lehet megváltoztatni"
 
 #: lclstrconsts.rsiconnocurrent
 msgid "Icon has no current image"
-msgstr "Az ikonnak nincs jelenleg képe"
+msgstr "Az ikon képe jelenleg üres"
 
 #: lclstrconsts.rsinactivebordercolorcaption
 msgid "Inactive Border"
@@ -1319,7 +1319,7 @@ msgstr "Nem lehet letiltott vagy láthatatlan ablakot előtérbe hozni"
 
 #: lclstrconsts.sduplicatemenus
 msgid "Duplicate menus"
-msgstr "Többszörös menük"
+msgstr "Ismétlődő menük"
 
 #: lclstrconsts.sinvalidactioncreation
 msgid "Invalid action creation"
@@ -1491,3 +1491,65 @@ msgstr "Rossz vezérjel szimbólum: %s az elvárt, de %s található"
 #: lclstrconsts.sparwrongtokentype
 msgid "Wrong token type: %s expected but %s found"
 msgstr "Rossz vezérjel típus: %s az elvárt, de %s található"
+
+#: lclstrconsts.sshellctrlsbytes
+msgid "%s bytes"
+msgstr "%s bájt"
+
+#: lclstrconsts.sshellctrlsinvalidpath
+msgctxt "lclstrconsts.sshellctrlsinvalidpath"
+msgid ""
+"Invalid pathname:\n"
+"\"%s\"\n"
+msgstr ""
+"Érvénytelen útvonal:\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlsinvalidpathrelative
+msgid ""
+"Invalid relative pathname:\n"
+"\"%s\"\n"
+"in relation to rootpath:\n"
+"\"%s\"\n"
+msgstr ""
+"Érvénytelen relatív útvonal:\n"
+"\"%s\"\n"
+"az alapkönyvtárhoz viszonyítva:\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlsinvalidroot
+msgctxt "lclstrconsts.sshellctrlsinvalidroot"
+msgid ""
+"Invalid pathname:\n"
+"\"%s\"\n"
+msgstr ""
+"Érvénytelen útvonal:\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlskb
+msgid "%s kB"
+msgstr "%s kB"
+
+#: lclstrconsts.sshellctrlsmb
+msgid "%s MB"
+msgstr "%s MB"
+
+#: lclstrconsts.sshellctrlsname
+msgid "Name"
+msgstr "Név"
+
+#: lclstrconsts.sshellctrlsselecteditemdoesnotexists
+msgid ""
+"The selected item does not exist on disk:\n"
+"\"%s\"\n"
+msgstr ""
+"A kiválasztott elem nem létezik a lemezen:\n"
+"\"%s\"\n"
+
+#: lclstrconsts.sshellctrlssize
+msgid "Size"
+msgstr "Méret"
+
+#: lclstrconsts.sshellctrlstype
+msgid "Type"
+msgstr "Típus"

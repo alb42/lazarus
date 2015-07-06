@@ -40,8 +40,8 @@ uses
   SynEditHighlighter, SynRegExpr, SynCompletion, BasicCodeTools, CodeTree,
   CodeAtom, CodeCache, SourceChanger, CustomCodeTool, CodeToolManager,
   PascalParserTool, KeywordFuncLists, FileProcs, IdentCompletionTool,
-  PascalReaderTool, SourceLog,
-  LazIDEIntf, TextTools, IDETextConverter, DialogProcs, MainIntf, EditorOptions,
+  PascalReaderTool,
+  LazIDEIntf, TextTools, IDETextConverter, DialogProcs, EditorOptions,
   IDEImagesIntf, CodeToolsOptions;
 
 type
@@ -51,17 +51,17 @@ type
   TLazTextConverterToolClasses = class(TTextConverterToolClasses)
   public
     function GetTempFilename: string; override;
-    function SupportsType(aTextType: TTextConverterType): boolean; override;
+    function SupportsType({%H-}aTextType: TTextConverterType): boolean; override;
     function LoadFromFile(Converter: TIDETextConverter; const AFilename: string;
                           UpdateFromDisk, Revert: Boolean): Boolean; override;
     function SaveCodeBufferToFile(Converter: TIDETextConverter;
                            const AFilename: string): Boolean; override;
     function GetCodeBufferSource(Converter: TIDETextConverter;
                                  out Source: string): boolean; override;
-    function CreateCodeBuffer(Converter: TIDETextConverter;
+    function CreateCodeBuffer({%H-}Converter: TIDETextConverter;
                               const Filename, NewSource: string;
                               out CodeBuffer: Pointer): boolean; override;
-    function LoadCodeBufferFromFile(Converter: TIDETextConverter;
+    function LoadCodeBufferFromFile({%H-}Converter: TIDETextConverter;
                                    const Filename: string;
                                    UpdateFromDisk, Revert: Boolean;
                                    out CodeBuffer: Pointer): boolean; override;
@@ -86,7 +86,7 @@ type
 // completion form and functions
 function PaintCompletionItem(const AKey: string; ACanvas: TCanvas;
   X, Y, MaxX: integer; ItemSelected: boolean; Index: integer;
-  aCompletion : TSynCompletion; CurrentCompletionType: TCompletionType;
+  {%H-}aCompletion : TSynCompletion; CurrentCompletionType: TCompletionType;
   Highlighter: TSrcIDEHighlighter; MeasureOnly: Boolean = False): TPoint;
 
 function GetIdentCompletionValue(aCompletion : TSynCompletion;
@@ -238,6 +238,7 @@ var
   ImageIndex: longint;
   HintModifiers: TPascalHintModifiers;
   HintModifier: TPascalHintModifier;
+  HelperForNode: TCodeTreeNode;
 begin
   ForegroundColor := ColorToRGB(ACanvas.Font.Color);
   Result.X := 0;
@@ -288,7 +289,7 @@ begin
         else
         begin
           AColor:=clNavy;
-          if IdentItem.IsContructor then
+          if IdentItem.IsConstructor then
             s := 'constructor'
           else
           if IdentItem.IsDestructor then
@@ -421,10 +422,14 @@ begin
             case ANode.Desc of
             ctnClass,ctnObject,ctnObjCClass,ctnObjCCategory,
             ctnCPPClass,
-            ctnClassInterface,ctnObjCProtocol,ctnDispinterface:
+            ctnClassInterface,ctnObjCProtocol,ctnDispinterface,
+            ctnClassHelper,ctnRecordHelper,ctnTypeHelper:
               begin
                 case ANode.Desc of
                 ctnClass: s:=s+'class';
+                ctnClassHelper: s:=s+'class helper';
+                ctnRecordHelper: s:=s+'record helper';
+                ctnTypeHelper: s:=s+'type helper';
                 ctnObject: s:=s+'object';
                 ctnObjCClass: s:=s+'objcclass';
                 ctnObjCCategory: s:=s+'objccategory';
@@ -438,9 +443,15 @@ begin
                 except
                   on ECodeToolError do ;
                 end;
+                if ANode.Desc in [ctnClassHelper, ctnRecordHelper, ctnTypeHelper] then
+                  HelperForNode := IdentItem.Tool.FindHelperForNode(ANode)
+                else
+                  HelperForNode := nil;
                 SubNode:=IdentItem.Tool.FindInheritanceNode(ANode);
                 if SubNode<>nil then
                   s:=s+IdentItem.Tool.ExtractNode(SubNode,[]);
+                if HelperForNode<>nil then
+                  s:=s+' '+IdentItem.Tool.ExtractNode(HelperForNode,[]);
               end;
             ctnRecordType:
               s:=s+'record';
@@ -578,7 +589,7 @@ begin
   CodeToolBoss.IdentItemCheckHasChilds(IdentItem);
 
   CanAddSemicolon:=CodeToolsOpts.IdentComplAddSemicolon and (AddChar<>';');
-  CanAddComma:=(AddChar<>',');
+  CanAddComma:=CodeToolsOpts.IdentComplAddSemicolon and (AddChar<>',');
   IsReadOnly:=false;
 
   Result:=IdentItem.Identifier;
@@ -609,6 +620,15 @@ begin
     ctnUnit, ctnPackage, ctnLibrary:
       ValueType:=icvUnitName;
   end;
+
+  //Add the '&' character to prefixed identifiers
+  if (iliNeedsAmpersand in IdentItem.Flags) and
+     //check if there is already an '&' in front of this atom
+     ((IdentList.StartAtom.StartPos-1 > IdentList.StartContext.Tool.SrcLen) or  //StartPos-1 is out-of-scope
+      (IdentList.StartAtom.StartPos-1 < 1) or                                   //StartPos-1 is out-of-scope
+      (IdentList.StartContext.Tool.Src[IdentList.StartAtom.StartPos-1] <> '&')) //StartPos is in-scope and not &
+  then
+    Result := '&' + Result;
 
   case ValueType of
   
@@ -718,10 +738,11 @@ begin
     Result+=',';
   end;
 
-  if (IdentItem.GetDesc=ctnUseUnit) and (AddChar<>'.') then begin
-    // ToDo: check if there is already a point
+  if CodeToolsOpts.IdentComplAddSemicolon and
+     (IdentItem.GetDesc=ctnUseUnit) and (AddChar<>'.') and
+     not IdentList.StartUpAtomBehindIs('.')//check if there is already a point
+  then
     Result+='.';
-  end;
 
   // add 'do'
   if CodeToolsOpts.IdentComplAddDo and (AddChar='')

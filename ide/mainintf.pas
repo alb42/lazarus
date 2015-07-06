@@ -404,6 +404,7 @@ begin
     else exit(false);
     end;
   end;
+  Result:=true;
 end;
 
 function TMainIDEInterface.DoJumpToSourcePosition(const Filename: string; NewX, NewY,
@@ -555,7 +556,7 @@ procedure TFileDescInheritedComponent.SetInheritedUnit(const AValue: TUnitInfo);
 begin
   if FInheritedUnit=AValue then exit;
   FInheritedUnit:=AValue;
-  InheritedUnits:=FInheritedUnit.Unit_Name;
+  InheritedUnits:=FInheritedUnit.SrcUnitName;
 end;
 
 constructor TFileDescInheritedComponent.Create;

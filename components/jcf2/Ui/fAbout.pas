@@ -30,13 +30,14 @@ unit fAbout;
 interface
 
 uses
-  { delphi }
-  Classes, Forms, Graphics, Controls, StdCtrls,
-  Buttons, ExtCtrls, SysUtils;
+  Classes, Forms, Graphics, StdCtrls, Buttons, ExtCtrls, SysUtils;
 
 type
+
+  { TfrmAboutBox }
+
   TfrmAboutBox = class(TForm)
-    bbOK:          TBitBtn;
+    bbOK:          TButton;
     pnlClient:     TPanel;
     imgOpenSource: TImage;
     mWarning:      TMemo;
@@ -71,7 +72,7 @@ uses
     LCLIntf,
   {$endif}
   { local }
-  JcfVersionConsts, JcfHelp, JcfFontSetFunctions, JcfStringUtils, jcfuiconsts;
+  JcfVersionConsts, JcfFontSetFunctions, JcfStringUtils, jcfuiconsts;
 
 {$ifdef fpc}
 procedure ShowURL(const ps: string);

@@ -713,7 +713,9 @@ begin
       NewVLine := NewVLine + s.EndPos.y - s.StartPos.y;
       LastEnd := s.EndPos.y;
     end;
-  end;
+  end
+  else
+    LastVline := 0;  // ToDo: Initialize LastVline properly.
   if VDiff = 0 then
     VDiff := Count - FRScanStartedWithLineCount;
   if VDiff < 0 then begin
@@ -1141,7 +1143,9 @@ begin
     CurRegStart.y := 0;
     CurRegStart.x := 1;
     CurRegTokenPos := 1;
-  end;
+  end
+  else
+    CurRegTokenPos := 0;
   StartAtLineIndex(Result);             // Set FCurScheme
 
   dec(Result);

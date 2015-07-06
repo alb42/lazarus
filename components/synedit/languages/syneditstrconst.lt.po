@@ -432,7 +432,6 @@ msgid "Whitespace"
 msgstr "Matomas tarpas"
 
 #: syneditstrconst.syns_duplicateshortcutmsg
-#| msgid "Shortcut already exists"
 msgid "The keystroke \"%s\" is already assigned to another editor command. (%s)"
 msgstr "Klavišo paspaudimas „%s“ jau yra priskirtas kitai rengyklės komandai. (%s)"
 
@@ -488,6 +487,14 @@ msgstr "Jokio veiksmo"
 msgid "Quick Paste Selection"
 msgstr "Spartusis atrankos įdėjimas"
 
+#: syneditstrconst.syns_emcpluginmulticaretselectiontocarets
+msgid "Set carets at EOL in selected lines"
+msgstr ""
+
+#: syneditstrconst.syns_emcpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
 #: syneditstrconst.syns_emcselection_opt
 msgid "Mode,Begin,Continue"
 msgstr "Veiksena,Pradėti,Tęsti"
@@ -516,9 +523,17 @@ msgstr "Stulpelio žymėjimas"
 msgid "Drag Selection"
 msgstr "Vilkti atranką"
 
+#: syneditstrconst.syns_emcstartdragmove_opt
+msgid "\"Caret on up if not dragged\",yes,no"
+msgstr ""
+
 #: syneditstrconst.syns_emcstartlineselections
 msgid "Line Selection"
 msgstr "Eilutės žymėjimas"
+
+#: syneditstrconst.syns_emcstartlineselectionsnoneempty
+msgid "Line Selection (select immediate)"
+msgstr ""
 
 #: syneditstrconst.syns_emcstartselection
 msgid "Selection"

@@ -422,6 +422,10 @@ msgstr "gtk2 rajapinnan hakemisto"
 msgid "HasError"
 msgstr ""
 
+#: codetoolsstrconsts.ctshelperisnotallowed
+msgid "Helper after %s is not allowed"
+msgstr ""
+
 #: codetoolsstrconsts.ctsidedirectory
 msgid "IDE Directory"
 msgstr "IDE hakemisto"

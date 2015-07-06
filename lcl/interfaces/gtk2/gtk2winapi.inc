@@ -2561,13 +2561,18 @@ var
   end;
 
   function NeedOffsetCalc: Boolean;
+  var
+    AClipRect: TRect;
   begin
-
+    {see issue #27547}
+    AClipRect := RectFromGdkRect(TGtkDeviceContext(DC).ClipRect);
+    OffsetRect(AClipRect, -AClipRect.Left, -AClipRect.Top);
     Result := (TGtkDeviceContext(DC).CurrentFont^.LogFont.lfOrientation <> 0) and
         (Flags and DT_SINGLELINE <> 0) and
         (Flags and DT_VCENTER = 0) and (Flags and DT_CENTER = 0) and
         (Flags and DT_RIGHT = 0) and (Flags and  DT_BOTTOM = 0) and
-        (Flags and DT_CALCRECT = 0) and not IsRectEmpty(SavedRect);
+        (Flags and DT_CALCRECT = 0) and not IsRectEmpty(SavedRect) and
+        EqualRect(AClipRect, Rect);
   end;
 
 
@@ -4518,9 +4523,17 @@ begin
     if Assigned(ClipRegion) then
       CurRegionObject := ClipRegion^.GDIRegionObject;
     ARect := Rect(0, 0, 0, 0);
-    if Assigned(CurRegionObject) then
+    //debugln(['TGtk2WidgetSet.GetClipRGN ',GetWidgetDebugReport(Widget),' CurRegionObject=',Assigned(CurRegionObject),' DC=',dbgs(DC)]);
+
+    if Assigned(CurRegionObject) then begin
       // create a copy of the current clipregion
-      ClipRegionWithDCOffset := gdk_region_copy(CurRegionObject)
+      ClipRegionWithDCOffset := gdk_region_copy(CurRegionObject);
+      // move it to the DC offset
+      // Example: if the ClipRegion is at 10,10 and the DCOrigin is at 10,10,
+      //          then the ClipRegion must be moved to 0,0
+      DCOrigin := Offset;
+      gdk_region_offset(ClipRegionWithDCOffset, -DCOrigin.x, -DCOrigin.Y);
+    end
     else
     begin
       // create a default clipregion
@@ -4528,11 +4541,6 @@ begin
       LPtoDP(DC, ARect, 2);
       ClipRegionWithDCOffset := CreateRectGDKRegion(ARect);
     end;
-    // move it to the DC offset
-    // Example: if the ClipRegion is at 10,10 and the DCOrigin is at 10,10,
-    //          then the ClipRegion must be moved to 0,0
-    DCOrigin := Offset;
-    gdk_region_offset(ClipRegionWithDCOffset, -DCOrigin.x, -DCOrigin.Y);
 
     // free the old region in RGN
     if Assigned({%H-}PGdiObject(RGN)^.GDIRegionObject) then
@@ -7229,7 +7237,7 @@ const
 
 var
   RadioGroup: PGSList;
-  CurrentGroupIndex: Integer;
+  //CurrentGroupIndex: Integer;
 begin
   Result := False;
 
@@ -7239,25 +7247,25 @@ begin
     Exit;
   end;
 
-  CurrentGroupIndex := integer({%H-}PtrUInt(g_object_get_data({%H-}Pointer(hndMenu), GROUPIDX_DATANAME)));
+  //CurrentGroupIndex := integer({%H-}PtrUInt(g_object_get_data({%H-}Pointer(hndMenu), GROUPIDX_DATANAME)));
 
   // Update needed ?
-  if GroupIndex = CurrentGroupIndex
+ { if GroupIndex = CurrentGroupIndex
   then begin
     Result := True;
     Exit;
-  end;
+  end;}
 
   // Remove current group
   gtk_radio_menu_item_set_group({%H-}PGtkRadioMenuItem(hndMenu), nil);
   g_object_set_data({%H-}Pointer(hndMenu), GROUPIDX_DATANAME, nil);
 
   // Check remove only
-  if GroupIndex = 0
+ { if GroupIndex = 0
   then begin
     Result := True;
     Exit;
-  end;
+  end;  }
 
   // Try to find new group
   RadioGroup := GetGroup;

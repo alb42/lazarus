@@ -148,25 +148,25 @@ type
     procedure ClosePageButtonClick(Sender: TObject);
     procedure Form1Create(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
     procedure mniCopyAllClick(Sender: TObject);
     procedure mniCopyItemClick(Sender: TObject);
     procedure mniCopySelectedClick(Sender: TObject);
     procedure mniExpandAllClick(Sender: TObject);
     procedure mniCollapseAllClick(Sender: TObject);
     procedure ResultsNoteBookMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+      {%H-}Shift: TShiftState; X, Y: Integer);
     procedure TreeViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure ResultsNoteBookClosetabclicked(Sender: TObject);
     procedure SearchAgainButtonClick(Sender: TObject);
     procedure TreeViewAdvancedCustomDrawItem(Sender: TCustomTreeView;
       Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
-      var PaintImages, DefaultDraw: Boolean);
-    procedure LazTVShowHint(Sender: TObject; HintInfo: PHintInfo);
-    procedure LazTVMousemove(Sender: TObject; Shift: TShiftState;
+      var {%H-}PaintImages, {%H-}DefaultDraw: Boolean);
+    procedure LazTVShowHint(Sender: TObject; {%H-}HintInfo: PHintInfo);
+    procedure LazTVMousemove(Sender: TObject; {%H-}Shift: TShiftState;
                              X, Y: Integer);
     Procedure LazTVMouseWheel(Sender: TObject; Shift: TShiftState;
-                   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+                   {%H-}WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
     procedure TreeViewKeyPress(Sender: TObject; var Key: char);
     procedure ResultsNoteBookPageChanged (Sender: TObject );
     procedure SearchInListChange(Sender: TObject );
@@ -444,6 +444,12 @@ begin
         Node.Expand(False);
     end;
     Key := #0;
+  end else
+  if Key = Char(VK_RETURN) then  //SearchInListEdit passes only OnPress through
+  begin
+    Key := #0;
+    if Assigned(FOnSelectionChanged) then
+      FOnSelectionChanged(Self);
   end;
 end;
 
@@ -706,7 +712,8 @@ begin
   if (Key = VK_RETURN) and (Shift = []) then
   begin
     Key:=VK_UNKNOWN;
-    FOnSelectionChanged(Self);
+    if Assigned(FOnSelectionChanged) then
+      FOnSelectionChanged(Self);
   end;     
 end;
 
@@ -752,16 +759,18 @@ begin
           PopupMenu := popList;
           NewTreeView.Canvas.Brush.Color:= clWhite;
         end;//with
-      end;//if
-      SearchObj:=NewTreeView.SearchObject;
-      if SearchObj<>nil then begin
-        SearchObj.SearchString:= SearchText;
-        SearchObj.ReplaceText := ReplaceText;
-        SearchObj.SearchDirectories:= ADirectories;
-        SearchObj.SearchMask:= AMask;
-        SearchObj.SearchOptions:= TheOptions;
-      end;
-      NewTreeView.Skipped:=0;
+        SearchObj:=NewTreeView.SearchObject;
+        if SearchObj<>nil then begin
+          SearchObj.SearchString:= SearchText;
+          SearchObj.ReplaceText := ReplaceText;
+          SearchObj.SearchDirectories:= ADirectories;
+          SearchObj.SearchMask:= AMask;
+          SearchObj.SearchOptions:= TheOptions;
+        end;
+        NewTreeView.Skipped:=0;
+      end
+      else
+        NewTreeView:=nil;
       Result:= Pages[PageIndex];
       SearchInListEdit.Text:='';
       SearchInListEdit.Filter:='';

@@ -1,4 +1,4 @@
-{  $Id: lclintf.pas 42446 2013-08-22 11:56:14Z juha $  }
+{  $Id$  }
 {
  /***************************************************************************
                                 LCLIntf.pas
@@ -51,7 +51,8 @@ uses
   {$IFDEF UNIX}Unix, {$ENDIF}
   {$IFDEF Darwin}MacOSAll, CocoaAll,{$ENDIF}
   Types, Math, Classes, SysUtils, LCLType, LCLProc, GraphType, InterfaceBase,
-  LResources, FileUtil, UTF8Process, Maps, LMessages, LazUTF8, lazutf8sysutils, LCLStrConsts;
+  FileUtil, LazFileUtils, UTF8Process, Maps, LMessages, LazUTF8, lazutf8sysutils,
+  LCLStrConsts;
 
 {$ifdef Trace}
   {$ASSERTIONS ON}
@@ -208,9 +209,6 @@ end;
 // System APIs which have an operating-system specific implementation
 // They should be moved to FPC eventually
 {$I sysenvapis.inc}
-{$ifdef HASAMIGA}
-  {$I sysenvapis_aros.inc}
-{$endif}
 {$ifdef Windows}
   {$I sysenvapis_win.inc}
 {$endif}

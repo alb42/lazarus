@@ -32,9 +32,8 @@ interface
 uses
   Classes, SysUtils, Math,
   LCLProc, Forms, Controls, Graphics, Dialogs, ButtonPanel,
-  StdCtrls, Buttons, ComCtrls, ExtCtrls, FileUtil, AVGLvlTree,
-  SynEdit, DefineTemplates, ExprEval,
-  IDEWindowIntf, IDEHelpIntf,
+  StdCtrls, Buttons, ComCtrls, ExtCtrls, LazFileUtils, AVGLvlTree,
+  SynEdit, DefineTemplates, ExprEval, IDEWindowIntf, IDEHelpIntf,
   EditorOptions, LazarusIDEStrConsts, InputHistory, CodeToolsOptions, IDEProcs;
 
 type
@@ -89,7 +88,7 @@ type
     procedure ClearValues;
     procedure FillTemplateTree;
     procedure SetComboBox(AComboBox: TComboBox; const NewText: string);
-    procedure DefineTreeCalculate(DefineTree: TDefineTree; Node: TDefineTemplate;
+    procedure DefineTreeCalculate({%H-}DefineTree: TDefineTree; Node: TDefineTemplate;
                   ValueParsed: boolean; const ParsedValue: string;
                   ExpressionCalculated: boolean; const ExpressionResult: string;
                   Execute: boolean);

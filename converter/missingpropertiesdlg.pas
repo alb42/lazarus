@@ -33,17 +33,17 @@ interface
 
 uses
   // FCL+LCL
-  Classes, SysUtils, Math, LCLProc, Forms, Controls, Grids, LResources,
+  Classes, SysUtils, LCLProc, Forms, Controls, Grids, LResources,
   LConvEncoding, Graphics, Dialogs, Buttons, StdCtrls, ExtCtrls, contnrs,
-  FileUtil, LazUTF8Classes, LCLType, LazUTF8,
+  LazFileUtils, LazUTF8Classes, LCLType, LazUTF8,
   // components
   SynHighlighterLFM, SynEdit, SynEditMiscClasses, LFMTrees,
   // codetools
-  BasicCodeTools, CodeCache, CodeToolManager, CodeToolsStructs, CodeCompletionTool,
+  CodeCache, CodeToolManager, CodeToolsStructs, CodeCompletionTool,
   // IDE
-  IDEDialogs, ComponentReg, PackageIntf, IDEWindowIntf, DialogProcs,
+  ComponentReg, PackageIntf, IDEWindowIntf,
   CustomFormEditor, LazarusIDEStrConsts, IDEProcs,
-  EditorOptions, CheckLFMDlg, IDEMsgIntf, Project, SourceMarks,
+  EditorOptions, CheckLFMDlg, Project, SourceMarks,
   // Converter
   ConverterTypes, ConvertSettings, ReplaceNamesUnit,
   ConvCodeTool, FormFileConv, UsedUnits;
@@ -135,7 +135,6 @@ type
 
 implementation
 
-uses strutils;
 
 {$R *.lfm}
 
@@ -268,7 +267,7 @@ begin
   SetLength(InS, aInStream.Size);
   aInStream.Read(InS[1],length(InS));
   i := 1;
-  while i < Length(InS) do begin
+  while i <= Length(InS) do begin
     if InS[i] in ['''', '#'] then
       OutS:=OutS+CollectString(InS, i)
     else begin
@@ -614,7 +613,7 @@ begin
     end else begin
       ClassUnitInfo:=Project1.UnitWithComponentClassName(aMissingTypes[i]);
       if ClassUnitInfo<>nil then
-        NeededUnitName:=ClassUnitInfo.Unit_Name;
+        NeededUnitName:=ClassUnitInfo.GetUsesUnitName;
     end;
     if NeededUnitName<>'' then begin
       if fUsedUnitsTool.AddUnitImmediately(NeededUnitName) then

@@ -434,7 +434,6 @@ msgid "Whitespace"
 msgstr "Trenn-/Leerzeichen"
 
 #: syneditstrconst.syns_duplicateshortcutmsg
-#| msgid "Shortcut already exists"
 msgid "The keystroke \"%s\" is already assigned to another editor command. (%s)"
 msgstr "Der Tastendruck »%s« ist bereits einer anderen Editorfunktion zugewiesen. (%s)"
 
@@ -490,6 +489,14 @@ msgstr "Keine Aktion"
 msgid "Quick Paste Selection"
 msgstr "Ausgewählten Text einfügen"
 
+#: syneditstrconst.syns_emcpluginmulticaretselectiontocarets
+msgid "Set carets at EOL in selected lines"
+msgstr ""
+
+#: syneditstrconst.syns_emcpluginmulticarettogglecaret
+msgid "Toggle extra caret"
+msgstr ""
+
 #: syneditstrconst.syns_emcselection_opt
 msgid "Mode,Begin,Continue"
 msgstr "Modus,Beginn,Weiter"
@@ -518,9 +525,17 @@ msgstr "Spaltenmodus"
 msgid "Drag Selection"
 msgstr "Auswahl verschieben"
 
+#: syneditstrconst.syns_emcstartdragmove_opt
+msgid "\"Caret on up if not dragged\",yes,no"
+msgstr ""
+
 #: syneditstrconst.syns_emcstartlineselections
 msgid "Line Selection"
 msgstr "Zeilenmodus"
+
+#: syneditstrconst.syns_emcstartlineselectionsnoneempty
+msgid "Line Selection (select immediate)"
+msgstr ""
 
 #: syneditstrconst.syns_emcstartselection
 msgid "Selection"

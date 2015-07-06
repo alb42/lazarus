@@ -52,17 +52,30 @@ uses
   {$ENDIF}
   Classes, SysUtils, TypInfo, CodeToolsStrConsts, FileProcs, CodeTree, CodeAtom,
   FindDeclarationTool, IdentCompletionTool, PascalReaderTool, PascalParserTool,
-  CodeBeautifier, ExprEval, KeywordFuncLists, BasicCodeTools, LinkScanner,
+  ExprEval, KeywordFuncLists, BasicCodeTools, LinkScanner,
   CodeCache, AVL_Tree, LFMTrees, SourceChanger,
   CustomCodeTool, CodeToolsStructs, LazFileUtils;
 
 type
+  TStandardCodeTool = class;
+
+  TInsertStatementPosDescription = class
+  public
+    InsertPos: integer;
+    Indent: integer;
+    CodeXYPos: TCodeXYPosition;
+    FrontGap, AfterGap: TGapTyp;
+    Description: string;
+  end;
+
   TUsesSection = (usMain, usImplementation);
 
   TOnFindDefinePropertyForContext = procedure(Sender: TObject;
     const ClassContext, AncestorClassContext: TFindContext;
     LFMNode: TLFMTreeNode;
     const IdentName: string; var IsDefined: boolean) of object;
+  TOnIDEDirectiveFilter = function(Tool: TStandardCodeTool;
+    StartPos, EndPos: integer): boolean of object; // true = use
 
   { TStandardCodeTool }
 
@@ -105,11 +118,9 @@ type
           SourceChangeCache: TSourceChangeCache;
           AsLast: boolean = false; CheckSpecialUnits: boolean = true): boolean;
     function UnitExistsInUsesSection(UsesSection: TUsesSection;
-          const AnUnitName: string;
-          SourceChangeCache: TSourceChangeCache): boolean;
+          const AnUnitName: string): boolean;
     function UnitExistsInUsesSection(UsesNode: TCodeTreeNode;
-                                const AnUnitName: string;
-                                SourceChangeCache: TSourceChangeCache): boolean;
+                                const AnUnitName: string): boolean;
     function RemoveUnitFromUsesSection(UsesNode: TCodeTreeNode;
                                 const AnUnitName: string;
                                 SourceChangeCache: TSourceChangeCache): boolean;
@@ -222,6 +233,12 @@ type
     function RemoveIdentifierDefinition(const CursorPos: TCodeXYPosition;
           SourceChangeCache: TSourceChangeCache): boolean;
 
+    function InsertStatements(InsertPos: TInsertStatementPosDescription;
+          Statements: string; SourceChangeCache: TSourceChangeCache): boolean;
+    function InsertStatements(CleanPos: integer;
+          Statements: string; Indent: integer; FrontGap, AfterGap: TGapTyp;
+          SourceChangeCache: TSourceChangeCache): boolean;
+
     // blocks (e.g. begin..end)
     function FindBlockCounterPart(const CursorPos: TCodeXYPosition;
           out NewPos: TCodeXYPosition; out NewTopLine: integer): boolean;
@@ -241,7 +258,7 @@ type
     function GuessMisplacedIfdefEndif(const CursorPos: TCodeXYPosition;
           out NewPos: TCodeXYPosition; out NewTopLine: integer): boolean;
     function FindEnclosingIncludeDirective(const CursorPos: TCodeXYPosition;
-          out NewPos: TCodeXYPosition; var NewTopLine: integer): boolean;
+          out NewPos: TCodeXYPosition; out NewTopLine: integer): boolean;
     function FindModeDirective(DoBuildTree: boolean;
           out ACleanPos: integer): boolean;
     function FindResourceDirective(DoBuildTree: boolean;
@@ -286,9 +303,6 @@ type
     function GetStringConstBounds(const CursorPos: TCodeXYPosition;
           out StartPos, EndPos: TCodeXYPosition;
           ResolveComments: boolean): boolean;
-    function ReplaceCode(const StartPos, EndPos: TCodeXYPosition;
-          const NewCode: string;
-          SourceChangeCache: TSourceChangeCache): boolean;
     function GetStringConstAsFormatString(StartPos, EndPos: integer;
           out FormatStringConstant, FormatParameters: string;
           out StartInStringConst, EndInStringConst: boolean): boolean;
@@ -333,9 +347,11 @@ type
           SourceChangeCache: TSourceChangeCache): boolean;
     
     // IDE % directives
-    function GetIDEDirectives(DirectiveList: TStrings): boolean;
+    function GetIDEDirectives(DirectiveList: TStrings;
+          const Filter: TOnIDEDirectiveFilter = nil): boolean;
     function SetIDEDirectives(DirectiveList: TStrings;
-          SourceChangeCache: TSourceChangeCache): boolean;
+          SourceChangeCache: TSourceChangeCache;
+          const Filter: TOnIDEDirectiveFilter = nil): boolean;
 
     procedure CalcMemSize(Stats: TCTMemStats); override;
   end;
@@ -587,8 +603,8 @@ begin
     // first collect all units
     if not FindUsedUnitNames(ExistingUnits) then exit;
     // then change uses sections
-    Replace(FindMainUsesSection);
-    Replace(FindImplementationUsesSection);
+    Replace(FindMainUsesNode);
+    Replace(FindImplementationUsesNode);
   finally
     ExistingUnits.Free;
   end;
@@ -934,7 +950,7 @@ begin
   if UsesSection=usMain then begin
     // quick check using only the main uses section
     BuildTree(lsrMainUsesSectionEnd);
-    UsesNode:=FindMainUsesSection;
+    UsesNode:=FindMainUsesNode;
     if (UsesNode<>nil)
     and (FindUnitInUsesSection(UsesNode,NewUnitName,Junk,Junk)) then
       exit(true); // unit already in main uses section
@@ -949,8 +965,8 @@ begin
   Beauty:=SourceChangeCache.BeautifyCodeOptions;
   SourceChangeCache.BeginUpdate;
   try
-    UsesNode:=FindMainUsesSection;
-    OtherUsesNode:=FindImplementationUsesSection;
+    UsesNode:=FindMainUsesNode;
+    OtherUsesNode:=FindImplementationUsesNode;
     if UsesSection=usImplementation then begin
       SectionNode:=UsesNode;
       UsesNode:=OtherUsesNode;
@@ -1034,7 +1050,7 @@ begin
 end;
 
 function TStandardCodeTool.UnitExistsInUsesSection(UsesSection: TUsesSection;
-  const AnUnitName: string; SourceChangeCache: TSourceChangeCache): boolean;
+  const AnUnitName: string): boolean;
 var
   UsesNode: TCodeTreeNode;
 begin
@@ -1045,16 +1061,15 @@ begin
     BuildTree(lsrMainUsesSectionEnd)
   else
     BuildTree(lsrImplementationUsesSectionEnd);
-  SourceChangeCache.MainScanner:=Scanner;
   case UsesSection Of
-    usMain: UsesNode:=FindMainUsesSection;
-    usImplementation: UsesNode:=FindImplementationUsesSection;
+    usMain: UsesNode:=FindMainUsesNode;
+    usImplementation: UsesNode:=FindImplementationUsesNode;
   end;
-  Result:=UnitExistsInUsesSection(UsesNode,AnUnitName,SourceChangeCache);
+  Result:=UnitExistsInUsesSection(UsesNode,AnUnitName);
 end;
 
 function TStandardCodeTool.UnitExistsInUsesSection(UsesNode: TCodeTreeNode;
-  const AnUnitName: string; SourceChangeCache: TSourceChangeCache): boolean;
+  const AnUnitName: string): boolean;
 begin
   Result:=false;
   if (UsesNode=nil) or (not IsDottedIdentifier(AnUnitName)) then
@@ -1269,8 +1284,8 @@ begin
   ImplementationUsesSection:=nil;
   // find the uses sections
   BuildTree(lsrImplementationUsesSectionEnd);
-  MainUsesNode:=FindMainUsesSection;
-  ImplementatioUsesNode:=FindImplementationUsesSection;
+  MainUsesNode:=FindMainUsesNode;
+  ImplementatioUsesNode:=FindImplementationUsesNode;
   // create lists
   try
     MainUsesSection:=UsesSectionToUnitNames(MainUsesNode);
@@ -1318,8 +1333,8 @@ begin
   // find the uses sections
   List:=TStringToStringTree.Create(false);
   BuildTree(lsrImplementationUsesSectionEnd);
-  Collect(FindMainUsesSection,'Main');
-  Collect(FindImplementationUsesSection,'Implementation');
+  Collect(FindMainUsesNode,'Main');
+  Collect(FindImplementationUsesNode,'Implementation');
   Result:=true;
 end;
 
@@ -1331,7 +1346,7 @@ begin
   MainUsesSection:=nil;
   // find the uses sections
   BuildTree(lsrMainUsesSectionEnd);
-  MainUsesNode:=FindMainUsesSection;
+  MainUsesNode:=FindMainUsesNode;
   // create lists
   try
     MainUsesSection:=UsesSectionToFilenames(MainUsesNode);
@@ -1351,8 +1366,8 @@ begin
   ImplementationUsesSection:=nil;
   // find the uses sections
   BuildTree(lsrImplementationUsesSectionEnd);
-  MainUsesNode:=FindMainUsesSection;
-  ImplementatioUsesNode:=FindImplementationUsesSection;
+  MainUsesNode:=FindMainUsesNode;
+  ImplementatioUsesNode:=FindImplementationUsesNode;
   // create lists
   try
     MainUsesSection:=UsesSectionToFilenames(MainUsesNode);
@@ -1393,7 +1408,7 @@ begin
   NormalUnits:=nil;
   // find the uses sections
   BuildTree(lsrMainUsesSectionEnd);
-  UsesNode:=FindMainUsesSection(UseContainsSection);
+  UsesNode:=FindMainUsesNode(UseContainsSection);
   if UsesNode=nil then exit;
   FoundInUnits:=TStringList.Create;
   MissingInUnits:=TStringList.Create;
@@ -1543,9 +1558,9 @@ begin
   if FixCase then
     SourceChangeCache.MainScanner:=Scanner;
   try
-    if not CheckUsesSection(FindMainUsesSection(true)) then exit;
+    if not CheckUsesSection(FindMainUsesNode(true)) then exit;
     if SearchImplementation
-    and not CheckUsesSection(FindImplementationUsesSection) then exit;
+    and not CheckUsesSection(FindImplementationUsesNode) then exit;
   except
     FreeAndNil(MissingUnits);
     raise;
@@ -1649,8 +1664,8 @@ begin
   Result:=false;
   BuildTree(lsrInitializationStart);
   SourceChangeCache.MainScanner:=Scanner;
-  if not CommentUnitsInUsesSection(MissingUnits, SourceChangeCache, FindMainUsesSection) then exit;
-  if not CommentUnitsInUsesSection(MissingUnits, SourceChangeCache, FindImplementationUsesSection) then exit;
+  if not CommentUnitsInUsesSection(MissingUnits, SourceChangeCache, FindMainUsesNode) then exit;
+  if not CommentUnitsInUsesSection(MissingUnits, SourceChangeCache, FindImplementationUsesNode) then exit;
   if not SourceChangeCache.Apply then exit;
   Result:=true;
 end;
@@ -1871,8 +1886,8 @@ begin
   BuildTree(lsrEnd);
   Identifiers:=nil;
   try
-    CheckUsesSection(FindMainUsesSection,false);
-    CheckUsesSection(FindImplementationUsesSection,true);
+    CheckUsesSection(FindMainUsesNode,false);
+    CheckUsesSection(FindImplementationUsesNode,true);
   finally
     Identifiers.Free;
   end;
@@ -1895,10 +1910,13 @@ begin
     InitializationNode:=FindInitializationNode;
     if InitializationNode=nil then exit;
     LinkIndex:=Scanner.LinkIndexAtCleanPos(InitializationNode.StartPos);
-  end else
+  end else begin
+    InitializationNode:=nil;
     inc(LinkIndex);
+  end;
   if (LinkIndex<0) or (LinkIndex>=Scanner.LinkCount) then exit;
   StartCode:=TCodeBuffer(Scanner.Links[LinkIndex].Code);
+  // ToDo: Fix the test for InitializationNode, it can be Nil.
   while (LinkIndex<Scanner.LinkCount)
   and (Scanner.Links[LinkIndex].CleanedPos<InitializationNode.EndPos) do begin
     Result:=TCodeBuffer(Scanner.Links[LinkIndex].Code);
@@ -2057,6 +2075,7 @@ begin
   IncludeEnd:=Scanner.Links[LinkIndex].CleanedPos;
   IncludeStart:=IncludeEnd-1;
   if IncludeStart<1 then exit;
+  FileEnd:=0;
   case Src[IncludeStart] of
     '}':
       begin
@@ -2182,6 +2201,7 @@ var
         {$IFDEF VerboseCheckLFM}
         debugln('FindNonPublishedDefineProperty Path=',LFMNode.GetPath,' NO DEFINE PROPERTIES');
         {$ENDIF}
+        if DefaultErrorPosition=0 then ;
       end;
     end;
     Result:=IsDefined;
@@ -2395,7 +2415,7 @@ var
         fdfIgnoreOverloadedProcs];
       Params.ContextNode:=FindInterfaceNode;
       if Params.ContextNode=nil then
-        Params.ContextNode:=FindMainUsesSection;
+        Params.ContextNode:=FindMainUsesNode;
       Params.SetIdentifier(StartTool,Identifier,nil);
       try
         Params.Save(OldInput);
@@ -2454,13 +2474,14 @@ var
       VariableTypeName:='';
       if (ChildContext.Node.Desc=ctnVarDefinition) then begin
         DefinitionNode:=ChildContext.Tool.FindTypeNodeOfDefinition(ChildContext.Node);
-        if DefinitionNode<>nil then begin
+        if DefinitionNode<>nil then
           VariableTypeName:=ChildContext.Tool.ExtractDefinitionNodeType(ChildContext.Node);
-        end;
       end else if (ChildContext.Node.Desc=ctnProperty) then begin
         DefinitionNode:=ChildContext.Node;
         VariableTypeName:=ChildContext.Tool.ExtractPropType(ChildContext.Node,false,false);
-      end;
+      end
+      else
+        DefinitionNode:=nil;
       if DefinitionNode=nil then begin
         LFMTree.AddError(lfmeObjectIncompatible,LFMObject,
                          LFMObjectName+' is not a variable'
@@ -2809,10 +2830,14 @@ begin
   then exit;
   BuildTree(lsrEnd);
   Beauty:=SourceChangeCache.BeautifyCodeOptions;
-  MainBeginNode:=FindMainBeginEndNode;
-  if MainBeginNode=nil then exit;
+  if StartPos<1 then begin
+    MainBeginNode:=FindMainBeginEndNode;
+    if MainBeginNode=nil then exit;
+    StartPos:=MainBeginNode.StartPos;
+    if StartPos<1 then exit;
+  end;
   FromPos:=-1;
-  if FindCreateFormStatement(MainBeginNode.StartPos,OldClassName,
+  if FindCreateFormStatement(StartPos,OldClassName,
     OldVarName,OldPosition)=-1 then begin
     // does not exist
     if OnlyIfExists then begin
@@ -3517,13 +3542,6 @@ begin
   Result:=true;
 end;
 
-function TStandardCodeTool.ReplaceCode(const StartPos, EndPos: TCodeXYPosition;
-  const NewCode: string; SourceChangeCache: TSourceChangeCache): boolean;
-begin
-  Result:=false;
-  RaiseException('TStandardCodeTool.ReplaceCode not implemented yet');
-end;
-
 function TStandardCodeTool.GetStringConstAsFormatString(StartPos,
   EndPos: integer; out FormatStringConstant, FormatParameters: string;
   out StartInStringConst, EndInStringConst: boolean): boolean;
@@ -4086,7 +4104,8 @@ begin
   Result:=true;
 end;
 
-function TStandardCodeTool.GetIDEDirectives(DirectiveList: TStrings): boolean;
+function TStandardCodeTool.GetIDEDirectives(DirectiveList: TStrings;
+  const Filter: TOnIDEDirectiveFilter): boolean;
 var
   StartPos: Integer;
   EndPos: Integer;
@@ -4099,7 +4118,8 @@ begin
     StartPos:=FindNextIDEDirective(Src,EndPos,Scanner.NestedComments);
     if StartPos<1 then break;
     EndPos:=FindCommentEnd(Src,StartPos,Scanner.NestedComments);
-    DirectiveList.Add(copy(Src,StartPos,EndPos-StartPos));
+    if (Filter=nil) or Filter(Self,StartPos,EndPos) then
+      DirectiveList.Add(copy(Src,StartPos,EndPos-StartPos));
     if EndPos>SrcLen then break;
     StartPos:=EndPos;
   until false;
@@ -4107,7 +4127,8 @@ begin
 end;
 
 function TStandardCodeTool.SetIDEDirectives(DirectiveList: TStrings;
-  SourceChangeCache: TSourceChangeCache): boolean;
+  SourceChangeCache: TSourceChangeCache; const Filter: TOnIDEDirectiveFilter
+  ): boolean;
 var
   InsertPos: Integer;
   EndPos: Integer;
@@ -4122,7 +4143,12 @@ begin
 
   // find first old IDE directive
   InsertPos:=FindNextIDEDirective(Src,1,Scanner.NestedComments);
-  if InsertPos<1 then InsertPos:=0;
+  if InsertPos>=1 then begin
+    EndPos:=FindCommentEnd(Src,InsertPos,Scanner.NestedComments);
+    if (Filter<>nil) and (not Filter(Self,InsertPos,EndPos)) then
+      InsertPos:=0;
+  end else
+    InsertPos:=0;
 
   // remove all old IDE directives
   if InsertPos>=1 then
@@ -4134,18 +4160,21 @@ begin
     StartPos:=FindNextIDEDirective(Src,EndPos,Scanner.NestedComments);
     if StartPos<1 then break;
     EndPos:=FindCommentEnd(Src,StartPos,Scanner.NestedComments);
-    // remove also space in front of directive
-    while (StartPos>1) and (Src[StartPos-1] in [' ',#9]) do dec(StartPos);
-    // remove also space behind directive
-    while (EndPos<=SrcLen) and (Src[EndPos] in [' ',#9]) do inc(EndPos);
-    if (EndPos<=SrcLen) and (Src[EndPos] in [#10,#13]) then begin
-      inc(EndPos);
-      if (EndPos<=SrcLen) and (Src[EndPos] in [#10,#13])
-      and (Src[EndPos]<>Src[EndPos-1]) then
+    if (Filter=nil) or Filter(Self,StartPos,EndPos) then begin
+      // remove also space in front of directive
+      while (StartPos>1) and (Src[StartPos-1] in [' ',#9]) do dec(StartPos);
+      // remove also space behind directive
+      while (EndPos<=SrcLen) and (Src[EndPos] in [' ',#9]) do inc(EndPos);
+      if (EndPos<=SrcLen) and (Src[EndPos] in [#10,#13]) then begin
         inc(EndPos);
+        if (EndPos<=SrcLen) and (Src[EndPos] in [#10,#13])
+        and (Src[EndPos]<>Src[EndPos-1]) then
+          inc(EndPos);
+      end;
+      // remove directive
+      if not SourceChangeCache.Replace(gtNone,gtNone,StartPos,EndPos,'') then
+        exit;
     end;
-    // remove directive
-    SourceChangeCache.Replace(gtNone,gtNone,StartPos,EndPos,'');
     if EndPos>SrcLen then break;
     StartPos:=EndPos;
   until false;
@@ -4280,7 +4309,7 @@ begin
     NearestNode:=CursorTool.FindNearestIdentifierNode(CursorPos,IdentTree);
     if NearestNode=nil then exit;
     // convert node to cleanpos
-    NearestCleanPos:=PtrUInt(NearestNode.Data)-PtrUInt(@SectionTool.Src[1])+1;
+    NearestCleanPos:={%H-}PtrUInt(NearestNode.Data)-{%H-}PtrUInt(@SectionTool.Src[1])+1;
     // convert cleanpos to caret
     CleanPosToCaret(NearestCleanPos,NearestPos);
   finally
@@ -4959,6 +4988,57 @@ begin
   end;
 end;
 
+function TStandardCodeTool.InsertStatements(
+  InsertPos: TInsertStatementPosDescription; Statements: string;
+  SourceChangeCache: TSourceChangeCache): boolean;
+var
+  CleanCursorPos: integer;
+begin
+  BeginParsingAndGetCleanPos(lsrEnd,InsertPos.CodeXYPos,CleanCursorPos);
+  Result:=InsertStatements(CleanCursorPos,Statements,InsertPos.Indent,
+    InsertPos.FrontGap,InsertPos.AfterGap,SourceChangeCache);
+  Result:=SourceChangeCache.Apply;
+end;
+
+function TStandardCodeTool.InsertStatements(CleanPos: integer;
+  Statements: string; Indent: integer; FrontGap, AfterGap: TGapTyp;
+  SourceChangeCache: TSourceChangeCache): boolean;
+{
+  ToDo: check for "uses" in Statements and extend uses section
+        e.g. "uses unit1, unit2 in 'filename'; statements
+  ToDo: check for single statement (e.g. for .. do | dosome;) and add begin/end
+
+ }
+var
+  Node: TCodeTreeNode;
+  SameArea: TAtomPosition;
+  BeautifyFlags: TBeautifyCodeFlags;
+begin
+  Node:=FindDeepestNodeAtPos(CleanPos,true);
+  if not (Node.Desc in AllPascalStatements) then begin
+    MoveCursorToCleanPos(CleanPos);
+    RaiseException('invalid position for insertion of statements');
+  end;
+  if Node.Desc=ctnBeginBlock then
+    Node:=BuildSubTreeAndFindDeepestNodeAtPos(Node,CleanPos,true);
+
+  GetCleanPosInfo(Node.StartPos,CleanPos,false,SameArea);
+  if (SameArea.StartPos>SrcLen) or (not IsSpaceChar[Src[SameArea.StartPos]])
+  then begin
+    MoveCursorToCleanPos(CleanPos);
+    RaiseException('invalid position for insertion of statements');
+  end;
+
+  SourceChangeCache.MainScanner:=Scanner;
+  BeautifyFlags:=[bcfIndentExistingLineBreaks];
+  if FrontGap in [gtNone,gtSpace] then
+    include(BeautifyFlags,bcfDoNotIndentFirstLine);
+  Statements:=SourceChangeCache.BeautifyCodeOptions.BeautifyStatement(
+    Statements,Indent,BeautifyFlags);
+
+  Result:=SourceChangeCache.Replace(FrontGap,AfterGap,CleanPos,CleanPos,Statements);
+end;
+
 function TStandardCodeTool.FindBlockCounterPart(
   const CursorPos: TCodeXYPosition;
   out NewPos: TCodeXYPosition; out NewTopLine: integer): boolean;
@@ -5331,7 +5411,7 @@ var
 
   procedure InitStack(out Stack: TBlockStack);
   begin
-    FillByte(Stack,SizeOf(Stack),0);
+    FillByte(Stack{%H-},SizeOf(Stack),0);
     Stack.Top:=-1;
   end;
 
@@ -5386,6 +5466,7 @@ var
   var
     p: LongInt;
   begin
+    Result:=false;
     if NewCode='' then exit(true);
     // try to avoid changing current line
     if (FrontGap=gtEmptyLine) then begin
@@ -5966,7 +6047,7 @@ var
     Result:=true;
   end;
 
-  function CompleteClassSection(var Stack: TBlockStack): Boolean;
+  function CompleteClassSection: Boolean;
   {  type
        TMyClass = class
          |
@@ -6028,7 +6109,7 @@ var
       Result:=true;
   end;
 
-  function CompleteClassInterface(var Stack: TBlockStack): Boolean;
+  function CompleteClassInterface: Boolean;
   {  type
        TMyClass = interface
          |
@@ -6060,7 +6141,7 @@ var
     Result:=true;
   end;
 
-  function CompleteRecord(var Stack: TBlockStack): Boolean;
+  function CompleteRecord: Boolean;
   {  type
        TMyClass = record
          |
@@ -6097,6 +6178,7 @@ var
 begin
   Result:=false;
   NewPos:=CursorPos;
+  NewTopLine:=-1;
   BuildTreeAndGetCleanPos(trTillCursor,lsrEnd,CursorPos,CleanCursorPos,
                           [btSetIgnoreErrorPos]);
   StartNode:=FindDeepestNodeAtPos(CleanCursorPos,true);
@@ -6119,13 +6201,13 @@ begin
     else if (StartNode.Desc in AllClassSections)
     or ((StartNode.Desc in AllClassSubSections) and (StartNode.Parent.Desc in AllClassSections))
     then begin
-      if not CompleteClassSection(Stack) then exit;
+      if not CompleteClassSection then exit;
     end
     else if StartNode.Desc in AllClassInterfaces then begin
-      if not CompleteClassInterface(Stack) then exit;
+      if not CompleteClassInterface then exit;
     end
     else if StartNode.Desc=ctnRecordType then begin
-      if not CompleteRecord(Stack) then exit;
+      if not CompleteRecord then exit;
     end;
   finally
     FreeStack(Stack);
@@ -6167,12 +6249,14 @@ begin
 end;
 
 function TStandardCodeTool.FindEnclosingIncludeDirective(
-  const CursorPos: TCodeXYPosition; out NewPos: TCodeXYPosition;
-  var NewTopLine: integer): boolean;
+  const CursorPos: TCodeXYPosition; out NewPos: TCodeXYPosition; out
+  NewTopLine: integer): boolean;
 var
   CleanCursorPos, LinkIndex, NewCleanPos: integer;
 begin
   Result:=false;
+  NewPos:=CleanCodeXYPosition;
+  NewTopLine:=-1;
   try
     BuildTreeAndGetCleanPos(trTillCursor,lsrEnd,CursorPos,CleanCursorPos,
                             [btSetIgnoreErrorPos]);
@@ -6277,7 +6361,7 @@ begin
       Indent:=Beauty.GetLineIndent(Src,ANode.StartPos);
       InsertPos:=ANode.StartPos;
     end else begin
-      ANode:=FindMainUsesSection;
+      ANode:=FindMainUsesNode;
       if ANode<>nil then begin
         Indent:=Beauty.GetLineIndent(Src,ANode.StartPos);
         InsertPos:=ANode.StartPos;

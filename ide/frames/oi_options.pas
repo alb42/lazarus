@@ -99,7 +99,7 @@ type
     procedure ApplyOISettings(ASettings: TSpeedOISettings);
   public
     function GetTitle: String; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -172,7 +172,7 @@ procedure TOIOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
   ObjectInspectorColorsGroupBox.Caption := dlgColors;
   OIMiscGroupBox.Caption := dlgOIMiscellaneous;
-  OIOptionsGroupBox.Caption := dlgOIOptions;
+  OIOptionsGroupBox.Caption := lisOptions;
   ObjectInspectorSpeedSettingsGroupBox.Caption := dlgOISpeedSettings;
 
   BtnUseDefaultLazarusSettings.Caption := dlgOIUseDefaultLazarusSettings;

@@ -17,7 +17,7 @@ interface
 
 uses
   Classes, LResources, Forms, Controls, Graphics, Dialogs, Types,
-  LCLType, LCLIntf, LCLProc, Math, GraphType, ComCtrls, ExtCtrls;
+  LCLType, LCLIntf, LCLProc, Math, GraphType, ComCtrls, ExtCtrls, Themes;
 
 type
   { TDividerBevel }
@@ -29,12 +29,14 @@ type
     FCaptionSpacing: Integer;
     FLeftIndent: Integer;
     FOrientation: TTrackBarOrientation;
+    FStyle: TGrabStyle;
     FTransparent: Boolean;
     procedure SetBevelStyle(AValue: TBevelStyle);
     procedure SetBevelWidth(AValue: Integer);
     procedure SetCaptionSpacing(const AValue: Integer);
     procedure SetLeftIndent(const AValue: Integer);
     procedure SetOrientation(AValue: TTrackBarOrientation);
+    procedure SetStyle(AValue: TGrabStyle);
     procedure SetTransparent(AValue: Boolean);
   protected
     FBevelHeight: Integer;
@@ -65,6 +67,9 @@ type
              default 10;
     property Color;
     property Constraints;
+    property DragCursor;
+    property DragKind;
+    property DragMode;
     property Font;
     property Hint;
     property LeftIndent: Integer read FLeftIndent write SetLeftIndent default 60;
@@ -76,18 +81,23 @@ type
     property ParentShowHint;
     property PopupMenu;
     property ShowHint;
+    property Style: TGrabStyle read FStyle write SetStyle default gsSimple;
     property Transparent: Boolean read FTransparent write SetTransparent default True;
     property Visible;
     property OnChangeBounds;
     property OnClick;
     property OnContextPopup;
     property OnDblClick;
+    property OnDragDrop;
+    property OnDragOver;
+    property OnEndDrag;
     property OnMouseDown;
     property OnMouseEnter;
     property OnMouseLeave;
     property OnMouseMove;
     property OnMouseUp;
     property OnResize;
+    property OnStartDrag;
 end;
 
 procedure Register;
@@ -147,6 +157,13 @@ begin
   Invalidate;
 end;
 
+procedure TDividerBevel.SetStyle(AValue: TGrabStyle);
+begin
+  if FStyle=AValue then Exit;
+  FStyle:=AValue;
+  Invalidate;
+end;
+
 procedure TDividerBevel.SetTransparent(AValue: Boolean);
 begin
   if FTransparent = AValue then Exit;
@@ -179,8 +196,79 @@ procedure TDividerBevel.Paint;
 var
   aBevel: TGraphicsBevelCut;
   aHorizontal: Boolean;
-  aIndent, aRight, j: Integer;
   PaintRect: TRect;
+  aStyle: TGrabStyle;
+
+  procedure PaintBevel;
+  var aDetails: TThemedElementDetails;
+      aRect: TRect;
+      w, l: Integer;
+  begin
+    case aStyle of
+      gsSimple: Canvas.Frame3D(PaintRect, 1, aBevel);
+      gsDouble: if aHorizontal then begin
+          aRect.TopLeft := PaintRect.TopLeft;
+          aRect.Right := PaintRect.Right;
+          w := (PaintRect.Bottom - PaintRect.Top - 2) div 2;
+          aRect.Bottom :=  aRect.Top + w;
+          Canvas.Frame3D(aRect, 1, aBevel);
+          aRect.Left := PaintRect.Left;
+          aRect.Top := PaintRect.Bottom - w;
+          aRect.BottomRight := PaintRect.BottomRight;
+          Canvas.Frame3D(aRect, 1, aBevel);
+        end else begin
+          aRect.TopLeft := PaintRect.TopLeft;
+          w := (PaintRect.Right - PaintRect.Left - 2) div 2;
+          aRect.Right :=  aRect.Left + w;
+          aRect.Bottom := PaintRect.Bottom;
+          Canvas.Frame3D(aRect, 1, aBevel);
+          aRect.Left := PaintRect.Right - w;
+          aRect.Top := PaintRect.Top;
+          aRect.BottomRight := PaintRect.BottomRight;
+          Canvas.Frame3D(aRect, 1, aBevel);
+        end;
+      gsHorLines: begin
+          aRect.TopLeft := PaintRect.TopLeft;
+          aRect.Right :=  PaintRect.Right;
+          l := (PaintRect.Bottom - aRect.Top + 1) div 3;
+          inc(aRect.Top);
+          Canvas.Pen.Color := clBtnShadow;
+          for w := 0 to l - 1 do
+            Canvas.Line(aRect.Left, aRect.Top + w * 3, aRect.Right, aRect.Top + w * 3);
+          Canvas.Pen.Color := clBtnHighlight;
+          inc(aRect.Top);
+          for w := 0 to l - 1 do
+            Canvas.Line(aRect.Left, aRect.Top + w * 3, aRect.Right, aRect.Top + w * 3);
+        end;
+      gsVerLines: begin
+          aRect.TopLeft := PaintRect.TopLeft;
+          l := (PaintRect.Right - aRect.Left + 1) div 3;
+          aRect.Bottom :=  PaintRect.Bottom + 1;
+          inc(aRect.Left);
+          Canvas.Pen.Color := clBtnShadow;
+          for w := 0 to l - 1 do
+            Canvas.Line(aRect.Left + w * 3, aRect.Top, aRect.Left + w * 3, aRect.Bottom);
+          Canvas.Pen.Color := clBtnHighlight;
+          inc(aRect.Left);
+          for w := 0 to l - 1 do
+            Canvas.Line(aRect.Left + w * 3, aRect.Top, aRect.Left + w * 3, aRect.Bottom);
+        end;
+      gsGripper: begin
+         if aHorizontal then
+           aDetails := ThemeServices.GetElementDetails(trGripper)
+         else
+           aDetails := ThemeServices.GetElementDetails(trGripperVert);
+         ThemeServices.DrawElement(Canvas.Handle, aDetails, PaintRect);
+        end;
+      gsButton: begin
+          aDetails := ThemeServices.GetElementDetails(tbPushButtonNormal);
+          ThemeServices.DrawElement(Canvas.Handle, aDetails, PaintRect);
+        end;
+    end;
+  end;
+
+var
+  aIndent, aRight, j: Integer;
 begin
   CalcSize;
   if not FTransparent then begin
@@ -194,6 +282,13 @@ begin
   else
     aBevel := bvRaised;
   aHorizontal := (Orientation = trHorizontal);
+
+  aStyle := Style;
+  if not aHorizontal then
+    case aStyle of
+      gsHorLines: aStyle := gsVerLines;
+      gsVerLines: aStyle := gsHorLines;
+    end;
 
   if aHorizontal then begin
     PaintRect.Left := 0;
@@ -210,7 +305,7 @@ begin
       PaintRect.Right := Width
     else
       PaintRect.Bottom := Height;
-    Canvas.Frame3D(PaintRect, 1, aBevel);
+    PaintBevel;
     exit;
   end;
 
@@ -238,7 +333,7 @@ begin
       PaintRect.Right := aRight
     else
       PaintRect.Bottom := aRight;
-    Canvas.Frame3D(PaintRect, 1, aBevel);
+    PaintBevel;
   end;
 
   if aIndent > 0 then inc(aIndent, FCaptionSpacing);
@@ -255,7 +350,7 @@ begin
     PaintRect.Right := FBevelTop + FBevelHeight;
     PaintRect.Bottom := Height;
   end;
-  Canvas.Frame3D(PaintRect, 1, aBevel);
+  PaintBevel;
 
   Canvas.Brush.Style := bsClear;
   j := Max((FBevelHeight - FTextExtent.cy) div 2, 0);

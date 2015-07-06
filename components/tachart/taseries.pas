@@ -289,6 +289,7 @@ type
       out AResults: TNearestPointResults): Boolean; override;
     function IsEmpty: Boolean; override;
     procedure MovePoint(var AIndex: Integer; const ANewPos: TDoublePoint); override;
+    procedure UpdateBiDiMode; override;
 
   published
     property Active default true;
@@ -894,6 +895,12 @@ begin
   UpdateParentChart;
 end;
 
+procedure TConstantLine.UpdateBiDiMode;
+begin
+  if LineStyle = lsHorizontal then
+    Arrow.Inverted := not Arrow.Inverted;
+end;
+
 { TBarSeries }
 
 procedure TBarSeries.Assign(ASource: TPersistent);
@@ -1260,7 +1267,9 @@ var
 
     for j := 0 to Source.YCount - 1 do begin
       if j > 0 then
-        UpdateGraphPoints(j - 1, AStart, AEnd);
+        UpdateGraphPoints(j - 1{, AStart, AEnd});
+        // The modification in above line fixes a drawing error reported in
+        // forum.lazarus.freepascal.org/index.php/topic,28025.msg174184
       numPts := 0;
       a := ProjToRect(FGraphPoints[AStart], ext2);
       PushPoint(ProjToLine(a, z1));

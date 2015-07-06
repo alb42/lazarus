@@ -128,9 +128,9 @@ type
   protected
     // IsEqual is only needed/implemented for Carets
     function IsEqualContent(AnItem: TSynEditUndoItem): Boolean; virtual;
-    function IsEqual(AnItem: TSynEditUndoItem): Boolean;
     function DebugString: String; virtual;
   public
+    function IsEqual(AnItem: TSynEditUndoItem): Boolean;
     function IsCaretInfo: Boolean; virtual;
     function PerformUndo(Caller: TObject): Boolean; virtual; abstract;
   end;
@@ -143,7 +143,7 @@ type
     FCount, FCapacity: Integer;
     FReason: TSynEditorCommand;
     function GetItem(Index: Integer): TSynEditUndoItem;
-    procedure Grow;
+    procedure Grow(ANeededCapacity: Integer = 0);
   protected
     Function HasUndoInfo: Boolean;
     procedure Append(AnUndoGroup: TSynEditUndoItem);
@@ -158,7 +158,7 @@ type
 
     procedure Assign(AnUndoGroup: TSynEditUndoGroup);
     procedure Add(AnItem: TSynEditUndoItem);
-    procedure Clear;
+    procedure Clear(OnlyFreeItems: Boolean = False);
     procedure Insert(AIndex: Integer; AnItem: TSynEditUndoItem);
     procedure Delete(AIndex: Integer);
     function  Pop: TSynEditUndoItem;
@@ -169,6 +169,14 @@ type
 
 
   TSynGetCaretUndoProc = function: TSynEditUndoItem of object;
+  TSynUpdateCaretUndoProc = procedure(var AnUndoItem: TSynEditUndoItem; AnIsBeginUndo: Boolean) of object;
+
+  { TSynEditUpdateCaretUndoProcList }
+
+  TSynEditUpdateCaretUndoProcList = Class(TMethodList)
+  public
+    procedure CallSearchUpdateCaretUndoProcs(var AnUndoItem: TSynEditUndoItem; AnIsBeginUndo: Boolean);
+  end;
 
   { TSynEditUndoList }
 
@@ -184,6 +192,7 @@ type
     fMaxUndoActions: integer;
     fOnAdded: TNotifyEvent;
     FOnNeedCaretUndo: TSynGetCaretUndoProc;
+    FOnNeedCaretUndoList: TSynEditUpdateCaretUndoProcList;
     fUnModifiedItem: integer;
     FForceGroupEnd: Boolean;
     procedure EnsureMaxEntries;
@@ -208,6 +217,7 @@ type
     procedure Clear;
     procedure Lock;
     function PopItem: TSynEditUndoGroup;
+    function PeekItem: TSynEditUndoGroup;
     procedure Unlock;
     function IsLocked: Boolean;
     procedure MarkTopAsUnmodified;
@@ -219,6 +229,9 @@ type
     property InGroupCount: integer read FInGroupCount;
     {$ENDIF}
   public
+    procedure RegisterUpdateCaretUndo(AnUpdateProc: TSynUpdateCaretUndoProc);
+    procedure UnregisterUpdateCaretUndo(AnUpdateProc: TSynUpdateCaretUndoProc);
+
     property CanUndo: boolean read GetCanUndo;
     property FullUndoImpossible: boolean read fFullUndoImposible;
     property ItemCount: integer read GetItemCount;
@@ -246,6 +259,18 @@ begin
   raise ESynEditStorageMem.CreateFmt(SListIndexOutOfBounds, [Index]);
 end;
 
+{ TSynEditUpdateCaretUndoProcList }
+
+procedure TSynEditUpdateCaretUndoProcList.CallSearchUpdateCaretUndoProcs(var AnUndoItem: TSynEditUndoItem;
+  AnIsBeginUndo: Boolean);
+var
+  i: LongInt;
+begin
+  i:=Count;
+  while NextDownIndex(i) do
+    TSynUpdateCaretUndoProc(Items[i])(AnUndoItem, AnIsBeginUndo);
+end;
+
 { TSynEditStringsBase }
 
 function TSynEditStringsBase.GetPChar(ALineIndex: Integer): PChar;
@@ -261,6 +286,7 @@ constructor TSynEditUndoList.Create;
 begin
   inherited Create;
   // Create and keep one undo group => avoids resizing the FItems list
+  FOnNeedCaretUndoList := TSynEditUpdateCaretUndoProcList.Create;
   FUndoGroup := TSynEditUndoGroup.Create;
   FIsInsideRedo := False;
   fItems := TList.Create;
@@ -274,6 +300,7 @@ begin
   Clear;
   fItems.Free;
   FreeAndNil(FUndoGroup);
+  FreeAndNil(FOnNeedCaretUndoList);
   inherited Destroy;
 end;
 
@@ -349,12 +376,18 @@ begin
 end;
 
 procedure TSynEditUndoList.BeginBlock;
+var
+  c: TSynEditUndoItem;
 begin
   Inc(FInGroupCount);
   if (FInGroupCount = 1) then begin
     FUndoGroup.Clear;
+    c := nil;
     if assigned(FOnNeedCaretUndo) then
-      FUndoGroup.add(FOnNeedCaretUndo());
+      c := FOnNeedCaretUndo();
+    FOnNeedCaretUndoList.CallSearchUpdateCaretUndoProcs(c, True);
+    if c <> nil then
+      FUndoGroup.add(c);
   end;
   {$IFDEF SynUndoDebugCalls}
   DebugLnEnter(['>> TSynEditUndoList.BeginBlock ', DebugName, ' ', DbgSName(self), ' ', dbgs(Self), ' fLockCount=', fLockCount, ' Cnt=', fItems.Count, ' FInGroupCount=', FInGroupCount, ' fUnModifiedItem=', fUnModifiedItem]);
@@ -378,15 +411,21 @@ end;
 procedure TSynEditUndoList.EndBlock;
 var
   ugroup: TSynEditUndoGroup;
+  c: TSynEditUndoItem;
 begin
   if FInGroupCount > 0 then begin
     Dec(FInGroupCount);
     if (FInGroupCount = 0) and FUndoGroup.HasUndoInfo then
     begin
       // Keep position for REDO; Do not replace if present
-      if (not FUndoGroup.Items[FUndoGroup.Count - 1].IsCaretInfo)
-          and assigned(FOnNeedCaretUndo) then
-        FUndoGroup.Add(FOnNeedCaretUndo());
+      if (not FUndoGroup.Items[FUndoGroup.Count - 1].IsCaretInfo) then begin
+        c := nil;
+        if assigned(FOnNeedCaretUndo) then
+          c := FOnNeedCaretUndo();
+        FOnNeedCaretUndoList.CallSearchUpdateCaretUndoProcs(c, False);
+        if c <> nil then
+          FUndoGroup.add(c);
+      end;
       if (fItems.Count > 0) and FGroupUndo and (not IsTopMarkedAsUnmodified) and
         (not FForceGroupEnd) and
         FUndoGroup.CanMergeWith(TSynEditUndoGroup(fItems[fItems.Count - 1])) then
@@ -469,6 +508,13 @@ begin
   end;
 end;
 
+function TSynEditUndoList.PeekItem: TSynEditUndoGroup;
+begin
+  Result := nil;
+  if fItems.Count > 0 then
+    Result := TSynEditUndoGroup(fItems[fItems.Count - 1]);
+end;
+
 procedure TSynEditUndoList.SetMaxUndoActions(Value: integer);
 begin
   if Value < 0 then
@@ -520,6 +566,16 @@ begin
   Result := fUnModifiedItem >= 0;
 end;
 
+procedure TSynEditUndoList.RegisterUpdateCaretUndo(AnUpdateProc: TSynUpdateCaretUndoProc);
+begin
+  FOnNeedCaretUndoList.Add(TMethod(AnUpdateProc));
+end;
+
+procedure TSynEditUndoList.UnregisterUpdateCaretUndo(AnUpdateProc: TSynUpdateCaretUndoProc);
+begin
+  FOnNeedCaretUndoList.Remove(TMethod(AnUpdateProc));
+end;
+
 { TSynEditUndoItem }
 
 function TSynEditUndoItem.IsEqualContent(AnItem: TSynEditUndoItem): Boolean;
@@ -563,9 +619,12 @@ end;
 
 { TSynEditUndoGroup }
 
-procedure TSynEditUndoGroup.Grow;
+procedure TSynEditUndoGroup.Grow(ANeededCapacity: Integer);
 begin
-  FCapacity := FCapacity + Max(10, FCapacity Div 8);
+  if ANeededCapacity > 0 then
+    FCapacity := Max(ANeededCapacity, FCapacity)
+  else
+    FCapacity := FCapacity + Max(10, FCapacity Div 8);
   SetLength(FItems, FCapacity);
 end;
 
@@ -621,8 +680,16 @@ end;
 
 procedure TSynEditUndoGroup.TranferTo(AnUndoGroup: TSynEditUndoGroup);
 begin
-  AnUndoGroup.Assign(self);
+  //AnUndoGroup.Assign(self);
+  AnUndoGroup.Clear(True);
+  AnUndoGroup.FCapacity := Count;
+  AnUndoGroup.FCount := Count;
+  AnUndoGroup.FItems := FItems;
+  FItems := nil;
+  FCapacity := 0;
   FCount := 0; // Do not clear; that would free the items
+
+  AnUndoGroup.FReason := Reason;
 end;
 
 function TSynEditUndoGroup.CanMergeWith(AnUndoGroup: TSynEditUndoGroup): Boolean;
@@ -638,12 +705,20 @@ procedure TSynEditUndoGroup.MergeWith(AnUndoGroup: TSynEditUndoGroup);
 begin
   // Merge other group to start
   AnUndoGroup.Pop.Free;
-  if AnUndoGroup.Count > 0 then begin
-    fItems[0].Free;
-    fItems[0] := AnUndoGroup.Pop;
-  end;
-  while AnUndoGroup.Count > 0 do
-    Insert(0, AnUndoGroup.Pop);
+  if AnUndoGroup.Count = 0 then
+    exit;
+
+  Grow(Count + AnUndoGroup.Count); // since we replace item[0], this is one extra
+
+  If AnUndoGroup.Count > 1 then
+    System.Move(FItems[1], FItems[AnUndoGroup.Count],
+                (FCount - 1) * SizeOf(TSynEditUndoItem));
+  assert(Count > 0, 'TSynEditUndoGroup.MergeWith: Count > 0');
+  FItems[0].Free;
+  System.Move(AnUndoGroup.FItems[0], FItems[0],
+              (AnUndoGroup.Count) * SizeOf(TSynEditUndoItem));
+  FCount := FCount + AnUndoGroup.FCount - 1;
+  AnUndoGroup.FCount := 0;
 end;
 
 function TSynEditUndoGroup.GetItem(Index: Integer): TSynEditUndoItem;
@@ -659,7 +734,7 @@ end;
 
 destructor TSynEditUndoGroup.Destroy;
 begin
-  Clear;
+  Clear(True);
   FItems := nil;
   inherited Destroy;
 end;
@@ -691,13 +766,13 @@ begin
   inc (FCount);
 end;
 
-procedure TSynEditUndoGroup.Clear;
+procedure TSynEditUndoGroup.Clear(OnlyFreeItems: Boolean);
 begin
   while FCount > 0 do begin
     dec(FCount);
     FItems[FCount].Free;
   end;
-  if FCapacity > 100 then begin
+  if (not OnlyFreeItems) and (FCapacity > 100) then begin
     FCapacity := 100;
     SetLength(FItems, FCapacity);
   end;

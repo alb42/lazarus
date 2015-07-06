@@ -32,8 +32,8 @@ interface
 {$DEFINE HasDefaultValues}
 
 uses
-  Classes, SysUtils, Types, TypInfo, Math, AvgLvlTree, Maps, LCLVersion,
-  LCLStrConsts, LCLType, LCLProc, LCLIntf, FileUtil, LazUTF8, InterfaceBase,
+  Classes, SysUtils, Types, TypInfo, Math, Maps, LCLVersion, InterfaceBase,
+  LCLStrConsts, LCLType, LCLProc, LCLIntf, LazFileUtils, LazUTF8,
   LResources, GraphType, Graphics, Menus, LMessages, CustomTimer, ActnList,
   ClipBrd, CustApp, HelpIntfs, LCLClasses, Controls, ImgList, Themes
   {$ifndef wince},gettext{$endif}// remove ifdefs when gettext is fixed and a new fpc is released
@@ -162,6 +162,7 @@ type
     function GetClientScrollOffset: TPoint; override;
     function GetLogicalClientRect: TRect; override;// logical size of client area
     procedure DoOnResize; override;
+    procedure GetPreferredSizeClientFrame(out aWidth, aHeight: integer); override;
     procedure WMSize(var Message: TLMSize); message LM_Size;
     procedure WMHScroll(var Message : TLMHScroll); message LM_HScroll;
     procedure WMVScroll(var Message : TLMVScroll); message LM_VScroll;
@@ -481,6 +482,14 @@ type
     procedure SetLastFocusedControl(AControl: TWinControl);
     procedure SetWindowFocus;
     procedure SetWindowState(Value : TWindowState);
+    procedure AddHandler(HandlerType: TFormHandlerType;
+                         const Handler: TMethod; AsFirst: Boolean = false);
+    procedure RemoveHandler(HandlerType: TFormHandlerType;
+                            const Handler: TMethod);
+    function FindDefaultForActiveControl: TWinControl;
+    procedure UpdateMenu;
+    procedure UpdateShowInTaskBar;
+  protected
     procedure WMActivate(var Message : TLMActivate); message LM_ACTIVATE;
     procedure WMCloseQuery(var message: TLMessage); message LM_CLOSEQUERY;
     procedure WMHelp(var Message: TLMHelp); message LM_HELP;
@@ -496,19 +505,12 @@ type
     procedure CMRelease(var Message: TLMessage); message CM_RELEASE;
     procedure CMActivate(var Message: TLMessage); message CM_ACTIVATE;
     procedure CMDeactivate(var Message: TLMessage); message CM_DEACTIVATE;
-    procedure AddHandler(HandlerType: TFormHandlerType;
-                         const Handler: TMethod; AsFirst: Boolean = false);
-    procedure RemoveHandler(HandlerType: TFormHandlerType;
-                            const Handler: TMethod);
-    function FindDefaultForActiveControl: TWinControl;
-    procedure UpdateMenu;
-    procedure UpdateShowInTaskBar;
+    procedure CMShowingChanged(var Message: TLMessage); message CM_SHOWINGCHANGED;
   protected
     FActionLists: TList; // keep this TList for Delphi compatibility
     FFormBorderStyle: TFormBorderStyle;
     FFormState: TFormState;
     class procedure WSRegisterClass; override;
-    procedure CMShowingChanged(var Message: TLMessage); message CM_SHOWINGCHANGED;
     procedure DoShowWindow; virtual;
     procedure Activate; virtual;
     procedure ActiveChanged; virtual;
@@ -852,7 +854,7 @@ type
   protected
     class procedure WSRegisterClass; override;
     procedure WMNCHitTest(var Message: TLMessage); message LM_NCHITTEST;
-    procedure ActivateSub(InvalidateNeeded: Boolean);
+    procedure ActivateSub;
     procedure DoShowWindow; override;
     procedure UpdateRegion;
     procedure SetColor(Value: TColor); override;
@@ -1416,7 +1418,7 @@ type
     procedure HideHint;
     procedure HintMouseMessage(Control : TControl; var AMessage: TLMessage);
     procedure Initialize; override;
-    function MessageBox(Text, Caption: PChar; Flags: Longint): Integer;
+    function MessageBox(Text, Caption: PChar; Flags: Longint = MB_OK): Integer;
     procedure Minimize;
     procedure ModalStarted;
     procedure ModalFinished;
@@ -1558,6 +1560,8 @@ type
   end;
 
 const
+  DefaultApplicationBiDiMode: TBiDiMode = bdLeftToRight;
+
   DefHintColor = clInfoBk;           // default hint window color
   DefHintPause = 500;                // default pause before hint window displays (ms)
   DefHintShortPause = 0;             // default reshow pause
@@ -1916,7 +1920,7 @@ end;
 function GetParentForm(Control: TControl; TopForm: Boolean): TCustomForm;
 begin
   //For Delphi compatibility if Control is a TCustomForm with no parent, the function returns the TCustomForm itself
-  while Control.Parent <> nil do
+  while (Control <> nil) and (Control.Parent <> nil) do
   begin
     if (not TopForm) and (Control is TCustomForm) then
       Break;

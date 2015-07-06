@@ -60,11 +60,11 @@ type
     MainMemo: TMemo;
     TargetComboBox: TComboBox;
     TargetLabel: TLabel;
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure OnIdle(Sender: TObject; var Done: Boolean);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
+    procedure OnIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure TargetComboBoxChange(Sender: TObject);
   private
     FIdleConnected: boolean;
@@ -278,7 +278,9 @@ begin
 
   // check
   if (FTargets.Count>0) then
-    MainTarget:=TObject(FTargets.Last);
+    MainTarget:=TInfoNeedBuildItem(FTargets.Last).Target
+  else
+    MainTarget:=nil;
 
   i:=0;
   while i<FTargets.Count do begin
@@ -421,7 +423,8 @@ procedure TIDEInfoNeedBuildDlg.SetMainTarget(AValue: TObject);
 begin
   if FMainTarget=AValue then Exit;
   FMainTarget:=AValue;
-  if (FMainTarget=LazarusIDE) then
+  //debugln(['TIDEInfoNeedBuildDlg.SetMainTarget ',DbgSName(MainTarget)]);
+  if (MainTarget=LazarusIDE) then
     MainBuildBoss.SetBuildTargetIDE
   else
     MainBuildBoss.SetBuildTargetProject1(true);

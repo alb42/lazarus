@@ -308,6 +308,18 @@ function CheckCompilerQuality(AFilename: string; out Note: string;
   TestSrcFilename: string): TSDFilenameQuality;
 var
   CfgCache: TFPCTargetConfigCache;
+
+  function CheckPPU(const AnUnitName: string): boolean;
+  begin
+    if CompareFileExt(CfgCache.Units[AnUnitName],'ppu',false)<>0 then
+    begin
+      Note:=Format(lisPpuNotFoundCheckYourFpcCfg, [AnUnitName]);
+      Result:=false;
+    end else
+      Result:=true;
+  end;
+
+var
   i: LongInt;
   ShortFilename: String;
 begin
@@ -355,10 +367,11 @@ begin
       Note:=lisSystemPpuNotFoundCheckYourFpcCfg;
       exit;
     end;
-    if CompareFileExt(CfgCache.Units['classes'],'ppu',false)<>0 then
+    if (CfgCache.RealTargetCPU='jvm') then
     begin
-      Note:=lisClassesPpuNotFoundCheckYourFpcCfg;
-      exit;
+      if not CheckPPU('uuchar') then exit;
+    end else begin
+      if not CheckPPU('classes') then exit;
     end;
   end;
 

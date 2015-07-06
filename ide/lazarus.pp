@@ -38,7 +38,9 @@ program Lazarus;
 {off $DEFINE IDE_MEM_CHECK}
 
 uses
+  {$IFDEF EnableRedirectStdErr}
   redirect_stderr,
+  {$ENDIF}
   {$IF defined(UNIX) and not defined(DisableMultiThreading)}
   cthreads,
   {$ENDIF}
@@ -51,6 +53,7 @@ uses
   SysUtils,
   Interfaces,
   Forms, LCLProc,
+  IDEOptionsIntf,
   LazConf, IDEGuiCmdLine,
   Splash,
   Main,
@@ -65,9 +68,7 @@ uses
     TurboPowerIPro, TurboPowerIProDsgn,
     jcfidelazarus, chmhelppkg,
     FPCUnitTestRunner, FPCUnitIDE, ProjTemplates, TAChartLazarusPkg,
-    TodoListLaz, EditorToolbar, DateTimeCtrls,
-    SQLDBLaz, DBFLaz,
-    pascalscript, EditorMacroScript,
+    TodoListLaz, DateTimeCtrls, SQLDBLaz, DBFLaz, pascalscript, EditorMacroScript,
   {$ENDIF}
   MainBase;
 
@@ -76,6 +77,7 @@ uses
 {$R ../images/laz_images.res}
 
 begin
+  HasGUI:=true;
   {$IFDEF IDE_MEM_CHECK}CheckHeapWrtMemCnt('lazarus.pp: begin');{$ENDIF}
 
   RequireDerivedFormResource := True;

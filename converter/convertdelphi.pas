@@ -132,7 +132,7 @@ type
     fPrevSelectedPath: string;
     // Missing units that are commented automatically in all units.
     fAllCommentedUnits: TStringList;
-    function DoMissingUnits(AUsedUnitsTool: TUsedUnitsTool): integer; virtual;
+    function DoMissingUnits({%H-}AUsedUnitsTool: TUsedUnitsTool): integer; virtual;
     function GetCachedUnitPath(const AUnitName: string): string;
   protected
     function EndConvert(AStatus: TModalResult): Boolean;
@@ -200,7 +200,7 @@ type
     function ExtractOptionsFromDelphiSource: TModalResult; virtual; abstract;
     // Abstract base for the fake Project / Package virtual methods.
     function GetMainName: string; virtual; abstract;
-    function SaveAndMaybeClose(aFilename: string): TModalResult; virtual;
+    function SaveAndMaybeClose({%H-}aFilename: string): TModalResult; virtual;
     function ContainsFile(aFileName: string): Boolean; virtual; abstract;
     function FindDependencyByName(const PackageName: string): TPkgDependency; virtual; abstract;
   public
@@ -391,7 +391,7 @@ procedure TUnitsSearcher.DoFileFound;
 var
   RelPath, SubPath, sUnitName, fn: String;
 begin
-  RelPath:=FileUtil.CreateRelativePath(FileName, fConverter.fSettings.MainPath);
+  RelPath:=CreateRelativePath(FileName, fConverter.fSettings.MainPath);
   SubPath:=ExtractFilePath(RelPath);
   fn:=ExtractFileName(RelPath);
   sUnitName:=ExtractFileNameOnly(fn);
@@ -1400,7 +1400,9 @@ begin
       else
         AddToProjectLater(aFileName);    // Add to project later.
     end;
-  end;
+  end
+  else
+    Result:=False;
 end;
 
 function TConvertDelphiProjPack.CheckPackageDep(AUnitName: string): Boolean;

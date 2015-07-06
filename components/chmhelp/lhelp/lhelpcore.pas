@@ -17,6 +17,11 @@
   to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
   MA 02111-1307, USA.
 }
+{
+Icons from Tango theme:
+http://tango.freedesktop.org/Tango_Icon_Library
+}
+
 unit lhelpcore;
 
 {$IFDEF LNET_VISUAL}
@@ -39,8 +44,8 @@ uses
   Classes, SysUtils, SimpleIPC, Laz2_XMLCfg,
   FileUtil, Forms, Controls, Dialogs,
   Buttons, LCLProc, ComCtrls, ExtCtrls, Menus, LCLType, LCLIntf, StdCtrls,
-  BaseContentProvider, ChmContentProvider
-  {$IFDEF USE_LNET}, HTTPContentProvider{$ENDIF},
+  BaseContentProvider, ChmContentProvider, lhelpstrconsts, DefaultTranslator,
+  {$IFDEF USE_LNET}, HTTPContentProvider{$ENDIF}
   lazlogger;
 
 type
@@ -66,17 +71,22 @@ type
     FileMenuOpenItem: TMenuItem;
     FileSeperater: TMenuItem;
     ImageList1: TImageList;
+    ImageListToolbar: TImageList;
     MainMenu1: TMainMenu;
     FileMenuOpenURLItem: TMenuItem;
     HelpMenuItem: TMenuItem;
     AboutItem: TMenuItem;
     FileMenuOpenRecentItem: TMenuItem;
+    ViewShowStatus: TMenuItem;
+    ViewShowSepTabs: TMenuItem;
     PageControl: TPageControl;
-    Panel1: TPanel;
-    ForwardBttn: TSpeedButton;
-    BackBttn: TSpeedButton;
-    HomeBttn: TSpeedButton;
     OpenDialog1: TOpenDialog;
+    ToolBar1: TToolBar;
+    HomeBttn: TToolButton;
+    BackBttn: TToolButton;
+    ForwardBttn: TToolButton;
+    FileButton: TToolButton;
+    ToolButton1: TToolButton;
     ViewMenuContents: TMenuItem;
     ViewMenuItem: TMenuItem;
     procedure AboutItemClick(Sender: TObject);
@@ -94,6 +104,9 @@ type
     procedure PageControlChange(Sender: TObject);
     procedure PageControlEnter(Sender: TObject);
     procedure ViewMenuContentsClick(Sender: TObject);
+    procedure ViewMenuItemClick(Sender: TObject);
+    procedure ViewShowSepTabsClick(Sender: TObject);
+    procedure ViewShowStatusClick(Sender: TObject);
   private
     { private declarations }
     // SimpleIPC server name (including unique part as per help protocol)
@@ -107,8 +120,11 @@ type
     fInputIPCTimer: TTimer;
     fContext: LongInt; // used once when we are started on the command line with --context
     fConfig: TXMLConfig;
+    fShowSepTabs: Boolean;
+    fShowStatus: Boolean;
     fHasShowed: Boolean;
     fHide: boolean; //If yes, start with content hidden. Otherwise start normally
+    fUpdateCount: Integer;
     // Keep track of whether size/position preferences were loaded and applied to form
     fLayoutApplied: boolean;
     // Applies layout (size/position/fullscreen) preferences once in lhelp lifetime
@@ -145,6 +161,10 @@ type
     procedure ShowError(AError: String);
     // Set keyup handler for control (and any child controls)
     procedure SetKeyUp(AControl: TControl);
+    // BeginUpdate tells each content provider to possibly stop some events
+    procedure BeginUpdate;
+    // EndUpdate tells each content provider to resume normal behavior
+    procedure EndUpdate;
   public
     { public declarations }
   end;
@@ -193,7 +213,7 @@ var
 begin
   f := TForm.Create(Application);
   try
-    f.Caption := 'About';
+    f.Caption := slhelp_About;
     f.BorderStyle := bsDialog;
     f.Position := poMainFormCenter;
     f.Constraints.MinWidth := 150;
@@ -202,13 +222,10 @@ begin
     l.Parent := f;;
     l.Align := alTop;
     l.BorderSpacing.Around := 6;
-    l.Caption := 'LHelp (CHM file viewer)' + LineEnding +
-      'Version ' + VERSION_STAMP + LineEnding +
-      LineEnding +
-      'Copyright (C) Andrew Haines, ' + LineEnding +
-      'Lazarus contributors';
+    l.Caption := Format(slhelp_LHelpCHMFileViewerVersionCopyrightCAndrewHainesLaz, [LineEnding, VERSION_STAMP, LineEnding +
+      LineEnding, LineEnding]);
     l.AutoSize := True;
-    l.WordWrap := True;
+    //l.WordWrap := True; {don't wrap author's name}
     b := TButton.Create(f);
     b.Parent := f;
     b.BorderSpacing.Around := 6;
@@ -217,7 +234,7 @@ begin
     b.AnchorSide[akTop].Side := asrBottom;
     b.AnchorSide[akLeft].Control := f;
     b.AnchorSide[akLeft].Side := asrCenter;
-    b.Caption := 'Ok';
+    b.Caption := slhelp_Ok;
     b.ModalResult := mrOk;
     f.AutoSize := False;
     f.AutoSize := True;
@@ -295,8 +312,8 @@ begin
   URLSAllowed := Trim(URLSAllowed);
 
   fRes:='';
-  if InputQuery('Please enter a URL',
-    'Supported URL type(s): (' +URLSAllowed+ ')', fRes) then
+  if InputQuery(slhelp_PleaseEnterAURL,
+    Format(slhelp_SupportedURLTypeS, [URLSAllowed]), fRes) then
   begin
     if OpenURL(fRes) = ord(srSuccess) then
       AddRecentFile(fRes);
@@ -306,15 +323,36 @@ end;
 
 procedure THelpForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
+  //close all tabs to avoid AV with many tabs
+  while Assigned(ActivePage) do
+    ActivePage.Free;
+  ////was before: close tab
+  ////FileMenuCloseItemClick(Sender);
+
   Visible := false;
   Application.ProcessMessages;
-  FileMenuCloseItemClick(Sender);
   StopComms;
   SavePreferences;
 end;
 
 procedure THelpForm.FormCreate(Sender: TObject);
 begin
+  FileMenuItem.Caption := slhelp_File;
+  FileMenuOpenItem.Caption := slhelp_Open;
+  FileMenuOpenRecentItem.Caption := slhelp_OpenRecent;
+  FileMenuOpenURLItem.Caption := slhelp_OpenURL;
+  FileMenuCloseItem.Caption := slhelp_Close;
+  FileMenuExitItem.Caption := slhelp_EXit;
+  ViewMenuItem.Caption := slhelp_View;
+  ViewMenuContents.Caption := slhelp_ShowContents;
+  ViewShowStatus.Caption := slhelp_OpenNewTabWithStatusBar;
+  ViewShowSepTabs.Caption := slhelp_OpenNewFileInSeparateTab;
+  HelpMenuItem.Caption := slhelp_Help;
+  AboutItem.Caption := slhelp_About2;
+
+  OpenDialog1.Title := slhelp_OpenExistingFile;
+  OpenDialog1.Filter := slhelp_HelpFilesChmChmAllFiles;
+
   fContext := -1;
   // Safe default:
   fHide := false;
@@ -408,6 +446,26 @@ begin
   end;
 end;
 
+procedure THelpForm.ViewMenuItemClick(Sender: TObject);
+begin
+  ViewMenuContents.Checked :=
+    Assigned(ActivePage) and
+    (ActivePage.ContentProvider is TChmContentProvider) and
+    (ActivePage.ContentProvider as TChmContentProvider).TabsControl.Visible;
+  ViewShowSepTabs.Checked := fShowSepTabs;
+  ViewShowStatus.Checked := fShowStatus;
+end;
+
+procedure THelpForm.ViewShowSepTabsClick(Sender: TObject);
+begin
+  fShowSepTabs := not fShowSepTabs;
+end;
+
+procedure THelpForm.ViewShowStatusClick(Sender: TObject);
+begin
+  fShowStatus := not fShowStatus;
+end;
+
 procedure THelpForm.LoadPreferences(AIPCName: String);
 var
   PrefFile: String;
@@ -435,6 +493,9 @@ begin
   // downto since oldest are knocked off the list:
   for i := RecentCount-1 downto 0 do
     AddRecentFile(fConfig.GetValue('Recent/Item'+IntToStr(i)+'/Value',''));
+
+  fShowSepTabs := fConfig.GetValue('OpenSepTabs/Value', true);
+  fShowStatus := fConfig.GetValue('OpenWithStatus/Value', true);
 end;
 
 procedure THelpForm.SavePreferences;
@@ -462,6 +523,9 @@ begin
   // downto since oldest are knocked off the list:
   for i := 0 to FileMenuOpenRecentItem.Count-1 do
     fConfig.SetValue('Recent/Item'+IntToStr(i)+'/Value', TRecentMenuItem(FileMenuOpenRecentItem.Items[I]).URL);
+
+  fConfig.SetValue('OpenSepTabs/Value', fShowSepTabs);
+  fConfig.SetValue('OpenWithStatus/Value', fShowStatus);
 
   fConfig.Flush;
   fConfig.Free;
@@ -498,7 +562,7 @@ procedure THelpForm.ContentTitleChange(sender: TObject);
 begin
   if ActivePage = nil then
     Exit;
-  Caption := 'LHelp - ' + ActivePage.fContentProvider.Title;
+  Caption := Format(slhelp_LHelp2, [ActivePage.fContentProvider.Title]);
 end;
 
 procedure THelpForm.OpenRecentItemClick(Sender: TObject);
@@ -534,7 +598,7 @@ var
   Res: LongWord;
   Url: String='';
 begin
-  if fInputIPC.PeekMessage(5, True) then
+  while fInputIPC.PeekMessage(5, True) do
   begin
     Stream := fInputIPC.MsgData;
     Stream.Position := 0;
@@ -546,7 +610,7 @@ begin
       begin
         Url := 'file://'+FileReq.FileName;
         Res := OpenURL(URL);
-        debugln('got rtfile, filename '+filereq.filename);
+        //debugln('got rtfile, filename '+filereq.filename);
       end;
       rtUrl:
       begin
@@ -563,7 +627,7 @@ begin
           Url := UrlReq.Url;
           Res := OpenURL(Url);
         end;
-        debugln('got rturl, filename '+urlreq.filerequest.filename+', url '+urlreq.url);
+        //debugln('got rturl, filename '+urlreq.filerequest.filename+', url '+urlreq.url);
       end;
       rtContext:
       begin
@@ -572,7 +636,7 @@ begin
         Stream.Read(ConReq, SizeOf(ConReq));
         Url := 'file://'+FileReq.FileName;
         Res := OpenURL(Url, ConReq.HelpContext);
-        debugln('got rtcontext, filename '+filereq.filename+', context '+inttostr(ConReq.HelpContext));
+        //debugln('got rtcontext, filename '+filereq.filename+', context '+inttostr(ConReq.HelpContext));
       end;
       rtMisc:
       begin
@@ -584,7 +648,7 @@ begin
           begin
             MustClose:=true;
             Res:= ord(srSuccess);
-            debugln('got rtmisc/mrClose');
+            //debugln('got rtmisc/mrClose');
           end;
           mrShow:
           begin
@@ -593,7 +657,7 @@ begin
               WindowState := wsNormal;
             RefreshState;
             Res := ord(srSuccess);
-            debugln('got rtmisc/mrShow');
+            //debugln('got rtmisc/mrShow');
           end;
           mrVersion:
           begin
@@ -603,7 +667,17 @@ begin
               Res := ord(srSuccess)
             else
               Res := ord(srError); //version not supported
-            debugln('got rtmisc/');
+            //debugln('got rtmisc/');
+          end;
+          mrBeginUpdate:
+          begin
+            BeginUpdate;
+            Res := ord(srSuccess);
+          end;
+          mrEndUpdate:
+          begin
+            EndUpdate;
+            Res := ord(srSuccess);
           end
           else {Unknown request}
             Res := ord(srUnknown);
@@ -620,7 +694,7 @@ begin
     // Unfortunately, the delay time is guesswork=>Sleep(80)?
     SendResponse(Res); //send response again in case first wasn't picked up
     // Keep after SendResponse to avoid timing issues (e.g. writing to log file):
-    debugln('Just sent TLHelpResponse code: '+inttostr(Res));
+    //debugln('Just sent TLHelpResponse code: '+inttostr(Res));
 
     if MustClose then
     begin
@@ -794,7 +868,7 @@ begin
  
  if fContentProvider = nil then
  begin
-   ShowError('Cannot handle this type of content. "' + fURLPrefix + '" for url:'+LineEnding+AURL);
+   ShowError(Format(slhelp_CannotHandleThisTypeOfContentForUrl, [fURLPrefix, LineEnding, AURL]));
    Result := Ord(srInvalidURL);
    Exit;
  end;
@@ -802,11 +876,12 @@ begin
  
  if fRealContentProvider = nil then
  begin
-   ShowError('Cannot handle this type of subcontent. "' + fURLPrefix + '" for url:'+LineEnding+AURL);
+   ShowError(Format(slhelp_CannotHandleThisTypeOfSubcontentForUrl, [fURLPrefix, LineEnding, AURL]));
    Result := Ord(srInvalidURL);
    Exit;
  end;
 
+ if not fShowSepTabs then
  for I := 0 to PageControl.PageCount-1 do
  begin
    if fRealContentProvider.ClassName = TContentTab(PageControl.Pages[I]).ContentProvider.ClassName then
@@ -828,11 +903,16 @@ begin
    // no existing page that can handle this content, so create one
    fPage := TContentTab.Create(PageControl);
    fPage.ContentProvider := fRealContentProvider.Create(fPage, ImageList1);
-   fPAge.ContentProvider.OnTitleChange:=@ContentTitleChange;
+   fPage.ContentProvider.OnTitleChange := @ContentTitleChange;
    fPage.Parent := PageControl;
    SetKeyUp(fPage);
    fPage.ContentProvider.LoadPreferences(fConfig);
+   if fPage.ContentProvider is TChmContentProvider then
+     (fPage.ContentProvider as TChmContentProvider).ShowStatusbar := fShowStatus;
  end;
+
+ if fUpdateCount > 0 then
+   fPage.ContentProvider.BeginUpdate;
 
  if fPage.ContentProvider.LoadURL(AURL, AContext) then
  begin
@@ -907,9 +987,9 @@ begin
   ViewMenuContents.Enabled := en;
 
   if en and not (csDestroying in ActivePage.ComponentState) then
-    Caption := 'LHelp - ' + ActivePage.fContentProvider.Title
+    Caption := Format(slhelp_LHelp2, [ActivePage.fContentProvider.Title])
   else
-    Caption := 'LHelp';
+    Caption := slhelp_LHelp;
 end;
 
 procedure THelpForm.ShowError(AError: String);
@@ -927,6 +1007,42 @@ begin
   for i := 0 to WCont.ControlCount-1 do
     SetKeyUp(WCont.Controls[i]);
   WCont.OnKeyUp:=@FormKeyUp;
+end;
+
+procedure THelpForm.BeginUpdate;
+var
+  Tab: TContentTab;
+  i: Integer;
+begin
+  Inc(fUpdateCount);
+  if fUpdateCount = 1 then
+  begin
+    for i := 0 to PageControl.PageCount-1 do
+    begin
+      Tab := TContentTab(PageControl.Pages[I]);
+      Tab.ContentProvider.BeginUpdate;
+    end;
+  end;
+
+end;
+
+procedure THelpForm.EndUpdate;
+var
+  Tab: TContentTab;
+  i: Integer;
+begin
+  Dec(fUpdateCount);
+  if fUpdateCount < 0 then
+   fUpdateCount:=0;
+
+  if fUpdateCount = 0 then
+  begin
+    for i := 0 to PageControl.PageCount-1 do
+    begin
+      Tab := TContentTab(PageControl.Pages[I]);
+      Tab.ContentProvider.EndUpdate;
+    end;
+  end;
 end;
 
 { TContentTab }

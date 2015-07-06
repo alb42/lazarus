@@ -35,10 +35,9 @@ unit CodeToolsOptions;
 interface
 
 uses
-  Classes, SysUtils, LazConf, FileUtil, Laz2_XMLCfg, lazutf8classes,
-  LazFileCache, LResources, Forms, Controls, Buttons, LclProc, LCLType,
-  ExtCtrls, Dialogs, CodeToolManager, DefineTemplates, SourceChanger, SynEdit,
-  IDEOptionsIntf, MacroIntf, IDEOptionDefs, LazarusIDEStrConsts, IDEProcs;
+  Classes, SysUtils, LazConf, LazFileUtils, Laz2_XMLCfg, LazUTF8, LazUTF8Classes,
+  LazFileCache, LclProc, LCLType, CodeToolManager, DefineTemplates, SourceChanger,
+  IDEOptionsIntf, MacroIntf, LazarusIDEStrConsts, IDEProcs;
 
 const
   DefaultIndentationFilename = 'laz_indentation.pas'; // in directory GetPrimaryConfigPath
@@ -57,6 +56,7 @@ type
     FIdentComplAddDo: Boolean;
     FIdentComplAddParameterBrackets: boolean;
     FIdentComplReplaceIdentifier: boolean;
+    FIdentComplJumpToError: boolean;
     FIdentComplShowHelp: boolean;
 
     // General
@@ -219,6 +219,8 @@ type
       read FIdentComplAddParameterBrackets write FIdentComplAddParameterBrackets;
     property IdentComplReplaceIdentifier: boolean
       read FIdentComplReplaceIdentifier write FIdentComplReplaceIdentifier;
+    property IdentComplJumpToError: boolean
+      read FIdentComplJumpToError write FIdentComplJumpToError;
     property IdentComplShowHelp: boolean read FIdentComplShowHelp
                                          write FIdentComplShowHelp;
     property IdentComplSortForHistory: boolean read FIdentComplSortForHistory
@@ -487,6 +489,8 @@ begin
       'CodeToolsOptions/IdentifierCompletion/AutoAddParameterBrackets',true);
     FIdentComplReplaceIdentifier:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/ReplaceIdentifier',true);
+    FIdentComplJumpToError:=XMLConfig.GetValue(
+      'CodeToolsOptions/IdentifierCompletion/JumpToError',true);
     FIdentComplShowHelp:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/ShowHelp',false);
     FIdentComplSortForHistory:=XMLConfig.GetValue(
@@ -633,6 +637,8 @@ begin
       FIdentComplAddParameterBrackets,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/ReplaceIdentifier',
       FIdentComplReplaceIdentifier,true);
+    XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/JumpToError',
+      FIdentComplJumpToError,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/ShowHelp',
       FIdentComplShowHelp,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/SortForHistory',
@@ -679,8 +685,7 @@ procedure TCodeToolsOptions.SetLazarusDefaultFilename;
 var
   ConfFileName: string;
 begin
-  ConfFileName:=SetDirSeparators(
-                             GetPrimaryConfigPath+'/'+DefaultCodeToolsOptsFile);
+  ConfFileName:=SetDirSeparators(GetPrimaryConfigPath+'/'+DefaultCodeToolsOptsFile);
   CopySecondaryConfigFile(DefaultCodeToolsOptsFile);
   if (not FileExistsCached(ConfFileName)) then begin
     debugln('Looking for code tools config file:  "' + ConfFileName + '"');
@@ -757,6 +762,7 @@ begin
     FIdentComplAutoStartAfterPoint:=CodeToolsOpts.FIdentComplAutoStartAfterPoint;
     FIdentComplAddParameterBrackets:=CodeToolsOpts.FIdentComplAddParameterBrackets;
     FIdentComplReplaceIdentifier:=CodeToolsOpts.FIdentComplReplaceIdentifier;
+    FIdentComplJumpToError:=CodeToolsOpts.FIdentComplJumpToError;
     FIdentComplShowHelp:=CodeToolsOpts.FIdentComplShowHelp;
     FIdentComplSortForHistory:=CodeToolsOpts.FIdentComplSortForHistory;
     FIdentComplSortForScope:=CodeToolsOpts.FIdentComplSortForScope;
@@ -813,6 +819,7 @@ begin
   FIdentComplAutoStartAfterPoint:=true;
   FIdentComplAddParameterBrackets:=true;
   FIdentComplReplaceIdentifier:=true;
+  FIdentComplJumpToError:=true;
   FIdentComplShowHelp:=false;
   FIdentComplSortForHistory:=true;
   FIdentComplSortForScope:=true;
@@ -887,6 +894,7 @@ begin
     and (FIdentComplAutoStartAfterPoint=CodeToolsOpts.FIdentComplAutoStartAfterPoint)
     and (FIdentComplAddParameterBrackets=CodeToolsOpts.FIdentComplAddParameterBrackets)
     and (FIdentComplReplaceIdentifier=CodeToolsOpts.FIdentComplReplaceIdentifier)
+    and (FIdentComplJumpToError=CodeToolsOpts.FIdentComplJumpToError)
     and (FIdentComplShowHelp=CodeToolsOpts.FIdentComplShowHelp)
     and (FIdentComplSortForHistory=CodeToolsOpts.FIdentComplSortForHistory)
     and (FIdentComplSortForScope=CodeToolsOpts.FIdentComplSortForScope)

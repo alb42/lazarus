@@ -63,10 +63,10 @@ type
     procedure FormShow(Sender: TObject);
     procedure StringGridKeyPress(Sender: TObject; var Key: char);
     procedure StringGridMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure StringGrid1MouseMove(Sender: TObject; Shift: TShiftState; X,
+      {%H-}Shift: TShiftState; X, Y: Integer);
+    procedure StringGrid1MouseMove(Sender: TObject; {%H-}Shift: TShiftState; X,
       Y: Integer);
-    procedure StringGrid2MouseMove(Sender: TObject; Shift: TShiftState; X,
+    procedure StringGrid2MouseMove(Sender: TObject; {%H-}Shift: TShiftState; X,
       Y: Integer);
   private
     FOnInsertCharacter: TOnInsertCharacterEvent;
@@ -178,6 +178,7 @@ begin
   sg := Sender as TStringGrid;
   if (Button = mbLeft) and (sg.MouseToGridZone(X, Y) = gzNormal) then
   begin
+    Col:=0; Row:=0;
     sg.MouseToCell(X, Y, Col, Row);
     if (sg.Cells[Col, Row] <> '') and (Assigned(OnInsertCharacter)) then
       OnInsertCharacter(sg.Cells[Col, Row]);
@@ -192,6 +193,7 @@ var
 begin
   if StringGrid1.MouseToGridZone(X, Y) = gzNormal then
   begin
+    Col:=0; Row:=0;
     StringGrid1.MouseToCell(X, Y, Col, Row);
     if StringGrid1.Cells[Col, Row] <> '' then
     begin
@@ -216,6 +218,7 @@ var  Row, Col, i: Integer;
 begin
   if StringGrid2.MouseToGridZone(X, Y) = gzNormal then
   begin
+    Col:=0; Row:=0;
     StringGrid2.MouseToCell(X, Y, Col, Row);
     S:=UnicodeBlocks[cbUniRange.ItemIndex].S+(Col)+(Row*16);
     tmp:=UnicodeToUTF8(S);

@@ -49,7 +49,7 @@ uses
   {$ENDIF}
   Classes, SysUtils, LCLProc, Controls, Forms, Buttons, StdCtrls, ComCtrls,
   Dialogs, ExtCtrls, BaseIDEIntf, IDEHelpIntf, ProjectIntf, IDEDialogs,
-  IDEProcs, SysVarUserOverrideDlg, InputHistory, LazarusIDEStrConsts, FileUtil,
+  IDEProcs, SysVarUserOverrideDlg, InputHistory, LazarusIDEStrConsts, LazFileUtils,
   Laz2_XMLCfg, LazFileCache, ButtonPanel;
 
 { The xml format version:
@@ -115,6 +115,8 @@ type
     procedure HelpButtonClick(Sender: TObject);
     procedure OkButtonClick(Sender: TObject);
     procedure HostApplicationBrowseBtnClick(Sender: TObject);
+    procedure UserOverridesListViewSelectItem(Sender: TObject; {%H-}Item: TListItem;
+      {%H-}Selected: Boolean);
     procedure WorkingDirectoryBtnClick(Sender: TObject);
     procedure UserOverridesAddButtonClick(Sender: TObject);
     procedure UserOverridesEditButtonClick(Sender: TObject);
@@ -480,6 +482,16 @@ begin
   end;
 end;
 
+procedure TRunParamsOptsDlg.UserOverridesListViewSelectItem(Sender: TObject;
+  Item: TListItem; Selected: Boolean);
+var
+  en: Boolean;
+begin
+  en := Assigned(UserOverridesListView.Selected);
+  UserOverridesDeleteButton.Enabled := en;
+  UserOverridesEditButton.Enabled := en;
+end;
+
 procedure TRunParamsOptsDlg.WorkingDirectoryBtnClick(Sender: TObject);
 var
   NewDirectory: String;
@@ -700,6 +712,7 @@ end;
 procedure TRunParamsOptsDlg.FillUserOverridesListView;
 begin
   FillListView(UserOverridesListView, Options.UserOverrides);
+  UserOverridesListView.OnSelectItem(nil, nil, false); //update buttons
 end;
 
 end.

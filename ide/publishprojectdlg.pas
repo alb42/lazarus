@@ -37,7 +37,7 @@ unit PublishProjectDlg;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Buttons,
+  Classes, SysUtils, LazFileUtils, Forms, Controls, Graphics, Buttons,
   StdCtrls, Dialogs, LCLType,
   IDEWindowIntf, IDEHelpIntf, IDEDialogs,
   ProjectDefs, PackageDefs, PublishModule, IDEOptionDefs, InputHistory,
@@ -73,7 +73,7 @@ type
 
     procedure BrowseDestDirBitBtnCLICK(Sender: TObject);
     procedure DestDirGroupBoxRESIZE(Sender: TObject);
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure HelpButtonClick(Sender: TObject);
     procedure OkButtonCLICK(Sender: TObject);

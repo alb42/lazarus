@@ -26,7 +26,7 @@ interface
 
 uses
   // rtl+ftl
-  Types, Classes, SysUtils, Math,
+  Types, Classes, SysUtils, Math, contnrs,
   // carbon bindings
   MacOSAll,
   // interfacebase
@@ -49,6 +49,15 @@ type
     class function initWithFunc(afunc: TWSTimerProc): TCocoaTimerObject; message 'initWithFunc:';
   end;
 
+  TCocoaClipboardDataType = (ccdtText, ccdtCocoaStandard, ccdtNonStandard);
+
+  TClipboardData = class(TObject) // TClipboardFormat is a reference to a TClipboardData
+  public
+    MimeType: string;
+    CocoaFormat: NSString;  // utilized for ccdtCocoaStandard and ccdtNonStandard
+    DataType: TCocoaClipboardDataType;
+    constructor Create(AMimeType: string; ACocoaFormat: NSString; ADataType: TCocoaClipboardDataType);
+  end;
 
   { TCocoaWidgetSet }
 
@@ -74,6 +83,18 @@ type
     FStockFixedFont: HFONT;
 
     FSysColorBrushes: array[0..MAX_SYS_COLORS] of HBrush;
+
+    // Sandboxing
+    SandboxingOn: Boolean;
+
+    // Clipboard
+    PrimarySelection: NSPasteboard;
+    SecondarySelection: NSPasteboard;
+    ClipboardFormats: TFPObjectList; // of TClipboardData
+
+    procedure InitClipboard();
+    procedure FreeClipboard();
+    function GetClipboardDataForFormat(AFormat: TClipboardFormat): TClipboardData;
 
     function PromptUser(const DialogCaption, DialogMessage: String;
       DialogType: longint; Buttons: PLongint; ButtonCount, DefaultIndex,
@@ -134,6 +155,10 @@ var
   CocoaWidgetSet: TCocoaWidgetSet;
 
 implementation
+
+// NSCursor doesn't support any wait cursor, so we need to use a non-native one
+// Not supporting it at all would result in crashes in Screen.Cursor := crHourGlass;
+{$R ../../cursor_hourglass.res}
 
 uses
   CocoaCaret,

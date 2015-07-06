@@ -32,7 +32,7 @@ uses
   Dialogs, StdCtrls, ComCtrls, ExtCtrls, Buttons, LCLType, LazUTF8,
   CodeToolsCfgScript, KeywordFuncLists, LazarusIDEStrConsts,
   IDEOptionsIntf, CompOptsIntf, IDECommands, LazIDEIntf, Project, PackageDefs,
-  CompilerOptions, Compiler, AllCompilerOptions, CustomDefines,
+  CompilerOptions, Compiler, AllCompilerOptions, DefinesGui,
   EditorOptions, SynEdit, SynEditKeyCmds, SynCompletion, SourceSynEditor;
 
 type
@@ -51,10 +51,10 @@ type
     procedure btnAllOptionsClick(Sender: TObject);
     procedure btnDefinesClick(Sender: TObject);
     procedure CondSynEditChange(Sender: TObject);
-    procedure CondSynEditKeyPress(Sender: TObject; var Key: char);
+    procedure CondSynEditKeyPress(Sender: TObject; var {%H-}Key: char);
     procedure CondSynEditProcessUserCommand(Sender: TObject;
-      var Command: TSynEditorCommand; var AChar: TUTF8Char; Data: pointer);
-    procedure CondSynEditStatusChange(Sender: TObject; Changes: TSynStatusChanges);
+      var Command: TSynEditorCommand; var {%H-}AChar: TUTF8Char; {%H-}Data: pointer);
+    procedure CondSynEditStatusChange(Sender: TObject; {%H-}Changes: TSynStatusChanges);
   private
     FCompOptions: TBaseCompilerOptions;
     FIdleConnected: Boolean;
@@ -76,18 +76,18 @@ type
     function GetCondCursorWord: string;
     procedure UpdateMessages;
     procedure UpdateStatusBar;
-    procedure OnIdle(Sender: TObject; var Done: Boolean);
+    procedure OnIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure OnSynCompletionCancel(Sender: TObject);
     procedure OnSynCompletionExecute(Sender: TObject);
     procedure OnSynCompletionKeyCompletePrefix(Sender: TObject);
     procedure OnSynCompletionKeyDelete(Sender: TObject);
-    procedure OnSynCompletionKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure OnSynCompletionKeyDown(Sender: TObject; var Key: Word; {%H-}Shift: TShiftState);
     procedure OnSynCompletionKeyNextChar(Sender: TObject);
     procedure OnSynCompletionKeyPrevChar(Sender: TObject);
     procedure OnSynCompletionSearchPosition(var Position: integer);
-    procedure OnSynCompletionUTF8KeyPress(Sender: TObject; var UTF8Key: TUTF8Char);
-    procedure OnSynCompletionValidate(Sender: TObject; KeyChar: TUTF8Char;
-      Shift: TShiftState);
+    procedure OnSynCompletionUTF8KeyPress(Sender: TObject; var {%H-}UTF8Key: TUTF8Char);
+    procedure OnSynCompletionValidate(Sender: TObject; {%H-}KeyChar: TUTF8Char;
+      {%H-}Shift: TShiftState);
   protected
     procedure SetVisible(Value: Boolean); override;
   public
@@ -95,7 +95,7 @@ type
     destructor Destroy; override;
     function Check: Boolean; override;
     function GetTitle: string; override;
-    procedure Setup(ADialog: TAbstractOptionsEditorDialog); override;
+    procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
     procedure WriteSettings(AOptions: TAbstractIDEOptions); override;
     class function SupportedOptionsClass: TAbstractIDEOptionsClass; override;
@@ -147,19 +147,19 @@ end;
 
 procedure TCompilerOtherOptionsFrame.btnDefinesClick(Sender: TObject);
 var
-  EditForm: TCustomDefinesForm;
+  EditForm: TDefinesGuiForm;
 begin
-  EditForm := TCustomDefinesForm.Create(Nil);
+  EditForm := TDefinesGuiForm.Create(Nil);
   try
   try
     EditForm.OptionsReader := FOptionsReader;
     EditForm.OptionsThread := FOptionsThread;
     EditForm.CustomOptions := memoCustomOptions.Lines;
-    EditForm.DefinesCheckList.Items.Assign(Project1.CustomDefines);
+    EditForm.DefinesCheckList.Items.Assign(Project1.OtherDefines);
     EditForm.UseComments := FUseComments;
     if EditForm.ShowModal = mrOK then
     begin
-      Project1.CustomDefines.Assign(EditForm.DefinesCheckList.Items);
+      Project1.OtherDefines.Assign(EditForm.DefinesCheckList.Items);
       // Synchronize with custom options memo
       EditForm.ToCustomOptions(memoCustomOptions.Lines);
       memoCustomOptions.Invalidate;

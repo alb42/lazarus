@@ -108,7 +108,8 @@ const
     'nogui',
     'qt',
     'win32',
-    'wince'
+    'wince',
+    'mui'
   );
 
 function GetName(const ADeclaration: String): String;

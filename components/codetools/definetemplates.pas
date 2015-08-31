@@ -101,7 +101,7 @@ const
   VirtualTempDir='TEMPORARYDIRECTORY';
   
   // FPC operating systems and processor types
-  FPCOperatingSystemNames: array[1..33] of shortstring =(
+  FPCOperatingSystemNames: array[1..34] of shortstring =(
      'linux',
      'win32','win64','wince',
      'darwin','macos',
@@ -109,6 +109,7 @@ const
      'aix',
      'amiga',
      'android',
+     'aros',
      'atari',
      'beos',
      'embedded',
@@ -131,10 +132,11 @@ const
      'watcom',
      'wdosx'
     );
-  FPCOperatingSystemCaptions: array[1..33] of shortstring =(
+  FPCOperatingSystemCaptions: array[1..34] of shortstring =(
      'AIX',
      'Amiga',
      'Android',
+     'AROS',
      'Atari',
      'Beos',
      'Darwin',
@@ -190,7 +192,7 @@ const
     'FPC', 'ObjFPC', 'Delphi', 'TP', 'MacPas', 'ISO'
     );
 
-  Lazarus_CPU_OS_Widget_Combinations: array[1..65] of shortstring = (
+  Lazarus_CPU_OS_Widget_Combinations: array[1..68] of shortstring = (
     'i386-linux-gtk',
     'i386-linux-gtk2',
     'i386-linux-qt',
@@ -224,6 +226,9 @@ const
     'i386-darwin-nogui',
     'i386-haiku-qt',
     'i386-haiku-nogui',
+    'i386-aros-mui',
+    'i386-aros-fpgui',
+    'i386-aros-nogui',
     'powerpc-darwin-gtk',
     'powerpc-darwin-gtk2',
     'powerpc-darwin-carbon',

@@ -127,6 +127,7 @@ object ApiWizForm: TApiWizForm
         'qt'
         'win32'
         'wince'
+        'mui'
       )
       TabOrder = 2
       Data = {

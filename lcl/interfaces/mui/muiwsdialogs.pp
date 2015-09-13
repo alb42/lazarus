@@ -229,13 +229,13 @@ begin
 
   if MUI_AslRequest(MuiDialog, TagsList) then
   begin
-    FileDialog.FileName := GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_file));
+    FileDialog.FileName := GetFilename(string(MuiDialog^.fr_Drawer), string(MuiDialog^.fr_file));
     if MultiSelect then
     begin
       FileDialog.Files.Clear;
-      for i := 1 to  MuiDialog^.rf_NumArgs do
+      for i := 1 to  MuiDialog^.fr_NumArgs do
       begin
-        FileDialog.Files.Add(GetFilename(string(MuiDialog^.rf_Dir), string(PWBArgList(MuiDialog^.rf_ArgList)^[i].wa_Name)));
+        FileDialog.Files.Add(GetFilename(string(MuiDialog^.fr_Drawer), string(PWBArgList(MuiDialog^.fr_ArgList)^[i].wa_Name)));
       end;
     end;
     FileDialog.UserChoice := mrOK;

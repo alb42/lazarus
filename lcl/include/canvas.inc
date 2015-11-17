@@ -200,7 +200,7 @@ end;
 procedure TCanvas.CreatePen;
 var
   OldHandle: HPEN;
-  
+
 const
   PenModes: array[TPenMode] of Integer =
   (
@@ -460,7 +460,7 @@ end;
 
 procedure TCanvas.DoGetTextSize(Text: string; var w, h: integer);
 var
-  TxtSize: tagSIZE;
+  TxtSize: TSize;
 begin
   TxtSize:=TextExtent(Text);
   w:=TxtSize.cx;
@@ -585,12 +585,12 @@ end;
 
 procedure TCanvas.DoCopyRect(x, y: integer; SrcCanvas: TFPCustomCanvas;
   const SourceRect: TRect);
-  
+
   procedure WarnNotSupported;
   begin
     debugln('WARNING: TCanvas.DoCopyRect from ',DbgSName(SrcCanvas));
   end;
-  
+
 var
   SH: Integer;
   SW: Integer;
@@ -1019,7 +1019,7 @@ end;
   Method:   TCanvas.FillRect
   Params:   X, Y: Integer; Color: TColor; FillStyle: TFillStyle
   Returns:  Nothing
-  
+
 
  ------------------------------------------------------------------------------}
 procedure TCanvas.FloodFill(X, Y: Integer; FillColor: TColor;
@@ -1232,17 +1232,17 @@ var
     if DCIndex<>0 then exit;
     DCIndex:=SaveDC(DC);
   end;
-  
+
   procedure RestoreState;
   begin
     if DCIndex=0 then exit;
     RestoreDC(DC,DCIndex);
   end;
-  
+
 begin
   //debugln(['TCanvas.TextRect ',DbgSName(Self),' Text="',Text,'" ',dbgs(ARect),' X=',X,',Y=',Y]);
   Changing;
-  
+
   Options := 0;
   case Style.Alignment of
     taRightJustify : Options := DT_RIGHT;
@@ -1329,7 +1329,7 @@ begin
 
   //debugln('TCanvas.TextRect DRAW Text="',Text,'" ',dbgs(fRect));
   DrawText(DC, pChar(Text), Length(Text), fRect, Options);
-  
+
   if Style.Opaque and (csBrushValid in FState) then
   begin
     if Brush.Style=bsSolid then // restore BKMode
@@ -1624,7 +1624,7 @@ begin
     DeselectHandles;
     Exclude(FState, csHandleValid);
   end;
-  
+
   FHandle := NewHandle;
   if FHandle <> 0 then
   begin

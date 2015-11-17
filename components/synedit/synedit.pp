@@ -52,6 +52,9 @@ unit SynEdit;
 
 {$I synedit.inc}
 
+{$ifdef AROS}
+{$DEFINE EnableDoubleBuf}
+{$endif}
 
 {$IFDEF LCLGTK1}
 {$DEFINE EnableDoubleBuf} // gtk1 does not have double buffering

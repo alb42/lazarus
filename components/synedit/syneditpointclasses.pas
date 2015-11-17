@@ -2864,6 +2864,9 @@ end;
 
 procedure TSynEditScreenCaretPainterInternal.Init;
 begin
+  {$ifdef HASAMIGA}
+    FForcePaintEvents := True;
+  {$else}
   {$IFDEF LCLCarbon}
     FForcePaintEvents := True;
   {$ELSE}
@@ -2873,6 +2876,7 @@ begin
     FForcePaintEvents := False;
   {$ENDIF}
   {$ENDIF}
+  {$endif}
   FSavePen := TPen.Create;
   FColor := clBlack;
   FOldY := -1;
@@ -3051,8 +3055,11 @@ end;
 
 constructor TSynEditScreenCaret.Create(AHandleOwner: TWinControl);
 begin
+  {$ifdef HASAMIGA}
+  Create(AHandleOwner, TSynEditScreenCaretPainterInternal);
+  {$else}
   Create(AHandleOwner, TSynEditScreenCaretPainterSystem);
-  //Create(AHandleOwner, TSynEditScreenCaretPainterInternal);
+  {$endif}
 end;
 
 constructor TSynEditScreenCaret.Create(AHandleOwner: TWinControl;

@@ -852,7 +852,7 @@ end;
 
 procedure FreeThenNil(var obj);
 begin
-  if Pointer(obj) <> nil then 
+  if Pointer(obj) <> nil then
   begin
     TObject(obj).Free;
     Pointer(obj) := nil;
@@ -899,13 +899,19 @@ begin
   // creates an exception, that gdb catches:
   debugln(rsCreatingGdbCatchableError);
   DumpStack;
+  {$ifndef HASAMIGA}
   if (length(Msg) div (length(Msg) div 10000))=0 then ;
+  {$endif}
 end;
 
 procedure RaiseAndCatchException;
 begin
   try
+    {$ifndef HASAMIGA}
     if (length(rsERRORInLCL) div (length(rsERRORInLCL) div 10000))=0 then ;
+    {$else}
+    Dumpstack;
+    {$endif}
   except
   end;
 end;
@@ -1070,22 +1076,22 @@ end;
 procedure CalculateLeftTopWidthHeight(X1, Y1, X2, Y2: integer;
   out Left, Top, Width, Height: integer);
 begin
-  if X1 <= X2 then 
+  if X1 <= X2 then
    begin
     Left := X1;
     Width := X2 - X1;
-  end 
-  else 
+  end
+  else
   begin
     Left := X2;
     Width := X1 - X2;
   end;
-  if Y1 <= Y2 then 
+  if Y1 <= Y2 then
   begin
     Top := Y1;
     Height := Y2 - Y1;
-  end 
-  else 
+  end
+  else
   begin
     Top := Y2;
     Height := Y1 - Y2;
@@ -2974,7 +2980,7 @@ end;
   Returns: UTF-16 encoded string
 
   Converts the specified UTF-8 encoded string to UTF-16 encoded (system endian)
-  Avoid copying the result string since on windows a widestring requires a full 
+  Avoid copying the result string since on windows a widestring requires a full
   copy
  ------------------------------------------------------------------------------}
 function UTF8ToUTF16(const S: AnsiString): UTF16String;

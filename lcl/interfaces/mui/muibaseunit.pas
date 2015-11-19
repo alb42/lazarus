@@ -229,6 +229,7 @@ function TColorToImageSpec(ACol: TColor): string;
 var
   MUIApp: TMuiApplication;
   LCLGroupClass: PIClass;
+  LCLClass: PMUI_CustomClass;
   KeyState: Integer = 0;
   CaptureObj: TMUIObject = nil;
   {$ifdef CHECKOBJECTS}
@@ -238,9 +239,6 @@ implementation
 
 uses
   muiformsunit, muistdctrls, muiint;
-
-var
-  GroupSuperClass: PIClass;
 
 procedure TMUIObject.ConnectHook(MUIField: PtrUInt; TriggerValue: PtrUInt; HookFunc: THookFunc);
 var
@@ -595,7 +593,9 @@ begin
   if Assigned(Child.obj) then
   begin
     //writeln('Remove Child: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
+    DoMethod([NativeUInt(MUIM_Group_InitChange)]);
     DoMethod([NativeUInt(OM_REMMEMBER), NativeUInt(Child.obj)]);
+    DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
   end;
 end;
 
@@ -1729,27 +1729,20 @@ end;
 
 procedure DestroyClasses;
 begin
-  if Assigned(LCLGroupClass) then
-    FreeClass(LCLGroupClass);
-  if Assigned(GroupSuperClass) then
-    MUI_FreeClass(GroupSuperClass);
+  if Assigned(LCLClass) then
+    MUI_DeleteCustomClass(LCLClass);
 end;
 
 procedure CreateClasses;
 begin
-  GroupSuperClass := MUI_GetClass(MUIC_Group);
-  if not Assigned(GroupSuperClass) then
-  begin
-    writeln('Superclass for the new class not found.');
-    halt(5);
-  end;
-  LCLGroupClass := MakeClass(nil, nil, GroupSuperClass, SizeOf(Pointer), 0);
-  if not Assigned(LCLGroupClass) then
+  LCLClass := MUI_CreateCustomClass(nil, MUIC_Group, nil, sizeOf(Pointer), nil);
+  if not Assigned(LCLClass) then
   begin
     writeln('Cannot make class.');
     DestroyClasses;
     halt(5);
   end;
+  LCLGroupClass := LCLClass^.mcc_Class;
   {$ifdef AROS}
   LCLGroupClass^.cl_Dispatcher.h_Entry := NativeUInt(@Dispatcher);
   LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;

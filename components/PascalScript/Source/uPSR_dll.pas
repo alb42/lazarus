@@ -15,11 +15,15 @@ function UnloadProc(Caller: TPSExec; p: TPSExternalProcRec; Global, Stack: TPSSt
 
 implementation
 uses
+  {$ifdef HASAMIGA}
+  Exec;
+  {$else}
   {$IFDEF UNIX}
   Unix, baseunix, dynlibs, termio, sockets;
   {$ELSE}
   Windows;
   {$ENDIF}
+  {$endif}
 
 {
 p^.Ext1 contains the pointer to the Proc function
@@ -105,6 +109,7 @@ begin
         Result := False;
         exit;
       end;
+      {$ifndef HASAMIGA}
       {$IFDEF UNIX}
 	  dllhandle := LoadLibrary(PChar(s2));
       {$ELSE}
@@ -121,6 +126,7 @@ begin
       else
         dllhandle := LoadLibrary(PChar(Filename));
       {$ENDIF}
+      {$endif}
       if dllhandle = 0 then
       begin
         p.Ext2 := Pointer(1);
@@ -200,7 +206,7 @@ begin
   end else n := nil;
   try
     TMYExec(Caller).InnerfuseCall(nil, p.Ext1, cc, MyList, n);
-    {$IFNDEF UNIX}
+    {$IF Not DEFINED(UNIX) and not defined(HASAMIGA)}
     DLLSetLastError(Caller, GetLastError);
     {$ENDIF}
   finally

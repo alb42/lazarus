@@ -42,7 +42,7 @@ uses
   redirect_stderr,
   {$ENDIF}
   {$IF defined(HASAMIGA) and not defined(DisableMultiThreading)}
-  //athreads,
+  athreads,
   {$ENDIF}
   {$IF defined(UNIX) and not defined(DisableMultiThreading)}
   cthreads,

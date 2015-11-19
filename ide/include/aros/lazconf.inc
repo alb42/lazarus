@@ -111,6 +111,10 @@ end;
 
 procedure GetDefaultMakeFilenames(List: TStrings);
 begin
+  {$ifdef HASAMIGA}
+  List.Add('/Development/bin/make');
+  List.Add('Development:bin/make');
+  {$endif}
   List.Add(DefaultDrive + format('/fpc/%s/bin/%s/make',
     [DefaultFPCVersion, DefaultFPCTarget]));
   List.Add(AppendPathDelim(ProgramDirectory) +

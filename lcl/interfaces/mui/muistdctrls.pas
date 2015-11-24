@@ -1408,7 +1408,6 @@ procedure TMuiCycle.ChangedItems(Sender: TObject);
 begin
   // on change -> recreate the combobox (items only set on initialization in MUI)
   RecreateWnd(TWinControl(PasObject));
-  Parent.Redraw;
 end;
 
 constructor TMuiCycle.Create(ACaption: PChar; AStrings: TStrings; AEditable: Boolean);

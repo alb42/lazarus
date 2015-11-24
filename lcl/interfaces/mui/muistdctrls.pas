@@ -1408,6 +1408,7 @@ procedure TMuiCycle.ChangedItems(Sender: TObject);
 begin
   // on change -> recreate the combobox (items only set on initialization in MUI)
   RecreateWnd(TWinControl(PasObject));
+  Parent.Redraw;
 end;
 
 constructor TMuiCycle.Create(ACaption: PChar; AStrings: TStrings; AEditable: Boolean);
@@ -1551,7 +1552,7 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     Result := SL.Count;
     SL.EndUpdate;
@@ -1565,10 +1566,7 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    //writeln('add: ', s);
-    //PC := PChar(#10 + S);
-    //CallHookPkt(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [LongInt($ad000026), PC, 2]);
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
@@ -1583,7 +1581,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000024)]);
+    DoMethod(FMuiObject.FTextObj, PtrInt($ad000024), []);
     SL.EndUpdate;
   end;
 end;
@@ -1596,7 +1594,7 @@ begin
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
@@ -1613,7 +1611,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
@@ -1630,7 +1628,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     Result := SL.strings[Index];
     SL.EndUpdate;
@@ -1646,7 +1644,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
@@ -1663,7 +1661,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [PtrInt($ad000025)]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;

@@ -109,7 +109,7 @@ begin
     MUIM_CallHook, NativeUInt(Hook),
     0]);
   //
-  CallHookPkt(PHook(OCLASS(Obj)), Obj, Para);
+  DoMethodA(Obj, Para);
   {$endif}
 end;
 

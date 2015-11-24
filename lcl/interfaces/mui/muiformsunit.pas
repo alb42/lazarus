@@ -117,8 +117,8 @@ type
   protected
     function GetVisible: Boolean; override;
     procedure SetVisible(const AValue: Boolean); override;
-    procedure AddChild(Child: TMUIObject); override;
-    procedure RemoveChild(Child: TMUIObject); override;
+    procedure AddChild(ChildObj: PObject_); override;
+    procedure RemoveChild(ChildObj: PObject_); override;
     procedure SetLeft(ALeft: LongInt); override;
     procedure SetTop(ATop: LongInt); override;
     function GetTop(): Integer; override;
@@ -542,17 +542,20 @@ begin
 end;
 
 procedure TMuiWindow.Redraw;
+var
+  Msg: LongWord;
 begin
   if BlockRedraw then
     Exit;
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_InitChange)]);
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_ExitChange)]);
+  DoMethodObj(FGrpObj, [MUIM_Group_InitChange]);
+  DoMethodObj(FGrpObj, [MUIM_Group_ExitChange]);
 end;
 
 procedure TMuiWindow.DoMUIDraw();
 begin
   inherited;
-  MUI_Redraw(FGrpobj, MADF_DRAWOBJECT)
+  if Assigned(FGrpObj) then
+    MUI_Redraw(FGrpobj, MADF_DRAWOBJECT);
 end;
 
 function TMuiWindow.GetClientRect: TRect;
@@ -619,19 +622,24 @@ begin
   SetAttribute(MUIA_Window_Open, AValue);
 end;
 
-procedure TMuiWindow.AddChild(Child: TMUIObject);
+procedure TMuiWindow.AddChild(ChildObj: PObject_);
 begin
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_InitChange)]);
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_ADDMEMBER, Child.obj]);
-  CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [LongInt(MUIM_Group_ExitChange)]);
+  if Assigned(FGrpObj) and Assigned(ChildObj) then
+  begin
+    DoMethodObj(FGrpObj, [MUIM_Group_InitChange]);
+    DoMethodObj(FGrpObj, [OM_ADDMEMBER, PtrUInt(ChildObj)]);
+    DoMethodObj(FGrpObj, [MUIM_Group_ExitChange]);
+  end;
 end;
 
-procedure TMuiWindow.RemoveChild(Child: TMUIObject);
+procedure TMuiWindow.RemoveChild(ChildObj: PObject_);
 begin
   //writeln('-> window remove child ', HexStr(Child), ' ', HexStr(Child.obj), ' ', HexStr(Self), ' ', HexStr(FGrpObj));
-  if Assigned(FGrpObj) and Assigned(Child) and Assigned(child.obj) then
+  if Assigned(FGrpObj) and Assigned(ChildObj) then
   begin
-    CallHook(PHook(OCLASS(FGrpObj)), FGrpObj, [OM_REMMEMBER, Child.obj]);
+    DoMethodObj(FGrpObj, [MUIM_Group_InitChange]);
+    DoMethodObj(FGrpObj, [OM_REMMEMBER, PtrUInt(ChildObj)]);
+    DoMethodObj(FGrpObj, [MUIM_Group_ExitChange]);
   end;
   //writeln('<-window remove child');
 end;

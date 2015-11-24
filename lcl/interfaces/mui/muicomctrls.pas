@@ -91,7 +91,7 @@ type
     FNames: array[0..100] of PChar;
     constructor Create(AClassName: PChar; const Tags: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
-    procedure AddChild(APage: TMUIObject); override;
+    procedure AddChild(ChildObj: PObject_); override;
     property RegisterHeight: Integer read GetRegisterHeight;
     property NumPages: Integer read GetPagesNum;
   end;
@@ -440,7 +440,7 @@ begin
 end;
 
 
-procedure TMUIRegister.AddChild(APage: TMUIObject);
+procedure TMUIRegister.AddChild(ChildObj: PObject_);
 var
   i: Integer;
   MyStr: string;

@@ -343,16 +343,16 @@ begin
   AppTags.AddTags([MUIA_Application_Window, NativeUInt(Win)]);
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
-  CallHook(PHook(OCLASS(Win)), Win,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), TagTrue,
+  DoMethod(Win, MUIM_Notify,
+    [PtrInt(MUIA_Window_CloseRequest), TagTrue,
     PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
 
-  CallHook(PHook(OCLASS(Win)), but2,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), TagTrue,
+  DoMethod(but2, MUIM_Notify,
+    [PtrInt(MUIA_Pressed), TagTrue,
     PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
 
-  CallHook(PHook(OCLASS(Win)), but1,
-    [PtrInt(MUIM_Notify), PtrInt(MUIA_Pressed), TagTrue,
+  DoMethod(but1, MUIM_Notify,
+    [PtrInt(MUIA_Pressed), TagTrue,
     PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);
@@ -360,7 +360,7 @@ begin
   Res := -1;
   while true  do
   begin
-    Res := Integer(CallHook(PHook(OCLASS(localapp)), LocalApp, [PtrInt(MUIM_Application_NewInput), PtrInt(@sigs)]));
+    Res := Integer(DoMethod(LocalApp, MUIM_Application_NewInput, [PtrInt(@sigs)]));
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;
@@ -394,7 +394,7 @@ class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
 var
   MuiDialog: PFontRequester;
 begin
-  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE]));
+  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE, 0]));
   Result := THandle(MuiDialog);
 end;
 

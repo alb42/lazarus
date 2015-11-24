@@ -70,8 +70,8 @@ type
 
     procedure SetParent(const AValue: TMUIObject); virtual;
 
-    procedure AddChild(Child: TMUIObject); virtual;
-    procedure RemoveChild(Child: TMUIObject); virtual;
+    procedure AddChild(ChildObj: PObject_); virtual;
+    procedure RemoveChild(ChildObj: PObject_); virtual;
     procedure SetVisible(const AValue: boolean); virtual;
     function GetVisible: boolean; virtual;
     function GetEnabled: boolean; virtual;
@@ -203,8 +203,8 @@ type
     procedure SetIconified(const AValue: boolean);
     procedure CheckTimer;
   protected
-    procedure AddChild(Child: TMUIObject); override;
-    procedure RemoveChild(Child: TMUIObject); override;
+    procedure AddChild(ChildObj: PObject_); override;
+    procedure RemoveChild(ChildObj: PObject_); override;
     procedure InstallHooks; override;
   public
     constructor Create(const Tags: TATagList); overload; reintroduce; virtual;
@@ -235,6 +235,7 @@ var
   {$ifdef CHECKOBJECTS}
   AllItems: Classes.TList;
   {$endif}
+  BlockLayout: Boolean = False;
 implementation
 
 uses
@@ -344,7 +345,8 @@ begin
       if TMUIWindow(Win).FocusedControl = self then
         TMUIWindow(Win).FocusedControl := nil;
     end;
-    FParent.RemoveChild(Self);
+    if Assigned(Self.Obj) then
+      FParent.RemoveChild(Self.obj);
     FParent.FChilds.Remove(Self);
     FParent := nil;
   end;
@@ -353,7 +355,8 @@ begin
   begin
     //write('  New: ', AValue.Classname, ' assigned: ', Assigned(AValue.FChilds));
     AValue.FChilds.Add(Self);
-    AValue.AddChild(Self);
+    if Assigned(Self.Obj) then
+      AValue.AddChild(Self.Obj);
     FParent := AValue;
   end;
   //writeln('  done.');
@@ -470,7 +473,8 @@ end;
 
 procedure TMUIObject.DoMUIDraw();
 begin
-  MUI_Redraw(FObject, MADF_DRAWOBJECT);
+  if Assigned(FObject) and (not BlockRedraw) then
+    MUI_Redraw(FObject, MADF_DRAWOBJECT);
 end;
 
 function TMUIObject.GetClientRect: TRect;
@@ -506,21 +510,29 @@ procedure TMUIObject.SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
 var
   TagList: TATagList;
 begin
-  TagList.AddTags(Tags);
-  SetAttrsA(obje, TagList);
+  if Assigned(Obje) then
+  begin
+    TagList.AddTags(Tags);
+    SetAttrsA(obje, TagList);
+  end;
 end;
 
 function TMUIObject.GetAttObj(obje: pObject_; tag: LongWord): NativeUInt;
 var
   Res: NativeUInt;
 begin
-  GetAttr(tag, obje, Res);
-  Result := Res;
+  Res := 0;
+  if Assigned(Obje) then
+  begin
+    GetAttr(tag, obje, Res);
+    Result := Res;
+  end;
 end;
 
 function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
 begin
-  Result := CallHookPkt(PHook(OCLASS(Obje)), Obje, @(Params[0]));
+  if Assigned(Obje) then
+    Result := DoMethodA(Obje, @(Params[0]));
 end;
 
 function TMUIObject.GetEnabled: boolean;
@@ -537,64 +549,80 @@ procedure TMUIObject.SetAttribute(const Tags: array of NativeUInt);
 var
   TagList: TATagList;
 begin
-  TagList.AddTags(Tags);
-  SetAttrsA(FObject, TagList);
+  if Assigned(FObject) then
+  begin
+    TagList.AddTags(Tags);
+    SetAttrsA(FObject, TagList);
+  end;
 end;
 
 procedure TMUIObject.SetAttribute(Tag: LongWord; Data: NativeUInt);
 var
   Tags: TATagList;
 begin
-  Tags.AddTag(Tag, Data);
-  SetAttrsA(FObject, Tags);
+  if Assigned(FObject) then
+  begin
+    Tags.AddTag(Tag, Data);
+    SetAttrsA(FObject, Tags);
+  end;
 end;
 
 procedure TMUIObject.SetAttribute(Tag: LongWord; Data: Boolean);
 var
   TagList: TATagList;
 begin
-  TagList.AddTag(Tag, IfThen(Data, TagTrue, TagFalse));
-  SetAttrsA(FObject, TagList);
+  if Assigned(FObject) then
+  begin
+    TagList.AddTag(Tag, IfThen(Data, TagTrue, TagFalse));
+    SetAttrsA(FObject, TagList);
+  end;
 end;
 
 procedure TMUIObject.SetAttribute(Tag: LongWord; Data: Pointer);
 var
   TagList: TATagList;
 begin
-  TagList.AddTag(Tag, NativeUInt(Data));
-  SetAttrsA(FObject, TagList);
+  if Assigned(FObject) then
+  begin
+    TagList.AddTag(Tag, NativeUInt(Data));
+    SetAttrsA(FObject, TagList);
+  end;
 end;
 
 function TMUIObject.GetAttribute(tag: longword): NativeUInt;
 var
   Res: NativeUInt;
 begin
-  GetAttr(tag, FObject, Res);
-  Result := Res;
+  if Assigned(FObject) then
+  begin
+    GetAttr(tag, FObject, Res);
+    Result := Res;
+  end;
 end;
 
 function TMUIObject.DoMethod(const Params: array of NativeUInt): longint;
 begin
-  Result := CallHookPkt(PHook(OCLASS(FObject)), FObject, @(Params[0]));
+  if Assigned(FObject) then
+    Result := DoMethodA(FObject, @(Params[0]));
 end;
 
-procedure TMUIObject.AddChild(Child: TMUIObject);
+procedure TMUIObject.AddChild(ChildObj: PObject_);
 begin
-  if Assigned(Child.Obj) then
+  if Assigned(ChildObj) then
   begin
     DoMethod([NativeUInt(MUIM_Group_InitChange)]);
-    DoMethod([NativeUInt(OM_ADDMEMBER), NativeUInt(Child.obj)]);
+    DoMethod([NativeUInt(OM_ADDMEMBER), NativeUInt(ChildObj)]);
     DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
   end;
 end;
 
-procedure TMUIObject.RemoveChild(Child: TMUIObject);
+procedure TMUIObject.RemoveChild(ChildObj: PObject_);
 begin
-  if Assigned(Child.obj) then
+  if Assigned(ChildObj) then
   begin
     //writeln('Remove Child: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
     DoMethod([NativeUInt(MUIM_Group_InitChange)]);
-    DoMethod([NativeUInt(OM_REMMEMBER), NativeUInt(Child.obj)]);
+    DoMethod([NativeUInt(OM_REMMEMBER), NativeUInt(ChildObj)]);
     DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
   end;
 end;
@@ -661,11 +689,14 @@ end;
 destructor TMUIObject.Destroy;
 var
   i: Integer;
+  DestroyObj: PObject_;
+  OldParent: TMuiObject;
 begin
   {$ifdef CHECKOBJECTS}
   AllItems.Remove(Self);
   {$endif}
   BlockRedraw := True;
+  BlockLayout := True;
   //writeln(self.classname, '--> destroy');
   if Assigned(HScroll) then
     HScroll.Free;
@@ -674,8 +705,18 @@ begin
   HScroll := nil;
   VScroll := nil;
   //
+  DestroyObj := FObject;
+  OldParent := FParent;
+  FObject := nil;
+  //
+  //writeln(self.classname, ' 1');
+  if Assigned(OldParent) then
+    OldParent.RemoveChild(DestroyObj);
   SetParent(nil);
-  MUI_DisposeObject(FObject);
+  //writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
+  if Assigned(DestroyObj) then
+    MUI_DisposeObject(DestroyObj);
+  //writeln(self.classname, ' 3 ');
   FChilds.Free;
   FMUICanvas.Free;
   if not (self is TMUIApplication) then
@@ -688,6 +729,7 @@ begin
   end;
   SetLength(HookList, 0);
   inherited Destroy;
+  BlockLayout := False;
   //writeln(self.classname, '<-- muiobject destroy');
 end;
 
@@ -738,6 +780,8 @@ begin
   //writeln(self.classname, '-->setownsize');
   if not Assigned(FObject) then
     Exit;
+  if BlockRedraw or BlockLayout then
+    Exit;
   //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
   MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
   //writeln(self.classname, '  setsize done');
@@ -749,7 +793,6 @@ begin
   end;
   //writeln(self.classname, '<--setownsize');
 end;
-
 
 
 procedure TMUIObject.Redraw;
@@ -791,13 +834,13 @@ begin
   end;
 end;
 
-procedure TMuiApplication.AddChild(Child: TMUIObject);
+procedure TMuiApplication.AddChild(ChildObj: PObject_);
 begin
-  inherited AddChild(Child);
+  inherited AddChild(ChildObj);
   if FMainWin = nil then
   begin
-    FMainWin := Child.obj;
-    SetAttribute(MUIA_Application_Window, child.obj);
+    FMainWin := ChildObj;
+    SetAttribute(MUIA_Application_Window, ChildObj);
     //CallHook(PHook(OCLASS(FMainWin)), FMainWin,
     //  [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), TagTrue,
     //  PtrInt(FObject), 2, PtrInt(MUIM_Application_ReturnID),
@@ -805,10 +848,10 @@ begin
   end;
 end;
 
-procedure TMuiApplication.RemoveChild(Child: TMUIObject);
+procedure TMuiApplication.RemoveChild(ChildObj: PObject_);
 begin
-  inherited RemoveChild(Child);
-  if Child.obj = FMainWin then
+  inherited RemoveChild(ChildObj);
+  if ChildObj = FMainWin then
   begin
     FMainWin := nil;
     SetAttribute(MUIA_Application_Window, nil);

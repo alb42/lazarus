@@ -535,7 +535,9 @@ end;
 function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
 begin
   if Assigned(Obje) then
-    Result := DoMethodA(Obje, @(Params[0]));
+  begin
+    Result := DoMethodA(Obje, @Params);
+  end;
 end;
 
 function TMUIObject.GetEnabled: boolean;
@@ -606,7 +608,9 @@ end;
 function TMUIObject.DoMethod(const Params: array of NativeUInt): longint;
 begin
   if Assigned(FObject) then
-    Result := DoMethodA(FObject, @(Params[0]));
+  begin
+    Result := DoMethodA(FObject, @Params);
+  end;
 end;
 
 procedure TMUIObject.AddChild(ChildObj: PObject_);
@@ -633,6 +637,7 @@ end;
 
 procedure TMUIObject.InstallHooks;
 begin
+  //writeln(self.classname, ' create obj ', HexStr(FObject));
   ConnectHook(MUIA_Pressed, TagTrue, @BtnDownFunc);
   ConnectHook(MUIA_Pressed, TagFalse, @BtnUpFunc);
 end;
@@ -642,7 +647,6 @@ begin
   {$ifdef CHECKOBJECTS}
   AllItems.Add(Self);
   {$endif}
-  //writeln(self.classname, ' create');
   Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
@@ -700,7 +704,7 @@ begin
   {$endif}
   BlockRedraw := True;
   BlockLayout := True;
-  writeln(self.classname, '--> destroy');
+  //writeln(self.classname, '--> destroy');
   if Assigned(HScroll) then
     HScroll.Free;
   if Assigned(VScroll) then
@@ -711,18 +715,15 @@ begin
   DestroyObj := FObject;
   OldParent := FParent;
   FObject := nil;
-  //FParent := nil;
   //
-  writeln(self.classname, ' 1');
+  //writeln(self.classname, ' 1');
   if Assigned(OldParent) then
     OldParent.RemoveChild(DestroyObj);
   SetParent(nil);
-  writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
-  {$ifndef MorphOS}
+  //writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
   if Assigned(DestroyObj) then
     MUI_DisposeObject(DestroyObj);
-  {$endif}
-  writeln(self.classname, ' 3 ');
+  //writeln(self.classname, ' 3 ');
   FChilds.Free;
   FMUICanvas.Free;
   if not (self is TMUIApplication) then
@@ -736,7 +737,7 @@ begin
   SetLength(HookList, 0);
   inherited;
   BlockLayout := False;
-  writeln(self.classname, '<-- muiobject destroy');
+  //writeln(self.classname, '<-- muiobject destroy');
 end;
 
 procedure TMUIObject.CreateScrollbars;
@@ -1414,7 +1415,7 @@ begin
   //writeln('ShiftState AROS: ', HexStr(Pointer(State)), ' and ', HexStr(Pointer(IEQUALIFIER_LALT)),' -> ', HexStr(Pointer(Result)));
 end;
 
-function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
+function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword;
 var
   ri: PMUI_RenderInfo;
   rp: PRastPort;
@@ -1545,7 +1546,7 @@ begin
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
-              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW + PaintX, PaintH + PaintY, rp^.Bitmap^.Depth, BMF_CLEAR, rp^.Bitmap);
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW + PaintX, PaintH + PaintY, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_CLEAR, rp^.Bitmap);
               ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin
@@ -1787,15 +1788,17 @@ end;
 
 procedure DestroyClasses;
 begin
-  {$ifndef MorphOS}
   if Assigned(LCLClass) then
     MUI_DeleteCustomClass(LCLClass);
-  {$endif}
+end;
+
+procedure SetDispatcher(var Hook: THook; Func: Pointer);
+begin
+  SetHook(Hook, THookFunc(Func), nil);
 end;
 
 procedure CreateClasses;
 begin
-  {$ifdef AROS}
   LCLClass := MUI_CreateCustomClass(nil, MUIC_Group, nil, sizeOf(Pointer), nil);
   if not Assigned(LCLClass) then
   begin
@@ -1804,10 +1807,7 @@ begin
     halt(5);
   end;
   LCLGroupClass := LCLClass^.mcc_Class;
-  LCLGroupClass^.cl_Dispatcher.h_Entry := NativeUInt(@Dispatcher);
-  LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;
-  LCLGroupClass^.cl_Dispatcher.h_Data := nil;
-  {$endif}
+  SetDispatcher(LCLGroupClass^.cl_Dispatcher, @Dispatcher);
 end;
 
 {$ifdef CHECKOBJECTS}

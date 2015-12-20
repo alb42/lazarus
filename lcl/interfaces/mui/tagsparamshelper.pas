@@ -86,7 +86,10 @@ end;
 
 function TAParamList.GetParamPointer: Pointer;
 begin
-  Result := @(List[0]);
+  if Length(List) > 0 then
+    Result := @(List[0])
+  else
+    Result := nil;
 end;
 
 operator := (APList: TAParamList): Pointer;

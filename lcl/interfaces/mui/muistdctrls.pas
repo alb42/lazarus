@@ -1513,8 +1513,9 @@ end;
 
 Destructor TMuiTextEdit.Destroy;
 begin;
-  inherited;
+  FStrings.FMUIObject := nil;
   FStrings.Free;
+  inherited;
 end;
 
 const
@@ -1550,6 +1551,7 @@ var
   PC: Pchar;
   Param: PtrUInt;
 begin
+  Result := 0;
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
@@ -1564,13 +1566,16 @@ end;
 function TFlowString.Add(const S: String): Integer;
 var
   PC: Pchar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
+  Result := -1;
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    Param := $ad000025;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param[0]));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
@@ -1581,14 +1586,16 @@ end;
 
 procedure TFlowString.Clear;
 var
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000024;
-    DoMethodA(FMuiObject.FTextObj, @Param);
+    Param[0] := $ad000024;
+    Param[1] := 0;
+    Param[2] := 0;
+    DoMethodA(FMuiObject.FTextObj, @Param[0]);
     SL.EndUpdate;
   end;
 end;
@@ -1596,13 +1603,15 @@ end;
 procedure TFlowString.Delete(Index: Integer);
 var
   PC: PChar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000025;
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
     PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Delete(Index);
@@ -1615,13 +1624,15 @@ end;
 procedure TFlowString.Exchange(Index1: Integer; Index2: Integer);
 var
   PC: PChar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000025;
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
     PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
@@ -1634,13 +1645,16 @@ end;
 function TFlowString.Get(Index: Integer): string;
 var
   PC: PChar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
+  Result := '';
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000025;
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
     PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     Result := SL.strings[Index];
@@ -1651,14 +1665,16 @@ end;
 procedure TFlowString.Put(Index: Integer; const S: string);
 var
   PC: PChar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
   inherited Put(Index, S);
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000025;
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
     PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.strings[Index] := S;
@@ -1671,13 +1687,15 @@ end;
 procedure TFlowString.Insert(Index: Integer; const S: String);
 var
   PC: PChar;
-  Param: PtrUInt;
+  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param := $ad000025;
+    Param[0] := $ad000025;
+    Param[1] := 0;
+    Param[2] := 0;
     PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Insert(Index, S);

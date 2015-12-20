@@ -189,7 +189,7 @@ begin
     Widget.Caret.Height := Height;
     Widget.Caret.Shown := False;
     Result := True;
-  end;  
+  end;
 end;
 
 function TMUIWidgetSet.CreateCompatibleBitmap(DC: HDC; Width, Height: Integer): HBITMAP;
@@ -216,7 +216,7 @@ begin
   //if DC <> 0 then
   begin
     NewDC := TMUICanvas.Create;
-    NewDC.RastPort := nil;    
+    NewDC.RastPort := nil;
     if ADC <> nil then
     begin
       NewDC.RastPort := CloneRastPort(ADC.RastPort);
@@ -225,14 +225,14 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       NewDC.DrawRect := Rect(0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height);
     end;
     NewDC.InitCanvas;
     NewDC.RenderInfo := nil;
     if DC <> 0 then
       NewDC.RenderInfo := ADC.RenderInfo;
-    ClipBlit(@(IntuitionBase^.ActiveScreen^.RastPort), 0, 0, NewDC.RastPort, 0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, $00C0);  
+    ClipBlit(@(IntuitionBase^.ActiveScreen^.RastPort), 0, 0, NewDC.RastPort, 0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, $00C0);
     NewDC.Drawn := True;
     Result := HDC(NewDC);
   end;
@@ -380,7 +380,7 @@ begin
       Exit;
     end;
     if Assigned(ADC.RastPort) then
-    begin      
+    begin
       {$ifdef VERBOSEAROS}
       if (Flags and DT_BOTTOM) <> 0 then
       begin
@@ -493,16 +493,16 @@ begin
   begin
     if Assigned(Rect) and ((Options and ETO_OPAQUE) <> 0) then
     begin
-      ADC.SetBKToRP(True);      
+      ADC.SetBKToRP(True);
       ADC.FillRect(Rect^.Left, Rect^.Top, Rect^.Right, Rect^.Bottom);
       ADC.SetPenToRP;
     end;
     if ADC.BKMode = Opaque then
       ADC.SetBrushToRP(False)
     else
-      SetDrMd(ADC.RastPort, JAM1);       
+      SetDrMd(ADC.RastPort, JAM1);
     //
-    ADC.MoveTo(X, Y);    
+    ADC.MoveTo(X, Y);
     ADC.WriteText(Str, Count);
   end;
   Result := True;
@@ -629,7 +629,7 @@ end;
 
 function TMUIWidgetSet.GetClipBox(DC : hDC; lpRect : PRect) : Longint;
 var
-  ADC: TMUICanvas absolute DC; 
+  ADC: TMUICanvas absolute DC;
 begin
   // set default values
   Result := SIMPLEREGION;
@@ -642,7 +642,7 @@ begin
     Exit;
   end;
   lpRect^ := ADC.DrawRect;
-end;   
+end;
 
 function TMUIWidgetSet.GetClipRGN(DC: hDC; RGN: hRGN): Longint;
 var
@@ -722,7 +722,7 @@ begin
   begin
     P.X := ADC.DrawRect.Right;
     P.Y := ADC.DrawRect.Bottom;
-  end;  
+  end;
 end;
 
 function TMUIWidgetSet.GetDIBits(DC: HDC; Bitmap: HBitmap; StartScan, NumScans: UINT; Bits: Pointer; var BitInfo: BitmapInfo; Usage: UINT): Integer;
@@ -749,8 +749,8 @@ begin
   //writeln('Keystate: ', HexStr(Pointer(KeyState)));
   RShift := KeyState and IEQUALIFIER_RSHIFT <> 0;
   LShift := KeyState and IEQUALIFIER_LSHIFT <> 0;
-  Shift := RShift or LShift;  
-  Control := KeyState and IEQUALIFIER_CONTROL <> 0; 
+  Shift := RShift or LShift;
+  Control := KeyState and IEQUALIFIER_CONTROL <> 0;
   //
   LAlt := keyState and IEQUALIFIER_LALT <> 0;
   RAlt := keyState and IEQUALIFIER_RALT <> 0;
@@ -761,7 +761,7 @@ begin
   //
   LMouse := KeyState and IEQUALIFIER_LEFTBUTTON <> 0;
   MMouse := KeyState and IEQUALIFIER_MIDBUTTON <> 0;
-  RMouse := keyState and IEQUALIFIER_RBUTTON <> 0;   
+  RMouse := keyState and IEQUALIFIER_RBUTTON <> 0;
   case nVirtKey of
     VK_LShift: Result := ifthen(LShift, StateDown, 0);
     VK_RShift: Result := ifthen(RShift, StateDown, 0);
@@ -817,7 +817,7 @@ begin
     if BarKind = SB_VERT then
       SC := TMUIScrollbar(Widget.VScroll);
     if BarKind = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);  
+      SC := TMUIScrollbar(Widget.HScroll);
     if not Assigned(SC) then
       Exit;
     //????  what it wants to know?
@@ -835,10 +835,10 @@ begin
     if SBStyle = SB_VERT then
       SC := TMUIScrollbar(Widget.VScroll);
     if SBStyle = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);  
+      SC := TMUIScrollbar(Widget.HScroll);
     if not Assigned(SC) then
-      Exit;  
-    Result := SC.Visible;   
+      Exit;
+    Result := SC.Visible;
   end;
 end;
 
@@ -850,24 +850,24 @@ begin
   Result := False;
   //writeln('Get Scroll info');
   //Exit;
-  
+
   if Assigned(Widget) then
   begin
     if not Widget.Visible then
       Exit;
     SC := nil;
-    if TObject(Widget) is TMUIScrollbar then  
-      SC := TMUIScrollbar(Widget);  
+    if TObject(Widget) is TMUIScrollbar then
+      SC := TMUIScrollbar(Widget);
     if BarFlag = SB_VERT then
       SC := TMUIScrollbar(Widget.VScroll);
     if BarFlag = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);  
+      SC := TMUIScrollbar(Widget.HScroll);
     if not Assigned(SC) then
       Exit;
     ScrollInfo.nMin := SC.MinValue;
     ScrollInfo.nMax := SC.MaxValue + SC.PageSize;
     ScrollInfo.nPage := SC.PageSize;
-    ScrollInfo.nPos := SC.Position;      
+    ScrollInfo.nPos := SC.Position;
     Result := True;
   end; //}
 end;
@@ -918,7 +918,7 @@ begin
     DebugLn(SysUtils.Format('ERROR: [TMUIWidgetSet.GetSysColor] Bad Value: %d. Valid Range between 0 and %d', [nIndex, MAX_SYS_COLORS]));
   end
   else
-    Result := SysColorMap[nIndex]; 
+    Result := SysColorMap[nIndex];
 end;
 
 function TMUIWidgetSet.GetSystemMetrics(nIndex: Integer): Integer;
@@ -958,7 +958,7 @@ begin
       Size.cy := ADC.TextHeight(Str, Count);
       Result := True;
     end;
-  end;  
+  end;
 end;
 
 function TMUIWidgetSet.GetTextMetrics(DC: HDC; var TM: TTextMetric): Boolean;
@@ -1123,7 +1123,7 @@ begin
     MB_CANCELTRYCONTINUE: Buttons := 'Abort|Retry|Ignore';
   else
     Buttons := 'OK';
-  end;  
+  end;
   ES^.es_GadgetFormat := PChar(Buttons);
   //
   Res := EasyRequestArgs(nil, ES, nil, nil);
@@ -1134,19 +1134,19 @@ begin
         Result := mrOK
       else
         Result := mrCancel;
-    end;  
+    end;
     MB_ABORTRETRYIGNORE: begin
       if Res = 0 then
         Result := mrAbort;
-      if Res = 1 then     
+      if Res = 1 then
         Result := mrRetry;
       if Res = 2 then
         Result := mrIgnore;
-    end;  
+    end;
     MB_YESNOCANCEL: begin
       if Res = 0 then
         Result := mrYes;
-      if Res = 1 then     
+      if Res = 1 then
         Result := mrNo;
       if Res = 2 then
         Result := mrCancel;
@@ -1154,29 +1154,29 @@ begin
     MB_YESNO:begin
       if Res = 0 then
         Result := mrYes;
-      if Res = 1 then     
+      if Res = 1 then
         Result := mrNo;
     end;
     MB_RETRYCANCEL:begin
       if Res = 0 then
         Result := mrRetry;
-      if Res = 1 then     
+      if Res = 1 then
         Result := mrCancel;
     end;
     MB_CANCELTRYCONTINUE: begin
       if Res = 0 then
         Result := mrCancel;
-      if Res = 1 then     
+      if Res = 1 then
         Result := mrRetry;
       if Res = 2 then
         Result := mrIgnore;
     end;
   end;
   Dispose(ES);
-end;  
-  
-  
- 
+end;
+
+
+
 (*var
   Str: AnsiString;
   TitleStr: AnsiString;
@@ -1260,7 +1260,7 @@ var
 begin
   Result := False;
   {$ifdef VERBOSEAROS}
-  writeln('Polygon ', IntToStr(NumPoints));
+  writeln('Polygon ', IntToStr(NumPts));
   {$endif}
   if Assigned(ADC) and (NumPts > 0) and Assigned(Points) then
   begin
@@ -1276,7 +1276,7 @@ var
   ADC: TMUICanvas absolute DC;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('Polyline ', IntToStr(NumPoints));
+  writeln('Polyline ', IntToStr(NumPts));
   {$endif}
   Result := False;
   if Assigned(ADC) and Assigned(Points) and (NumPts > 0) then
@@ -1333,9 +1333,9 @@ begin
   Result := 0;
   if not Assigned(Widget) then // Only Release if not attached to a Widget
   begin
-    ADC.Free;  
+    ADC.Free;
     Result := 1;
-  end;  
+  end;
 end;
 
 function TMUIWidgetSet.RestoreDC(DC: HDC; SavedDC: Integer): Boolean;
@@ -1376,7 +1376,7 @@ begin
       P.X := P.X - Widget.Left;
       P.Y := P.Y - Widget.Top;
       Widget := Widget.Parent;
-    until not Assigned(Widget) or (Widget is TMUIApplication);    
+    until not Assigned(Widget) or (Widget is TMUIApplication);
   end;
   {$ifdef VERBOSEAROS}
   writeln('screen to client end ', P.X);
@@ -1454,7 +1454,7 @@ var
   Widget: TMUIObject absolute hWnd;
   Obj: TMUIObject;
   Win: TMUIWindow;
-begin 
+begin
   FocusWidget := hwnd;
   Result := 0;
   if Assigned(Widget) then
@@ -1462,7 +1462,7 @@ begin
     Win := nil;
     Obj := Widget;
     while Assigned(Obj) do
-    begin      
+    begin
       if Obj is TMUIWindow then
       begin
         Win := TMUIWindow(Obj);
@@ -1473,10 +1473,10 @@ begin
     if Assigned(Win) then
     begin
       if Assigned(Win.FocusedControl) then
-        LCLSendKillFocusMsg(Win.FocusedControl.PasObject);                  
+        LCLSendKillFocusMsg(Win.FocusedControl.PasObject);
       Result := LCLType.HWND(Win.FocusedControl);
       Win.FocusedControl := Widget;
-      LCLSendSetFocusMsg(Widget.PasObject);  
+      LCLSendSetFocusMsg(Widget.PasObject);
     end;
   end;
 end;
@@ -1510,24 +1510,24 @@ begin
     begin
       SC := TMUIScrollbar(Widget.VScroll);
       Widget.VScrollPos := ScrollInfo.nPos;
-    end;  
+    end;
     if SBStyle = SB_HORZ then
     begin
       SC := TMUIScrollbar(Widget.HScroll);
       Widget.HScrollPos := ScrollInfo.nPos;
-    end;  
+    end;
     if not Assigned(SC) then
       Exit;
     if SC.MinValue <> ScrollInfo.nMin then
       SC.MinValue := ScrollInfo.nMin;
-    if SC.MaxValue <> (ScrollInfo.nMax) - ScrollInfo.nPage then       
+    if SC.MaxValue <> (ScrollInfo.nMax) - ScrollInfo.nPage then
       SC.MaxValue := (ScrollInfo.nMax) - ScrollInfo.nPage;
-    if SC.PageSize <> ScrollInfo.nPage then   
+    if SC.PageSize <> ScrollInfo.nPage then
       SC.PageSize := ScrollInfo.nPage;
-    if SC.Position <> ScrollInfo.nPos then   
+    if SC.Position <> ScrollInfo.nPos then
       SC.Position := ScrollInfo.nPos;
     //SC.Visible := True;
-    Result := SC.Position;  
+    Result := SC.Position;
   end;
 end;
 
@@ -1591,29 +1591,29 @@ begin
     begin
       Widget.CreateScrollbars;
       Created := True;
-    end;  
+    end;
     if wBar = SB_Vert then
     begin
       if Assigned(Widget.VSCroll) then
       begin
         if Widget.VScroll.Visible <> bShow then
         begin
-          Widget.VScroll.Visible := bShow;      
+          Widget.VScroll.Visible := bShow;
           ReDo := True;
         end;
       end;
-    end;  
+    end;
     if wBar = SB_Horz then
     begin
       if Assigned(Widget.HScroll) then
       begin
         Widget.HScroll.Visible := bShow;
         ReDo := True;
-      end;  
+      end;
     end;
     if (Widget.PasObject is TWinControl) and ReDo and not Created then
       TWinControl(Widget.PasObject).InvalidateClientRectCache(False);
-  end;  
+  end;
 end;
 
 
@@ -1629,7 +1629,7 @@ begin
   Result := False;
   //writeln('SetCarePosEx');
   if Assigned(Widget) then
-    MUIApp.AddInvalidatedObject(Widget);  
+    MUIApp.AddInvalidatedObject(Widget);
 end;
 
 function TMUIWidgetSet.ShowWindow(hWnd: HWND; nCmdShow: Integer): Boolean;
@@ -1721,7 +1721,7 @@ var
 begin
   {.$ifdef VERBOSEAROS}
   //writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
-  
+
   //writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
   //writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
   {.$endif}
@@ -1730,7 +1730,7 @@ begin
     Dest.Drawn := True;
     if (SrcWidth = Width) and (SrcHeight = height) then
     begin
-      //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);      
+      //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);
       //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight, ', ', Src.Bitmap.FWidth);
       //writeln('Draw Bitmap: ', HexStr(Src.Bitmap), ' width: ', Src.Bitmap.FWidth, ' ', Src.Drawn);
       if Src.Drawn then // means something was drawn on -> no alpha anymore :(
@@ -1738,20 +1738,20 @@ begin
         ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
       end else
       begin
-        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);  
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);      
+        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
       end;
     end else
     begin
       if Src.Drawn then
       begin
-        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_CLEAR, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
         with bsa do
         begin
           bsa_SrcX := XSrc;
           bsa_SrcY := YSrc;
           bsa_SrcWidth := SrcWidth;
-          bsa_SrcHeight := SrcHeight;          
+          bsa_SrcHeight := SrcHeight;
           bsa_XSrcFactor := SrcWidth;
           bsa_YSrcFactor := SrcHeight;
           bsa_DestX := 0;
@@ -1766,7 +1766,7 @@ begin
           bsa_XDDA := 0;
           bsa_YDDA := 0;
           bsa_Reserved1 := 0;
-          bsa_Reserved2 := 0;          
+          bsa_Reserved2 := 0;
         end;
         BitmapScale(@bsa);
         BltBitMapRastPort(ScaledBitmap, 0, 0, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);

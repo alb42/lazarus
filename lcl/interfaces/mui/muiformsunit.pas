@@ -483,13 +483,9 @@ begin
     MUIA_InnerRight, 1,
     MUIA_InnerBottom, 1
     ]);
-  {$ifdef MorphOS}
-  FGrpObj := MUI_NewObjectA(MUIC_Group,GrpTags);
-  {$else}
   FGrpObj := NewObjectA(LCLGroupClass, nil, GrpTags);
   if Assigned(FGrpObj) then
     Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
-  {$endif}
   //
   AltLeft := 0;
   AltTop := 0;

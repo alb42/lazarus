@@ -404,7 +404,6 @@ begin
   TextAttr.ta_Name := PChar(FontFile);
   TextAttr.ta_YSize := FHeight;
   TextAttr.ta_Flags := FPF_DISKFONT;
-  {$ifndef MorphOS}
   FontHandle := OpenDiskFont(@TextAttr);
   if FontHandle = nil then
   begin
@@ -413,7 +412,6 @@ begin
     TextAttr.ta_Flags := FPF_DISKFONT;
     FontHandle := OpenDiskFont(@TextAttr);
   end;
-  {$endif}
 
   //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
@@ -1330,8 +1328,12 @@ begin
   //writeln('-->TCanvas.destroy ', HexStr(Self));
   if not Assigned(MUIObject) then
   begin
-    FreeBitmap(RastPort^.Bitmap);
-    FreeRastPort(RastPort);
+    if Assigned(RastPort) then
+    begin
+      if Assigned(RastPort^.Bitmap) then
+        FreeBitmap(RastPort^.Bitmap);
+      FreeRastPort(RastPort);
+    end;
   end;
   FDefaultBrush.Free;
   FDefaultPen.Free;
@@ -1472,7 +1474,6 @@ begin
         SetAMUIPen(PenDesc);
       end else
       begin
-        //writeln('Set color in RastPort: ', HexStr(Pointer(FPen.Color)));
         Col := FPen.Color;
         Tags.Clear;
         Tags.AddTags([

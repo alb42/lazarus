@@ -1037,9 +1037,10 @@ constructor TMuiStringEdit.Create(const Tags: TATagList);
 //var
 //  p: Pointer;
 begin
-  EditHook.h_Entry := NativeUInt(@TextEditFunc);
-  EditHook.h_SubEntry := 0;
-  EditHook.h_Data := Self;
+  SetHook(EditHook, @TextEditFunc, Self);
+  //EditHook.h_Entry := NativeUInt(@TextEditFunc);
+  //EditHook.h_SubEntry := 0;
+  //EditHook.h_Data := Self;
   //P := @EditHook;
   // Edithook does not work currently
   Tags.AddTags([
@@ -1547,11 +1548,13 @@ end;
 function TFlowString.GetCount: Integer;
 var
   PC: Pchar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     Result := SL.Count;
     SL.EndUpdate;
@@ -1561,11 +1564,13 @@ end;
 function TFlowString.Add(const S: String): Integer;
 var
   PC: Pchar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
@@ -1575,12 +1580,15 @@ begin
 end;
 
 procedure TFlowString.Clear;
+var
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    DoMethod(FMuiObject.FTextObj, PtrInt($ad000024), []);
+    Param := $ad000024;
+    DoMethodA(FMuiObject.FTextObj, @Param);
     SL.EndUpdate;
   end;
 end;
@@ -1588,12 +1596,14 @@ end;
 procedure TFlowString.Delete(Index: Integer);
 var
   PC: PChar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
@@ -1605,12 +1615,14 @@ end;
 procedure TFlowString.Exchange(Index1: Integer; Index2: Integer);
 var
   PC: PChar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
@@ -1622,12 +1634,14 @@ end;
 function TFlowString.Get(Index: Integer): string;
 var
   PC: PChar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     Result := SL.strings[Index];
     SL.EndUpdate;
@@ -1637,13 +1651,15 @@ end;
 procedure TFlowString.Put(Index: Integer; const S: string);
 var
   PC: PChar;
+  Param: PtrUInt;
 begin
   inherited Put(Index, S);
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
@@ -1655,12 +1671,14 @@ end;
 procedure TFlowString.Insert(Index: Integer; const S: String);
 var
   PC: PChar;
+  Param: PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    Param := $ad000025;
+    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;

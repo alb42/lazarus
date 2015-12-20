@@ -24,6 +24,7 @@ uses
   Classes, SysUtils, types, dos,
   Graphics, Menus, LCLType, tagsparamshelper
   // Widgetset
+  ,Muiglobal
   // aros
   {$ifdef HASAMIGA}
   ,agraphics, intuition, mui, diskfont, cybergraphics
@@ -381,6 +382,7 @@ var
   SFontName: string;
   i: Integer;
 begin
+  FontHandle := nil;
   SFontName := LowerCase(FFontFace);
   for i := 0 to High(FONTREPLACEMENTS) do
   begin
@@ -402,6 +404,7 @@ begin
   TextAttr.ta_Name := PChar(FontFile);
   TextAttr.ta_YSize := FHeight;
   TextAttr.ta_Flags := FPF_DISKFONT;
+  {$ifndef MorphOS}
   FontHandle := OpenDiskFont(@TextAttr);
   if FontHandle = nil then
   begin
@@ -410,7 +413,7 @@ begin
     TextAttr.ta_Flags := FPF_DISKFONT;
     FontHandle := OpenDiskFont(@TextAttr);
   end;
-
+  {$endif}
 
   //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
@@ -1269,7 +1272,11 @@ begin
   Result := 0;
   if Assigned(RastPort) then
   begin
+    {$ifdef MorphOS}
+    TextExtent(RastPort, Pointer(Txt), Count, @TE);
+    {$else}
     TextExtent(RastPort, Txt, Count, @TE);
+    {$endif}
     Result := TE.te_Height;
   end else
   begin

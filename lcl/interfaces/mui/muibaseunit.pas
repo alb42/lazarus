@@ -21,7 +21,10 @@ interface
 uses
   Classes, dos, SysUtils, Controls, Contnrs, Types, graphics, Math,
   {$ifdef HASAMIGA}
-  Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap,
+  Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap, diskfont,
+  {$if defined(MorphOS) or defined(Amiga)}
+  AmigaLib,
+  {$endif}
   {$endif}
   muiglobal, tagsparamshelper,
   Forms, LCLMessageGlue, lcltype, LMessages, interfacebase, muidrawing;
@@ -697,7 +700,7 @@ begin
   {$endif}
   BlockRedraw := True;
   BlockLayout := True;
-  //writeln(self.classname, '--> destroy');
+  writeln(self.classname, '--> destroy');
   if Assigned(HScroll) then
     HScroll.Free;
   if Assigned(VScroll) then
@@ -708,15 +711,18 @@ begin
   DestroyObj := FObject;
   OldParent := FParent;
   FObject := nil;
+  //FParent := nil;
   //
-  //writeln(self.classname, ' 1');
+  writeln(self.classname, ' 1');
   if Assigned(OldParent) then
     OldParent.RemoveChild(DestroyObj);
   SetParent(nil);
-  //writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
+  writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
+  {$ifndef MorphOS}
   if Assigned(DestroyObj) then
     MUI_DisposeObject(DestroyObj);
-  //writeln(self.classname, ' 3 ');
+  {$endif}
+  writeln(self.classname, ' 3 ');
   FChilds.Free;
   FMUICanvas.Free;
   if not (self is TMUIApplication) then
@@ -728,9 +734,9 @@ begin
     HookList[i] := nil;
   end;
   SetLength(HookList, 0);
-  inherited Destroy;
+  inherited;
   BlockLayout := False;
-  //writeln(self.classname, '<-- muiobject destroy');
+  writeln(self.classname, '<-- muiobject destroy');
 end;
 
 procedure TMUIObject.CreateScrollbars;
@@ -840,7 +846,7 @@ begin
   if FMainWin = nil then
   begin
     FMainWin := ChildObj;
-    SetAttribute(MUIA_Application_Window, ChildObj);
+    //SetAttribute(MUIA_Application_Window, ChildObj);
     //CallHook(PHook(OCLASS(FMainWin)), FMainWin,
     //  [PtrInt(MUIM_Notify), PtrInt(MUIA_Window_CloseRequest), TagTrue,
     //  PtrInt(FObject), 2, PtrInt(MUIM_Application_ReturnID),
@@ -854,7 +860,7 @@ begin
   if ChildObj = FMainWin then
   begin
     FMainWin := nil;
-    SetAttribute(MUIA_Application_Window, nil);
+    //SetAttribute(MUIA_Application_Window, nil);
   end;
 end;
 
@@ -1024,10 +1030,11 @@ function TMuiArea.GetCaption: string;
 var
   Pc: PChar;
 begin
-  Result := '';
-  Pc := PChar(GetAttribute(MUIA_Text_Contents));
-  if Assigned(PC) then
-    Result := string(Pc);
+  // removed as long MorphOS Crashes at this point
+  //Result := '';
+  //Pc := PChar(GetAttribute(MUIA_Text_Contents));
+  //if Assigned(PC) then
+  Result := FCaption;//string(Pc);
 end;
 
 function TMuiArea.GetDragable: boolean;
@@ -1461,7 +1468,11 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
+        {$ifdef MorphOS}
+        DoMethod(dword(WinObj),[MUIM_Window_AddEventHandler,NativeUInt(MUIB.EHNode)]);
+        {$else}
         DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
+        {$endif}
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1470,7 +1481,11 @@ begin
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
+        {$ifdef MorphOS}
+        DoMethod(DWord(OBJ_win(obj)),[MUIM_Window_RemEventHandler,NativeUInt(MUIB.EHNode)]);
+        {$else}
         DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[NativeUInt(MUIB.EHNode)]);
+        {$endif}
         Dispose(MUIB.EHNode);
         MUIB.EHNode := nil;
       end;
@@ -1772,12 +1787,15 @@ end;
 
 procedure DestroyClasses;
 begin
+  {$ifndef MorphOS}
   if Assigned(LCLClass) then
     MUI_DeleteCustomClass(LCLClass);
+  {$endif}
 end;
 
 procedure CreateClasses;
 begin
+  {$ifdef AROS}
   LCLClass := MUI_CreateCustomClass(nil, MUIC_Group, nil, sizeOf(Pointer), nil);
   if not Assigned(LCLClass) then
   begin
@@ -1786,7 +1804,6 @@ begin
     halt(5);
   end;
   LCLGroupClass := LCLClass^.mcc_Class;
-  {$ifdef AROS}
   LCLGroupClass^.cl_Dispatcher.h_Entry := NativeUInt(@Dispatcher);
   LCLGroupClass^.cl_Dispatcher.h_SubEntry := 0;
   LCLGroupClass^.cl_Dispatcher.h_Data := nil;
@@ -1811,6 +1828,7 @@ begin
   InitIntuitionLibrary;
   InitGraphicsLibrary;
   InitKeymapLibrary;
+  InitDiskFontLibrary;
 end;
 {$endif}
 

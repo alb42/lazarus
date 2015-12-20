@@ -483,9 +483,13 @@ begin
     MUIA_InnerRight, 1,
     MUIA_InnerBottom, 1
     ]);
+  {$ifdef MorphOS}
+  FGrpObj := MUI_NewObjectA(MUIC_Group,GrpTags);
+  {$else}
   FGrpObj := NewObjectA(LCLGroupClass, nil, GrpTags);
   if Assigned(FGrpObj) then
     Pointer(INST_DATA(LCLGroupClass, Pointer(FGrpObj))^) := Self;
+  {$endif}
   //
   AltLeft := 0;
   AltTop := 0;
@@ -601,7 +605,9 @@ end;
 
 function TMuiWindow.GetCaption: string;
 begin
-  Result := StrPas(PChar(GetAttribute(MUIA_Window_Title)));
+  inherited;
+  //Result := FCaption;
+  //Result := StrPas(PChar(GetAttribute(MUIA_Window_Title)));
 end;
 
 function TMuiWindow.GetVisible: Boolean;
@@ -637,9 +643,9 @@ begin
   //writeln('-> window remove child ', HexStr(Child), ' ', HexStr(Child.obj), ' ', HexStr(Self), ' ', HexStr(FGrpObj));
   if Assigned(FGrpObj) and Assigned(ChildObj) then
   begin
-    DoMethodObj(FGrpObj, [MUIM_Group_InitChange]);
+    //DoMethodObj(FGrpObj, [MUIM_Group_InitChange]);
     DoMethodObj(FGrpObj, [OM_REMMEMBER, PtrUInt(ChildObj)]);
-    DoMethodObj(FGrpObj, [MUIM_Group_ExitChange]);
+    //DoMethodObj(FGrpObj, [MUIM_Group_ExitChange]);
   end;
   //writeln('<-window remove child');
 end;

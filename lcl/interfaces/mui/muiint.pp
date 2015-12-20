@@ -36,10 +36,13 @@ uses
   LCLProc, LCLIntf, LCLType, GraphType, Graphics, Menus, Themes, muithemes,
   //AROS
   //Aroswinunit,
-  MUIBaseUnit, MUIFormsUnit, muidrawing, tagsparamshelper,
+  MUIBaseUnit, MUIFormsUnit, muidrawing, tagsparamshelper, muiglobal,
   {$ifdef HASAMIGA}
   exec, intuition, mui, utility, AmigaDos, cybergraphics,
-  inputevent, Cliputils, icon,
+  inputevent, Cliputils,
+  {$ifndef MorphOS}
+  icon,
+  {$endif}
   {$endif}
   // widgetset
   WSLCLClasses, LCLMessageGlue;
@@ -236,7 +239,9 @@ begin
     Info.Free;
   except
   end;
+  {$ifndef MorphOS}
   ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
+  {$endif}
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   TagList.AddTags([
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
@@ -265,7 +270,9 @@ end;
 
 procedure TMUIWidgetSet.AppTerminate;
 begin
+  {$ifndef MorphOS}
   FreeDiskObject(ThisAppDiskIcon);
+  {$endif}
 end;
 
 procedure TMUIWidgetSet.AppMinimize;

@@ -26,6 +26,12 @@ uses
 {$endif}
   utility, mui, tagsparamshelper;
 
+{$ifdef MorphOS}
+const
+  RPTAG_PenMode    = $80000080;
+  RPTAG_FgColor    = $80000081;
+  RPTAG_BgColor    = $80000082;
+{$endif}
 type
   THookFunc = function(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 
@@ -33,6 +39,10 @@ procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: POb
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 {$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
+function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
+function CreateRastPort: PRastPort;
+function CloneRastPort(Rp: PRastPort): PRastPort;
+procedure FreeRastPort(Rp: PRastPort);
 {$endif}
 
 {$ifdef Amiga}
@@ -74,7 +84,7 @@ end;
 
 {$ifdef CPUPOWERPC}
 {$define SetHook}
-procedure SetHook(var Hook: THook; Func: THookFunction; Data: Pointer);
+procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 { This is MorphOS magic. Basically, CallHookPkt is designed to enter 68k code
   (remember, MorphOS is 68k AmigaOS binary compatible!) so this TRAP just
   redirects that call back to native PPC code. HookEntry is defined in
@@ -98,11 +108,6 @@ var
 begin
   SetHook(Hook^, HookFunc, Data);
 
-  {$ifdef AROS}
-  //Hook^.h_Entry := IPTR(HookFunc);
-  //Hook^.h_SubEntry := 0;
-  //Hook^.h_Data := Data;
-  //
   Para.SetParams([
     MUIM_Notify, MUIField, TriggerValue, MUIV_Notify_Self,
     2,
@@ -110,13 +115,34 @@ begin
     0]);
   //
   DoMethodA(Obj, Para);
-  {$endif}
 end;
 
 {$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
 begin
   Result := CallHookPkt(h, obj, @Params[0]);
+end;
+
+function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
+begin
+  DoMethodA := amigalib.DoMethodA(DWord(obj), msg1);
+end;
+
+function CreateRastPort: PRastPort;
+begin
+  Result := AllocMem(SizeOf(TRastPort));
+  InitRastPort(Result);
+end;
+
+function CloneRastPort(Rp: PRastPort): PRastPort;
+begin
+  Result := AllocMem(SizeOf(TRastPort));
+  Move(Rp^, Result^, SizeOf(TRastPort));
+end;
+
+procedure FreeRastPort(Rp: PRastPort);
+begin
+  FreeMem(Rp);
 end;
 {$endif}
 

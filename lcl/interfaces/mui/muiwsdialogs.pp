@@ -29,7 +29,13 @@ uses
   // RTL + LCL
   AGraphics, SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
   exec, asl, utility, tagsparamshelper, mui, intuition, MuibaseUnit, MUIformsunit,
-  AmigaDos, Math, muiglobal, workbench,
+  AmigaDos, Math, muiglobal,
+  {$ifndef MorphOS}
+  workbench,
+  {$endif}
+  {$if defined(MorphOS) or defined(Amiga)}
+  amigalib,
+  {$endif}
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -226,7 +232,7 @@ begin
   //Hook.h_SubEntry := 0;
   //Hook.h_Data := MuiDialog;
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}
-
+{$ifndef MorphOS}
   if MUI_AslRequest(MuiDialog, TagsList) then
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.fr_Drawer), string(MuiDialog^.fr_file));
@@ -240,6 +246,7 @@ begin
     end;
     FileDialog.UserChoice := mrOK;
   end else
+{$endif}
     FileDialog.UserChoice := mrCancel;
 end;
 
@@ -308,8 +315,8 @@ begin
   ]);
   Palette := MUI_NewObjectA(MUIC_ColorAdjust, PalTags);
 
-  but1 := MUI_MakeObject(MUIO_Button, [PChar('OK')]);
-  but2 := MUI_MakeObject(MUIO_Button, [PChar('Cancel')]);
+  but1 := MUI_MakeObject(MUIO_Button, [PtrUInt(PChar('OK'))]);
+  but2 := MUI_MakeObject(MUIO_Button, [PTrUInt(PChar('Cancel'))]);
 
   BGrpTags.AddTags([
     MUIA_Group_Child, NativeUInt(but1),
@@ -343,6 +350,19 @@ begin
   AppTags.AddTags([MUIA_Application_Window, NativeUInt(Win)]);
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
+{$ifdef MorphOS}
+  DoMethod(DWord(Win), [MUIM_Notify,
+    PtrUInt(MUIA_Window_CloseRequest), TagTrue,
+    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+
+  DoMethod(DWord(but2), [MUIM_Notify,
+    PtrUInt(MUIA_Pressed), TagTrue,
+    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+
+  DoMethod(DWord(but1), [MUIM_Notify,
+    PtrInt(MUIA_Pressed), TagTrue,
+    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
+{$else}
   DoMethod(Win, MUIM_Notify,
     [PtrInt(MUIA_Window_CloseRequest), TagTrue,
     PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
@@ -354,13 +374,18 @@ begin
   DoMethod(but1, MUIM_Notify,
     [PtrInt(MUIA_Pressed), TagTrue,
     PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
+{$endif}
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);
   SetAttrsA(Win, SetTags);
   Res := -1;
   while true  do
   begin
+    {$ifdef MorphOS}
+    Res := Integer(DoMethod(LocalApp, [MUIM_Application_NewInput, PtrInt(@sigs)]));
+    {$else}
     Res := Integer(DoMethod(LocalApp, MUIM_Application_NewInput, [PtrInt(@sigs)]));
+    {$endif}
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;
@@ -394,7 +419,11 @@ class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
 var
   MuiDialog: PFontRequester;
 begin
+  {$ifdef MorphOS}
+  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, nil));
+  {$else}
   MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE, 0]));
+  {$endif}
   Result := THandle(MuiDialog);
 end;
 

@@ -191,8 +191,13 @@ begin
         LMsg^.lm_MinMax.DefHeight := Win.Height;
       end else
       begin
+        {$ifdef MorphOS}
+        LMsg^.lm_MinMax.MinWidth := Win.Width - 8;
+        LMsg^.lm_MinMax.MinHeight := Win.Height - 26;
+        {$else}
         LMsg^.lm_MinMax.MinWidth := Win.Width;
         LMsg^.lm_MinMax.MinHeight := Win.Height;
+        {$endif}
         LMsg^.lm_MinMax.MaxWidth := Win.Width;
         LMsg^.lm_MinMax.MaxHeight := Win.Height;
         LMsg^.lm_MinMax.DefWidth := Win.Width;
@@ -565,6 +570,13 @@ begin
   Result.Top := 0;
   Result.Right := Width;
   Result.Bottom := Height;
+  {$ifdef MorphOS}
+  Result.Right := Width - 8;
+  if Sizeable then
+    Result.Bottom := Height - 40
+  else
+    Result.Bottom := Height - 20;
+  {$endif}
 end;
 
 function TMuiWindow.GetWindowOffset: TPoint;

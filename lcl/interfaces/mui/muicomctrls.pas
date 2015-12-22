@@ -62,6 +62,7 @@ type
     function GetActivePage: Integer; virtual;
     procedure SetActivePage(AValue: Integer); virtual;
   public
+    procedure SetOwnSize; override;
     property ActivePage: Integer read GetActivePage write SetActivePage;
   end;
 
@@ -234,6 +235,28 @@ end;
 
 procedure TMUIGroup.InstallHooks;
 begin
+end;
+
+procedure TMUIGroup.SetOwnSize;
+var
+  i: longint;
+  w,h: LongInt;
+begin
+  //writeln(self.classname, '-->setownsize');
+  if not Assigned(FObject) then
+    Exit;
+  if BlockRedraw or BlockLayout then
+    Exit;
+  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
+  MUI_Layout(FObject, FLeft, FTop, w, h, 0);
+  //writeln(self.classname, '  setsize done');
+  for i := 0 to FChilds.Count - 1 do
+  begin
+    //writeln(self.classname, '  Child ', i);
+    if FChilds.Items[i] is TMUIObject then
+      TMuiObject(FChilds.Items[i]).SetOwnSize;
+  end;
+  //writeln(self.classname, '<--setownsize');
 end;
 
 { TMUIRegister }

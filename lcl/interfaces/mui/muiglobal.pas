@@ -39,7 +39,7 @@ procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: POb
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 {$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
-function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
+//function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
 function CreateRastPort: PRastPort;
 function CloneRastPort(Rp: PRastPort): PRastPort;
 procedure FreeRastPort(Rp: PRastPort);
@@ -123,10 +123,10 @@ begin
   Result := CallHookPkt(h, obj, @Params[0]);
 end;
 
-function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
-begin
-  DoMethodA := amigalib.DoMethodA(DWord(obj), msg1);
-end;
+//function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
+//begin
+//  DoMethodA := amigalib.DoMethodA(DWord(obj), msg1);
+//end;
 
 function CreateRastPort: PRastPort;
 begin

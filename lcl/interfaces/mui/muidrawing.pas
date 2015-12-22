@@ -413,7 +413,7 @@ begin
     FontHandle := OpenDiskFont(@TextAttr);
   end;
 
-  //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle));
+  //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle), ' Height: ' , FHeight);
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
   //writeln(   ' FontStyle = ', HexStr(Pointer(FontStyle)));
 end;
@@ -443,6 +443,10 @@ begin
   FHeight := abs(AFontData.lfHeight);
   if FHeight <= 1 then
     FHeight := 13;
+  {$ifdef MorphOS}
+  // nasty hack for the small MorphOS fonts :O
+  FHeight := FHeight + 5;
+  {$endif}
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;
@@ -464,6 +468,10 @@ begin
   FHeight := abs(AFontData.lfHeight);
   if FHeight = 0 then
     FHeight := 13;
+  {$ifdef MorphOS}
+  // nasty hack for the small MorphOS fonts :O
+  FHeight := FHeight + 5;
+  {$endif}
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
   FIsBold := False;

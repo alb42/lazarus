@@ -68,7 +68,6 @@ type
     procedure SetAttObj(obje: pObject_; const Tags: array of NativeUInt);
     function GetAttObj(obje: pObject_; Tag: longword): NativeUInt;
     // DoMethod(Params = [MethodID, Parameter for Method ...])
-    function DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
     function DoMethod(const Params: array of NativeUInt): longint;
 
     procedure SetParent(const AValue: TMUIObject); virtual;
@@ -120,6 +119,8 @@ type
     function GetWindowOffset: Types.TPoint; virtual;
     // scrollbars
     procedure CreateScrollbars;
+
+    class function DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
 
     property Parent: TMUIObject read FParent write SetParent;
     property Left: longint read GetLeft write SetLeft;
@@ -532,7 +533,7 @@ begin
   end;
 end;
 
-function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
+class function TMUIObject.DoMethodObj(Obje: pObject_; const Params: array of NativeUInt): longint;
 begin
   if Assigned(Obje) then
   begin
@@ -783,14 +784,19 @@ end;
 procedure TMUIObject.SetOwnSize;
 var
   i: longint;
+  w,h: LongInt;
 begin
   //writeln(self.classname, '-->setownsize');
   if not Assigned(FObject) then
     Exit;
   if BlockRedraw or BlockLayout then
     Exit;
+  w := Min(FWidth, OBJ_MaxWidth(FObject));
+  w := Max(w, OBJ_MinWidth(FObject));
+  h := Min(FHeight, OBJ_MaxHeight(FObject));
+  h := Max(h, OBJ_MinHeight(FObject));
   //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
-  MUI_Layout(FObject, FLeft, FTop, FWidth, FHeight, 0);
+  MUI_Layout(FObject, FLeft, FTop, w, h, 0);
   //writeln(self.classname, '  setsize done');
   for i := 0 to FChilds.Count - 1 do
   begin
@@ -1662,7 +1668,8 @@ begin
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                   // Check if it is an Double click < 250 ms and less than 3 move events between
                   CurTime := GetMsCount;
-                  if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then
+                  //sysdebugln('mouse down Moved:' + IntToStr(MUIB.NumMoves));
+                  if (CurTime - MUIB.LastClick <= 750) and (MUIB.NumMoves > 0) then
                   begin
                     LCLSendMouseMultiClickMsg(MUIB.PasObject, RelX, RelY, mbLeft, 2, []);  // its a double click
                     MUIB.LastClick := -1;
@@ -1824,11 +1831,11 @@ end;
 {$ifdef MorphOS}
 procedure InitMorphOS;
 begin
-  InitMUIMasterLibrary;
-  InitIntuitionLibrary;
-  InitGraphicsLibrary;
+  //InitMUIMasterLibrary;
+  //InitIntuitionLibrary;
+  //InitGraphicsLibrary;
   InitKeymapLibrary;
-  InitDiskFontLibrary;
+  //InitDiskFontLibrary;
 end;
 {$endif}
 

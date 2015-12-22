@@ -9,6 +9,9 @@ uses
   muidrawing, buttons, Math, Graphics,
   {$ifdef HASAMIGA}
   cybergraphics, agraphics,
+  {$ifdef MorphOS}
+  amigalib,
+  {$endif}
   {$endif}
   MuiBaseUnit, tagsparamshelper, muiglobal,
   StdCtrls, muistringsunit, LCLMessageGlue, LMessages;
@@ -176,6 +179,7 @@ type
   TFlowString = class(TStrings)
   private
     SL: TStringList;
+    function GetMUIText: string;
   public
     FMuiObject: TMuiTextEdit;
     constructor Create;
@@ -1486,6 +1490,21 @@ end;
 
 { TMuiTextEdit }
 
+const
+  TextEditor_Dummy = $ad000000;
+  MUIA_TextEditor_Contents = TextEditor_Dummy + $2;
+  MUIA_TextEditor_CursorX = TextEditor_Dummy + $4;
+  MUIA_TextEditor_CursorY = TextEditor_Dummy + $5;
+  MUIA_TextEditor_ReadOnly = TextEditor_Dummy + $19;
+  MUIA_TextEditor_Slider = TextEditor_Dummy + $1a;
+  MUIM_TextEditor_ClearText = TextEditor_Dummy + $24;
+  MUIM_TextEditor_ExportText = TextEditor_Dummy + $25;
+  MUIM_TextEditor_InsertText = TextEditor_Dummy + $26;
+
+  MUIV_TextEditor_InsertText_Cursor = 0;
+  MUIV_TextEditor_InsertText_Top = 1;
+  MUIV_TextEditor_InsertText_Bottom = 2;
+
 constructor TMuiTextEdit.Create(AStrings: TStrings; const Tags: TATagList);
 var
   Scroll: PObject_;
@@ -1505,10 +1524,10 @@ begin
     MUIA_Group_Child, NativeUInt(Scroll)
     ]);
   inherited Create(MUIC_Group, CreateTags);
-  SetAttObj(FTextObj, [$ad00001a, NativeUInt(scroll)]);
+  SetAttObj(FTextObj, [MUIA_TextEditor_Slider, NativeUInt(scroll)]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;
-  SetAttribute($ad000002, NativeUInt(FText));
+  SetAttribute(MUIA_TextEditor_Contents, NativeUInt(FText));
 end;
 
 Destructor TMuiTextEdit.Destroy;
@@ -1518,9 +1537,7 @@ begin;
   inherited;
 end;
 
-const
-  TextEditor_Dummy = $ad000000;
-  MUIA_TextEditor_ReadOnly = TextEditor_Dummy + $19;
+
 
 procedure TMuiTextEdit.SetReadOnly(AReadOnly: Boolean);
 begin
@@ -1546,18 +1563,38 @@ begin
   inherited;
 end;
 
-function TFlowString.GetCount: Integer;
+function TFlowString.GetMUIText: string;
 var
-  PC: Pchar;
-  Param: PtrUInt;
+  PC: PChar;
+  //Param: array[0..2] of DWord;
+begin
+  PC := nil;
+  Result := '';
+  if Assigned(FMuiObject) then
+  begin
+    //sysdebugln('-->GetMUIText: ');
+    //Param[0] := MUIM_TextEditor_ExportText; //$ad000025;
+    //Param[1] := 0;
+    //Param[2] := 0;
+    //PC := PChar(AmigaLib.DoMethodA(FMuiObject.FTextObj, @Param[0])); // crashes later
+    //PC := PChar(AmigaLib.DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText, 0, 0])); // crashes later sometimes
+    PC := PChar(CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
+    if Assigned(PC) then
+    begin
+      Result := PC;
+    end;
+    //sysdebugln('<--GetMUIText: ' + Result + ' ' + HexStr(PC));
+    FreeVec(PC);
+  end;
+end;
+
+function TFlowString.GetCount: Integer;
 begin
   Result := 0;
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    Param := $ad000025;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
     Result := SL.Count;
     SL.EndUpdate;
   end;
@@ -1565,37 +1602,43 @@ end;
 
 function TFlowString.Add(const S: String): Integer;
 var
-  PC: Pchar;
-  Param: array[0..2] of PtrUInt;
+  PC: PChar;
 begin
   Result := -1;
   if Assigned(FMuiObject) then
   begin
-    SL.BeginUpdate;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param[0]));
-    SL.SetText(PC);
+    {SL.BeginUpdate;
+    SL.Text := GetMUIText;
     Result := SL.Add(S);
+    //sysdebugln('Add: ' + s);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
+    // Hacky jump to end on Add :-P
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_CursorY, NativeUInt(SL.Count)]);}
+
+    // New Method, directly use the Add of TextObject:
+    //DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_InsertText, PtrUInt(PChar(s + #13)), MUIV_TextEditor_InsertText_Bottom]);
+    CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [MUIM_TextEditor_InsertText, PtrUInt(PChar(s + #13)), MUIV_TextEditor_InsertText_Bottom]);
   end;
 end;
 
 procedure TFlowString.Clear;
-var
-  Param: array[0..2] of PtrUInt;
+//var
+//  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000024;
-    Param[1] := 0;
-    Param[2] := 0;
-    DoMethodA(FMuiObject.FTextObj, @Param[0]);
+    //Param[0] := MUIM_TextEditor_ClearText;
+    //Param[1] := 0;
+    //Param[2] := 0;
+    //sysdebugln('Clear ' + FText);
+    //DoMethodA(FMuiObject.FTextObj, @Param[0]);
+    CallHook(PHook(OCLASS(FMuiObject.FTextObj)), FMuiObject.FTextObj, [MUIM_TextEditor_ClearText]);
     SL.EndUpdate;
   end;
 end;
@@ -1603,20 +1646,18 @@ end;
 procedure TFlowString.Delete(Index: Integer);
 var
   PC: PChar;
-  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
     SL.Delete(Index);
+    //sysdebugln('Delete' + FText);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
   end;
 end;
@@ -1624,39 +1665,31 @@ end;
 procedure TFlowString.Exchange(Index1: Integer; Index2: Integer);
 var
   PC: PChar;
-  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
     SL.Exchange(Index1, Index2);
+    //sysdebugln('Exchange ' + FText);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
   end;
 end;
 
 function TFlowString.Get(Index: Integer): string;
-var
-  PC: PChar;
-  Param: array[0..2] of PtrUInt;
 begin
   Result := '';
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
+    //sysdebugln('Get ' + FText);
     Result := SL.strings[Index];
     SL.EndUpdate;
   end;
@@ -1665,21 +1698,19 @@ end;
 procedure TFlowString.Put(Index: Integer; const S: string);
 var
   PC: PChar;
-  Param: array[0..2] of PtrUInt;
 begin
   inherited Put(Index, S);
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
     SL.strings[Index] := S;
+    //sysdebugln('Put ' + FText);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
   end;
 end;
@@ -1687,20 +1718,18 @@ end;
 procedure TFlowString.Insert(Index: Integer; const S: String);
 var
   PC: PChar;
-  Param: array[0..2] of PtrUInt;
 begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
     SL.Clear;
-    Param[0] := $ad000025;
-    Param[1] := 0;
-    Param[2] := 0;
-    PC := PChar(DoMethodA(FMuiObject.FTextObj, @Param));
-    SL.SetText(PC);
+    SL.Text := GetMUIText;
     SL.Insert(Index, S);
+    //sysdebugln('Insert ' + FText);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
   end;
 end;
@@ -1714,8 +1743,11 @@ begin
     SL.BeginUpdate;
     SL.Clear;
     SL.LoadFromFile(FileName);
+    //sysdebugln('LoadFromFile ' + FText);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
+    //FText := SL.Text;
+    //FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(@(FText[1]))]);
     SL.EndUpdate;
   end;
 end;

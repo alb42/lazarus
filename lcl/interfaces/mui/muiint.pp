@@ -340,8 +340,13 @@ begin
     end;
   end;
   ES^.es_GadgetFormat := PChar(BtnText);
+  //TODO: This calculation is acutally wrong, Return Value is 1,2,3,...,N,0
+  {$ifdef MorphOS}
+  // App after MUI_RequestA is blocked
+  Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
+  {$else}
   Res := (ButtonCount - 1) - MUI_RequestA(MuiApp.Obj, MuiApp.MainWin, 0, ES^.es_Title, ES^.es_GadgetFormat, ES^.es_TextFormat, nil);
-  //Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
+  {$endif}
   Result := EscapeResult;
   if (Res >= 0) and (Res < ButtonCount) then
     Result := Buttons[Res];

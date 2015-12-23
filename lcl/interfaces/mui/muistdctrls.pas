@@ -628,7 +628,9 @@ begin
         blGlyphTop: GlyphTop;
         blGlyphBottom: GlyphBottom;
       end;
+      {$ifndef AMIGA}
       WritePixelArrayAlpha(FBitmap.FImage, GLeft, GTop, FBitmap.FWidth * SizeOf(LongWord), MUICanvas.RastPort, MUICanvas.GetOffset.X + GlyphPos.X, MUICanvas.GetOffset.Y + GlyphPos.Y, GWidth, GHeight, 255)
+      {$endif}
     end;
     MUICanvas.MoveTo(TextPos.X, TextPos.Y);
     MUICanvas.WriteText(PChar(FCaption), TextLength);

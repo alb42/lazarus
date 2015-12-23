@@ -29,13 +29,14 @@ uses
   // RTL + LCL
   AGraphics, SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
   exec, asl, utility, tagsparamshelper, mui, intuition, MuibaseUnit, MUIformsunit,
-  AmigaDos, Math, muiglobal,
+  AmigaDos, Math,
   {$ifndef MorphOS}
   workbench,
   {$endif}
   {$if defined(MorphOS) or defined(Amiga)}
   amigalib,
   {$endif}
+  muiglobal,
   // Widgetset
   WSDialogs, WSLCLClasses;
 
@@ -232,7 +233,7 @@ begin
   //Hook.h_SubEntry := 0;
   //Hook.h_Data := MuiDialog;
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}
-{$ifndef MorphOS}
+{$ifdef AROS}
   if MUI_AslRequest(MuiDialog, TagsList) then
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.fr_Drawer), string(MuiDialog^.fr_file));
@@ -350,7 +351,7 @@ begin
   AppTags.AddTags([MUIA_Application_Window, NativeUInt(Win)]);
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
-{$ifdef MorphOS}
+{$if defined(MorphOS) or defined(Amiga)}
   DoMethod(DWord(Win), [MUIM_Notify,
     PtrUInt(MUIA_Window_CloseRequest), TagTrue,
     PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
@@ -381,7 +382,7 @@ begin
   Res := -1;
   while true  do
   begin
-    {$ifdef MorphOS}
+    {$if defined(MorphOS) or defined(Amiga)}
     Res := Integer(DoMethod(LocalApp, [MUIM_Application_NewInput, PtrInt(@sigs)]));
     {$else}
     Res := Integer(DoMethod(LocalApp, MUIM_Application_NewInput, [PtrInt(@sigs)]));
@@ -419,7 +420,7 @@ class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
 var
   MuiDialog: PFontRequester;
 begin
-  {$ifdef MorphOS}
+  {$if defined(MorphOS) or defined(Amiga)}
   MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, nil));
   {$else}
   MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE, 0]));

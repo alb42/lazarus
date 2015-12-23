@@ -125,6 +125,8 @@ type
     function GetLeft(): Integer; override;
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
     procedure InstallHooks; override;
+    procedure SetEnabled(const AEnabled: Boolean); override;
+    function GetEnabled: Boolean; override;
   public
     constructor Create(const TagList: TATagList); overload; reintroduce; virtual;
     destructor Destroy; override;
@@ -674,6 +676,19 @@ begin
     SetAttribute([MUIA_Window_Activate, TagTrue, MUIA_Window_ActiveObject, NativeUInt(AControl.FocusObject)]);
   end;
 end;
+
+procedure TMuiWindow.SetEnabled(const AEnabled: Boolean);
+begin
+
+  //writeln('Enabled: ', AEnabled);
+  //SetAttObj(FgrpObj, [MUIA_Disabled, ifthen(AEnabled, LFalse, LTrue)]);
+end;
+
+function TMuiWindow.GetEnabled: Boolean;
+begin
+  Result := True;//not boolean(GetAttObj(FGrpObj, MUIA_Disabled));
+end;
+
 
 { TMuiGroup }
 

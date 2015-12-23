@@ -84,7 +84,9 @@ begin
       ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
     end else
     begin
+      {$ifndef AMIGA}
       WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+      {$endif}
     end;
     //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
   end;
@@ -1667,7 +1669,9 @@ begin
       end else
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
+        {$ifndef AMIGA}
         WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+        {$endif}
       end;
     end else
     begin
@@ -1739,7 +1743,9 @@ begin
       end else
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
+        {$ifndef AMIGA}
         WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        {$endif}
       end;
     end else
     begin
@@ -1797,7 +1803,9 @@ begin
             Inc(DB);
           end;
         end;
+        {$ifndef AMIGA}
         WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        {$endif}
         System.FreeMem(NImage);
       end;
       //writeln('stretchblt ok');

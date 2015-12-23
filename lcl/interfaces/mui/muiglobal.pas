@@ -48,6 +48,9 @@ procedure FreeRastPort(Rp: PRastPort);
 {$ifdef Amiga}
 var
   IntuitionBase: PIntuitionBase;
+
+function DoMethod(obj: Pointer; params: array of DWord): LongWord; overload;
+function DoMethod(obj: LongWord; params: array of DWord): LongWord; overload;
 {$endif}
 
 implementation
@@ -143,6 +146,18 @@ end;
 procedure FreeRastPort(Rp: PRastPort);
 begin
   FreeMem(Rp);
+end;
+{$endif}
+
+{$ifdef Amiga}
+function DoMethod(obj: Pointer; params: array of DWord): LongWord;
+begin
+  Result := DoMethodA(obj, @params);
+end;
+
+function DoMethod(obj: LongWord; params: array of DWord): LongWord;
+begin
+  Result := DoMethodA(Pointer(obj), @params);
 end;
 {$endif}
 

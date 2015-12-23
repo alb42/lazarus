@@ -478,7 +478,11 @@ end;
 procedure TMUIObject.DoMUIDraw();
 begin
   if Assigned(FObject) and (not BlockRedraw) then
-    MUI_Redraw(FObject, MADF_DRAWOBJECT);
+  begin
+    //MUI_Redraw(FObject, MADF_DRAWOBJECT);
+    // Hacky, not documented feature :-P Let MUI redraw everything
+    MUI_Redraw(FObject, $805);
+  end;
 end;
 
 function TMUIObject.GetClientRect: TRect;
@@ -1475,7 +1479,7 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        {$ifdef MorphOS}
+        {$if defined(MorphOS) or defined(Amiga)}
         DoMethod(dword(WinObj),[MUIM_Window_AddEventHandler,NativeUInt(MUIB.EHNode)]);
         {$else}
         DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
@@ -1488,7 +1492,7 @@ begin
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
-        {$ifdef MorphOS}
+        {$if defined(MorphOS) or defined(Amiga)}
         DoMethod(DWord(OBJ_win(obj)),[MUIM_Window_RemEventHandler,NativeUInt(MUIB.EHNode)]);
         {$else}
         DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[NativeUInt(MUIB.EHNode)]);
@@ -1502,7 +1506,7 @@ begin
     MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
       //writeln(' DRAW');
-      if PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0 then
+      if (PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0) then
        Exit;
       rp := nil;
       ri := MUIRenderInfo(Obj);
@@ -1633,7 +1637,7 @@ begin
           if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
             EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
         end;
-        if true then
+        if True then
         begin
           //writeln(MUIB.classname,' obj Event ', Imsg^.MouseX, ' ', Imsg^.MouseY);
           // Calc relative mouse coordinates for this Item

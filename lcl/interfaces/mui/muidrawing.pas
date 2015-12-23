@@ -131,7 +131,11 @@ type
     FWidth: Integer;
     Style: LongWord;
   public
+    {$ifdef Amiga}
+    FPen: LongWord;
+    {$endif}
     constructor Create(const APenData: TLogPen);
+    destructor Destroy; override;
   end;
 
   { TMUIBrushObj }
@@ -140,7 +144,11 @@ type
   private
     FStyle: LongWord;
   public
+    {$ifdef Amiga}
+    FPen: LongWord;
+    {$endif}
     constructor Create(const ABrushData: TLogBrush);
+    destructor Destroy; override;
     property Style: LongWord read FStyle;
   end;
 
@@ -494,6 +502,10 @@ end;
 { TMUIBrushObj }
 
 constructor TMUIBrushObj.Create(const ABrushData: TLogBrush);
+{$ifdef Amiga}
+var
+  r,g,b: Byte;
+{$endif}
 begin
   inherited Create;
   //writeln(' Create Brush: ', HexStr(Pointer(ABrushData.lbColor)), ' Style: ', ABrushData.lbStyle, ' ', HexStr(Self));
@@ -505,18 +517,62 @@ begin
     else
       FStyle := JAM1;
   end;
+  {$ifdef Amiga}
+    if not IsSystemColor then
+    begin
+      b := (FLCLColor and $00FF0000) shr 16;
+      g := (FLCLColor and $0000FF00) shr 8;
+      r := (FLCLColor and $000000FF);
+      FPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, r shl 24,g shl 24,b shl 24, nil);
+    end;
+  {$endif}
   //writeln('Brush created: $', HexStr(Pointer(FLCLColor)));
+end;
+
+destructor TMUIBrushObj.Destroy;
+begin
+  if not IsSystemColor then
+  begin
+    {$ifdef Amiga}
+    ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, FPen);
+    {$endif}
+  end;
+  inherited;
 end;
 
 { TMUIPenObj }
 
 constructor TMUIPenObj.Create(const APenData: TLogPen);
+{$ifdef Amiga}
+var
+  r,g,b: LongWord;
+{$endif}
 begin
   inherited Create;
   FLCLColor := APenData.lopnColor;
   Style := APenData.lopnStyle;
   FWidth := APenData.lopnWidth.X;
   //writeln('pen created: $', HexStr(Pointer(FLCLColor)), ' Style ', Style);
+  {$ifdef Amiga}
+    if not IsSystemColor then
+    begin
+      b := (FLCLColor and $00FF0000) shr 16;
+      g := (FLCLColor and $0000FF00) shr 8;
+      r := (FLCLColor and $000000FF);
+      FPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, r shl 24, g shl 24, b shl 24, nil);
+    end;
+  {$endif}
+end;
+
+destructor TMUIPenObj.Destroy;
+begin
+  if not IsSystemColor then
+  begin
+    {$ifdef Amiga}
+    ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, FPen);
+    {$endif}
+  end;
+  inherited;
 end;
 
 { TMUIColorObj }
@@ -929,11 +985,19 @@ begin
 end;
 
 procedure TMUICanvas.MoveTo(x, y: integer);
+var
+  nx,ny: Integer;
+  T: TPoint;
 begin
   if Assigned(RastPort) then
   begin
-    //writeln('MoveTo: ', Assigned(Clipping), ' -> ', GetOffset.X + x,', ', GetOffset.Y + Y);
-    GfxMove(RastPort, GetOffset.X + x, GetOffset.Y + y);
+    T := GetOffset;
+    Nx := T.X + x;
+    Ny := T.Y + y;
+    //writeln('MoveTo: ', x,', ', y);
+    //writeln('       -> ', Nx,', ', Ny);
+    //GfxMove(RastPort, GetOffset.X + x, GetOffset.Y + y);
+    GfxMove(RastPort, Nx, Ny);
     Position.X := X;
     Position.Y := Y;
   end;
@@ -943,15 +1007,18 @@ procedure TMUICanvas.LineTo(x, y: integer; SkipPenSetting: Boolean = False);
 var
   T: TPoint;
   sx, sy, ex, ey: Integer;
+  NX,NY: Integer;
 begin
   if Assigned(RastPort) then
   begin
-    //writeln('LineTo at: ', GetOffset.X + x, ', ', GetOffset.X + Y);
     if not SkipPenSetting then
       SetPenToRP();
     Drawn := True;
     T := GetOffset;
-    Draw(RastPort, T.X + x, T.Y + y);
+    NX := T.X + X;
+    NY := T.Y + Y;
+    //writeln('LineTo at: ', T.X + x, ', ', T.Y + Y);
+    Draw(RastPort, NX, NY);
     if (Position.X = X) and (FPen.FWidth > 1) then
     begin
       sx := x - (FPen.FWidth div 2);
@@ -974,12 +1041,17 @@ end;
 procedure TMUICanvas.FillRect(X1, Y1, X2, Y2: Integer);
 var
   T: TPoint;
+  NX1, NY1, NX2, NY2: Integer;
 begin
   if Assigned(RastPort) then
   begin
     T := GetOffset;
     Drawn := True;
-    RectFill(RastPort, T.X + X1, T.Y + Y1, T.X + X2, T.Y + Y2);
+    NX1 := T.X + X1;
+    NY1 := T.Y + Y1;
+    NX2 := T.X + X2;
+    NY2 := T.Y + Y2;
+    RectFill(RastPort, NX1, NY1, NX2, NY2);
     SetPenToRP();
   end;
 end;
@@ -1244,13 +1316,21 @@ begin
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
     Col := TColorToMUIColor(TextColor);
+    {$ifdef Amiga}
+    Col := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, Col shl 8,Col shl 16,Col shl 24, nil);
+    SetAPen(RastPort, Col);
+    {$else}
     Tags.Clear;
     Tags.AddTags([
       RPTAG_PenMode, TagFalse,
       RPTAG_FGColor, NativeUInt(col)
       ]);
     SetRPAttrsA(RastPort, Tags);
+    {$endif}
     GfxText(RastPort, Txt, Count);
+    {$ifdef Amiga}
+    ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, Col);
+    {$endif}
     SetPenToRP;
   end;
 end;
@@ -1405,6 +1485,7 @@ begin
     //SetDrPt(RastPort, $FFFF);
     //RastPort^.LinePtrn := OldPat;
     SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
+    {$ifndef Amiga}
     Col := 0;
     Tags.Clear;
     Tags.AddTags([
@@ -1412,6 +1493,7 @@ begin
       RPTAG_FGColor, NativeUInt(col)
       ]);
     SetRPAttrsA(RastPort, Tags);
+    {$endif}
   end;
 end;
 
@@ -1425,7 +1507,8 @@ begin
       SetSoftStyle(RastPort, FFont.FontStyle, ALLSTYLES);
     end else
     begin
-      SetFont(RastPort, FDefaultFont.FontHandle);
+      if Assigned(FDefaultFont.FontHandle) then
+        SetFont(RastPort, FDefaultFont.FontHandle);
       SetSoftStyle(RastPort, 0, ALLSTYLES);
     end;
   end;
@@ -1482,6 +1565,9 @@ begin
         SetAMUIPen(PenDesc);
       end else
       begin
+        {$ifdef Amiga}
+        SetAPen(RastPort, FPen.FPen);
+        {$else}
         Col := FPen.Color;
         Tags.Clear;
         Tags.AddTags([
@@ -1489,6 +1575,7 @@ begin
           RPTAG_FGColor, NativeUInt(Col)
           ]);
         SetRPAttrsA(RastPort, Tags);
+        {$endif}
       end;
     end;
   end;
@@ -1518,20 +1605,30 @@ begin
         Col := FBrush.Color;
         if AsPen then
         begin
+          {$ifdef Amiga}
+          SetAPen(RastPort, FBrush.FPen);
+          {$else}
           Tags.AddTags([
             RPTAG_PenMode, TagFalse,
             RPTAG_FGColor, NativeUInt(Col)
             ]);
+          {$endif}
           SetDrMd(RastPort, JAM1);
         end else
         begin
+          {$ifdef Amiga}
+          SetBPen(RastPort, FBrush.FPen);
+          {$else}
           Tags.AddTags([
             RPTAG_PenMode, TagFalse,
             RPTAG_BGColor, NativeUInt(Col)
             ]);
+          {$endif}
           SetDrMd(RastPort, FBrush.Style);
         end;
+        {$ifndef Amiga}
         SetRPAttrsA(RastPort, Tags);
+        {$endif}
       end;
     end;
   end;
@@ -1556,16 +1653,24 @@ begin
     Tags.Clear;
     if AsPen then
     begin
+      {$ifdef Amiga}
+      SetAPen(RastPort, 0);
+      {$else}
       Tags.AddTags([
         RPTAG_PenMode, TagFalse,
         RPTAG_FGColor, NativeUInt(Col)
         ]);
+      {$endif}
     end else
     begin
+      {$ifdef Amiga}
+      SetBPen(RastPort, 0);
+      {$else}
       Tags.AddTags([
         RPTAG_PenMode, TagFalse,
         RPTAG_BGColor, NativeUInt(Col)
         ]);
+      {$endif}
     end;
     SetRPAttrsA(RastPort, Tags);
   end;

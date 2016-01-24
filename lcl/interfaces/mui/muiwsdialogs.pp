@@ -308,12 +308,12 @@ begin
   ]);
   Palette := MUI_NewObjectA(MUIC_ColorAdjust, PalTags);
 
-  but1 := MUI_MakeObject(MUIO_Button, [PChar('OK')]);
-  but2 := MUI_MakeObject(MUIO_Button, [PChar('Cancel')]);
+  but1 := MUI_MakeObject(MUIO_Button, [PtrUInt(PChar('OK')), 0]);
+  but2 := MUI_MakeObject(MUIO_Button, [PtrUInt(PChar('Cancel')), 0]);
 
   BGrpTags.AddTags([
-    MUIA_Group_Child, NativeUInt(but1),
-    MUIA_Group_Child, NativeUInt(but2),
+    MUIA_Group_Child, PtrUInt(but1),
+    MUIA_Group_Child, PtrUInt(but2),
     MUIA_Group_HorizSpacing, 20,
     MUIA_Group_Horiz, TagTrue]);
   BGroup := MUI_NewObjectA(MUIC_Group, BGrpTags);
@@ -343,24 +343,24 @@ begin
   AppTags.AddTags([MUIA_Application_Window, NativeUInt(Win)]);
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
-  DoMethod(Win, MUIM_Notify,
-    [PtrInt(MUIA_Window_CloseRequest), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+  DoMethod(Win, [MUIM_Notify,
+    MUIA_Window_CloseRequest, TagTrue,
+    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
 
-  DoMethod(but2, MUIM_Notify,
-    [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+  DoMethod(but2, [MUIM_Notify,
+    MUIA_Pressed, TagTrue,
+    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
 
-  DoMethod(but1, MUIM_Notify,
-    [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
+  DoMethod(but1, [MUIM_Notify,
+    MUIA_Pressed, TagTrue,
+    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, 42]);
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);
   SetAttrsA(Win, SetTags);
   Res := -1;
   while true  do
   begin
-    Res := Integer(DoMethod(LocalApp, MUIM_Application_NewInput, [PtrInt(@sigs)]));
+    Res := Integer(DoMethod(LocalApp, [MUIM_Application_NewInput, PtrUInt(@sigs)]));
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;

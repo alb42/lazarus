@@ -695,6 +695,9 @@ begin
   {$ifdef CHECKOBJECTS}
   AllItems.Remove(Self);
   {$endif}
+  //writeln('destroy ', HexStr(PasObject));
+  if FocusWidget = HWnd(PasObject) then
+    FocusWidget := 0;
   BlockRedraw := True;
   BlockLayout := True;
   //writeln(self.classname, '--> destroy');
@@ -1461,7 +1464,7 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
+        DoMethod(WinObj, [MUIM_Window_AddEventHandler, PtrUInt(MUIB.EHNode)]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1470,7 +1473,7 @@ begin
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
-        DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[NativeUInt(MUIB.EHNode)]);
+        DoMethod(OBJ_win(obj), [MUIM_Window_RemEventHandler, PtrUInt(MUIB.EHNode)]);
         Dispose(MUIB.EHNode);
         MUIB.EHNode := nil;
       end;
@@ -1642,8 +1645,10 @@ begin
                     LCLSendSetFocusMsg(MUIB.PasObject);                     // send 'Focus' message
                     FocusWidget := HWND(MUIB.PasObject);
                   end;
+                  //writeln(MUIB.Classname,' --> Mouse down ', RelX,', ', RelY, ' ', HexStr(MUIB));
                   MUIWin.FocusedControl := MUIB;
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
+                  //writeln(MUIB.Classname,' <-- Mouse down ', RelX,', ', RelY, ' ', HexStr(MUIB));
                   // Check if it is an Double click < 250 ms and less than 3 move events between
                   CurTime := GetMsCount;
                   if (CurTime - MUIB.LastClick <= 250) and (MUIB.NumMoves > 0) then

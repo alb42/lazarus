@@ -1551,7 +1551,7 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     Result := SL.Count;
     SL.EndUpdate;
@@ -1565,7 +1565,7 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
@@ -1580,7 +1580,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    DoMethod(FMuiObject.FTextObj, PtrInt($ad000024), []);
+    DoMethod(FMuiObject.FTextObj, [$ad000024]);
     SL.EndUpdate;
   end;
 end;
@@ -1593,7 +1593,7 @@ begin
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
@@ -1610,7 +1610,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
@@ -1627,7 +1627,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     Result := SL.strings[Index];
     SL.EndUpdate;
@@ -1643,7 +1643,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
@@ -1660,7 +1660,7 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, $ad000025, []));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;

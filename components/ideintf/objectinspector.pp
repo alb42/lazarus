@@ -2099,7 +2099,7 @@ begin
   if Result and CheckFocus then begin
     FocusedControl:=FindControl(GetFocus);
     if (FocusedControl<>nil) and (FocusedControl<>Self)
-    and (not IsParentOf(FocusedControl)) then
+    {and (not IsParentOf(FocusedControl))} then
       Result:=false;
   end;
   if Result then begin

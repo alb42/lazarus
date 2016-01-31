@@ -1560,7 +1560,7 @@ begin
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
-              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW + PaintX, PaintH + PaintY, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_CLEAR, rp^.Bitmap);
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_CLEAR, rp^.Bitmap);
               ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin

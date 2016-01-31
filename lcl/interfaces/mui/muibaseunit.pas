@@ -1529,7 +1529,11 @@ begin
             if MUIB.MUIDrawing then
               Result := DoSuperMethodA(cl, obj, msg);
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
+            {$ifdef MorphOS}
+            Buffered := False;
+            {$else}
             Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
+            {$endif}
             if MUIB is TMUIWindow then
             begin
               PaintX := Obj_Left(Obj);

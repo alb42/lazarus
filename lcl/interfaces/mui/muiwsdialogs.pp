@@ -156,6 +156,17 @@ end;
   //writeln('test');
 //  DoMethod(MUIApp.obj, MUIM_Application_CheckRefresh, []);
 //end;
+{$ifdef MorphOS}
+type
+  PWBArg = ^TWBArg;
+  TWBArg = record
+    wa_Lock: BPTR;      { a lock descriptor }
+    wa_Name: STRPTR;       { a string relative to that lock }
+  end;
+
+  WBArgList = Array [1..100] of tWBArg; { Only 1..smNumArgs are valid }
+  PWBArgList = ^WBArgList;
+{$endif}
 
 {------------------------------------------------------------------------------
   Function: TMuiWSFileDialog.ShowModal
@@ -243,6 +254,20 @@ begin
       for i := 1 to  MuiDialog^.fr_NumArgs do
       begin
         FileDialog.Files.Add(GetFilename(string(MuiDialog^.fr_Drawer), string(PWBArgList(MuiDialog^.fr_ArgList)^[i].wa_Name)));
+      end;
+    end;
+    FileDialog.UserChoice := mrOK;
+  end else
+{$else}
+  if MUI_AslRequest(MuiDialog, TagsList) then
+  begin
+    FileDialog.FileName := GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_file));
+    if MultiSelect then
+    begin
+      FileDialog.Files.Clear;
+      for i := 1 to  MuiDialog^.rf_NumArgs do
+      begin
+        FileDialog.Files.Add(GetFilename(string(MuiDialog^.rf_Dir), string(PWBArgList(MuiDialog^.rf_ArgList)^[i].wa_Name)));
       end;
     end;
     FileDialog.UserChoice := mrOK;
@@ -354,27 +379,27 @@ begin
 {$if defined(MorphOS) or defined(Amiga)}
   DoMethod(DWord(Win), [MUIM_Notify,
     PtrUInt(MUIA_Window_CloseRequest), TagTrue,
-    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(DWord(but2), [MUIM_Notify,
     PtrUInt(MUIA_Pressed), TagTrue,
-    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(DWord(but1), [MUIM_Notify,
-    PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
+    PtrUInt(MUIA_Pressed), TagTrue,
+    PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), 42]);
 {$else}
   DoMethod(Win, MUIM_Notify,
     [PtrInt(MUIA_Window_CloseRequest), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(but2, MUIM_Notify,
     [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), MUIV_Application_ReturnID_Quit]);
+    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(but1, MUIM_Notify,
     [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrInt(MUIM_Application_ReturnID), 42]);
+    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), 42]);
 {$endif}
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);

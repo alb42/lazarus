@@ -1600,6 +1600,7 @@ begin
       Result := 0;
     end;
     MUIM_HANDLEEVENT: begin
+      Result := 0;
       //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) and Assigned(MUIB.PasObject) and Assigned(MUIB.Parent) then

@@ -65,6 +65,7 @@ type
     procedure SetTitle(const AValue: string);
   public
     constructor Create(const Tags: TATagList); reintroduce overload virtual;
+    procedure DoMUIDraw(); override;
     property Checked: Boolean read GetChecked write SetChecked;
     property CheckIt: Boolean read GetCheckIt write SetCheckIt;
     property Enabled: Boolean read GetEnabled write SetEnabled;
@@ -86,6 +87,7 @@ type
   public
     constructor Create(const Tags: TATagList); reintroduce overload virtual;
     destructor Destroy; override;
+    procedure DoMUIDraw(); override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
     property Title: string read GetTitle write SetTitle;
   end;
@@ -98,6 +100,7 @@ type
     procedure SetEnabled(const AValue: Boolean); override;
   public
     constructor Create(const Tags: TATagList);
+    procedure DoMUIDraw(); override;
     Destructor Destroy; override;
     property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
@@ -243,6 +246,11 @@ begin
   inherited;
 end;
 
+procedure TMUIMenuStrip.DoMUIDraw();
+begin
+
+end;
+
 { TMuiMenu }
 
 function TMuiMenu.GetEnabled: Boolean;
@@ -275,6 +283,11 @@ end;
 destructor TMuiMenu.Destroy;
 begin
   inherited;
+end;
+
+procedure TMUIMenu.DoMUIDraw();
+begin
+  //
 end;
 
 { TMuiMenuItem }
@@ -378,6 +391,11 @@ begin
   inherited Create(MUIC_MenuItem, Tags);
   Par := nil;
   ConnectHook(MUIA_Menuitem_Trigger, LongWord(MUIV_EveryTime), @MenuClickedFunc);
+end;
+
+procedure TMuiMenuItem.DoMUIDraw();
+begin
+
 end;
 
 { TMuiFamily }
@@ -560,9 +578,9 @@ end;
 
 procedure TMuiWindow.DoMUIDraw();
 begin
-  inherited;
+  //inherited;
   if Assigned(FGrpObj) then
-    MUI_Redraw(FGrpobj, MADF_DRAWOBJECT);
+    MUI_Redraw(FGrpobj, $805);//MADF_DRAWOBJECT);
 end;
 
 function TMuiWindow.GetClientRect: TRect;

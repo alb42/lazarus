@@ -468,8 +468,9 @@ begin
     begin
       if TMuiObject(FChilds.Items[i]).Visible then
       begin
-        //writeln(i, '. ', FChilds[i].classname, ' MUI Paint');
+        //SysDebugln(IntToStr(i) + '. -->'+ FChilds[i].classname+ ' MUI Paint');
         TMuiObject(FChilds[i]).DoMuiDraw;
+        //SysDebugln(IntToStr(i) + '. <--'+ FChilds[i].classname + ' MUI Paint');
       end;
     end;
   end;
@@ -481,7 +482,9 @@ begin
   begin
     //MUI_Redraw(FObject, MADF_DRAWOBJECT);
     // Hacky, not documented feature :-P Let MUI redraw everything
+    //SysDebugln('--> '+ classname+ ' MUI Paint');
     MUI_Redraw(FObject, $805);
+    //SysDebugln('<-- '+ classname+ ' MUI Paint');
   end;
 end;
 

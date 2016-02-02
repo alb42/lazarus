@@ -503,6 +503,7 @@ begin
   GrpTags.AddTags([
     MUIA_Group_LayoutHook, NativeUInt(@LayoutHook),
     MUIA_Frame, MUIV_Frame_None,
+    MUIA_FillArea, LFalse,
     MUIA_InnerLeft, 1,
     MUIA_InnerTop, 1,
     MUIA_InnerRight, 1,

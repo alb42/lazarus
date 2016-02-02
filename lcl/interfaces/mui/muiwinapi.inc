@@ -227,7 +227,7 @@ begin
     begin
       NewDC.RastPort := CreateRastPort;
       NewDC.RastPort^.Layer := nil;
-      NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       NewDC.DrawRect := Rect(0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height);
     end;
     NewDC.InitCanvas;
@@ -1751,7 +1751,7 @@ begin
     begin
       if Src.Drawn then
       begin
-        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
         with bsa do
         begin
           bsa_SrcX := XSrc;

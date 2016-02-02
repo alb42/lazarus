@@ -1720,7 +1720,7 @@ begin
       if Bitmap.MUICanvas = nil then
         Bitmap.MUICanvas := Self;
       FreeBitmap(RastPort^.Bitmap);
-      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+      RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
       WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
     end;

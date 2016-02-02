@@ -1458,6 +1458,7 @@ var
   Key: Char;
   i: Integer;
 begin
+  Result := 0;
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
@@ -1487,6 +1488,7 @@ begin
         {$else}
         DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
         {$endif}
+        MUIB.SetAttObj(Obj, [MUIA_FillArea, LFalse]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1509,8 +1511,9 @@ begin
     MUIM_Draw:                 // ################# DRAW EVENT #########################
     begin
       //writeln(' DRAW');
-      if (PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0) then
-       Exit;
+
+      //if (PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0) then
+      // Exit;
       rp := nil;
       ri := MUIRenderInfo(Obj);
       if Assigned(ri) then
@@ -1529,14 +1532,18 @@ begin
               TWinControl(MUIB.pasobject).InvalidateClientRectCache(True);
             end;
             //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
-            if MUIB.MUIDrawing then
+            //if MUIB.MUIDrawing then
+            if (MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars) then
+            begin
+              //PMUIP_Draw(msg)^.Flags := MADF_DRAWOBJECT;
+              //Result := DoSuperMethodA(cl, obj, msg);
+            end else
+            begin
               Result := DoSuperMethodA(cl, obj, msg);
+            end;
+              //Result := DoSuperMethodA(cl, obj, msg);
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
-            {$ifdef MorphOS}
-            Buffered := False;
-            {$else}
             Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
-            {$endif}
             if MUIB is TMUIWindow then
             begin
               PaintX := Obj_Left(Obj);
@@ -1550,20 +1557,20 @@ begin
               PaintW := Obj_MWidth(Obj);
               PaintH := Obj_MHeight(Obj);
             end;
+            if WithScrollbars then
+            begin
+              if MUIB.VScroll.Visible then
+                PaintW := PaintW - MUIB.VScroll.Width - 1;
+              If MUIB.HScroll.Visible then
+                PaintH := PaintH - MUIB.HScroll.Height - 1;
+              //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
+            end;
             if Buffered then
             begin
-              if WithScrollbars then
-              begin
-                if MUIB.VScroll.Visible then
-                  PaintW := PaintW - MUIB.VScroll.Width - 1;
-                If MUIB.HScroll.Visible then
-                  PaintH := PaintH - MUIB.HScroll.Height - 1;
-                //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
-              end;
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
               MUIB.FMUICanvas.RastPort^.Layer := nil;
-              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_CLEAR, rp^.Bitmap);
+              MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_DISPLAYABLE, rp^.Bitmap);
               ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin

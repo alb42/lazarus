@@ -166,8 +166,8 @@ uses
     {$IFDEF darwin}
       MacOSAll,
     {$ENDIF}
+    Unix, BaseUnix;
   {$ENDIF}
-  Unix, BaseUnix;
 {$ENDIF}
 
 {$I lazfileutils.inc}

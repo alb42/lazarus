@@ -91,8 +91,11 @@ begin
   Height := 32;
   FButtonWidth := cDefButtonWidth;
   FButtonHeight := cDefButtonHeight;
+  FDropDownWidth := cDropDownWidth;
   Details := ThemeServices.GetElementDetails(ttbSplitButtonDropDownNormal);
-  FDropDownWidth := ThemeServices.GetDetailSize(Details).cx;
+  FThemeDropDownWidth := ThemeServices.GetDetailSize(Details).cx;
+  Details := ThemeServices.GetElementDetails(ttbDropDownButtonNormal);
+  FThemeButtonDropWidth := ThemeServices.GetDetailSize(Details).cx;
   FNewStyle := True;
   FWrapable := True;
   FButtons := TList.Create;
@@ -352,6 +355,13 @@ begin
   UpdateVisibleBar;
 end;
 
+procedure TToolBar.SetDropDownWidth(const aDropDownWidth: Integer);
+begin
+  if FDropDownWidth = aDropDownWidth then Exit;
+  FDropDownWidth := aDropDownWidth;
+  UpdateVisibleBar;
+end;
+
 procedure TToolBar.HotImageListChange(Sender: TObject);
 begin
   if (Sender = HotImages) then UpdateVisibleBar;
@@ -415,6 +425,22 @@ end;
 function TToolBar.GetEnumerator: TToolBarEnumerator;
 begin
   Result := TToolBarEnumerator.Create(Self);
+end;
+
+function TToolBar.GetRealDropDownWidth: Integer;
+begin
+  if FDropDownWidth < 0 then
+    Result := FThemeDropDownWidth
+  else
+    Result := FDropDownWidth;
+end;
+
+function TToolBar.GetRealButtonDropWidth: Integer;
+begin
+  if FDropDownWidth < 0 then
+    Result := FThemeButtonDropWidth
+  else
+    Result := FDropDownWidth+FThemeButtonDropWidth-FThemeDropDownWidth;
 end;
 
 procedure TToolBar.Paint;

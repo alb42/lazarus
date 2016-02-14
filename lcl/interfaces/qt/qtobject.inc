@@ -235,7 +235,7 @@ begin
 
   if not FIsLibraryInstance then
   begin
-    {$IFDEF HAIKU}
+    {$IF DEFINED(HAIKU) OR DEFINED(QTOPIA)}
     FAppSessionQuit := nil;
     FAppSaveSessionRequest := nil;
     {$ELSE}
@@ -986,11 +986,22 @@ var
         Assigned(TQtMainWindow(OldWidget).LCLObject) and
         not (csDesigning in TQtMainWindow(OldWidget).LCLObject.ComponentState))
         or MDIFocusFixNeeded then
+      begin
         // DO NOT TRIGGER ANYTHING, THIS IS SPURIOUS EVENT FROM MDIAREA
-        {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
-        Writeln('TQtWidgetSet.FocusChanged: *** DO NOT KILL FOCUS ***')
-        {$ENDIF}
-      else
+        //issue #29528
+        if TQtMainWindow(OldWidget).IsMdiChild and (TQtMainWindow(OldWidget).LCLObject.ControlCount = 0) then
+        begin
+          {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+          Writeln('TQtWidgetSet.FocusChanged: *** SEND KILL FOCUS FOR MDICHILD WITH 0 CONTROLS ***');
+          {$ENDIF}
+          OldWidget.DeliverMessage(Msg);
+        end else
+        begin
+          {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+          Writeln('TQtWidgetSet.FocusChanged: *** DO NOT KILL FOCUS ***');
+          {$ENDIF}
+        end;
+      end else
         if CheckIfActiveForm(OldWidget) then
           OldWidget.DeliverMessage(Msg)
         {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
@@ -1111,11 +1122,26 @@ begin
                 ;
 
             end else
-              // if this happens then qt's mdi focus is real crap
-              {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
-              writeln('TQtWidgetSet.FocusChanged: WE ARE COMPLETELY OUT OF MIND WHAT TO DO (1) .....')
-              {$ENDIF}
-              ;
+            begin
+              // issue #29528
+              if TQtMainWindow(NewWidget).LCLObject.ControlCount = 0 then
+              begin
+                {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+                writeln('TQtWidgetSet.FocusChanged: setting focus to mdiChild with 0 controls .....');
+                {$ENDIF}
+                Msg.msg := LM_SETFOCUS;
+                if OldWidget = NewWidget then
+                  OldWidget := nil;
+                Msg.wParam := PtrInt(OldWidget);
+                NewWidget.DeliverMessage(Msg);
+              end else
+              begin
+                // if this happens then qt's mdi focus is real crap
+                {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+                writeln('TQtWidgetSet.FocusChanged: WE ARE COMPLETELY OUT OF MIND WHAT TO DO (1) .....');
+                {$ENDIF}
+              end;
+            end;
 
           end else
           begin
@@ -1155,7 +1181,7 @@ begin
     ' errorInteraction ',dbgs(QSessionManager_allowsErrorInteraction(sessionManager)),
     ' phase2 ',dbgs(QSessionManager_isPhase2(sessionManager)));
   {$ENDIF}
-  {$IFNDEF HAIKU}
+  {$IF NOT DEFINED(HAIKU) AND NOT DEFINED(QTOPIA)}
   // if session manager does not allow interaction, then we close app without any intf calls
   if QSessionManager_allowsInteraction(sessionManager) then
   begin
@@ -1204,6 +1230,7 @@ begin
      {$ifdef HASX11} LCL_CAPABILITY_YES {$else} LCL_CAPABILITY_NO {$endif};
      {when issue #20475 is fixed, then set this to LCL_CAPABILITY_YES}
      lcReceivesLMClearCutCopyPasteReliably: Result := LCL_CAPABILITY_NO;
+    lcRadialGradientBrush: Result := LCL_CAPABILITY_YES;
   else
     Result := inherited GetLCLCapability(ACapability);
   end;
@@ -1233,25 +1260,42 @@ end;
 procedure TQtWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
 var
   Color: TQColor;
+  AQColor: QColorH;
   ColorRef: TColorRef;
   Pen: QPenH;
   Painter: QPainterH;
+  ADevType: Integer;
 begin
   if IsValidDC(CanvasHandle) then
   begin
     // WriteLn('TQtWidgetSet.DCSetPixel X=',X,' Y=',Y, ' AColor=',dbghex(AColor),' rgb ? ',dbgHex(ColorToRGB(AColor)));
     Painter := TQtDeviceContext(CanvasHandle).Widget;
-    {Save current pen.Better save copy of pen instead of
-     using painter save/restore, or saved Pen in devicecontext which
-     may be null. Issue #27620}
-    Pen := QPen_create(QPainter_pen(Painter));
-    try
+    ADevType := QPaintDevice_devType(QPaintEngine_paintDevice(QPainter_paintEngine(Painter)));
+    {qt private PaintDeviceFlags 2 = QPixmap 3 = QImage. issue #29256}
+    if ((ADevType = 2) or (ADevType = 3)) and
+     (TQtDeviceContext(CanvasHandle).vImage <> nil) and
+      (TQtDeviceContext(CanvasHandle).vImage.Handle <> nil) then
+    begin
       ColorRef := TColorRef(ColorToRGB(AColor));
       QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
-      QPainter_setPen(Painter, @Color);
-      QPainter_drawPoint(Painter, X,Y);
-    finally
-      QPainter_setPen(Painter, Pen);
+      AQColor := QColor_create(PQColor(@Color));
+      QImage_setPixel(TQtDeviceContext(CanvasHandle).vImage.Handle, X, Y, QColor_rgb(AQColor));
+      QColor_destroy(AQColor);
+    end else
+    begin
+      {Save current pen.Better save copy of pen instead of
+       using painter save/restore, or saved Pen in devicecontext which
+       may be null. Issue #27620}
+      Pen := QPen_create(QPainter_pen(Painter));
+      try
+        ColorRef := TColorRef(ColorToRGB(AColor));
+        QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
+        QPainter_setPen(Painter, PQColor(@Color));
+        QPainter_drawPoint(Painter, X,Y);
+      finally
+        QPainter_setPen(Painter, Pen);
+        QPen_destroy(Pen);
+      end;
     end;
   end;
 end;
@@ -1408,7 +1452,8 @@ begin
       if IsValidHintHandle(TObject(SavedHintHandlesList.Items[i])) then
       begin
         AWidget := TQtHintWindow(SavedHintHandlesList.Items[i]);
-        AWidget.NeedRestoreVisible := AWidget.getVisible;
+        AWidget.NeedRestoreVisible := AWidget.getVisible and
+          Assigned(AWidget.LCLObject) and AWidget.LCLObject.Visible;
         AWidget.Hide;
       end;
     end;
@@ -1431,7 +1476,8 @@ begin
       if IsValidHintHandle(TObject(SavedHintHandlesList.Items[i])) then
       begin
         AWidget := TQtHintWindow(SavedHintHandlesList.Items[i]);
-        if AWidget.NeedRestoreVisible then
+        if AWidget.NeedRestoreVisible and Assigned(AWidget.LCLObject) and
+          AWIdget.LCLObject.Visible then
         begin
           AWidget.NeedRestoreVisible := False;
           AWidget.Show;

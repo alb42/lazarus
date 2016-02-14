@@ -51,6 +51,7 @@ components/tfilenameedit.png
 components/tfiltercombobox.png
 components/tfinddialog.png
 components/tfloatspinedit.png
+components/tflowpanel.png
 components/tfontdialog.png
 components/tframe.png
 components/tgroupbox.png
@@ -105,6 +106,7 @@ components/tstatictext.png
 components/tstatusbar.png
 components/tstringgrid.png
 components/ttabcontrol.png
+components/ttimeedit.png
 components/ttimer.png
 components/ttogglebox.png
 components/ttoolbar.png

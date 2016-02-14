@@ -21,22 +21,25 @@ unit CocoaInt;
 {$mode objfpc}{$H+}
 {$modeswitch objectivec1}
 {$modeswitch objectivec2}
+{$include cocoadefines.inc}
 
 interface
 
 uses
   // rtl+ftl
   Types, Classes, SysUtils, Math, contnrs,
+  // fcl-image
+  fpreadpng, fpwritepng, fpimage, fpreadbmp, fpwritebmp,
   // carbon bindings
   MacOSAll,
   // interfacebase
   InterfaceBase, GraphType,
   // private
   CocoaAll, CocoaPrivate, CocoaUtils, CocoaGDIObjects,
-  CocoaProc,
+  CocoaProc, cocoa_extra, CocoaWSMenus, CocoaWSForms,
   // LCL
   LCLStrConsts, LMessages, LCLMessageGlue, LCLProc, LCLIntf, LCLType,
-  Controls, Forms, Themes,
+  Controls, Forms, Themes, Menus,
   IntfGraphics, Graphics, CocoaWSFactory;
 
 type
@@ -49,14 +52,21 @@ type
     class function initWithFunc(afunc: TWSTimerProc): TCocoaTimerObject; message 'initWithFunc:';
   end;
 
-  TCocoaClipboardDataType = (ccdtText, ccdtCocoaStandard, ccdtNonStandard);
+  TCocoaClipboardDataType = (ccdtText,
+    ccdtCocoaStandard, // Formats supported natively by Mac OS X
+    ccdtBitmap,     // BMPs need conversion to PNG to work with other Mac OS X apps
+    ccdtNonStandard { Formats that will only work in LCL apps } );
 
-  TClipboardData = class(TObject) // TClipboardFormat is a reference to a TClipboardData
+  TCocoaClipboardData = class(TObject) // TClipboardFormat is a reference to a TClipboardData
   public
     MimeType: string;
     CocoaFormat: NSString;  // utilized for ccdtCocoaStandard and ccdtNonStandard
     DataType: TCocoaClipboardDataType;
     constructor Create(AMimeType: string; ACocoaFormat: NSString; ADataType: TCocoaClipboardDataType);
+  end;
+
+  TAppDelegate = objcclass(NSObject, NSApplicationDelegateProtocol)
+    procedure application_openFiles(sender: NSApplication; filenames: NSArray);
   end;
 
   { TCocoaWidgetSet }
@@ -65,6 +75,7 @@ type
   private
     FTerminating: Boolean;
     FNSApp: NSApplication;
+    FNSApp_Delegate: TAppDelegate;
     FCurrentCursor: HCursor;
     FCaptureControl: HWND;
 
@@ -90,11 +101,11 @@ type
     // Clipboard
     PrimarySelection: NSPasteboard;
     SecondarySelection: NSPasteboard;
-    ClipboardFormats: TFPObjectList; // of TClipboardData
+    ClipboardFormats: TFPObjectList; // of TCocoaClipboardData
 
     procedure InitClipboard();
     procedure FreeClipboard();
-    function GetClipboardDataForFormat(AFormat: TClipboardFormat): TClipboardData;
+    function GetClipboardDataForFormat(AFormat: TClipboardFormat): TCocoaClipboardData;
 
     function PromptUser(const DialogCaption, DialogMessage: String;
       DialogType: longint; Buttons: PLongint; ButtonCount, DefaultIndex,
@@ -102,6 +113,9 @@ type
     function GetAppHandle: THandle; override;
     function CreateThemeServices: TThemeServices; override;
   public
+    // modal session
+    CurModalForm: TCustomForm;
+
     constructor Create; override;
     destructor Destroy; override;
 
@@ -129,7 +143,8 @@ type
     procedure FreeStockItems;
     procedure FreeSysColorBrushes;
 
-    procedure SetMainMenu(const AMenu: HMENU);
+    procedure SetMainMenu(const AMenu: HMENU; const ALCLMenu: TMenu);
+    function IsControlDisabledDueToModal(AControl: NSView): Boolean;
 
     {todo:}
     function  DCGetPixel(CanvasHandle: HDC; X, Y: integer): TGraphicsColor; override;

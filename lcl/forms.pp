@@ -57,7 +57,8 @@ type
     poScreenCenter,    // center form on screen (depends on DefaultMonitor)
     poDesktopCenter,   // center form on desktop (total of all screens)
     poMainFormCenter,  // center form on main form (depends on DefaultMonitor)
-    poOwnerFormCenter  // center form on owner form (depends on DefaultMonitor)
+    poOwnerFormCenter, // center form on owner form (depends on DefaultMonitor)
+    poWorkAreaCenter   // center form on working area (depends on DefaultMonitor)
     );
 
   TWindowState = (wsNormal, wsMinimized, wsMaximized, wsFullScreen);
@@ -84,7 +85,6 @@ type
     FIncrement: TScrollBarInc;
     FKind: TScrollBarKind;
     FPage: TScrollBarInc;
-    FPosition: Integer;
     FRange: Integer; // if AutoScroll=true this is the needed size of the child controls
     FSmooth: Boolean;
     FTracking: Boolean;
@@ -93,6 +93,7 @@ type
     FOldScrollInfoValid: Boolean;
   protected
     FControl: TWinControl;
+    FPosition: Integer;
     function ControlHandle: HWnd; virtual;
     function GetAutoScroll: boolean; virtual;
     function GetIncrement: TScrollBarInc; virtual;
@@ -108,7 +109,7 @@ type
     procedure ScrollHandler(var Message: TLMScroll);
     procedure SetIncrement(const AValue: TScrollBarInc); virtual;
     procedure SetPage(const AValue: TScrollBarInc); virtual;
-    procedure SetPosition(const Value: Integer); virtual;
+    procedure SetPosition(const Value: Integer);
     procedure SetRange(const AValue: Integer); virtual;
     procedure SetSmooth(const AValue: Boolean); virtual;
     procedure SetTracking(const AValue: Boolean);
@@ -130,6 +131,7 @@ type
     property Kind: TScrollBarKind read FKind;
     function GetOtherScrollBar: TControlScrollBar;
     property Size: integer read GetSize stored False;
+    function ControlSize: integer; // return for vertical scrollbar the control width
     function ClientSize: integer; // return for vertical scrollbar the clientwidth
     function ClientSizeWithBar: integer; // return for vertical scrollbar the clientwidth with the bar, even if Visible=false
     function ClientSizeWithoutBar: integer; // return for vertical scrollbar the clientwidth without the bar, even if Visible=true
@@ -166,9 +168,8 @@ type
     procedure WMSize(var Message: TLMSize); message LM_Size;
     procedure WMHScroll(var Message : TLMHScroll); message LM_HScroll;
     procedure WMVScroll(var Message : TLMVScroll); message LM_VScroll;
+    procedure WMMouseWheel(var Message: TLMMouseEvent); message LM_MOUSEWHEEL;
     procedure ComputeScrollbars; virtual;
-    procedure ScrollbarHandler(ScrollKind: TScrollBarKind;
-                               OldPosition: Integer); virtual;
     procedure SetAutoScroll(Value: Boolean); virtual;
     procedure Loaded; override;
     procedure Resizing(State: TWindowState); virtual;
@@ -180,6 +181,7 @@ type
     procedure UpdateScrollbars;
     class function GetControlClassDefaultSize: TSize; override;
     procedure ScrollBy(DeltaX, DeltaY: Integer); override;
+    procedure ScrollInView(AControl: TControl);
   published
     property HorzScrollBar: TControlScrollBar read FHorzScrollBar write SetHorzScrollBar;
     property VertScrollBar: TControlScrollBar read FVertScrollBar write SetVertScrollBar;
@@ -388,9 +390,9 @@ type
   );
 
   TPopupMode = (
-    pmNone,     // default behavior - popup to mainform/taskbar window
-    pmAuto,     // popup to active form and same as pmNone if no active form
-    pmExplicit  // popup to PopupParent and same as pmNone if not exists
+    pmNone,     // modal: popup to active form or if not available, to main form; non-modal: no window parent
+    pmAuto,     // modal & non-modal: popup to active form or if not available, to main form
+    pmExplicit  // modal & non-modal: popup to PopupParent or if not available, to main form
   );
 
   TCloseEvent = procedure(Sender: TObject; var CloseAction: TCloseAction) of object;
@@ -475,6 +477,7 @@ type
     procedure SetFormStyle(Value : TFormStyle);
     procedure SetIcon(AValue: TIcon);
     procedure SetMenu(Value: TMainMenu);
+    procedure SetModalResult(Value: TModalResult);
     procedure SetPopupMode(const AValue: TPopupMode);
     procedure SetPopupParent(const AValue: TCustomForm);
     procedure SetPosition(Value: TPosition);
@@ -556,6 +559,7 @@ type
     procedure SetAutoScroll(Value: Boolean); override;
     procedure DoAddActionList(List: TCustomActionList);
     procedure DoRemoveActionList(List: TCustomActionList);
+    procedure ProcessResource;virtual;
   protected
     // drag and dock
     procedure BeginAutoDrag; override;
@@ -593,6 +597,7 @@ type
     function FormIsUpdating: boolean; override;
     function GetFormImage: TBitmap;
     function GetRolesForControl(AControl: TControl): TControlRolesForForm;
+    function GetRealPopupParent: TCustomForm;
     procedure Hide;
     procedure IntfDropFiles(const FileNames: array of String);
     procedure IntfHelp(AComponent: TComponent);
@@ -663,7 +668,7 @@ type
     property KeyPreview: Boolean read FKeyPreview write FKeyPreview default False;
     property MDIChildren[I: Integer]: TCustomForm read GetMDIChildren;
     property Menu : TMainMenu read FMenu write SetMenu;
-    property ModalResult : TModalResult read FModalResult write FModalResult;
+    property ModalResult : TModalResult read FModalResult write SetModalResult;
     property Monitor: TMonitor read GetMonitor;
     property PopupMode: TPopupMode read FPopupMode write SetPopupMode default pmNone;
     property PopupParent: TCustomForm read FPopupParent write SetPopupParent;
@@ -1688,6 +1693,7 @@ type
   public
     function IsDesignMsg(Sender: TControl; var Message: TLMessage): Boolean;
       virtual; abstract;
+    procedure UTF8KeyPress(var UTF8Key: TUTF8Char); virtual; abstract;
     procedure Modified; virtual; abstract;
     procedure Notification(AComponent: TComponent;
       Operation: TOperation); virtual; abstract;
@@ -1734,13 +1740,15 @@ function SaveFocusState: TFocusState;
 procedure RestoreFocusState(FocusState: TFocusState);
 
 type
-  TGetDesignerFormEvent =
-    function(APersistent: TPersistent): TCustomForm of object;
+  TGetDesignerFormEvent = function(APersistent: TPersistent): TCustomForm of object;
+  TIsFormDesignFunction = function(AForm: TWinControl): boolean;
 
 var
   OnGetDesignerForm: TGetDesignerFormEvent = nil;
+  IsFormDesign: TIsFormDesignFunction = nil;
 
 function GetParentForm(Control: TControl; TopForm: Boolean = True): TCustomForm;
+function GetDesignerForm(Control: TControl): TCustomForm;
 function GetFirstParentForm(Control:TControl): TCustomForm;
 function ValidParentForm(Control: TControl; TopForm: Boolean = True): TCustomForm;
 function GetDesignerForm(APersistent: TPersistent): TCustomForm;
@@ -1762,8 +1770,7 @@ var
   RequireDerivedFormResource: Boolean = False;
 
 type
-  TMessageBoxFunction =
-    function(Text, Caption : PChar; Flags : Longint) : Integer;
+  TMessageBoxFunction = function(Text, Caption : PChar; Flags : Longint) : Integer;
 var
   MessageBoxFunction: TMessageBoxFunction = nil;
 
@@ -1793,7 +1800,7 @@ implementation
 {$endif}
 
 uses
-  WSForms; // Widgetset uses circle is allowed
+  WSControls, WSForms; // Widgetset uses circle is allowed
 
 var
   HandlingException: Boolean = False;
@@ -1866,6 +1873,10 @@ begin
   if Keys and MK_MButton <> 0 then Include(Result, ssMiddle);
   if Keys and MK_XBUTTON1 <> 0 then Include(Result, ssExtra1);
   if Keys and MK_XBUTTON2 <> 0 then Include(Result, ssExtra2);
+  if Keys and MK_DOUBLECLICK <> 0 then Include(Result, ssDouble);
+  if Keys and MK_TRIPLECLICK <> 0 then Include(Result, ssTriple);
+  if Keys and MK_QUADCLICK <> 0 then Include(Result, ssQuad);
+
   if GetKeyState(VK_MENU) < 0 then Include(Result, ssAlt);
   if (GetKeyState(VK_LWIN) < 0) or (GetKeyState(VK_RWIN) < 0) then Include(Result, ssMeta);
 end;
@@ -1885,6 +1896,9 @@ begin
   if ssMiddle in ShiftState then Result := Result or MK_MBUTTON;
   if ssExtra1 in ShiftState then Result := Result or MK_XBUTTON1;
   if ssExtra2 in ShiftState then Result := Result or MK_XBUTTON2;
+  if ssDouble in ShiftState then Result := Result or MK_DOUBLECLICK;
+  if ssTriple in ShiftState then Result := Result or MK_TRIPLECLICK;
+  if ssQuad   in ShiftState then Result := Result or MK_QUADCLICK;
 end;
 
 function WindowStateToStr(const State: TWindowState): string;
@@ -1930,6 +1944,20 @@ begin
     Result := TCustomForm(Control)
   else
     Result := nil;
+end;
+
+//------------------------------------------------------------------------------
+function GetDesignerForm(Control: TControl): TCustomForm;
+begin
+  // find the topmost parent form with designer
+
+  Result := nil;
+  while Control<>nil do
+  begin
+    if (Control is TCustomForm) and (TCustomForm(Control).Designer<>nil) then
+      Result := TCustomForm(Control);
+    Control := Control.Parent;
+  end;
 end;
 
 //------------------------------------------------------------------------------
@@ -2112,6 +2140,16 @@ begin
   ImageList.Draw(Canvas,AX,AY,AIndex,ADrawEffect);
 end;
 
+function IsFormDesignFunction(AForm: TWinControl): boolean;
+var
+  LForm: TCustomForm absolute AForm;
+begin
+  if (AForm = nil) or not (AForm is TCustomForm) then
+    Exit(False);
+  Result := (csDesignInstance in LForm.ComponentState)
+     or ((csDesigning in LForm.ComponentState) and (LForm.Designer <> nil));
+end;
+
 initialization
   RegisterPropertyToSkip(TForm, 'OldCreateOrder', 'VCL compatibility property', '');
   RegisterPropertyToSkip(TForm, 'TextHeight', 'VCL compatibility property', '');
@@ -2119,9 +2157,9 @@ initialization
   RegisterPropertyToSkip(TForm, 'TransparentColorValue', 'VCL compatibility property', '');
   LCLProc.OwnerFormDesignerModifiedProc:=@IfOwnerIsFormThenDesignerModified;
   ThemesImageDrawEvent:=@ImageDrawEvent;
+  IsFormDesign := @IsFormDesignFunction;
   Screen:=TScreen.Create(nil);
   Application:=TApplication.Create(nil);
-
 finalization
   //DebugLn('forms.pp - finalization section');
   LCLProc.OwnerFormDesignerModifiedProc:=nil;

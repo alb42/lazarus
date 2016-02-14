@@ -27,7 +27,6 @@ type
       FPropStorage: TStringList;
       FContext: TCocoaContext;
       FHasCaret: Boolean;
-      FTarget: TWinControl;
       FBoundsReportedToChildren: boolean;
       FIsOpaque:boolean;
       FIsEventRouting:boolean;
@@ -37,6 +36,7 @@ type
     function GetIsOpaque: Boolean;
     procedure SetIsOpaque(AValue: Boolean);
   protected
+    FTarget: TWinControl;
     class function CocoaModifiersToKeyState(AModifiers: NSUInteger): PtrInt; static;
     class function CocoaPressedMouseButtonsToKeyState(AMouseButtons: NSUInteger): PtrInt; static;
     procedure OffsetMousePos(var Point: NSPoint);
@@ -50,8 +50,9 @@ type
     function GetContext: TCocoaContext;
     function GetTarget: TObject;
     function GetCallbackObject: TObject;
-    function MouseUpDownEvent(Event: NSEvent): Boolean; virtual;
-    function KeyEvent(Event: NSEvent): Boolean; virtual;
+    function GetCaptureControlCallback: ICommonCallBack;
+    function MouseUpDownEvent(Event: NSEvent; AForceAsMouseUp: Boolean = False): Boolean; virtual;
+    function KeyEvent(Event: NSEvent; AForceAsKeyDown: Boolean = False): Boolean; virtual;
     procedure MouseClick; virtual;
     function MouseMove(Event: NSEvent): Boolean; virtual;
     function scrollWheel(Event: NSEvent): Boolean; virtual;
@@ -62,10 +63,12 @@ type
     procedure DidBecomeKeyNotification; virtual;
     procedure DidResignKeyNotification; virtual;
     procedure SendOnChange; virtual;
+    procedure SendOnTextChanged; virtual; // text controls (like spin) respond to OnChange for this event, but not for SendOnChange
 
     function DeliverMessage(var Msg): LRESULT; virtual; overload;
     function DeliverMessage(Msg: Cardinal; WParam: WParam; LParam: LParam): LResult; virtual; overload;
     procedure Draw(ControlContext: NSGraphicsContext; const bounds, dirty: NSRect); virtual;
+    procedure DrawBackground(ctx: NSGraphicsContext; const bounds, dirtyRect: NSRect); virtual;
     function ResetCursorRects: Boolean; virtual;
 
     property HasCaret: Boolean read GetHasCaret write SetHasCaret;
@@ -97,6 +100,7 @@ type
     class procedure SetColor(const AWinControl: TWinControl); override;
     class procedure ShowHide(const AWinControl: TWinControl); override;
     class procedure Invalidate(const AWinControl: TWinControl); override;
+    // class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
   end;
 
 
@@ -105,7 +109,7 @@ type
   TLCLCustomControlCallback = class(TLCLCommonCallback)
   public
     function MouseMove(Event: NSEvent): Boolean; override;
-    function MouseUpDownEvent(Event: NSEvent): Boolean; override;
+    function MouseUpDownEvent(Event: NSEvent; AForceAsMouseUp: Boolean = False): Boolean; override;
   end;
 
   { TCocoaWSCustomControl }
@@ -114,16 +118,6 @@ type
   published
     class function CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
-  end;
-
-  { TLCLMenuItemCallback }
-
-  TLCLMenuItemCallback = class(TLCLCommonCallback, IMenuItemCallback)
-  private
-    FMenuItemTarget: TComponent;
-  public
-    constructor Create(AOwner: NSObject; AMenuItemTarget: TComponent); reintroduce;
-    procedure ItemSelected;
   end;
 
 const
@@ -166,9 +160,9 @@ begin
   Result:=True;
 end;
 
-function TLCLCustomControlCallback.MouseUpDownEvent(Event: NSEvent): Boolean;
+function TLCLCustomControlCallback.MouseUpDownEvent(Event: NSEvent; AForceAsMouseUp: Boolean = False): Boolean;
 begin
-  inherited MouseUpDownEvent(Event);
+  inherited MouseUpDownEvent(Event, AForceAsMouseUp);
   Result := True;
 end;
 
@@ -287,8 +281,23 @@ begin
   Result := Self;
 end;
 
+function TLCLCommonCallback.GetCaptureControlCallback: ICommonCallBack;
+var
+  obj: NSObject;
+  lCaptureView: NSView;
+begin
+  Result := nil;
+  if CocoaWidgetSet.CaptureControl = 0 then Exit;
+  obj := NSObject(CocoaWidgetSet.CaptureControl);
+  lCaptureView := GetNSObjectView(obj);
+  if (obj <> Owner) and (lCaptureView <> Owner) and not FIsEventRouting then
+  begin
+    Result := lCaptureView.lclGetCallback;
+  end;
+end;
 
-function TLCLCommonCallback.KeyEvent(Event: NSEvent): Boolean;
+
+function TLCLCommonCallback.KeyEvent(Event: NSEvent; AForceAsKeyDown: Boolean): Boolean;
 var
   UTF8VKCharacter: TUTF8Char; // char without modifiers, used for VK_ key value
   UTF8Character: TUTF8Char;   // char to send via IntfUtf8KeyPress
@@ -298,7 +307,7 @@ var
   VKKeyCode: word;         // VK_ code
   IsSysKey: Boolean;       // Is alt (option) key down?
   KeyData: PtrInt;         // Modifiers (ctrl, alt, mouse buttons...)
-
+  eventType: NSEventType;
 
 (*
   Mac keycodes handling is not so straight. For an explanation, see
@@ -639,7 +648,11 @@ var
   end;
 
 begin
-  case Event.type_ of
+  eventType := Event.type_;
+  if AForceAsKeyDown then
+    eventType := NSKeyDown;
+
+  case eventType of
     NSKeyDown:
       begin
         if not TranslateMacKeyCode then
@@ -684,37 +697,32 @@ begin
   Result := MSGKIND[AButton][ClickCount];
 end;
 
-function TLCLCommonCallback.MouseUpDownEvent(Event: NSEvent): Boolean;
+function TLCLCommonCallback.MouseUpDownEvent(Event: NSEvent; AForceAsMouseUp: Boolean = False): Boolean;
 const
   MSGKINDUP: array[0..3] of Integer = (LM_LBUTTONUP, LM_RBUTTONUP, LM_MBUTTONUP, LM_XBUTTONUP);
-
 var
   Msg: TLMMouse;
   MsgContext: TLMContextMenu;
   MousePos: NSPoint;
   MButton: NSInteger;
-  obj:NSObject;
-  callback: ICommonCallback;
-
+  lCaptureControlCallback: ICommonCallback;
+  //Str: string;
+  lEventType: NSEventType;
 begin
   Result := False; // allow cocoa to handle message
 
   if Assigned(Target) and (not (csDesigning in Target.ComponentState) and not Owner.lclIsEnabled) then
     Exit;
 
-   //debugln('MouseUpDownEvent '+Target.name);
-   if CocoaWidgetSet.CaptureControl<>0 then       // check if to route event to capture control
-    begin
-      obj:=NSObject(CocoaWidgetSet.CaptureControl);
-      if (obj<>Owner) and not FIsEventRouting then
-        begin
-          FIsEventRouting:=true;
-          callback:=obj.lclGetCallback;
-          Result:=callback.MouseUpDownEvent(Event);
-          FIsEventRouting:=false;
-          exit;
-        end;
-    end;
+  lCaptureControlCallback := GetCaptureControlCallback();
+  //Str := (Format('MouseUpDownEvent Target=%s Self=%x CaptureControlCallback=%x', [Target.name, PtrUInt(Self), PtrUInt(lCaptureControlCallback)]));
+  if lCaptureControlCallback <> nil then
+  begin
+    FIsEventRouting:=true;
+    Result := lCaptureControlCallback.MouseUpDownEvent(Event);
+    FIsEventRouting:=false;
+    exit;
+  end;
 
   // idea of multi click implementation is taken from gtk
 
@@ -736,8 +744,10 @@ begin
     MButton := 3;
   end;
 
-
-  case Event.type_ of
+  lEventType := Event.type_;
+  if AForceAsMouseUp then
+    lEventType := NSLeftMouseUp;
+  case lEventType of
     NSLeftMouseDown,
     NSRightMouseDown,
     NSOtherMouseDown:
@@ -758,7 +768,7 @@ begin
         MsgContext.XPos := Round(MousePos.X);
         MsgContext.YPos := Round(MousePos.Y);
         Result := DeliverMessage(MsgContext) <> 0;
-     end;
+      end;
     end;
     NSLeftMouseUp,
     NSRightMouseUp,
@@ -771,7 +781,7 @@ begin
     end;
   end;
 
-//debugln('MouseUpDownEvent:'+DbgS(Msg.Msg)+' Target='+Target.name+);
+  //debugln('MouseUpDownEvent:'+DbgS(Msg.Msg)+' Target='+Target.name+);
 end;
 
 function TLCLCommonCallback.MouseMove(Event: NSEvent): Boolean;
@@ -799,36 +809,31 @@ begin
   rect:=Owner.lclClientFrame;
   targetControl:=nil;
 
-  if CocoaWidgetSet.CaptureControl<>0 then       // check if to route event to capture control
-    begin
-      obj:=NSObject(CocoaWidgetSet.CaptureControl);
-      if (obj<>Owner) and not FIsEventRouting then
-        begin
-          FIsEventRouting:=true;
-          callback:=obj.lclGetCallback;
-          result:=callback.MouseMove(Event);
-          FIsEventRouting:=false;
-          exit;
-        end;
-    end
+  callback := GetCaptureControlCallback();
+  if callback <> nil then
+  begin
+    FIsEventRouting:=true;
+    Result := callback.MouseMove(Event);
+    FIsEventRouting:=false;
+    exit;
+  end
+  else
+  begin
+    if assigned(Target.Parent) and not PtInRect(rect, mp) then
+       targetControl:=Target.Parent // outside myself then route to parent
     else
-    begin
-
-      if assigned(Target.Parent) and not PtInRect(rect, mp) then
-         targetControl:=Target.Parent                            // outside myself then route to parent
-      else
-      for i:=Target.ComponentCount-1 downto 0  do                // otherwise check, if over child and route to child
-        if Target.Components[i] is TWinControl then
-          begin
-            childControl:=TWinControl(Target.Components[i]);
-            rect:=childControl.BoundsRect;
-             if  PtInRect(rect, mp) then
-                 begin
-                   targetControl:=childControl;
-                   break;
-                 end;
-           end;
-    end;
+    for i:=Target.ComponentCount-1 downto 0  do // otherwise check, if over child and route to child
+      if Target.Components[i] is TWinControl then
+      begin
+        childControl:=TWinControl(Target.Components[i]);
+        rect:=childControl.BoundsRect;
+        if  PtInRect(rect, mp) then
+        begin
+          targetControl:=childControl;
+          break;
+        end;
+      end;
+  end;
 
   if assigned(targetControl) and not FIsEventRouting then
   begin
@@ -878,9 +883,8 @@ begin
 
   FillChar(Msg, SizeOf(Msg), #0);
 
-
   Msg.Msg := LM_MOUSEWHEEL;
-  Msg.Button :=MButton;
+  Msg.Button := MButton;
   Msg.X := round(MousePos.X);
   Msg.Y := round(MousePos.Y);
   Msg.State :=  TShiftState(integer(CocoaModifiersToKeyState(Event.modifierFlags)));
@@ -888,7 +892,8 @@ begin
   // https://developer.apple.com/library/mac/releasenotes/AppKit/RN-AppKitOlderNotes/
   // It says that deltaY=1 means 1 line, and in the LCL 1 line is 120
   Msg.WheelDelta := round(event.deltaY * 120);
-
+  // Filter out empty events - See bug 28491
+  if Msg.WheelDelta = 0 then Exit;
 
   NotifyApplicationUserInput(Target, Msg.Msg);
   Result := DeliverMessage(Msg) <> 0;
@@ -981,19 +986,24 @@ end;
 
 procedure TLCLCommonCallback.DidBecomeKeyNotification;
 begin
-   LCLSendActivateMsg(Target, WA_ACTIVE, false);
-   LCLSendSetFocusMsg(Target);
+  LCLSendActivateMsg(Target, WA_ACTIVE, false);
+  LCLSendSetFocusMsg(Target);
 end;
 
 procedure TLCLCommonCallback.DidResignKeyNotification;
 begin
-   LCLSendActivateMsg(Target, WA_INACTIVE, false);
-   LCLSendKillFocusMsg(Target);
+  LCLSendActivateMsg(Target, WA_INACTIVE, false);
+  LCLSendKillFocusMsg(Target);
 end;
 
 procedure TLCLCommonCallback.SendOnChange;
 begin
-    SendSimpleMessage(Target, LM_CHANGED);
+  SendSimpleMessage(Target, LM_CHANGED);
+end;
+
+procedure TLCLCommonCallback.SendOnTextChanged;
+begin
+  SendSimpleMessage(Target, CM_TEXTCHANGED);
 end;
 
 function TLCLCommonCallback.DeliverMessage(var Msg): LRESULT;
@@ -1022,6 +1032,7 @@ begin
   if Assigned(FContext) then
     Exit;
   FContext := TCocoaContext.Create(ControlContext);
+  FContext.isControlDC := True;
   try
     // debugln('Draw '+Target.name+' bounds='+Dbgs(NSRectToRect(bounds))+' dirty='+Dbgs(NSRectToRect(dirty)));
     if FContext.InitDraw(Round(bounds.size.width), Round(bounds.size.height)) then
@@ -1051,6 +1062,19 @@ begin
     end;
   finally
     FreeAndNil(FContext);
+  end;
+end;
+
+procedure TLCLCommonCallback.DrawBackground(ctx: NSGraphicsContext; const bounds, dirtyRect: NSRect);
+var
+  lTarget: TWinControl;
+begin
+  // Implement Color property
+  lTarget := TWinControl(GetTarget());
+  if (lTarget.Color <> clDefault) and (lTarget.Color <> clBtnFace) then
+  begin
+    ColorToNSColor(ColorToRGB(lTarget.Color)).set_();
+    NSRectFill(dirtyRect);
   end;
 end;
 
@@ -1252,7 +1276,8 @@ begin
   if AWinControl.HandleAllocated then
   begin
     {$IFDEF COCOA_DEBUG_SETBOUNDS}
-    writeln('TCocoaWSWinControl.SetBounds: '+AWinControl.Name+'Bounds='+dbgs(Bounds(ALeft, ATop, AWidth, AHeight)));
+    writeln(Format('TCocoaWSWinControl.SetBounds: %s Bounds=%s',
+      [AWinControl.Name, dbgs(Bounds(ALeft, ATop, AWidth, AHeight))]));
     {$ENDIF}
     NSObject(AWinControl.Handle).lclSetFrame(Bounds(ALeft, ATop, AWidth, AHeight));
   end;
@@ -1360,24 +1385,6 @@ begin
   ctrl := TCocoaCustomControl(TCocoaCustomControl.alloc.lclInitWithCreateParams(AParams));
   ctrl.callback := TLCLCustomControlCallback.Create(ctrl, AWinControl);
   Result := TLCLIntfHandle(ctrl);
-end;
-
-{ TLCLMenuItemCallback }
-
-constructor TLCLMenuItemCallback.Create(AOwner: NSObject; AMenuItemTarget: TComponent);
-begin
-  Owner := AOwner;
-  FMenuItemTarget := AMenuItemTarget;
-end;
-
-procedure TLCLMenuItemCallback.ItemSelected;
-var
-  Msg:TLMessage;
-begin
-  FillChar(Msg{%H-}, SizeOf(Msg), 0);
-  Msg.msg := LM_ACTIVATE;
-  // debugln('send LM_Activate');
-  LCLMessageGlue.DeliverMessage(FMenuItemTarget,Msg);
 end;
 
 end.

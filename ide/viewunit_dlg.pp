@@ -40,15 +40,16 @@ unit ViewUnit_Dlg;
 interface
 
 uses
-  SysUtils, Classes, Controls, Forms, Dialogs, Buttons, StdCtrls,
+  SysUtils, Classes, Controls, Forms, Buttons, StdCtrls,
   LazarusIdeStrConsts, IDEProcs, CustomFormEditor, LCLType, LCLIntf,
   ExtCtrls, ButtonPanel, Menus, AVL_Tree, ComCtrls,
   PackageDefs, IDEWindowIntf, IDEHelpIntf, IDEImagesIntf, ListFilterEdit,
-  CodeToolsStructs, CodeToolManager, FileProcs, lazutf8sysutils, LazFileUtils,
-  LazLogger;
+  CodeToolsStructs, CodeToolManager, FileProcs,
+  lazutf8sysutils, LazFileUtils, LazFileCache;
 
 type
   TIDEProjectItem = (
+    piNone,
     piUnit,
     piComponent,
     piFrame
@@ -363,21 +364,19 @@ procedure TViewUnitDialog.OnIdle(Sender: TObject; var Done: Boolean);
     case ItemType of
     piUnit:
       begin
-        fFoundFiles[aFilename]:=ExtractFileName(aFilename);
       end;
     piComponent:
       begin
         CompClass:=FindLFMBaseClass(aFilename);
         if CompClass=pfcbcNone then exit;
-        fFoundFiles[aFilename]:=ExtractFileName(aFilename);
       end;
     piFrame:
       begin
         CompClass:=FindLFMBaseClass(aFilename);
         if CompClass<>pfcbcFrame then exit;
-        fFoundFiles[aFilename]:=ExtractFileName(aFilename);
       end;
     end;
+    fFoundFiles[aFilename]:=ExtractFileName(aFilename);
   end;
 
   procedure CheckDirectory(aDirectory: string);
@@ -511,7 +510,7 @@ procedure TViewUnitDialog.ShowEntries;
 var
   UEntry: TViewUnitsEntry;
 begin
-  DisableAutoSizing;
+  DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('TViewUnitDialog.ShowEntries'){$ENDIF};
   try
     // Data items
     FilterEdit.Items.Clear;
@@ -523,7 +522,7 @@ begin
       if UEntry.Selected then
         FilterEdit.SelectionList.Add(UEntry.Name);
   finally
-    EnableAutoSizing;
+    EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('TViewUnitDialog.ShowEntries'){$ENDIF};
   end;
 end;
 

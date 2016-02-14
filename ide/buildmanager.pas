@@ -34,18 +34,20 @@ unit BuildManager;
 interface
 
 uses
+  // RTL + FCL + LCL
   Classes, SysUtils, AVL_Tree,
-  // LCL
-  LConvEncoding, InterfaceBase, LCLProc, Dialogs, FileUtil, Laz2_XMLCfg,
-  LazUTF8, LazFileUtils, LazFileCache, Forms, Controls,
-  // codetools
+  InterfaceBase, LCLProc, Dialogs, Forms, Controls,
+  // CodeTools
   ExprEval, BasicCodeTools, CodeToolManager, DefineTemplates, CodeCache,
-  FileProcs, CodeToolsCfgScript, CodeToolsStructs,
+  FileProcs, CodeToolsCfgScript,
+  // LazUtils
+  LConvEncoding, FileUtil, LazFileUtils, LazFileCache, LazUTF8,
+  Laz2_XMLCfg,
   // IDEIntf
   IDEOptionsIntf, ProjectIntf, MacroIntf, IDEDialogs, IDEExternToolIntf,
   CompOptsIntf, LazIDEIntf, MacroDefIntf, IDEMsgIntf,
   // IDE
-  IDECmdLine, LazarusIDEStrConsts, DialogProcs, IDEProcs, CodeToolsOptions,
+  IDECmdLine, LazarusIDEStrConsts, DialogProcs, IDEProcs,
   InputHistory, EditDefineTree, ProjectResources, MiscOptions, LazConf,
   EnvironmentOpts, TransferMacros, CompilerOptions,
   ExtToolEditDlg{needed for environment options ExternalUserTools},
@@ -212,7 +214,7 @@ type
                                     CompiledExt, ContextDescription: string
                                     ): TModalResult; override;
     function CreateProjectApplicationBundle: Boolean; override;
-    function BackupFile(const Filename: string): TModalResult; override;
+    function BackupFileForWrite(const Filename: string): TModalResult; override;
 
     function GetResourceType(AnUnitInfo: TUnitInfo): TResourceType;
     function FindLRSFilename(AnUnitInfo: TUnitInfo;
@@ -314,6 +316,7 @@ end;
 constructor TBuildManager.Create(AOwner: TComponent);
 begin
   EnvironmentOptions := TEnvironmentOptions.Create;
+  IDEEnvironmentOptions := EnvironmentOptions;
   EnvironmentOptions.IsGlobalMode:=@EnvironmentOptionsIsGlobalMode;
   DefaultCfgVars:=TCTCfgScriptVariables.Create;
   DefaultCfgVarsBuildMacroStamp:=CTInvalidChangeStamp;
@@ -325,7 +328,7 @@ begin
   fLCLWidgetType:=LCLPlatformDirNames[GetDefaultLCLWidgetType];
   FUnitSetChangeStamp:=TFPCUnitSetCache.GetInvalidChangeStamp;
 
-  OnBackupFileInteractive:=@BackupFile;
+  OnBackupFileInteractive:=@BackupFileForWrite;
 
   GetBuildMacroValues:=@OnGetBuildMacroValues;
   OnAppendCustomOption:=@AppendMatrixCustomOption;
@@ -1346,7 +1349,7 @@ function TBuildManager.CheckAmbiguousSources(const AFilename: string;
     NewFilename: string;
   begin
     NewFilename:=AmbiguousFilename+'.ambiguous';
-    if not FileProcs.RenameFileUTF8(AmbiguousFilename,NewFilename) then
+    if not RenameFileUTF8(AmbiguousFilename,NewFilename) then
     begin
       Result:=IDEMessageDialog(lisErrorRenamingFile,
        Format(lisUnableToRenameAmbiguousFileTo,[AmbiguousFilename,LineEnding,NewFilename]),
@@ -1431,8 +1434,7 @@ var
   IsPascalUnit: Boolean;
   AUnitName: String;
 begin
-  Result:=mrOk;
-  if EnvironmentOptions.AmbiguousFileAction=afaIgnore then exit;
+  if EnvironmentOptions.AmbiguousFileAction=afaIgnore then exit(mrOK);
   if EnvironmentOptions.AmbiguousFileAction
     in [afaAsk,afaAutoDelete,afaAutoRename]
   then begin
@@ -1468,21 +1470,22 @@ begin
         end;
         if EnvironmentOptions.AmbiguousFileAction in [afaAutoDelete,afaAsk]
         then begin
-          if not DeleteFileUTF8(CurFilename) then begin
-            IDEMessageDialog(lisDeleteFileFailed,
-              Format(lisPkgMangUnableToDeleteFile, [CurFilename]),
-              mtError,[mbOk]);
-          end;
+          Result:=DeleteFileInteractive(CurFilename);
+          if not (Result in [mrOK,mrIgnore]) then exit(mrCancel);
         end else if EnvironmentOptions.AmbiguousFileAction=afaAutoRename then
         begin
-          Result:=BackupFile(CurFilename);
-          if Result=mrAbort then exit;
-          Result:=mrOk;
+          Result:=BackupFileForWrite(CurFilename);
+          if not (Result in [mrOK,mrIgnore]) then exit(mrCancel);
+          if FileExistsUTF8(CurFilename) then begin
+            Result:=DeleteFileInteractive(CurFilename);
+            if not (Result in [mrOK,mrIgnore]) then exit(mrCancel);
+          end;
         end;
       until FindNextUTF8(FileInfo)<>0;
     end;
     FindCloseUTF8(FileInfo);
   end;
+  Result:=mrOk;
 end;
 
 {-------------------------------------------------------------------------------
@@ -1622,7 +1625,7 @@ begin
   Result := True;
 end;
 
-function TBuildManager.BackupFile(const Filename: string): TModalResult;
+function TBuildManager.BackupFileForWrite(const Filename: string): TModalResult;
 var BackupFilename, CounterFilename: string;
   AText,ACaption:string;
   BackupInfo: TBackupInfo;
@@ -1655,8 +1658,12 @@ begin
   FilePath:=ExtractFilePath(Filename);
   FileExt:=ExtractFileExt(Filename);
   FileNameOnly:=ExtractFilenameOnly(Filename);
-  if BackupInfo.SubDirectory<>'' then begin
-    SubDir:=FilePath+BackupInfo.SubDirectory;
+  SubDir:=BackupInfo.SubDirectory;
+  if BackupInfo.SubDirectory<>'' then
+    GlobalMacroList.SubstituteStr(SubDir);
+  if SubDir<>'' then begin
+    if not FilenameIsAbsolute(SubDir) then
+      SubDir:=TrimFilename(FilePath+SubDir);
     Result:=ForceDirectoryInteractive(SubDir,[mbRetry,mbIgnore]);
     if Result=mrCancel then exit;
     if Result=mrIgnore then Result:=mrOk;
@@ -1726,8 +1733,8 @@ begin
       dec(i);
       while i>=1 do begin
         repeat
-          if not FileProcs.RenameFileUTF8(BackupFilename+IntToStr(i),
-             BackupFilename+IntToStr(i+1)) then
+          if not RenameFileUTF8(BackupFilename+IntToStr(i),
+                                BackupFilename+IntToStr(i+1)) then
           begin
             ACaption:=lisRenameFileFailed;
             AText:=Format(lisUnableToRenameFileTo,
@@ -1745,7 +1752,7 @@ begin
   end;
   // backup file
   repeat
-    if not IDEProcs.BackupFile(Filename, BackupFilename) then
+    if not IDEProcs.BackupFileForWrite(Filename, BackupFilename) then
     begin
       ACaption := lisBackupFileFailed;
       AText := Format(lisUnableToBackupFileTo, [Filename, BackupFilename]);
@@ -1918,9 +1925,9 @@ begin
     if Prog<>'' then begin
       List:=nil;
       try
-        if ConsoleVerbosity>=0 then
+        if ConsoleVerbosity>0 then
           debugln(['Hint: (lazarus) TBuildManager.MacroFuncInstantFPCCache ',Prog]);
-        List:=RunTool(Prog,'--get-cache','',ConsoleVerbosity<0);
+        List:=RunTool(Prog,'--get-cache','',ConsoleVerbosity<1);
         if (List<>nil) and (List.Count>0) then
           FMacroInstantFPCCache:=List[0];
         List.Free;
@@ -1931,7 +1938,7 @@ begin
         end;
       end;
     end;
-    if ConsoleVerbosity>=0 then
+    if ConsoleVerbosity>=1 then
       debugln(['Hint: (lazarus) [TBuildManager.MacroFuncInstantFPCCache] ',FMacroInstantFPCCache]);
   end;
   Result:=FMacroInstantFPCCache;

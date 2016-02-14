@@ -21,6 +21,57 @@ uses
   IDEExternToolIntf, SrcEditorIntf, IDEWindowIntf;
 
 type
+  TIDEDirective = (
+    idedNone,
+    idedBuildCommand,  // Filename plus params to build the file
+                       //   default is '$(CompPath) $(EdFile)'
+    idedBuildWorkingDir,// Working directory for building. Default is the
+                       //   directory of the file
+    idedBuildScan,     // Flags controlling what messages should be scanned for
+                       //   during building. See TIDEDirBuildScanFlag.
+    idedRunCommand,    // Filename plus params to run the file
+                       //   default is '$NameOnly($(EdFile))'
+    idedRunWorkingDir, // Working directory for building. Default is the
+                       //   directory of the file
+    idedRunFlags       // Flags for run. See TIDEDirRunFlag
+    );
+  TIDEDirectives = set of TIDEDirective;
+
+  TIDEDirBuildScanFlag = (
+    idedbsfNone,
+    idedbsfFPC, // scan for FPC messages. FPC+ means on (default) and FPC- off.
+    idedbsfMake // scan for MAKE messages. MAKE- means on (default) and MAKE- off.
+    );
+  TIDEDirBuildScanFlags = set of TIDEDirBuildScanFlag;
+
+  TIDEDirRunFlag = (
+    idedrfNone,
+    idedrfBuildBeforeRun, // BUILD+ means on (default for non script), BUILD- means off
+    idedrfMessages // show output in Messages window
+    );
+  TIDEDirRunFlags = set of TIDEDirRunFlag;
+const
+  IDEDirectiveNames: array[TIDEDirective] of string = (
+    '',
+    'BuildCommand',
+    'BuildWorkingDir',
+    'BuildScan',
+    'RunCommand',
+    'RunWorkingDir',
+    'RunFlags'
+    );
+  IDEDirBuildScanFlagNames: array[TIDEDirBuildScanFlag] of string = (
+    '',
+    'FPC',
+    'MAKE'
+    );
+  IDEDirRunFlagNames: array[TIDEDirRunFlag] of string = (
+    '',
+    'BUILD',
+    'MESSAGES'
+    );
+
+type
   // open file flags
   // Normally you don't need to pass any flags.
   TOpenFlag = (
@@ -128,6 +179,14 @@ type
     );
   TFindUnitFileFlags = set of TFindUnitFileFlag;
 
+  // selected part of IDE
+  TTabDisplayState = (
+    tdsNone,
+    tdsCode,     // focussing sourcenotebook or source tab
+    tdsDesign,   // focussing designer form/design tab
+    tdsOther     // focussing other (user defined) tab assigned to module (like History Tab)
+    );
+
   // find source flags
   // Normally you don't need to pass any flags.
   TFindSourceFlag = (
@@ -149,6 +208,8 @@ type
       // Global options should be prependended, project options should be appended.
     ): boolean of object;
 
+  TShowDesignerFormOfSourceFunction = procedure(Sender: TObject; AEditor: TSourceEditorInterface;
+                                 AComponentPaletteClassSelected: Boolean) of object;
   TGetFPCFrontEndPath = function(Sender: TObject;
     var Path: string // this path is prepended to fpc.
     ): boolean of object;
@@ -163,15 +224,37 @@ type
     lihtProjectBuilding, // called before IDE builds the project
     lihtProjectDependenciesCompiling, // called before IDE compiles dependencies of project
     lihtProjectDependenciesCompiled, // called after IDE compiled dependencies of project
+    lihtProjectBuildingFinished, // called after IDE builds the project
+    lihtLazarusBuilding, // called before IDE builds Lazarus IDE
+    lihtLazarusBuildingFinished, // called after IDE builds Lazarus IDE
     lihtQuickSyntaxCheck,  // called when quick syntax check is clicked (menu item or shortcut)
     lihtGetFPCFrontEndParams, // called when the IDE gets the parameters of the 'fpc' front end tool
-    lihtGetFPCFrontEndPath // called when the IDE gets the path of the 'fpc' front end tool
+    lihtGetFPCFrontEndPath, // called when the IDE gets the path of the 'fpc' front end tool
+    lihtShowDesignerFormOfSource, // called after showing a designer form for code editor (AEditor can be nil!)
+    lihtShowSourceOfActiveDesignerForm, // called after showing a code of designer form
+    lihtChangeToolStatus//called when IDEToolStatus has changed (e.g. itNone->itBuilder etc.)
     );
     
+  TLazToolStatus = (
+    itNone,            // The default mode. All editing allowed.
+    itExiting,         // the ide is shutting down
+    itBuilder,         // compiling (the project, a package, IDE itself, an external tool)
+                       //    Loading/Saving/Debugging is not allowed.
+    itDebugger,        // debugging the project.
+                       //    Loading/Saving/Compiling is not allowed.
+    itCodeTools,       // the CodeToolBoss is working and has called the progress event.
+    itCodeToolAborting,// the CodeToolBoss is working and is about to abort
+    itCustom           // this state is not used yet.
+    );
+  TLazToolStatusChangeEvent = procedure(Sender: TObject; OldStatus, NewStatus: TLazToolStatus) of object;
+
+  TLazBuildingFinishedEvent = procedure(Sender: TObject; BuildSuccessful: Boolean) of object;
+
   { TLazIDEInterface }
 
   TLazIDEInterface = class(TComponent)
   private
+    FToolStatus: TLazToolStatus;
     FMainBarSubTitle: string;
     FOpenEditorsOnCodeToolChange: boolean;
     FOpenMainSourceOnCodeToolChange: boolean;
@@ -184,24 +267,37 @@ type
     FLazarusIDEHandlers: array[TLazarusIDEHandlerType] of TMethodList;
     FOwningComponent: TComponent;
     FIDEStarted: boolean;
+    FIDEIsClosing: Boolean;
     FLastActivatedWindows: TFPList;
     // used to find the last form so you can display the correct tab
     FLastFormActivated: TCustomForm;
 
+    procedure SetToolStatus(const AToolStatus: TLazToolStatus); virtual;
     function GetActiveProject: TLazProject; virtual; abstract;
-    procedure DoCallNotifyHandler(HandlerType: TLazarusIDEHandlerType);
+    procedure DoCallNotifyHandler(HandlerType: TLazarusIDEHandlerType); overload;
     function DoCallModalFunctionHandler(HandlerType: TLazarusIDEHandlerType
                                         ): TModalResult;
     function DoCallModalHandledHandler(HandlerType: TLazarusIDEHandlerType;
                                        var Handled: boolean): TModalResult;
+    procedure DoCallNotifyHandler(HandlerType: TLazarusIDEHandlerType;
+                                  Sender: TObject); overload;
+    procedure DoCallShowDesignerFormOfSourceHandler(
+      HandlerType: TLazarusIDEHandlerType;
+      Sender: TObject; AEditor: TSourceEditorInterface;
+      AComponentPaletteClassSelected: Boolean);
+    procedure DoCallBuildingFinishedHandler(HandlerType: TLazarusIDEHandlerType;
+      Sender: TObject; BuildSuccessful: Boolean);
+
     procedure SetMainBarSubTitle(const AValue: string); virtual;
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
     property OwningComponent: TComponent read FOwningComponent;
     
+    property ToolStatus: TLazToolStatus read FToolStatus write SetToolStatus;
+
     // the main window with the IDE menu
-    function GetMainBar: TComponent; virtual; abstract;
+    function GetMainBar: TForm; virtual; abstract;
     property MainBarSubTitle: string read FMainBarSubTitle write SetMainBarSubTitle;
 
     // find file
@@ -239,6 +335,12 @@ type
                        out Component: TComponent): TModalResult; virtual; abstract;
     procedure DoDropFiles(Sender: TObject; const FileNames: array of String;
       WindowIndex: integer = -1); virtual; abstract;
+    function DoConfigureBuildFile: TModalResult; virtual; abstract;
+    function DoBuildFile({%H-}ShowAbort: Boolean;
+      Filename: string = '' // if empty use active source editor file
+      ): TModalResult; virtual; abstract;
+    function DoRunFile(Filename: string = '' // if empty use active source editor file
+      ): TModalResult; virtual; abstract;
 
     // project
     property ActiveProject: TLazProject read GetActiveProject;
@@ -252,20 +354,21 @@ type
     function DoBuildProject(const AReason: TCompileReason;
                             Flags: TProjectBuildFlags;
                             FinalizeResources: boolean = True): TModalResult; virtual; abstract;
+    function DoRunProject: TModalResult; virtual; abstract;
     function GetProjectFileForProjectEditor(AEditor: TSourceEditorInterface): TLazProjectFile; virtual; abstract;
     function DoCallProjectChangedHandler(HandlerType: TLazarusIDEHandlerType;
                                          AProject: TLazProject): TModalResult;
+    function DoAddUnitToProject(AEditor: TSourceEditorInterface): TModalResult; virtual; abstract;
 
     // configs
     class function GetPrimaryConfigPath: String; virtual; abstract;
     class function GetSecondaryConfigPath: String; virtual; abstract;
     procedure CopySecondaryConfigFile(const AFilename: String); virtual; abstract;
-    procedure DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass = nil;
-      ACaption: String = ''); overload;
-    procedure DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass;
-      ACaption: String;
-      AOptionsFilter: array of TAbstractIDEOptionsClass;
-      ASettings: TIDEOptionsEditorSettings); overload; virtual; abstract;
+    function DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass = nil;
+      ACaption: String = ''): Boolean; overload;
+    function DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass;
+      ACaption: String; AOptionsFilter: array of TAbstractIDEOptionsClass;
+      ASettings: TIDEOptionsEditorSettings): Boolean; overload; virtual; abstract;
 
     // filenames, paths
     function CreateNewUniqueFilename(const Prefix, Ext: string;
@@ -293,10 +396,12 @@ type
     // progress and error messages
     function ShowProgress(const SomeText: string;
       Step, MaxStep: integer): boolean; virtual; abstract; // False if canceled by user
+    function GetSelectedCompilerMessage: TMessageLine; virtual; abstract;
     function DoJumpToCompilerMessage(FocusEditor: boolean;
                               Msg: TMessageLine = nil // if nil then it jumps to first message
                               ): boolean; virtual; abstract;
-    procedure DoJumpToNextError(DirectionDown: boolean); virtual; abstract;
+    procedure DoJumpToNextCompilerMessage(aMinUrgency: TMessageLineUrgency; DirectionDown: boolean); virtual; abstract;
+    procedure DoJumpToNextError(DirectionDown: boolean);
     procedure DoShowMessagesView(BringToFront: boolean = true); virtual; abstract;
     function DoCheckFilesOnDisk(Instantaneous: boolean = false): TModalResult; virtual; abstract;
     // call this after changing TargetOS/TargetCPU of the ActiveProject
@@ -305,7 +410,6 @@ type
     procedure AbortBuild; virtual; abstract;
 
     // search results
-    procedure DoShowSearchResultsView(Show: boolean; BringToFront: boolean = False); deprecated;
     procedure DoShowSearchResultsView(State: TIWGetFormState = iwgfShowOnTop); virtual; abstract;
 
     // designer
@@ -315,7 +419,11 @@ type
                               LoadForm: boolean): TIDesigner; virtual; abstract;
     function GetProjectFileWithRootComponent(AComponent: TComponent): TLazProjectFile; virtual; abstract;
     function GetProjectFileWithDesigner(ADesigner: TIDesigner): TLazProjectFile; virtual; abstract;
-    
+
+    procedure DoShowDesignerFormOfSrc(AEditor: TSourceEditorInterface); virtual; abstract; overload;
+    procedure DoShowMethod(AEditor: TSourceEditorInterface; const AMethodName: String); virtual; abstract;
+    procedure DoShowDesignerFormOfSrc(AEditor: TSourceEditorInterface; out AForm: TCustomForm); virtual; abstract; overload;
+
     // events
     procedure RemoveAllHandlersOfObject(AnObject: TObject);
     procedure AddHandlerOnSavingAll(const OnSaveAllEvent: TModalResultFunction;
@@ -346,6 +454,11 @@ type
                                 AsLast: boolean = false);
     procedure RemoveHandlerOnProjectBuilding(
                                 const OnProjBuildingEvent: TModalResultFunction);
+    procedure AddHandlerOnProjectBuildingFinished(
+                           const OnProjBuildingFinishedEvent: TLazBuildingFinishedEvent;
+                           AsLast: boolean = false);
+    procedure RemoveHandlerOnProjectBuildingFinished(
+                               const OnProjBuildingFinishedEvent: TLazBuildingFinishedEvent);
     procedure AddHandlerOnProjectDependenciesCompiling(
                    const OnProjDependenciesCompilingEvent: TModalResultFunction;
                    AsLast: boolean = false);
@@ -356,6 +469,16 @@ type
                     AsLast: boolean = false);
     procedure RemoveHandlerOnProjectDependenciesCompiled(
                    const OnProjDependenciesCompiledEvent: TModalResultFunction);
+    procedure AddHandlerOnLazarusBuilding(
+                                const OnLazBuildingEvent: TModalResultFunction;
+                                AsLast: boolean = false);
+    procedure RemoveHandlerOnLazarusBuilding(
+                                const OnLazBuildingEvent: TModalResultFunction);
+    procedure AddHandlerOnLazarusBuildingFinished(
+                           const OnLazBuildingFinishedEvent: TLazBuildingFinishedEvent;
+                           AsLast: boolean = false);
+    procedure RemoveHandlerOnLazarusBuildingFinished(
+                               const OnLazBuildingFinishedEvent: TLazBuildingFinishedEvent);
     procedure AddHandlerOnQuickSyntaxCheck(
                            const OnQuickSyntaxCheckEvent: TModalHandledFunction;
                            AsLast: boolean = false);
@@ -371,14 +494,50 @@ type
     procedure RemoveHandlerGetFPCFrontEndPath(
                                           const Handler: TGetFPCFrontEndPath);
     function CallHandlerGetFPCFrontEndPath(Sender: TObject; var Path: string): boolean;
+    procedure AddHandlerOnShowDesignerFormOfSource(
+                           const OnShowDesignerFormOfSourceEvent: TShowDesignerFormOfSourceFunction;
+                           AsLast: boolean = false);
+    procedure RemoveHandlerOnShowDesignerFormOfSource(
+                               const OnShowDesignerFormOfSourceEvent: TShowDesignerFormOfSourceFunction);
+    procedure AddHandlerOnShowSourceOfActiveDesignerForm(
+                           const OnShowSourceOfActiveDesignerForm: TNotifyEvent;
+                           AsLast: boolean = false);
+    procedure RemoveHandlerOnShowSourceOfActiveDesignerForm(
+                               const OnShowSourceOfActiveDesignerForm: TNotifyEvent);
+    procedure AddHandlerOnChangeToolStatus(
+                           const OnChangeToolStatus: TLazToolStatusChangeEvent;
+                           AsLast: boolean = false);
+    procedure RemoveHandlerOnChangeToolStatus(
+                               const OnChangeToolStatus: TLazToolStatusChangeEvent);
 
     property IDEStarted: boolean read FIDEStarted;
+    property IDEIsClosing: boolean read FIDEIsClosing;
     property LastActivatedWindows: TFPList read FLastActivatedWindows;
     property LastFormActivated: TCustomForm read FLastFormActivated write FLastFormActivated;
   end;
 
+  { TIDETabMaster }
+
+  TIDETabMaster = class
+  protected
+    function GetTabDisplayState: TTabDisplayState; virtual; abstract;
+    function GetTabDisplayStateEditor(Index: TSourceEditorInterface): TTabDisplayState; virtual; abstract;
+  public
+    procedure ToggleFormUnit; virtual; abstract;
+    procedure JumpToCompilerMessage(ASourceEditor: TSourceEditorInterface); virtual; abstract;
+
+    property TabDisplayState: TTabDisplayState read GetTabDisplayState;
+    property TabDisplayStateEditor[Index: TSourceEditorInterface]: TTabDisplayState read GetTabDisplayStateEditor;
+
+    procedure ShowCode(ASourceEditor: TSourceEditorInterface); virtual; abstract;
+    procedure ShowDesigner(ASourceEditor: TSourceEditorInterface; AIndex: Integer = 0); virtual; abstract;
+
+    procedure ShowForm(AForm: TCustomForm); virtual; abstract;
+  end;
+
 var
   LazarusIDE: TLazIDEInterface = nil; // will be set by the IDE
+  IDETabMaster: TIDETabMaster = nil;
 
 type
   TLazarusIDEBootHandlerType = (
@@ -435,6 +594,24 @@ begin
   FMainBarSubTitle:=AValue;
 end;
 
+procedure TLazIDEInterface.SetToolStatus(const AToolStatus: TLazToolStatus);
+var
+  xMethod: TLazToolStatusChangeEvent;
+  I: Integer;
+  OldToolStatus: TLazToolStatus;
+begin
+  if FToolStatus=aToolStatus then Exit;
+
+  OldToolStatus:=FToolStatus;
+  FToolStatus:=AToolStatus;
+
+  for I := 0 to FLazarusIDEHandlers[lihtChangeToolStatus].Count-1 do
+  begin
+    xMethod := TLazToolStatusChangeEvent(FLazarusIDEHandlers[lihtChangeToolStatus][I]);
+    xMethod(Self, OldToolStatus, AToolStatus);
+  end;
+end;
+
 procedure TLazIDEInterface.DoCallNotifyHandler(
   HandlerType: TLazarusIDEHandlerType);
 begin
@@ -487,6 +664,28 @@ begin
   Result:=mrOk;
 end;
 
+procedure TLazIDEInterface.DoCallNotifyHandler(HandlerType: TLazarusIDEHandlerType; Sender: TObject);
+begin
+  FLazarusIDEHandlers[HandlerType].CallNotifyEvents(Sender);
+end;
+
+procedure TLazIDEInterface.DoCallShowDesignerFormOfSourceHandler(
+  HandlerType: TLazarusIDEHandlerType; Sender: TObject;
+  AEditor: TSourceEditorInterface; AComponentPaletteClassSelected: Boolean);
+var
+  i: Integer;
+begin
+  i := FLazarusIDEHandlers[HandlerType].Count;
+  while FLazarusIDEHandlers[HandlerType].NextDownIndex(i) do
+    TShowDesignerFormOfSourceFunction(FLazarusIDEHandlers[HandlerType][i])(Sender, AEditor,
+                                                 AComponentPaletteClassSelected);
+end;
+
+procedure TLazIDEInterface.DoJumpToNextError(DirectionDown: boolean);
+begin
+  DoJumpToNextCompilerMessage(mluError, DirectionDown);
+end;
+
 constructor TLazIDEInterface.Create(TheOwner: TComponent);
 begin
   LazarusIDE:=Self;
@@ -510,25 +709,23 @@ begin
   Result:=DoNewFile(NewFileDescriptor,NewFilename,NewSource,NewFlags,nil);
 end;
 
-procedure TLazIDEInterface.DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass; ACaption: String);
+function TLazIDEInterface.DoOpenIDEOptions(AEditor: TAbstractIDEOptionsEditorClass;
+  ACaption: String): Boolean;
 begin
-  DoOpenIDEOptions(AEditor, ACaption, [], []);
+  Result := DoOpenIDEOptions(AEditor, ACaption, [], []);
 end;
 
-procedure TLazIDEInterface.DoShowSearchResultsView(Show: boolean;
-  BringToFront: boolean);
+procedure TLazIDEInterface.DoCallBuildingFinishedHandler(
+  HandlerType: TLazarusIDEHandlerType; Sender: TObject; BuildSuccessful: Boolean);
 var
-  State: TIWGetFormState;
+  I: Integer;
+  xMethod: TLazBuildingFinishedEvent;
 begin
-  if Show then begin
-    if BringToFront then
-      State:=iwgfShowOnTop
-    else
-      State:=iwgfShow;
-  end else begin
-    State:=iwgfEnabled;
+  for I := 0 to FLazarusIDEHandlers[HandlerType].Count-1 do
+  begin
+    xMethod := TLazBuildingFinishedEvent(FLazarusIDEHandlers[HandlerType][I]);
+    xMethod(Sender, BuildSuccessful);
   end;
-  DoShowSearchResultsView(State);
 end;
 
 procedure TLazIDEInterface.RemoveAllHandlersOfObject(AnObject: TObject);
@@ -569,10 +766,34 @@ begin
   AddHandler(lihtIDERestoreWindows,TMethod(OnIDERestoreWindowsEvent),AsLast);
 end;
 
+procedure TLazIDEInterface.AddHandlerOnLazarusBuilding(
+  const OnLazBuildingEvent: TModalResultFunction; AsLast: boolean);
+begin
+  AddHandler(lihtLazarusBuilding,TMethod(OnLazBuildingEvent), AsLast);
+end;
+
+procedure TLazIDEInterface.AddHandlerOnLazarusBuildingFinished(
+  const OnLazBuildingFinishedEvent: TLazBuildingFinishedEvent; AsLast: boolean);
+begin
+  AddHandler(lihtLazarusBuildingFinished,TMethod(OnLazBuildingFinishedEvent), AsLast);
+end;
+
 procedure TLazIDEInterface.RemoveHandlerOnIDERestoreWindows(
   const OnIDERestoreWindowsEvent: TNotifyEvent);
 begin
   RemoveHandler(lihtIDERestoreWindows,TMethod(OnIDERestoreWindowsEvent));
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnLazarusBuilding(
+  const OnLazBuildingEvent: TModalResultFunction);
+begin
+  RemoveHandler(lihtLazarusBuilding,TMethod(OnLazBuildingEvent));
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnLazarusBuildingFinished(
+  const OnLazBuildingFinishedEvent: TLazBuildingFinishedEvent);
+begin
+  RemoveHandler(lihtLazarusBuildingFinished,TMethod(OnLazBuildingFinishedEvent));
 end;
 
 procedure TLazIDEInterface.AddHandlerOnIDEClose(
@@ -638,8 +859,7 @@ begin
 end;
 
 procedure TLazIDEInterface.AddHandlerOnProjectDependenciesCompiled(
-  const OnProjDependenciesCompiledEvent: TModalResultFunction; AsLast: boolean
-    );
+  const OnProjDependenciesCompiledEvent: TModalResultFunction; AsLast: boolean);
 begin
   AddHandler(lihtProjectDependenciesCompiled,
              TMethod(OnProjDependenciesCompiledEvent),AsLast);
@@ -696,10 +916,34 @@ begin
   AddHandler(lihtGetFPCFrontEndPath,TMethod(Handler),AsLast);
 end;
 
+procedure TLazIDEInterface.AddHandlerOnProjectBuildingFinished(
+  const OnProjBuildingFinishedEvent: TLazBuildingFinishedEvent; AsLast: boolean);
+begin
+  AddHandler(lihtProjectBuildingFinished,TMethod(OnProjBuildingFinishedEvent),AsLast);
+end;
+
+procedure TLazIDEInterface.AddHandlerOnChangeToolStatus(
+  const OnChangeToolStatus: TLazToolStatusChangeEvent; AsLast: boolean);
+begin
+  AddHandler(lihtChangeToolStatus,TMethod(OnChangeToolStatus),AsLast);
+end;
+
 procedure TLazIDEInterface.RemoveHandlerGetFPCFrontEndPath(
   const Handler: TGetFPCFrontEndPath);
 begin
   RemoveHandler(lihtGetFPCFrontEndPath,TMethod(Handler));
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnProjectBuildingFinished(
+  const OnProjBuildingFinishedEvent: TLazBuildingFinishedEvent);
+begin
+  RemoveHandler(lihtProjectBuildingFinished,TMethod(OnProjBuildingFinishedEvent));
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnChangeToolStatus(
+  const OnChangeToolStatus: TLazToolStatusChangeEvent);
+begin
+  RemoveHandler(lihtChangeToolStatus,TMethod(OnChangeToolStatus));
 end;
 
 function TLazIDEInterface.CallHandlerGetFPCFrontEndPath(Sender: TObject;
@@ -714,6 +958,30 @@ begin
     then exit(false);
   end;
   Result:=true;
+end;
+
+procedure TLazIDEInterface.AddHandlerOnShowDesignerFormOfSource(
+  const OnShowDesignerFormOfSourceEvent: TShowDesignerFormOfSourceFunction; AsLast: boolean);
+begin
+  AddHandler(lihtShowDesignerFormOfSource,TMethod(OnShowDesignerFormOfSourceEvent),AsLast);
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnShowDesignerFormOfSource(
+  const OnShowDesignerFormOfSourceEvent: TShowDesignerFormOfSourceFunction);
+begin
+  RemoveHandler(lihtShowDesignerFormOfSource,TMethod(OnShowDesignerFormOfSourceEvent));
+end;
+
+procedure TLazIDEInterface.AddHandlerOnShowSourceOfActiveDesignerForm(
+  const OnShowSourceOfActiveDesignerForm: TNotifyEvent; AsLast: boolean);
+begin
+  AddHandler(lihtShowSourceOfActiveDesignerForm,TMethod(OnShowSourceOfActiveDesignerForm),AsLast);
+end;
+
+procedure TLazIDEInterface.RemoveHandlerOnShowSourceOfActiveDesignerForm(
+  const OnShowSourceOfActiveDesignerForm: TNotifyEvent);
+begin
+  RemoveHandler(lihtShowSourceOfActiveDesignerForm,TMethod(OnShowSourceOfActiveDesignerForm));
 end;
 
 initialization

@@ -16,9 +16,7 @@ unit FPCAdds;
 
 {$mode objfpc}{$H+}{$inline on}
 
-{$IF defined(EnableUTF8RTL) and (FPC_FULLVERSION<20701)}
-  {$error UTF8 RTL requires fpc 2.7.1+}
-{$ENDIF}
+{$i lazutils_defines.inc}
 
 interface
 
@@ -68,11 +66,11 @@ begin
 {$ENDIF}
 end;
 
-{$IFDEF EnableUTF8RTL}
+{$ifdef UTF8_RTL}
 initialization
   SetMultiByteConversionCodePage(CP_UTF8);
   // SetMultiByteFileSystemCodePage(CP_UTF8); not needed, this is the default under Windows
   SetMultiByteRTLFileSystemCodePage(CP_UTF8);
-{$ENDIF}
+{$IFEND}
 
 end.

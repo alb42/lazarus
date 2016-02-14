@@ -460,6 +460,23 @@ begin
   {$endif}
 end;
 
+{------------------------------------------------------------------------------
+  Function:  CreateBrushWithRadialGradient
+  Params:  none
+  Returns: Nothing
+ ------------------------------------------------------------------------------}
+function TQtWidgetSet.CreateBrushWithRadialGradient(const LogBrush: TLogRadialGradient): HBRUSH;
+var
+  QtBrush: TQtBrush;
+begin
+  Result := 0;
+
+  QtBrush := TQtBrush.CreateWithRadialGradient(LogBrush);
+  Result := HBRUSH(QtBrush);
+  if Result = 0 then
+    DebugLn('TQtWidgetSet.CreateBrushWithRadialGradient: Failed');
+end;
+
 function TQtWidgetSet.CreateCaret(Handle: HWND; Bitmap: hBitmap; Width, Height: Integer): Boolean;
 begin
   Result := (Handle <> 0) and
@@ -1476,8 +1493,7 @@ begin
       WideStr := QtDC.Metrics.elidedText(WideStr, QtElideRight, Right - Left, 0);
   end;
 
-  with ARect do
-    QtDC.DrawText(Left + Pt.X, Top + Pt.Y, Right-Left, Bottom-Top, F, @WideStr);
+  QtDC.DrawText(ARect.Left + Pt.X, ARect.Top + Pt.Y, ARect.Right-ARect.Left, ARect.Bottom-ARect.Top, F, @WideStr);
 end;
 
 {------------------------------------------------------------------------------
@@ -3603,7 +3619,8 @@ begin
     // POS
     if (ScrollInfo.fMask and SIF_POS) <> 0 then
     begin
-      if QtScrollBar.ChildOfComplexWidget = ccwAbstractScrollArea then
+      // if QtScrollBar.ChildOfComplexWidget = ccwAbstractScrollArea then
+      if QtScrollBar.SliderPressed then
         ScrollInfo.nPos := QtScrollBar.getSliderPosition
       else
         ScrollInfo.nPos := QtScrollBar.getValue;
@@ -4173,6 +4190,8 @@ begin
         Result := GetSystemMetrics(SM_CYMAXIMIZED) - 1 -
           (GetSystemMetrics(SM_CYCAPTION) - (GetSystemMetrics(SM_CYSIZEFRAME) * 2));
       end;
+    SM_LCLHasFormAlphaBlend:
+      Result := 1;
   end;
 end;
 
@@ -6454,6 +6473,9 @@ begin
       and not TQtMainWindow(Widget).ShowOnTaskBar then
         SetSkipX11Taskbar(Widget.Widget, True);
     {$ENDIF}
+    if (Byte(nCmdShow) in [SW_SHOW, SW_SHOWNORMAL, SW_SHOWMAXIMIZED, SW_SHOWFULLSCREEN]) and
+      (Widget is TQtMainWindow) then
+        TQtMainWindow(Widget).Activate;
     Result := True;
   end;
 end;

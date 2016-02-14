@@ -54,11 +54,13 @@ type
       const APoints: array of TPoint; AStartIndex, ANumPts: Integer);
     procedure PrepareSimplePen(AColor: TChartColor);
     procedure PutImage(AX, AY: Integer; AImage: TFPCustomImage); override;
+    procedure PutPixel(AX, AY: Integer; AColor: TChartColor); override;
     procedure RadialPie(
       AX1, AY1, AX2, AY2: Integer;
       AStartAngle16Deg, AAngleLength16Deg: Integer);
     procedure Rectangle(const ARect: TRect);
     procedure Rectangle(AX1, AY1, AX2, AY2: Integer);
+    procedure ResetFont;
     procedure SetBrushColor(AColor: TChartColor);
     procedure SetBrushParams(AStyle: TFPBrushStyle; AColor: TChartColor);
     procedure SetPenParams(AStyle: TFPPenStyle; AColor: TChartColor);
@@ -190,6 +192,11 @@ begin
         Canvas.Colors[AX + x, AY + y] := AImage[x, y];
 end;
 
+procedure TBGRABitmapDrawer.PutPixel(AX, AY: Integer; AColor: TChartColor);
+begin
+  Canvas.Pixels[AX, AY] := AColor;
+end;
+
 procedure TBGRABitmapDrawer.RadialPie(
   AX1, AY1, AX2, AY2: Integer; AStartAngle16Deg, AAngleLength16Deg: Integer);
 begin
@@ -206,6 +213,11 @@ procedure TBGRABitmapDrawer.Rectangle(const ARect: TRect);
 begin
   with ARect do
     Rectangle(Left, Top, Right, Bottom)
+end;
+
+procedure TBGRABitmapDrawer.ResetFont;
+begin
+  Canvas.Font.Orientation := 0;
 end;
 
 procedure TBGRABitmapDrawer.SetAntialiasingMode(AValue: TChartAntialiasingMode);

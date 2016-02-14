@@ -30,15 +30,16 @@ unit FindRenameIdentifier;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, Forms, Controls, Dialogs,
-  StdCtrls, ExtCtrls, ComCtrls,
-  laz2_DOM,
-  // codetools
-  FileProcs, AVL_Tree, CTUnitGraph, CodeTree, CodeCache,
-  CodeToolManager, CodeToolsStructs,
+  // RTL + FCL + LCL
+  Classes, SysUtils, AVL_Tree, LCLProc, Forms, Controls, Dialogs,
+  StdCtrls, ExtCtrls, ComCtrls, ButtonPanel, LclIntf,
+  // CodeTools
+  FileProcs, CTUnitGraph, CodeTree, CodeCache, CodeToolManager, CodeToolsStructs,
+  // LazUtils
+  LazFileUtils, LazFileCache, laz2_DOM,
   // IDE
   LazarusIDEStrConsts, IDEProcs, IDEWindowIntf, MiscOptions, DialogProcs,
-  LazIDEIntf, IDEDialogs, InputHistory, SearchResultView, CodeHelp, ButtonPanel;
+  LazIDEIntf, IDEDialogs, InputHistory, SearchResultView, CodeHelp;
 
 type
 
@@ -62,6 +63,7 @@ type
       var {%H-}CloseAction: TCloseAction);
     procedure FindRenameIdentifierDialogCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure HelpButtonClick(Sender: TObject);
     procedure RenameCheckBoxChange(Sender: TObject);
   private
     FAllowRename: boolean;
@@ -542,6 +544,11 @@ begin
     NewEdit.SelectAll;
     NewEdit.SetFocus;
   end;
+end;
+
+procedure TFindRenameIdentifierDialog.HelpButtonClick(Sender: TObject);
+begin
+  OpenUrl('http://wiki.freepascal.org/IDE_Window:_Find_or_Rename_identifier');
 end;
 
 procedure TFindRenameIdentifierDialog.RenameCheckBoxChange(Sender: TObject);

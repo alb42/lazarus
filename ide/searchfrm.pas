@@ -31,11 +31,13 @@ unit SearchFrm;
 interface
 
 uses
-  // LCL
-  Classes, SysUtils, types, LCLProc, LCLIntf, Forms, Controls,
-  Dialogs, ExtCtrls, StdCtrls, Buttons, FileProcs, FileUtil, ComCtrls,
-  // synedit, codetools
-  SynRegExpr, SourceLog, KeywordFuncLists, BasicCodeTools,
+  // RTL + FCL + LCL
+  Classes, SysUtils, types, LCLProc, LCLIntf, Forms, Controls, ComCtrls,
+  Dialogs, ExtCtrls, StdCtrls, Buttons,
+  // SynEdit, CodeTools
+  SynRegExpr, SourceLog, KeywordFuncLists, BasicCodeTools, FileProcs,
+  // LazUtils
+  FileUtil, LazFileUtils, LazFileCache,
   // IDEIntf
   IDEWindowIntf, LazIDEIntf, SrcEditorIntf, IDEDialogs,
   // ide
@@ -214,6 +216,8 @@ begin
     StartPos:=1;
     while (StartPos<=length(Lines)) and (Lines[StartPos] in WhiteSpaceChars) do
       inc(StartPos);
+    if (APosition>0) and (StartPos>APosition) then
+      StartPos:=APosition;
     EndPos:=length(Lines)+1;
     while (EndPos>=StartPos) and (Lines[EndPos-1] in WhiteSpaceChars) do
       dec(EndPos);
@@ -709,7 +713,7 @@ begin
   //DebugLn(['TSearchForm.OnAddMatch length(Lines)=',length(Lines),' LastLineLen=',LastLineLen,' MatchLen=',MatchLen]);
   TrimmedMatch:=StartPos.X;
   TrimmedLines:=TrimLinesAndAdjustPos(Lines,TrimmedMatch);
-  //DebugLn(['TSearchForm.OnAddMatch StartPos=',dbgs(StartPos),' EndPos=',dbgs(EndPos),' Lines="',Lines,'"']);
+  //DebugLn(['TSearchForm.OnAddMatch StartPos=',dbgs(StartPos),' EndPos=',dbgs(EndPos),' Lines="',Lines,'" Trimmed="',TrimmedLines,'" TrimmedMatch=',TrimmedMatch]);
   SearchResultsView.AddMatch(fResultsWindow.PageIndex,FileName,StartPos,EndPos,
                              TrimmedLines, TrimmedMatch, MatchLen);
   UpdateMatches;
@@ -845,7 +849,7 @@ var
   F: String;
 begin
   F := FileName;
-  if FileProcs.FileIsTextCached(F) then
+  if FileIsTextCached(F) then
   begin
     FParent.UpdateProgress(F);
     FParent.SearchFile(F);

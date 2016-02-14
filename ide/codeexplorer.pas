@@ -144,6 +144,7 @@ type
       Shift: TShiftState);
     procedure IdleTimer1Timer(Sender: TObject);
     procedure JumpToMenuItemClick(Sender: TObject);
+    procedure JumpToImplementationMenuItemClick(Sender: TObject);
     procedure OnCloseIDE(Sender: TObject);
     procedure ShowSrcEditPosMenuItemClick(Sender: TObject);
     procedure MainNotebookPageChanged(Sender: TObject);
@@ -198,6 +199,8 @@ type
     ImgIDUnit: Integer;
     ImgIDVariable: Integer;
     ImgIDHint: Integer;
+    procedure ClearCodeTreeView;
+    procedure ClearDirectivesTreeView;
     function GetCodeFilter: string;
     function GetCurrentPage: TCodeExplorerPage;
     function GetDirectivesFilter: string;
@@ -243,7 +246,7 @@ type
     procedure BeginUpdate;
     procedure EndUpdate;
     procedure CheckOnIdle;
-    procedure KeyUp(var Key: Word; Shift: TShiftState); override;
+    procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure Refresh(OnlyVisible: boolean);
     procedure RefreshCode(OnlyVisible: boolean);
     procedure RefreshDirectives(OnlyVisible: boolean);
@@ -280,6 +283,7 @@ const
 var
   CodeExplorerView: TCodeExplorerView = nil;
   CEJumpToIDEMenuCommand: TIDEMenuCommand;
+  CEJumpToImplementationIDEMenuCommand: TIDEMenuCommand;
   CEShowSrcEditPosIDEMenuCommand: TIDEMenuCommand;
   CERefreshIDEMenuCommand: TIDEMenuCommand;
   CERenameIDEMenuCommand: TIDEMenuCommand;
@@ -370,6 +374,8 @@ begin
   CodeExplorerMenuRoot:=RegisterIDEMenuRoot(CodeExplorerMenuRootName);
   Path:=CodeExplorerMenuRoot.Name;
   CEJumpToIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Jump to', lisMenuJumpTo);
+  CEJumpToImplementationIDEMenuCommand:=RegisterIDEMenuCommand(Path,
+    'Jump to implementation', lisMenuJumpToImplementation);
   CEShowSrcEditPosIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Show position of source editor',
     lisShowPositionOfSourceEditor);
   CERefreshIDEMenuCommand:=RegisterIDEMenuCommand(Path, 'Refresh', dlgUnitDepRefresh);
@@ -509,6 +515,7 @@ begin
   //CodeExplorerMenuRoot.Items.WriteDebugReport(' ');
 
   CEJumpToIDEMenuCommand.OnClick:=@JumpToMenuItemClick;
+  CEJumpToImplementationIDEMenuCommand.OnClick:=@JumpToImplementationMenuItemClick;
   CEShowSrcEditPosIDEMenuCommand.OnClick:=@ShowSrcEditPosMenuItemClick;
   CERefreshIDEMenuCommand.OnClick:=@RefreshMenuItemClick;
   CERenameIDEMenuCommand.OnClick:=@RenameMenuItemClick;
@@ -594,7 +601,19 @@ begin
   if not (cevCheckOnIdle in FFlags) then exit;
   if (Screen.ActiveCustomForm<>nil)
   and (fsModal in Screen.ActiveCustomForm.FormState) then
+  begin
+    // do not update while a modal form is shown, except for clear
+    if SourceEditorManagerIntf=nil then exit;
+    if SourceEditorManagerIntf.SourceEditorCount=0 then
+    begin
+      Exclude(FFlags,cevCheckOnIdle);
+      FLastCodeValid:=false;
+      ClearCodeTreeView;
+      FDirectivesFilename:='';
+      ClearDirectivesTreeView;
+    end;
     exit;
+  end;
   if not IsVisible then exit;
   Exclude(FFlags,cevCheckOnIdle);
   case CurrentPage of
@@ -608,6 +627,11 @@ end;
 procedure TCodeExplorerView.JumpToMenuItemClick(Sender: TObject);
 begin
   JumpToSelection(false);
+end;
+
+procedure TCodeExplorerView.JumpToImplementationMenuItemClick(Sender: TObject);
+begin
+  JumpToSelection(true);
 end;
 
 procedure TCodeExplorerView.OnCloseIDE(Sender: TObject);
@@ -674,8 +698,10 @@ var
   CurItem: TTreeNode;
   CanRename: boolean;
   CurNode: TViewNodeData;
+  HasImplementation: Boolean;
 begin
   CanRename:=false;
+  HasImplementation:=false;
   CurTreeView:=GetCurrentTreeView;
   if CurTreeView<>nil then begin
     if tvoAllowMultiselect in CurTreeView.Options then
@@ -694,9 +720,13 @@ begin
           ;
         end;
       end;
+      if (CurNode.ImplementationNode<>nil)
+      and (CurNode.ImplementationNode.StartPos>0) then
+        HasImplementation:=true;
     end;
   end;
   CERenameIDEMenuCommand.Visible:=CanRename;
+  CEJumpToImplementationIDEMenuCommand.Visible:=HasImplementation;
   //DebugLn(['TCodeExplorerView.TreePopupmenuPopup ',CERenameIDEMenuCommand.Visible]);
 end;
 
@@ -805,6 +835,25 @@ end;
 function TCodeExplorerView.GetCodeFilter: string;
 begin
   Result:=CodeFilterEdit.Text;
+end;
+
+procedure TCodeExplorerView.ClearCodeTreeView;
+var
+  f: TCEObserverCategory;
+  c: TCodeExplorerCategory;
+begin
+  for c:=low(TCodeExplorerCategory) to high(TCodeExplorerCategory) do
+    fCategoryNodes[c]:=nil;
+  fObserverNode:=nil;
+  for f:=low(TCEObserverCategory) to high(TCEObserverCategory) do
+    fObserverCatNodes[f]:=nil;
+  fSurroundingNode:=nil;
+  CodeTreeview.Items.Clear;
+end;
+
+procedure TCodeExplorerView.ClearDirectivesTreeView;
+begin
+  DirectivesTreeView.Items.Clear;
 end;
 
 function TCodeExplorerView.GetCurrentPage: TCodeExplorerPage;
@@ -931,6 +980,12 @@ begin
     // don't show class node (the type node is already shown)
     if (CodeNode.Desc in AllClasses) then begin
       ShowNode:=false;
+    end;
+
+    //don't show child nodes of ctnUseUnit
+    if (CodeNode.Desc=ctnUseUnit)
+    then begin
+      ShowChilds:=false;
     end;
 
     // don't show subs
@@ -1878,9 +1933,9 @@ begin
   Refresh(true);
 end;
 
-procedure TCodeExplorerView.KeyUp(var Key: Word; Shift: TShiftState);
+procedure TCodeExplorerView.KeyDown(var Key: Word; Shift: TShiftState);
 begin
-  inherited KeyUp(Key, Shift);
+  inherited KeyDown(Key, Shift);
   ExecuteIDEShortCut(Self,Key,Shift,nil);
 end;
 
@@ -2029,8 +2084,6 @@ procedure TCodeExplorerView.RefreshCode(OnlyVisible: boolean);
 var
   OldExpanded: TTreeNodeExpandedState;
   ACodeTool: TCodeTool;
-  c: TCodeExplorerCategory;
-  f: TCEObserverCategory;
   SrcEdit: TSourceEditorInterface;
   Filename: String;
   Code: TCodeBuffer;
@@ -2136,14 +2189,8 @@ begin
       if not CurFollowNode then
         OldExpanded:=TTreeNodeExpandedState.Create(CodeTreeView);
 
-      for c:=low(TCodeExplorerCategory) to high(TCodeExplorerCategory) do
-        fCategoryNodes[c]:=nil;
-      fObserverNode:=nil;
-      for f:=low(TCEObserverCategory) to high(TCEObserverCategory) do
-        fObserverCatNodes[f]:=nil;
-      fSurroundingNode:=nil;
+      ClearCodeTreeView;
 
-      CodeTreeview.Items.Clear;
       if (ACodeTool<>nil) and (ACodeTool.Tree<>nil) and (ACodeTool.Tree.Root<>nil)
       then begin
         CreateIdentifierNodes(ACodeTool,ACodeTool.Tree.Root,nil,nil,true);
@@ -2245,12 +2292,10 @@ begin
     DirectivesTreeView.BeginUpdate;
     OldExpanded:=TTreeNodeExpandedState.Create(DirectivesTreeView);
 
-    if (ADirectivesTool=nil) or (ADirectivesTool.Tree=nil)
-    or (ADirectivesTool.Tree.Root=nil) then
+    ClearDirectivesTreeView;
+    if (ADirectivesTool<>nil) and (ADirectivesTool.Tree<>nil)
+    and (ADirectivesTool.Tree.Root<>nil) then
     begin
-      DirectivesTreeView.Items.Clear;
-    end else begin
-      DirectivesTreeView.Items.Clear;
       CreateDirectiveNodes(ADirectivesTool,ADirectivesTool.Tree.Root,nil,nil,true);
     end;
 

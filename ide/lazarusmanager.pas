@@ -91,9 +91,9 @@ uses
 {$IFDEF unix}
   BaseUnix,
 {$ENDIF}
-  Classes, SysUtils, Process, UTF8Process,
-  LCLProc, FileProcs, FileUtil, LazFileUtils, Forms, Controls, Dialogs,
-  IDECmdLine, LazConf, Splash, BaseIDEIntf;
+  Classes, SysUtils, Process, Forms, Controls, Dialogs, LCLProc,
+  UTF8Process, FileUtil, FileProcs, LazUTF8, LazFileUtils,
+  IDECmdLine, LazConf, Splash, BaseIDEIntf, IDEInstances;
   
 type
 
@@ -167,7 +167,7 @@ begin
           Result := mrAbort;
           exit;
         end;
-      if not FileProcs.RenameFileUTF8(CurFilename, BackupFileName) then begin
+      if not RenameFileUTF8(CurFilename, BackupFileName) then begin
         MessageDlg (format('Can''t rename "%s" to "%s"'+LineEnding+'%s',
           [CurFilename, BackupFileName, SysErrorMessageUTF8(GetLastOSError)]),
           mtError, [mbOK], 0);
@@ -176,7 +176,7 @@ begin
       end;
       InvalidateFileStateCache;
     end;
-    if not FileProcs.RenameFileUTF8(NewFileName, CurFilename) then begin
+    if not RenameFileUTF8(NewFileName, CurFilename) then begin
       MessageDlg (format('Can''t rename "%s" to "%s"'+LineEnding+'%s',
         [NewFileName, CurFilename, SysErrorMessageUTF8(GetLastOSError)]),
         mtError, [mbOK], 0);
@@ -244,13 +244,17 @@ begin
   if FShowSplashOption then
     ShowSplash;
 
+  // we already handled IDEInstances, ignore it in lazarus EXE
+  if (FCmdLineParams.IndexOf(ForceNewInstanceOpt) = -1) then
+    FCmdLineParams.Add(ForceNewInstanceOpt);
+
   // set primary config path
   PCP:=ExtractPrimaryConfigPath(FCmdLineParams);
   if PCP<>'' then
     SetPrimaryConfigPath(PCP);
 
   // get command line files
-  CmdLineFiles := ExtractCmdLineFilenames;
+  CmdLineFiles := LazIDEInstances.FilesToOpen;
   if CmdLineFiles<>nil then
   begin
     for i := 0 to CmdLineFiles.Count-1 do

@@ -43,8 +43,8 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, TypInfo, FileProcs, CodeToolsStrConsts, CodeTree,
-  CodeCache, PascalParserTool, CodeCompletionTool, KeywordFuncLists,
+  Classes, SysUtils, TypInfo, FileProcs, LazFileUtils, CodeToolsStrConsts,
+  CodeTree, CodeCache, PascalParserTool, CodeCompletionTool, KeywordFuncLists,
   BasicCodeTools, LinkScanner, AVL_Tree, CodeToolsStructs,
   SourceChanger, FindDeclarationTool, ChangeDeclarationTool;
 
@@ -529,10 +529,11 @@ var
     RaiseException('type '+ATypeInfo^.Name+' not found, because tool is '+dbgsname(Tool));
   end;
   
-var TypeName: string;
+var
+  TypeName: string;
   Params: TFindDeclarationParams;
   TypeContext: TFindContext;
-  CLList: THelpersList;
+  ContextNode: TCodeTreeNode;
 begin
   Result:=CleanFindContext;
   if AStartUnitName<>'' then begin
@@ -547,52 +548,46 @@ begin
 
   ActivateGlobalWriteLock;
   try
-    CLList := THelpersList.Create;
+    // find method type declaration
+    TypeName:=ATypeInfo^.Name;
+    // find method in interface and used units
+    ContextNode:=FindImplementationNode;
+    if ContextNode=nil then
+      ContextNode:=FindMainBeginEndNode;
+    if ContextNode=nil then begin
+      MoveCursorToNodeStart(Tree.Root);
+      RaiseException(Format(ctsIdentifierNotFound,[GetIdentifier(@TypeName[1])]));
+    end;
+    Params:=TFindDeclarationParams.Create(Self,ContextNode);
     try
-      // find method type declaration
-      TypeName:=ATypeInfo^.Name;
-      Params:=TFindDeclarationParams.Create(CLList);//FindHelpersInContext will be called later
-      try
-        // find method in interface and used units
-        Params.ContextNode:=FindImplementationNode;
-        if Params.ContextNode=nil then
-          Params.ContextNode:=FindMainBeginEndNode;
-        if Params.ContextNode=nil then begin
-          MoveCursorToNodeStart(Tree.Root);
-          RaiseException(Format(ctsIdentifierNotFound,[GetIdentifier(@TypeName[1])]));
-        end;
-        FindHelpersInContext(Params);
-        Params.SetIdentifier(Self,@TypeName[1],nil);
-        Params.Flags:=[fdfExceptionOnNotFound,fdfSearchInParentNodes];
-        //DebugLn(['TEventsCodeTool.FindMethodTypeInfo TypeName=',TypeName,' MainFilename=',MainFilename]);
-        FindIdentifierInContext(Params);
-        // find proc node
-        if Params.NewNode.Desc<>ctnTypeDefinition then begin
-          Params.NewCodeTool.MoveCursorToNodeStart(Params.NewNode);
-          Params.NewCodeTool.RaiseException(ctsMethodTypeDefinitionNotFound);
-        end;
-        TypeContext:=CreateFindContext(Params);
-      finally
-        Params.Free;
+      Params.SetIdentifier(Self,@TypeName[1],nil);
+      Params.Flags:=[fdfExceptionOnNotFound,fdfSearchInParentNodes];
+      //DebugLn(['TEventsCodeTool.FindMethodTypeInfo TypeName=',TypeName,' MainFilename=',MainFilename]);
+      FindIdentifierInContext(Params);
+      // find proc node
+      if Params.NewNode.Desc<>ctnTypeDefinition then begin
+        Params.NewCodeTool.MoveCursorToNodeStart(Params.NewNode);
+        Params.NewCodeTool.RaiseException(ctsMethodTypeDefinitionNotFound);
       end;
-      Params:=TFindDeclarationParams.Create(CLList);
-      try
-        Params.Flags:=[fdfExceptionOnNotFound,fdfSearchInParentNodes];
-        Result:=TypeContext.Tool.FindBaseTypeOfNode(Params,TypeContext.Node);
-        if Result.Node=nil then begin
-          TypeContext.Tool.MoveCursorToNodeStart(TypeContext.Node);
-          TypeContext.Tool.RaiseException(ctsMethodTypeDefinitionNotFound);
-        end;
-        if Result.Node.Desc<>ctnProcedureType then begin
-          TypeContext.Tool.MoveCursorToNodeStart(TypeContext.Node);
-          TypeContext.Tool.RaiseException(Format(ctsExpectedAMethodTypeButFound, [
-            Result.Node.DescAsString]));
-        end;
-      finally
-        Params.Free;
+      TypeContext:=CreateFindContext(Params);
+    finally
+      Params.Free;
+    end;
+    Params:=TFindDeclarationParams.Create(Self,nil);
+    try
+      Params.Flags:=[fdfExceptionOnNotFound,fdfSearchInParentNodes];
+      Result:=TypeContext.Tool.FindBaseTypeOfNode(Params,TypeContext.Node);
+      if Result.Node=nil then begin
+        TypeContext.Tool.MoveCursorToNodeStart(TypeContext.Node);
+        TypeContext.Tool.RaiseException(ctsMethodTypeDefinitionNotFound);
+      end;
+      if Result.Node.Desc<>ctnProcedureType then begin
+        TypeContext.Tool.MoveCursorToNodeStart(TypeContext.Node);
+        TypeContext.Tool.RaiseException(Format(ctsExpectedAMethodTypeButFound, [
+          Result.Node.DescAsString]));
       end;
     finally
-      CLList.Free;
+      Params.Free;
     end;
   finally
     DeactivateGlobalWriteLock;
@@ -1130,11 +1125,10 @@ begin
   //debugln(['TEventsCodeTool.FindTypeOfPropertyInfo found: ',FindContextToString(AClassContext)]);
 
   // search property
-  Params:=TFindDeclarationParams.Create(Self, AClassContext.Node);
+  Params:=TFindDeclarationParams.Create(AClassContext.Tool, AClassContext.Node);
   try
     Params.Flags:=[fdfSearchInAncestors,fdfSearchInHelpers];
     if ExceptionOnNotFound then Include(Params.Flags,fdfExceptionOnNotFound);
-    Params.ContextNode:=AClassContext.Node;
     Params.SetIdentifier(Self,PChar(PropName),nil);
     if not AClassContext.Tool.FindIdentifierInContext(Params) then begin
       RaiseException('property not found '+DbgSName(Instance)+'.'+PropName);

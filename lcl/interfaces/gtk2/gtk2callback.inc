@@ -2039,6 +2039,11 @@ var
       Result:=(LastMouse.Window<>nil) and (LastMouse.Window=Event^.Window);
     end;
 
+    function LastClickInSameComponent: boolean;
+    begin
+      Result:=(LastMouse.Component<>nil) and (LastMouse.Component=AWinControl);
+    end;
+
     function LastClickAtSamePosition: boolean;
     begin
       Result:= (Abs(EventXY.X-LastMouse.WindowPoint.X)<=DblClickThreshold)
@@ -2053,6 +2058,7 @@ var
     function TestIfMultiClick: boolean;
     begin
       Result:=LastClickInSameGdkWindow
+          and LastClickInSameComponent
           and LastClickAtSamePosition
           and LastClickInTime;
     end;
@@ -2310,6 +2316,11 @@ var
   function CheckMouseButtonUp(var LastMouse: TLastMouseClick;
     MsgUp: longint): boolean;
   begin
+    case LastMouse.ClickCount of
+      2: ShiftState := ShiftState + [ssDouble];
+      3: ShiftState := ShiftState + [ssTriple];
+      4: ShiftState := ShiftState + [ssQuad];
+    end;
     MessI.Msg := MsgUp;
     LastMouse.Down := False;
     Result := True;
@@ -2322,6 +2333,8 @@ begin
                                {%H-}PGtkWidget(AWinControl.Handle));
   MappedXY := SubtractScoll({%H-}PGtkWidget(AWinControl.Handle), MappedXY);
   //DebugLn(['DeliverMouseUpMessage ',GetWidgetDebugReport(Widget),' ',dbgsName(AWinControl),' ',dbgs(MappedXY)]);
+
+  ShiftState := GTKEventStateToShiftState(Event^.State);
 
   case event^.Button of
     1: if not CheckMouseButtonUp(LastLeft, LM_LBUTTONUP) then Exit;
@@ -2338,8 +2351,6 @@ begin
 
   MessI.XPos := MappedXY.X;
   MessI.YPos := MappedXY.Y;
-
-  ShiftState := GTKEventStateToShiftState(Event^.State);
 
   // do not send button in shiftstate on mouse up.issue #20916
   case event^.Button of

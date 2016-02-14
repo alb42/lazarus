@@ -28,8 +28,9 @@ unit BuildProjectDlg;
 interface
 
 uses
-  Classes, SysUtils, Math, AVL_Tree, FileProcs, Forms, Controls, Graphics,
-  Dialogs, ButtonPanel, ExtCtrls, StdCtrls, ComCtrls, Masks, LCLIntf,
+  Classes, SysUtils, Math, AVL_Tree, Forms, Controls,
+  Dialogs, ButtonPanel, StdCtrls, ComCtrls, Masks, LCLIntf,
+  FileProcs, LazFileUtils, LazFileCache, LazUtilities,
   // codetools
   CodeToolManager, DirectoryCacher, CodeToolsStructs,
   // IDEIntf
@@ -68,6 +69,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormResize(Sender: TObject);
+    procedure HelpButtonClick(Sender: TObject);
     procedure PkgOutCheckBoxChange(Sender: TObject);
     procedure PkgSrcCheckBoxChange(Sender: TObject);
     procedure ProjOutCheckBoxChange(Sender: TObject);
@@ -212,6 +214,11 @@ begin
     +Max(Max(ProjOutCheckBox.Width,ProjSrcCheckBox.Width),
          Max(PkgOutCheckBox.Width,PkgSrcCheckBox.Width));
   ProjOutMaskComboBox.Left:=r+10;
+end;
+
+procedure TCleanBuildProjectDialog.HelpButtonClick(Sender: TObject);
+begin
+  OpenUrl('http://wiki.freepascal.org/IDE_Window:_Clean_up_build_files_dialog');
 end;
 
 procedure TCleanBuildProjectDialog.PkgOutCheckBoxChange(Sender: TObject);

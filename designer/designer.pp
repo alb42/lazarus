@@ -37,20 +37,20 @@ interface
 {off $DEFINE VerboseDesignerSelect}
 
 uses
-  // FCL + LCL
+  // RTL + FCL + LCL
   Types, Classes, Math, SysUtils, variants, TypInfo,
   LCLProc, LCLType, LResources, LCLIntf, LMessages, InterfaceBase,
-  Forms, Controls, GraphType, Graphics, Dialogs, ExtCtrls, Menus,
-  ClipBrd,
+  Forms, Controls, GraphType, Graphics, Dialogs, ExtCtrls, Menus, ClipBrd,
+  // LazUtils
+  LazFileUtils, LazFileCache,
   // IDEIntf
   IDEDialogs, PropEdits, PropEditUtils, ComponentEditors, MenuIntf, IDEImagesIntf,
-  FormEditingIntf, ComponentReg,
+  FormEditingIntf, ComponentReg, IDECommands, LazIDEIntf, ProjectIntf,
   // IDE
-  LazarusIDEStrConsts, EnvironmentOpts, IDECommands, LazIDEIntf, ProjectIntf,
-  LazFileUtils, LazFileCache, NonControlDesigner, FrameDesigner, AlignCompsDlg,
-  SizeCompsDlg, ScaleCompsDlg, TabOrderDlg, AnchorEditor, DesignerProcs,
-  CustomFormEditor, AskCompNameDlg, ControlSelection, ChangeClassDialog,
-  EditorOptions;
+  LazarusIDEStrConsts, EnvironmentOpts, EditorOptions, SourceEditor,
+  // Designer
+  AlignCompsDlg, SizeCompsDlg, ScaleCompsDlg, TabOrderDlg, AnchorEditor, DesignerProcs,
+  CustomFormEditor, AskCompNameDlg, ControlSelection, ChangeClassDialog;
 
 type
   TDesigner = class;
@@ -71,6 +71,9 @@ type
     const NewName: string) of object;
   TOnProcessCommand = procedure(Sender: TObject; Command: word;
     var Handled: boolean) of object;
+  TOnComponentAdded = procedure(Sender: TObject; AComponent: TComponent;
+                           ARegisteredComponent: TRegisteredComponent) of object;
+  TOnForwardKeyToObjectInspector = procedure(Sender: TObject; Key: TUTF8Char) of object;
 
   TDesignerFlag = (
     dfHasSized,
@@ -121,8 +124,9 @@ type
     FOnSaveAsXML: TNotifyEvent;
     FOnSetDesigning: TOnSetDesigning;
     FOnShowOptions: TNotifyEvent;
-    FOnComponentAdded: TNotifyEvent;
+    FOnComponentAdded: TOnComponentAdded;
     FOnViewLFM: TNotifyEvent;
+    FOnForwardKeyToObjectInspector: TOnForwardKeyToObjectInspector;
     FShiftState: TShiftState;
     FTheFormEditor: TCustomFormEditor;
     FPopupMenuComponentEditor: TBaseComponentEditor;
@@ -162,6 +166,7 @@ type
     procedure SetShowEditorHints(const AValue: boolean);
     procedure SetShowGrid(const AValue: boolean);
     procedure SetSnapToGrid(const AValue: boolean);
+    procedure DoOnForwardKeyToObjectInspector(Sender: TObject; Key: TUTF8Char);
   protected
     MouseDownComponent: TComponent;
     MouseDownSender: TComponent;
@@ -314,6 +319,7 @@ type
 
     function IsDesignMsg(Sender: TControl;
                                   var TheMessage: TLMessage): Boolean; override;
+    procedure UTF8KeyPress(var UTF8Key: TUTF8Char); override;
     function UniqueName(const BaseName: string): string; override;
     Procedure RemovePersistentAndChilds(APersistent: TPersistent);
     procedure Notification({%H-}AComponent: TComponent;
@@ -360,14 +366,16 @@ type
     property OnRenameComponent: TOnRenameComponent
                                read FOnRenameComponent write FOnRenameComponent;
     property OnSetDesigning: TOnSetDesigning read FOnSetDesigning write FOnSetDesigning;
-    property OnComponentAdded: TNotifyEvent read FOnComponentAdded
-                                           write FOnComponentAdded;
+    property OnComponentAdded: TOnComponentAdded read FOnComponentAdded
+                                                write FOnComponentAdded;
     property OnShowOptions: TNotifyEvent read FOnShowOptions write FOnShowOptions;
     property OnViewLFM: TNotifyEvent read FOnViewLFM write FOnViewLFM;
     property OnSaveAsXML: TNotifyEvent read FOnSaveAsXML write FOnSaveAsXML;
     property OnShowObjectInspector: TNotifyEvent read FOnShowObjectInspector write FOnShowObjectInspector;
     property OnShowAnchorEditor: TNotifyEvent read FOnShowAnchorEditor write FOnShowAnchorEditor;
     property OnShowTabOrderEditor: TNotifyEvent read FOnShowTabOrderEditor write FOnShowTabOrderEditor;
+    property OnForwardKeyToObjectInspector: TOnForwardKeyToObjectInspector read FOnForwardKeyToObjectInspector
+                                                                          write FOnForwardKeyToObjectInspector;
     property ShowGrid: boolean read GetShowGrid write SetShowGrid;
     property ShowBorderSpacing: boolean read GetShowBorderSpacing write SetShowBorderSpacing;
     property ShowEditorHints: boolean read GetShowEditorHints write SetShowEditorHints;
@@ -420,6 +428,7 @@ implementation
 type
   TCustomFormAccess = class(TCustomForm);
   TControlAccess = class(TControl);
+  TWinControlAccess = class(TWinControl);
   TComponentAccess = class(TComponent);
 
   { TComponentSearch }
@@ -474,6 +483,10 @@ begin
     IsNonVisual := Mediator.ComponentIsIcon(Child)
   else
     IsNonVisual := DesignerProcs.ComponentIsNonVisual(Child);
+
+  if IsNonVisual and Assigned(IDEComponentsMaster) then
+    if not IDEComponentsMaster.DrawNonVisualComponents(Root) then
+      Exit;
 
   if Child.InheritsFrom(MinClass) and (IsNonVisual or not OnlyNonVisual) then
   begin
@@ -589,7 +602,7 @@ begin
                                                  'Change class',lisDlgChangeClass);
     DesignerMenuChangeParent:=RegisterIDEMenuSection(DesignerMenuSectionMisc,
                                                  'Change parent');
-    DesignerMenuChangeParent.ChildsAsSubMenu:=true;
+    DesignerMenuChangeParent.ChildrenAsSubMenu:=true;
     DesignerMenuChangeParent.Caption:=lisChangeParent;
     DesignerMenuViewLFM:=RegisterIDEMenuCommand(DesignerMenuSectionMisc,
                                                 'View LFM',lisViewSourceLfm);
@@ -617,17 +630,19 @@ end;
 constructor TDesigner.Create(TheDesignerForm: TCustomForm;
   AControlSelection: TControlSelection);
 var
+  LNonControlDesigner: INonControlDesigner;
   i: integer;
 begin
   inherited Create;
   //debugln(['TDesigner.Create Self=',dbgs(Pointer(Self)),' TheDesignerForm=',DbgSName(TheDesignerForm)]);
   FForm := TheDesignerForm;
-  if FForm is TNonControlDesignerForm then begin
-    FLookupRoot := TNonControlDesignerForm(FForm).LookupRoot;
-    Mediator:=TNonControlDesignerForm(FForm).Mediator;
+  if FForm is BaseFormEditor1.NonFormProxyDesignerForm[NonControlProxyDesignerFormId] then begin
+    LNonControlDesigner := FForm as INonControlDesigner;
+    FLookupRoot := LNonControlDesigner.LookupRoot;
+    Mediator := LNonControlDesigner.Mediator;
   end
-  else if FForm is TFrameDesignerForm then
-    FLookupRoot := TFrameDesignerForm(FForm).LookupRoot
+  else if FForm is BaseFormEditor1.NonFormProxyDesignerForm[FrameProxyDesignerFormId] then
+    FLookupRoot := (FForm as IFrameDesigner).LookupRoot
   else
     FLookupRoot := FForm;
 
@@ -1192,7 +1207,7 @@ begin
   NewSelection:=TControlSelection.Create;
   NewComponents:=TFPList.Create;
   try
-    Form.DisableAutoSizing;
+    Form.DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('TDesigner.DoInsertFromStream'){$ENDIF};
     try
 
       // read component stream from clipboard
@@ -1221,7 +1236,7 @@ begin
         FOnPastedComponents(Self,FLookupRoot);
 
     finally
-      Form.EnableAutoSizing;
+      Form.EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('TDesigner.DoInsertFromStream'){$ENDIF};
     end;
   finally
     NewComponents.Free;
@@ -1990,6 +2005,8 @@ var
   DesignSender: TControl;
   Button: TMouseButton;
   Handled: Boolean;
+  MouseDownControl: TControl;
+  p: types.TPoint;
 begin
   FHintTimer.Enabled := False;
   FHintWindow.Visible := False;
@@ -1997,7 +2014,7 @@ begin
   Exclude(FFLags, dfHasSized);
   SetCaptureControl(nil);
   DesignSender := GetDesignControl(Sender);
-  ParentForm := GetParentForm(DesignSender);
+  ParentForm := GetDesignerForm(DesignSender);
   //DebugLn(['TDesigner.MouseDownOnControl DesignSender=',dbgsName(DesignSender),' ParentForm=',dbgsName(ParentForm)]);
   if (ParentForm = nil) then exit;
   
@@ -2012,6 +2029,13 @@ begin
 
   if ComponentIsIcon(MouseDownComponent) then
   begin
+    if Assigned(IDEComponentsMaster) then
+      if not IDEComponentsMaster.DrawNonVisualComponents(FLookupRoot) then
+      begin
+        MouseDownComponent := nil;
+        Exit;
+      end;
+
     NonVisualComp := MouseDownComponent;
     MoveNonVisualComponentIntoForm(NonVisualComp);
   end;
@@ -2042,12 +2066,14 @@ begin
 
   if (MouseDownComponent <> nil) and (MouseDownComponent is TControl) then
   begin
-    with TControl(MouseDownComponent).ScreenToClient(Form.ClientToScreen(MouseDownPos)) do
-      if TControl(MouseDownComponent).Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(X, Y))) > 0 then
-      begin
-        TControlAccess(MouseDownComponent).MouseDown(Button, Shift, X, Y);
-        Exit;
-      end;
+    MouseDownControl:=TControl(MouseDownComponent);
+    p:=MouseDownControl.ScreenToClient(Form.ClientToScreen(MouseDownPos));
+    if (csDesignInteractive in MouseDownControl.ControlStyle)
+    or (MouseDownControl.Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(p.X, p.Y))) > 0) then
+    begin
+      TControlAccess(MouseDownComponent).MouseDown(Button, Shift, p.X, p.Y);
+      Exit;
+    end;
   end;
 
   if Mediator<>nil then begin
@@ -2122,8 +2148,12 @@ begin
       ControlSelection.AssignPersistent(MouseDownComponent);
   end;
 
+  if PropertyEditorHook<>nil then
+    PropertyEditorHook.DesignerMouseDown(Sender, Button, Shift, p.X, p.Y);
+
   if not ControlSelection.OnlyVisualComponentsSelected and ShowComponentCaptions then
     Form.Invalidate;
+
   {$IFDEF VerboseDesigner}
   DebugLn('[TDesigner.MouseDownOnControl] END');
   {$ENDIF}
@@ -2252,7 +2282,7 @@ var
        NewLeft,NewTop,NewWidth,NewHeight,DisableAutoSize);
     if NewComponent=nil then exit;
     if DisableAutoSize and (NewComponent is TControl) then
-      TControl(NewComponent).EnableAutoSizing;
+      TControl(NewComponent).EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('TDesigner.MouseUpOnControl'){$ENDIF};
     TheFormEditor.FixupReferences(NewComponent); // e.g. frame references a datamodule
 
     // modified
@@ -2280,7 +2310,7 @@ var
     // -> select new component
     SelectOnlyThisComponent(NewComponent);
     if Assigned(FOnComponentAdded) then // this resets the component palette to the selection tool
-      FOnComponentAdded(Self);
+      FOnComponentAdded(Self, NewComponent, SelectedCompClass);
 
     {$IFDEF VerboseDesigner}
     DebugLn('NEW COMPONENT ADDED: Form.ComponentCount=',DbgS(Form.ComponentCount),
@@ -2360,6 +2390,8 @@ var
   Handled: Boolean;
   i, j: Integer;
   SelectedPersistent: TSelectedControl;
+  MouseDownControl: TControl;
+  p: types.TPoint;
 begin
   FHintTimer.Enabled := False;
   FHintWindow.Visible := False;
@@ -2368,7 +2400,7 @@ begin
 
   // check if the message is for the designed form and there was a mouse down before
   DesignSender:=GetDesignControl(Sender);
-  SenderParentForm:=GetParentForm(DesignSender);
+  SenderParentForm:=GetDesignerForm(DesignSender);
   //DebugLn(['TDesigner.MouseUpOnControl DesignSender=',dbgsName(DesignSender),' SenderParentForm=',dbgsName(SenderParentForm),' ',TheMessage.XPos,',',TheMessage.YPos]);
   if (MouseDownComponent=nil) or (SenderParentForm=nil)
   or (SenderParentForm<>Form)
@@ -2397,12 +2429,14 @@ begin
 
   if (MouseDownComponent <> nil) and (MouseDownComponent is TControl) then
   begin
-    with TControl(MouseDownComponent).ScreenToClient(Form.ClientToScreen(MouseUpPos)) do
-      if TControl(MouseDownComponent).Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(X, Y))) > 0 then
-      begin
-        TControlAccess(MouseDownComponent).MouseUp(Button, Shift, X, Y);
-        Exit;
-      end;
+    MouseDownControl:=TControl(MouseDownComponent);
+    p:=MouseDownControl.ScreenToClient(Form.ClientToScreen(MouseUpPos));
+    if (csDesignInteractive in MouseDownControl.ControlStyle)
+    or (MouseDownControl.Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(p.X, p.Y))) > 0) then
+    begin
+      TControlAccess(MouseDownComponent).MouseUp(Button, Shift, p.X, p.Y);
+      Exit;
+    end;
   end;
 
   if Mediator<>nil then
@@ -2503,6 +2537,10 @@ begin
   Exclude(FFlags,dfHasSized);
   MouseDownComponent:=nil;
   MouseDownSender:=nil;
+
+  if PropertyEditorHook<>nil then
+    PropertyEditorHook.DesignerMouseUp(Sender, Button, Shift, p.X, p.Y);
+
   {$IFDEF VerboseDesigner}
   DebugLn('[TDesigner.MouseUpOnControl] END');
   {$ENDIF}
@@ -2522,6 +2560,8 @@ var
   DesignSender: TControl;
   Handled: Boolean;
   MouseMoveComponent: TComponent;
+  MouseMoveControl: TControl;
+  p: types.TPoint;
 begin
   GetMouseMsgShift(TheMessage, Shift, Button);
 
@@ -2536,7 +2576,7 @@ begin
 
   DesignSender := GetDesignControl(Sender);
   //DebugLn('TDesigner.MouseMoveOnControl Sender=',dbgsName(Sender),' ',dbgsName(DesignSender));
-  SenderParentForm := GetParentForm(DesignSender);
+  SenderParentForm := GetDesignerForm(DesignSender);
   if (SenderParentForm = nil) or (SenderParentForm <> Form) then Exit;
 
   OldMouseMovePos := LastMouseMovePos;
@@ -2549,12 +2589,14 @@ begin
     MouseMoveComponent := ComponentAtPos(LastMouseMovePos.X, LastMouseMovePos.Y, True, True);
   if (MouseMoveComponent <> nil) and (MouseMoveComponent is TControl) then
   begin
-    with TControl(MouseMoveComponent).ScreenToClient(Form.ClientToScreen(LastMouseMovePos)) do
-      if TControl(MouseMoveComponent).Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(X, Y))) > 0 then
-      begin
-        TControlAccess(MouseMoveComponent).MouseMove(Shift, X, Y);
-        Exit;
-      end;
+    MouseMoveControl:=TControl(MouseMoveComponent);
+    p:=MouseMoveControl.ScreenToClient(Form.ClientToScreen(LastMouseMovePos));
+    if (csDesignInteractive in MouseMoveControl.ControlStyle)
+    or (MouseMoveControl.Perform(CM_DESIGNHITTEST, TheMessage.Keys, Longint(SmallPoint(p.X, p.Y))) > 0) then
+    begin
+      TControlAccess(MouseMoveComponent).MouseMove(Shift, p.X, p.Y);
+      Exit;
+    end;
   end;
 
   if Mediator <> nil then
@@ -2673,6 +2715,7 @@ var
   Handled: boolean;
   Current: TComponent;
   NewName: String;
+  UTF8Char: TUTF8Char;
 
   procedure Nudge(x, y: integer);
   begin
@@ -2706,6 +2749,19 @@ begin
   //DebugLn(['TDesigner.KEYDOWN Command=',dbgs(Command),' ',TheMessage.CharCode,' ',dbgs(Shift)]);
   DoProcessCommand(Self, Command, Handled);
   //DebugLn(['TDesigner.KeyDown Command=',Command,' Handled=',Handled,' TheMessage.CharCode=',TheMessage.CharCode]);
+
+  if not Handled and (SourceEditorManager.ActiveSourceWindow<>nil)
+  and (GetParentForm(SourceEditorManager.ActiveSourceWindow) = GetParentForm(Sender)) then
+  begin
+    // send special commands to current editor if they have same parent (designer is docked to the editor)
+    case Command of
+      ecNextEditor, ecPrevEditor,  ecNextEditorInHistory, ecPrevEditorInHistory:
+      begin
+        FillChar(UTF8Char{%H-}, SizeOf(UTF8Char), 0);
+        SourceEditorManager.ActiveSourceWindow.ProcessParentCommand(Self, Command, UTF8Char, nil, Handled);
+      end;
+    end;
+  end;
 
   if not Handled then
   begin
@@ -2757,7 +2813,7 @@ begin
             GlobalDesignHook.ComponentRenamed(Current);
             Modified;
           end;
-        end
+        end; // don't forget the semicolon before else !!!
 
       else
         Handled := False;
@@ -2906,6 +2962,8 @@ begin
   // call ComponentDeleted handler
   if Assigned(FOnPersistentDeleted) then
     FOnPersistentDeleted(Self,APersistent);
+  if Hook<>nil then
+    Hook.PersistentDeleted;
 end;
 
 procedure TDesigner.MarkPersistentForDeletion(APersistent: TPersistent);
@@ -2982,6 +3040,19 @@ end;
 function TDesigner.UniqueName(const BaseName: string): string;
 begin
   Result:=TheFormEditor.CreateUniqueComponentName(BaseName,LookupRoot);
+end;
+
+procedure TDesigner.UTF8KeyPress(var UTF8Key: TUTF8Char);
+begin
+  if ((Length(UTF8Key) = 1) and (Ord(UTF8Key[1]) < 32))
+  or (UTF8Key = sLineBreak) then // pass only printable characters
+    Exit;
+
+  if UTF8Key<>'' then
+  begin
+    DoOnForwardKeyToObjectInspector(Self, UTF8Key);
+    UTF8Key := '';
+  end;
 end;
 
 procedure TDesigner.Modified;
@@ -3089,7 +3160,8 @@ begin
       ADDC.Canvas.Pen.Color := GridColor;
       ADDC.Canvas.Pen.Width := 1;
       ADDC.Canvas.Pen.Style := psSolid;
-      DrawGrid(ADDC.Canvas.Handle, AWinControl.ClientRect, GridSizeX, GridSizeY);
+      DrawGrid(ADDC.Canvas.Handle, TWinControlAccess(AWinControl).GetLogicalClientRect,
+               GridSizeX, GridSizeY);
     end;
     
     if ShowBorderSpacing then
@@ -3570,7 +3642,10 @@ begin
     ControlSelection.DrawMarkers(DDC);
   end;
   // non visual component icons
-  DrawNonVisualComponents(DDC);
+  if not Assigned(IDEComponentsMaster)
+  or IDEComponentsMaster.DrawNonVisualComponents(FLookupRoot) then
+    DrawNonVisualComponents(DDC);
+
   // guidelines and grabbers
   if (ControlSelection.SelectionForm=Form) then
   begin
@@ -3775,7 +3850,7 @@ begin
   // assign the root TMenuItem to the registered menu root.
   // This will automatically create all registered items
   {$IFDEF VerboseMenuIntf}
-  DesignerPopupMenu.Items.WriteDebugReport('TSourceNotebook.BuildPopupMenu ');
+  FDesignerPopupMenu.Items.WriteDebugReport('TSourceNotebook.BuildPopupMenu ');
   DesignerMenuRoot.ConsistencyCheck;
   {$ENDIF}
   DesignerMenuRoot.MenuItem := FDesignerPopupMenu.Items;
@@ -4074,7 +4149,7 @@ begin
       lisSelectedAndChildControls, mrCancel]);
   if not (MsgResult in [mrYes,mrYesToAll]) then exit;
   HasChanged:=false;
-  Form.DisableAutoSizing;
+  Form.DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('TDesigner.OnResetPopupMenuClick'){$ENDIF};
   ResetComps:=TFPList.Create;
   try
     for i:=0 to ControlSelection.Count-1 do begin
@@ -4096,7 +4171,7 @@ begin
     end;
   finally
     ResetComps.Free;
-    Form.EnableAutoSizing;
+    Form.EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('TDesigner.OnResetPopupMenuClick'){$ENDIF};
     if HasChanged then
       Modified;
   end;
@@ -4256,6 +4331,13 @@ procedure TDesigner.SetSnapToGrid(const AValue: boolean);
 begin
   if SnapToGrid=AValue then exit;
   EnvironmentOptions.SnapToGrid:=AValue;
+end;
+
+procedure TDesigner.DoOnForwardKeyToObjectInspector(Sender: TObject;
+  Key: TUTF8Char);
+begin
+  if Assigned(FOnForwardKeyToObjectInspector) then
+    FOnForwardKeyToObjectInspector(Self, Key);
 end;
 
 function TDesigner.DoFormActivated(Active: boolean): boolean;

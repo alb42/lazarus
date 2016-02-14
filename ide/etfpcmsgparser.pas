@@ -32,12 +32,17 @@ unit etFPCMsgParser;
 interface
 
 uses
+  // RTL
   Classes, SysUtils, strutils, math,
-  LazUTF8, LConvEncoding, LazFileUtils, FileUtil,
-  IDEExternToolIntf, PackageIntf, LazIDEIntf, ProjectIntf, IDEUtils,
-  MacroIntf,
-  FileProcs, KeywordFuncLists, CodeToolsFPCMsgs, CodeToolsStructs, CodeCache,
+  // CodeTools
+  KeywordFuncLists, CodeToolsFPCMsgs, CodeToolsStructs, CodeCache, FileProcs,
   CodeToolManager, DirectoryCacher, BasicCodeTools, DefineTemplates, SourceLog,
+  // LazUtils
+  LConvEncoding, LazUTF8, FileUtil, LazFileUtils,
+  // IDEIntf
+  IDEExternToolIntf, PackageIntf, LazIDEIntf, ProjectIntf, MacroIntf,
+  IDEUtils, LazFileCache,
+  // IDE
   IDECmdLine, LazarusIDEStrConsts, EnvironmentOpts, LazConf, TransferMacros,
   etMakeMsgParser;
 
@@ -55,6 +60,7 @@ const
   FPCMsgIDChecksumChanged = 10028;
   FPCMsgIDUnitNotUsed = 5023; // Unit "$1" not used in $2
   FPCMsgIDCompilationAborted = 1018;
+  FPCMsgIDLinesCompiled = 1008;
 
   FPCMsgAttrWorkerDirectory = 'WD';
   FPCMsgAttrMissingUnit = 'MissingUnit';
@@ -174,9 +180,10 @@ type
     procedure FetchUnitPath(aPhase: TExtToolParserSyncPhase; MsgWorkerDir: String);
     function FileExists(const Filename: string; aSynchronized: boolean): boolean;
     function CheckForMsgId(p: PChar): boolean; // (MsgId) message
+    function CheckFollowUpMessage(p: PChar): boolean;
     function CheckForFileLineColMessage(p: PChar): boolean; // the normal messages: filename(y,x): Hint: ..
     function CheckForGeneralMessage(p: PChar): boolean; // Fatal: .., Error: ..., Panic: ..
-    function CheckForInfos(p: PChar): boolean;
+    function CheckForInfos(p: PChar): boolean; // e.g. Free Pascal Compiler version 2.6.4 [2014/02/26] for i386
     function CheckForCompilingState(p: PChar): boolean; // Compiling ..
     function CheckForAssemblingState(p: PChar): boolean; // Assembling ..
     function CheckForLinesCompiled(p: PChar): boolean; // ..lines compiled..
@@ -184,6 +191,8 @@ type
     function CheckForLineProgress(p: PChar): boolean; // 600 206.521/231.648 Kb Used
     function CheckForLoadFromUnit(p: PChar): Boolean;
     function CheckForWindresErrors(p: PChar): boolean;
+    function CheckForLinkerErrors(p: PChar): boolean;
+    function CheckForAssemblerErrors(p: PChar): boolean;
     function CreateMsgLine: TMessageLine;
     procedure AddLinkingMessages;
     procedure AddResourceMessages;
@@ -1230,7 +1239,7 @@ begin
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Filename:=AFilename;
   MsgLine.Msg:=OldP;
-  AddMsgLine(MsgLine);
+  inherited AddMsgLine(MsgLine);
   Result:=true;
 end;
 
@@ -1240,7 +1249,7 @@ var
   OldP: PChar;
 begin
   Result:=fMsgID=9001;
-  if (fMsgID>0) and not Result then exit;
+  if (not Result) and (fMsgID>0) then exit;
   OldP:=p;
   if (not Result) and (not CompStr('Assembling ',p)) then exit;
   MsgLine:=CreateMsgLine;
@@ -1248,7 +1257,7 @@ begin
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Urgency:=mluProgress;
   MsgLine.Msg:=OldP;
-  AddMsgLine(MsgLine);
+  inherited AddMsgLine(MsgLine);
   Result:=true;
 end;
 
@@ -1386,7 +1395,7 @@ begin
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Urgency:=mluProgress;
   MsgLine.Msg:=OldP;
-  AddMsgLine(MsgLine);
+  inherited AddMsgLine(MsgLine);
   Result:=true;
 end;
 
@@ -1395,20 +1404,23 @@ var
   OldStart: PChar;
   MsgLine: TMessageLine;
 begin
-  Result:=fMsgID=1008;
-  if (fMsgID>0) and not Result then exit;
+  Result:=fMsgID=FPCMsgIDLinesCompiled;
+  if (not Result) and (fMsgID>0) then exit;
   OldStart:=p;
   if not Result then begin
     if not ReadNumberWithThousandSep(p) then exit;
     if not ReadString(p,' lines compiled, ') then exit;
     if not ReadNumberWithThousandSep(p) then exit;
   end;
+  Result:=true;
   MsgLine:=CreateMsgLine;
   MsgLine.SubTool:=SubToolFPC;
-  MsgLine.Urgency:=mluProgress;
+  if ShowLinesCompiled then
+    MsgLine.Urgency:=mluImportant
+  else
+    MsgLine.Urgency:=mluVerbose;
   MsgLine.Msg:=OldStart;
-  AddMsgLine(MsgLine);
-  Result:=true;
+  inherited AddMsgLine(MsgLine);
 end;
 
 function TIDEFPCParser.CheckForExecutableInfo(p: PChar): boolean;
@@ -1424,7 +1436,7 @@ var
   MsgLine: TMessageLine;
 begin
   Result:=(fMsgID>=9130) and (fMsgID<=9140);
-  if (fMsgID>0) and not Result then exit;
+  if (not Result) and (fMsgID>0) then exit;
   OldStart:=p;
   if (not Result) then begin
     if not (ReadString(p,'Size of Code: ') or
@@ -1441,7 +1453,7 @@ begin
   MsgLine.SubTool:=SubToolFPC;
   MsgLine.Urgency:=mluProgress;
   MsgLine.Msg:=OldStart;
-  AddMsgLine(MsgLine);
+  inherited AddMsgLine(MsgLine);
 end;
 
 function TIDEFPCParser.CheckForWindresErrors(p: PChar): boolean;
@@ -1461,6 +1473,45 @@ begin
   if CompStr('.exe', p) then
     inc(p, 4);
   MsgLine.Msg:='windres' + p;
+  AddMsgLine(MsgLine);
+end;
+
+function TIDEFPCParser.CheckForLinkerErrors(p: PChar): boolean;
+const
+  pat: String = 'Undefined symbols for architecture';
+var
+  MsgLine: TMessageLine;
+begin
+  if CompareMem(PChar(pat),p,length(pat)) then begin
+    Result:=true;
+    MsgLine:=CreateMsgLine;
+    MsgLine.MsgID:=0;
+    MsgLine.SubTool:=SubToolFPCLinker;
+    MsgLine.Urgency:=mluError;
+    MsgLine.Msg:='linker: '+p;
+    inherited AddMsgLine(MsgLine);
+  end;
+end;
+
+function TIDEFPCParser.CheckForAssemblerErrors(p: PChar): boolean;
+// example:
+//   <stdin>:227:9: error: unsupported directive '.stabs'
+var
+  APos: PChar;
+  s: string;
+  MsgLine: TMessageLine;
+begin
+  Result:=false;
+  APos:=FindSubStrI('error: unsupported directive',p);
+  if APos=nil then exit;
+  Result:=true;
+  MsgLine:=CreateMsgLine;
+  MsgLine.SubTool:=SubToolFPCWindRes;
+  MsgLine.Urgency:=mluError;
+  s:=APos;
+  if Pos('.stabs',s)>0 then
+    s+='. Hint: Use another type of debug info.';
+  MsgLine.Msg:='assembler: '+s;
   AddMsgLine(MsgLine);
 end;
 
@@ -1530,6 +1581,7 @@ begin
     if aFPCVersion<>FPC_FullVersion then begin
       // unexpected FPC version => always show
       MsgLine.Urgency:=mluImportant;
+      FPC_FullVersion:=aFPCVersion;
     end;
   end;
   AddMsgLine(MsgLine);
@@ -1590,8 +1642,11 @@ begin
     MsgLine:=inherited CreateMsgLine(i);
     MsgLine.MsgID:=0;
     MsgLine.SubTool:=SubToolFPCLinker;
-    MsgLine.Urgency:=mluImportant;
-    AddMsgLine(MsgLine);
+    if MsgLine.Msg<>'' then
+      MsgLine.Urgency:=mluImportant
+    else
+      MsgLine.Urgency:=mluVerbose2;
+    inherited AddMsgLine(MsgLine);
   end;
 end;
 
@@ -1609,7 +1664,7 @@ var
   i: Integer;
   MsgLine: TMessageLine;
 begin
-  // find message "Linking ..."
+  // find message "Calling resource compiler ..."
   i:=Tool.WorkerMessages.Count-1;
   while (i>=0) and (Tool.WorkerMessages[i].MsgID<>FPCMsgIDCallingResourceCompiler) do
     dec(i);
@@ -1619,8 +1674,11 @@ begin
     MsgLine:=inherited CreateMsgLine(i);
     MsgLine.MsgID:=0;
     MsgLine.SubTool:=SubToolFPCRes;
-    MsgLine.Urgency:=mluHint;
-    AddMsgLine(MsgLine);
+    if MsgLine.Msg<>'' then
+      MsgLine.Urgency:=mluHint
+    else
+      MsgLine.Urgency:=mluVerbose2;
+    inherited AddMsgLine(MsgLine);
   end;
 end;
 
@@ -2549,7 +2607,7 @@ var
   TranslatedItem: TFPCMsgItem;
   MsgLine: TMessageLine;
   TranslatedMsg: String;
-  MsgType: TMessageLineUrgency;
+  MsgUrgency: TMessageLineUrgency;
   Msg: string;
 begin
   Result:=false;
@@ -2560,18 +2618,42 @@ begin
   TranslatedItem:=nil;
   if (TranslationFile<>nil) then
     TranslatedItem:=TranslationFile.GetMsg(fMsgID);
-  Translate(p,MsgItem,TranslatedItem,TranslatedMsg,MsgType);
+  Translate(p,MsgItem,TranslatedItem,TranslatedMsg,MsgUrgency);
   Msg:=p;
   case fMsgID of
   FPCMsgIDThereWereErrorsCompiling: // There were $1 errors compiling module, stopping
-    MsgType:=mluVerbose;
+    MsgUrgency:=mluVerbose;
+  FPCMsgIDLinesCompiled: // n lines compiled, m sec
+    if ShowLinesCompiled then MsgUrgency:=mluImportant;
   end;
   MsgLine:=CreateMsgLine;
   MsgLine.SubTool:=SubToolFPC;
-  MsgLine.Urgency:=MsgType;
+  MsgLine.Urgency:=MsgUrgency;
   MsgLine.Msg:=Msg;
   MsgLine.TranslatedMsg:=TranslatedMsg;
   AddMsgLine(MsgLine);
+end;
+
+function TIDEFPCParser.CheckFollowUpMessage(p: PChar): boolean;
+var
+  i: Integer;
+  LastMsgLine, MsgLine: TMessageLine;
+begin
+  if (p^=' ') then begin
+    i:=Tool.WorkerMessages.Count-1;
+    if i<0 then exit;
+    LastMsgLine:=Tool.WorkerMessages[i];
+    if LastMsgLine.SubTool=SubToolFPCLinker then begin
+      // a follow up line of the linker output
+      Result:=true;
+      MsgLine:=CreateMsgLine;
+      MsgLine.MsgID:=0;
+      MsgLine.SubTool:=SubToolFPCLinker;
+      MsgLine.Urgency:=LastMsgLine.Urgency;
+      MsgLine.Msg:='linker: '+p;
+      inherited AddMsgLine(MsgLine);
+    end;
+  end;
 end;
 
 function TIDEFPCParser.CheckForFileLineColMessage(p: PChar): boolean;
@@ -2716,7 +2798,7 @@ var
   MsgLine: TMessageLine;
 begin
   Result:=fMsgID=10027;
-  if (fMsgID>0) and not Result then exit;
+  if (not Result) and (fMsgID>0) then exit;
   OldP:=p;
   if not Result then begin
     if not ReadString(p,'Load from ') then exit;
@@ -2755,8 +2837,13 @@ begin
   if Line='' then exit;
   if FPC_FullVersion>=20701 then
     Line:=LazUTF8.ConsoleToUTF8(Line)
-  else
+  else begin
+    {$IFDEF MSWINDOWS}
+    Line:=LazUTF8.WinCPToUTF8(Line);
+    {$ELSE}
     Line:=LazUTF8.SysToUTF8(Line);
+    {$ENDIF}
+  end;
   p:=PChar(Line);
   fOutputIndex:=OutputIndex;
   fMsgID:=0;
@@ -2783,7 +2870,10 @@ begin
     while p^ in [' '] do inc(p);
   end;
 
-  if p^ in [#0..#31,' '] then exit; // not a fpc message
+  if p^ in [#0..#31,' '] then begin
+    CheckFollowUpMessage(p);
+    exit; // not a fpc message
+  end;
 
   Handled:=true;
 
@@ -2809,6 +2899,10 @@ begin
   if CheckForLoadFromUnit(p) then exit;
   // check for windres errors
   if CheckForWindresErrors(p) then exit;
+  // check for linker errors
+  if CheckForLinkerErrors(p) then exit;
+  // check for assembler errors
+  if CheckForAssemblerErrors(p) then exit;
 
   {$IFDEF VerboseFPCParser}
   debugln('TFPCParser.ReadLine UNKNOWN: ',Line);

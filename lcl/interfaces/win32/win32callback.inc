@@ -81,9 +81,7 @@ begin
   PrevWndProc := GetWin32WindowInfo(Window)^.DefWndProc;
   if (PrevWndProc = nil) or (PrevWndProc = @WindowProc) // <- prevent recursion
   then begin
-    if UnicodeEnabledOS
-    then Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
-    else Result := Windows.DefWindowProc(Window, Msg, WParam, LParam)
+    Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
   end
   else begin
     // combobox child edit weirdness: combobox handling WM_SIZE will compare text
@@ -96,10 +94,7 @@ begin
         IsComboboxAndHasEdit(Window);
     if setComboWindow then
       ComboBoxHandleSizeWindow := Window;
-    if UnicodeEnabledOS then
-      Result := Windows.CallWindowProcW(PrevWndProc, Window, Msg, WParam, LParam)
-    else
-      Result := Windows.CallWindowProc(PrevWndProc, Window, Msg, WParam, LParam);
+    Result := Windows.CallWindowProcW(PrevWndProc, Window, Msg, WParam, LParam);
     if setComboWindow then
       ComboBoxHandleSizeWindow := 0;
   end;
@@ -1030,10 +1025,7 @@ var
   L: LongWord;
   I, C: Integer;
   DropForm: TWinControl;
-{$IFDEF WindowsUnicodeSupport}
-  AnsiBuffer: string;
   WideBuffer: WideString;
-{$ENDIF}
 begin
   Drop := HDROP(WParam);
   try
@@ -1043,28 +1035,11 @@ begin
     SetLength(Files, C);
     for I := 0 to C - 1 do
     begin
-      {$IFDEF WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
-        SetLength(WideBuffer, L);
-        L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
-        SetLength(WideBuffer, L);
-        Files[I] := UTF16ToUTF8(WideBuffer);
-      end
-      else
-      begin
-        L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-        SetLength(AnsiBuffer, L);
-        L := DragQueryFile(Drop, I, @AnsiBuffer[1], L + 1);
-        SetLength(WideBuffer, L);
-        Files[I] := ANSIToUTF8(AnsiBuffer);
-      end;
-      {$ELSE}
-      L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-      SetLength(Files[I], L);
-      DragQueryFile(Drop, I, PChar(Files[I]), L + 1);
-      {$ENDIF}
+      L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
+      SetLength(WideBuffer, L);
+      L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
+      SetLength(WideBuffer, L);
+      Files[I] := UTF16ToUTF8(WideBuffer);
     end;
 
     if Length(Files) > 0 then
@@ -1095,7 +1070,7 @@ begin
     WinProcess := not lWinControl.IntfUTF8KeyPress(UTF8Char, 1, False);
     // if somewhere key is changed then don't perform a regular keypress
     Result := not WinProcess or (UTF8Char <> OldUTF8Char);
-    if UTF8Char <> OldUTF8Char then
+    if Result then
     begin
       WS := UTF8ToUTF16(UTF8Char);
       if Length(WS) > 0 then
@@ -1198,7 +1173,6 @@ end;
 
 procedure TWindowProcHelper.DoMsgChar(var WinResult: LResult);
 begin
-  {$ifdef WindowsUnicodeSupport}
   // first send a IntfUTF8KeyPress to the LCL
   // if the key was not handled send a CN_CHAR for AnsiChar<=#127
   OrgCharCode := Word(WParam);
@@ -1209,10 +1183,7 @@ begin
     begin
       Msg := CN_CHAR;
       KeyData := LParam;
-      if UnicodeEnabledOS then
-        CharCode := Word(Char(WideChar(WParam)))
-      else
-        CharCode := Word(WParam);
+      CharCode := Word(Char(WideChar(WParam)));
       OrgCharCode := CharCode;
       WinResult := 0;
     end;
@@ -1220,17 +1191,6 @@ begin
   end
   else
     WParam := OrgCharCode;
-  {$else}
-  PLMsg := @LMChar;
-  with LMChar do
-  begin
-    Msg := CN_CHAR;
-    KeyData := LParam;
-    CharCode := Word(WParam);
-    WinResult := 0;
-  end;
-  WinProcess := false;
-  {$endif}
 end;
 
 procedure TWindowProcHelper.DoCmdCheckBoxParam;
@@ -1381,6 +1341,8 @@ procedure TWindowProcHelper.DoMsgDrawItem;
 var
   menuItem: TObject;
   PDrawIS: PDrawItemStruct;
+  isDrawListItem: Boolean;
+  DrawItemMsg: Integer;
 begin
   PDrawIS := PDrawItemStruct(LParam);
   if (WParam = 0) and (PDrawIS^.ctlType = ODT_MENU) then
@@ -1409,14 +1371,16 @@ begin
           (TCustomCombobox(lWinControl).Style = csOwnerDrawVariable))))
     then
       UpdateDrawListItem(LM_DRAWLISTITEM)
-    else
-    if (lWinControl <> nil) and (lWinControl is TListView) and
-      (TListView(lWinControl).ViewStyle = vsReport) and
-      (PDrawIS^.ctlType = ODT_LISTVIEW) and
-      (TListView(lWinControl).OwnerDraw)
-    then
-      UpdateDrawListItem(CN_DRAWITEM)
-    else
+    else if Assigned(WindowInfo^.DrawItemHandler) then begin
+      DrawItemMsg := 0;
+      isDrawListItem := False;
+      WindowInfo^.DrawItemHandler(lWinControl, Window, Msg, WParam, PDrawIS^,
+        DrawItemMsg, isDrawListItem);
+      if isDrawListItem and (DrawItemMsg<>0) then
+        UpdateDrawListItem(DrawItemMsg)
+      else
+        UpdateDrawItems;
+    end else
       UpdateDrawItems;
   end;
 end;
@@ -1570,6 +1534,11 @@ begin
     XPos := GET_X_LPARAM(LParam);
     YPos := GET_Y_LPARAM(LParam);
     Keys := WParam;
+    case MouseDownCount of
+      2: Keys := Keys or MK_DOUBLECLICK;
+      3: Keys := Keys or MK_TRIPLECLICK;
+      4: Keys := Keys or MK_QUADCLICK;
+    end;
   end;
 end;
 
@@ -2455,18 +2424,11 @@ begin
     begin
       // if key not yet processed, let windows process it
       WinProcess := LMChar.Result = 0;
-      {$IFDEF WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        // if charcode was modified by LCL, convert ansi char
-        // to unicode char, if not change was made WParam has
-        // the right unicode char so just use it.
-        if (LMChar.Result = 1) or (OrgCharCode <> LMChar.CharCode) then
-          WParam := Word(WideChar(LMChar.CharCode));
-      end
-      else
-      {$ENDIF}
-        WParam := LMChar.CharCode;
+      // if charcode was modified by LCL, convert ansi char
+      // to unicode char, if not change was made WParam has
+      // the right unicode char so just use it.
+      if (LMChar.Result = 1) or (OrgCharCode <> LMChar.CharCode) then
+        WParam := Word(WideChar(LMChar.CharCode));
     end;
 
     CN_KEYDOWN, CN_KEYUP, CN_SYSKEYDOWN, CN_SYSKEYUP:
@@ -2700,9 +2662,7 @@ begin
       end;
     end;
   else
-    if UnicodeEnabledOS
-    then Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
-    else Result := Windows.DefWindowProc(Window, Msg, WParam, LParam);
+    Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
   end;
 end;
 

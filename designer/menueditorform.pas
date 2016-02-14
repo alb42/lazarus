@@ -1,12 +1,4 @@
-{
- /***************************************************************************
-                            menueditorform.pas
-                            ------------------
-
-
- ***************************************************************************/
-
- ***************************************************************************
+{***************************************************************************
  *                                                                         *
  *   This source is free software; you can redistribute it and/or modify   *
  *   it under the terms of the GNU General Public License as published by  *
@@ -25,9 +17,8 @@
  *                                                                         *
  ***************************************************************************
 
-  Author: Martin Patik
+  Author: Howard Page-Clark }
 
-}
 unit MenuEditorForm;
 
 {$mode objfpc}{$H+}
@@ -35,264 +26,992 @@ unit MenuEditorForm;
 interface
 
 uses
-  Classes, SysUtils, TypInfo, LCLProc, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, Buttons, ExtCtrls, DesignerMenu, Menus, GraphType,
-  ComponentEditors, LazarusIDEStrConsts, PropEdits;
+  // FCL + LCL
+  Classes, SysUtils, Types, typinfo,
+  Controls, StdCtrls, ExtCtrls, Forms, Graphics, Buttons, Menus, ButtonPanel,
+  ImgList, Themes, LCLintf, LCLProc,
+  // IdeIntf
+  FormEditingIntf, PropEdits,
+  // IDE
+  LazarusIDEStrConsts, MenuDesignerBase, MenuShortcuts;
 
 type
 
-  { TMainMenuEditorForm }
+  { TMenuDesignerForm }
 
-  TMainMenuEditorForm = class(TForm)
-    List_menus: TListBox;
-    Label_menus: TLabel;
-    MenuScrollBox: TScrollBox;
-    Panel: TPanel;
-    Panel_MenuList:TPanel;
-    Splitter_BoxPanel:TSplitter;
-    procedure FormClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
+  TMenuDesignerForm = class(TForm)
+    AddItemAboveButton: TSpeedButton;
+    AddItemBelowButton: TSpeedButton;
+    AddSeparatorAboveButton: TSpeedButton;
+    AddSeparatorBelowButton: TSpeedButton;
+    AddSubMenuButton: TSpeedButton;
+    ButtonsGroupBox: TGroupBox;
+    CaptionedItemsCountLabel: TLabel;
+    DeepestNestingLevelLabel: TLabel;
+    DeleteItemButton: TSpeedButton;
+    GroupIndexLabel: TLabel;
+    HelpButton: TBitBtn;
+    IconCountLabel: TLabel;
+    LeftPanel: TPanel;
+    MoveItemDownButton: TSpeedButton;
+    MoveItemUpButton: TSpeedButton;
+    PopupAssignmentsCountLabel: TLabel;
+    RadioGroupsLabel: TLabel;
+    ShortcutItemsCountLabel: TLabel;
+    StatisticsGroupBox: TGroupBox;
+    SubmenuGroupBox: TGroupBox;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure List_menusClick(Sender: TObject);
-  private
-    FDesignerMainMenu: TDesignerMainMenu;
-    FMenu: TMenu;
-    FDesigner: TComponentEditorDesigner;
-    procedure OnPersistentDeleting(APersistent: TPersistent);
-    procedure OnPersistentAdded(APersistent: TPersistent; {%H-}Select: boolean);
-    procedure UpdateListOfMenus;
+    procedure HelpButtonClick(Sender: TObject);
+  strict private
+    FDesigner: TMenuDesignerBase;
+    FEditedMenu: TMenu;
+    FAcceleratorMenuItemsCount: integer;
+    FCaptionedItemsCount: integer;
+    FDeepestNestingLevel: integer;
+    FGUIEnabled: boolean;
+    FIconsCount: integer;
+    FUpdateCount: integer;
+    FPopupAssignments: TStringList;
+    FPopupAssignmentsListBox: TListBox;
+    function GetItemCounts(out aCaptionedItemCount, aShortcutItemCount,
+                           anIconCount, anAccelCount: integer): integer;
+    function GetPopupAssignmentCount: integer;
+    function GetSelectedMenuComponent(const aSelection: TPersistentSelectionList;
+      out isTMenu: boolean; out isTMenuItem: boolean): TPersistent;
+    procedure DisableGUI;
+    procedure EnableGUI(selectedIsNil: boolean);
+    procedure HidePopupAssignmentsInfo;
+    procedure InitializeStatisticVars;
+    procedure LoadFixedButtonGlyphs;
+    procedure OnDesignerSetSelection(const ASelection: TPersistentSelectionList);
+    procedure ProcessForPopup(aControl: TControl);
+    procedure ScanLookupRoot(aForm: TCustomForm);
+    procedure SetupPopupAssignmentsDisplay;
   public
-    procedure SetMenu(NewMenu: TMenu);
-    property DesignerMainMenu: TDesignerMainMenu read FDesignerMainMenu
-                                                 write FDesignerMainMenu;
+    constructor Create(aDesigner: TMenuDesignerBase); reintroduce;
+    destructor Destroy; override;
+    procedure LoadVariableButtonGlyphs(isInMenubar: boolean);
+    procedure SetMenu(aMenu: TMenu; aMenuItem: TMenuItem);
+    procedure ShowPopupAssignmentsInfo;
+    procedure BeginUpdate;
+    procedure EndUpdate;
+    function IsUpdate: Boolean;
+    procedure UpdateStatistics;
+    procedure UpdateSubmenuGroupBox(selMI: TMenuItem; selBox: TShadowBoxBase; boxIsRoot:boolean);
+    procedure UpdateItemInfo(aMenu: TMenu; aMenuItem: TMenuItem;
+      aShadowBox: TShadowBoxBase; aPropEditHook: TPropertyEditorHook);
+    //property EditedMenu: TMenu read FEditedMenu;
+    //property AcceleratorMenuItemsCount: integer read FAcceleratorMenuItemsCount;
   end;
 
-{ TMenuComponentEditor -- The default component editor for TMenu. }
+  TRadioIconGroup = class;
+  TRadioIconState = (risUp, risDown, risPressed, risUncheckedHot, risCheckedHot);
 
-  TMainMenuComponentEditor = class(TComponentEditor)
-  private
-    FDesigner: TComponentEditorDesigner;
+  { TRadioIcon }
+
+  TRadioIcon = class(TGraphicControl)
+  strict private
+    FBGlyph: TButtonGlyph;
+    FOnChange: TNotifyEvent;
+    FRIGroup: TRadioIconGroup;
+    FRIState: TRadioIconState;
+    function GetChecked: Boolean;
+    procedure SetChecked(aValue: Boolean);
   protected
+    procedure DoChange;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseEnter; override;
+    procedure MouseLeave; override;
+    procedure Paint; override;
   public
-    constructor Create(AComponent: TComponent;
-                       ADesigner: TComponentEditorDesigner); override;
-    procedure Edit; override;
-    function GetVerbCount: Integer; override;
-    function GetVerb(Index: Integer): string; override;
-    procedure ExecuteVerb(Index: Integer); override;
+    constructor CreateWithGlyph(aRIGroup: TRadioIconGroup; anImgIndex: integer);
+    destructor Destroy; override;
+    property Checked: Boolean read GetChecked write SetChecked;
+    property OnChange: TNotifyEvent read FOnChange write FOnChange;
   end;
 
+  { TRadioIconGroup }
 
-{ TMenuItemsPropertyEditor
-  PropertyEditor editor for the TMenu.Items properties. Brings up the menu editor. }
-
-  TMenuItemsPropertyEditor = class(TClassPropertyEditor)
+  TRadioIconGroup = class(TScrollBox)
+  strict private
+    FItemIndex: integer;
+    FOnSelectItem: TNotifyEvent;
+    FRIArray: array of TRadioIcon;
+    procedure CreateRadioItems;
+    procedure ApplyLayout;
+    procedure RIOnChange(Sender: TObject);
+    procedure DoSelectItem;
+  protected
+    FImageList: TCustomImageList;
+    FedSize: TSize;
+    FedUnchecked, FedChecked, FedPressed, FedUncheckedHot, FedCheckedHot: TThemedElementDetails;
+    FGlyphPt: TPoint;
+    FSpacing: integer;
+    FRadioHeight, FRadioWidth: integer;
+    FRadioRect: TRect;
+    procedure SetParent(NewParent: TWinControl); override;
   public
-    procedure Edit; override;
-    function GetAttributes: TPropertyAttributes; override;
+    constructor CreateWithImageList(AOwner: TComponent; anImgList: TCustomImageList);
+    property ItemIndex: integer read FItemIndex;
+    property OnSelectItem: TNotifyEvent read FOnSelectItem write FOnSelectItem;
   end;
 
+  { TdlgChooseIcon }
 
-var
-  MainMenuEditorForm: TMainMenuEditorForm;
+  TdlgChooseIcon = class(TForm)
+  private
+    FButtonPanel: TButtonPanel;
+    FRadioIconGroup: TRadioIconGroup;
+    function GetImageIndex: integer;
+    procedure RIGClick(Sender: TObject);
+  public
+    constructor Create(TheOwner: TComponent); override;
+    procedure SetRadioIconGroup(anImageList: TCustomImageList);
+    property ImageIndex: integer read GetImageIndex;
+  end;
 
-procedure ShowMenuEditor(AMenu: TMenu);
+function GetNestingLevelDepth(aMenu: TMenu): integer;
+function ChooseIconFromImageListDlg(anImageList: TCustomImageList): integer;
 
 
 implementation
 
 {$R *.lfm}
 
-procedure ShowMenuEditor(AMenu: TMenu);
-begin
-  if AMenu=nil then RaiseGDBException('ShowMenuEditor AMenu=nil');
-  if MainMenuEditorForm=nil then
-    MainMenuEditorForm:=TMainMenuEditorForm.Create(Application);
-  MainMenuEditorForm.SetMenu(AMenu);
-  MainMenuEditorForm.ShowOnTop;
-end;
+function GetNestingLevelDepth(aMenu: TMenu): integer;
 
-{ TMainMenuEditorForm }
-
-procedure TMainMenuEditorForm.FormCreate(Sender: TObject);
-begin
-  Caption:=lisMenuEditorMenuEditor;
-  Panel.Height:=Panel.Parent.Height;
-  Label_menus.Caption:=lisMenuEditorSelectMenu;
-
-  GlobalDesignHook.AddHandlerPersistentDeleting(@OnPersistentDeleting);
-  GlobalDesignHook.AddHandlerPersistentAdded(@OnPersistentAdded);
-end;
-
-procedure TMainMenuEditorForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
-begin
-  SetMenu(nil);
-end;
-
-procedure TMainMenuEditorForm.FormDestroy(Sender: TObject);
-begin
-  if GlobalDesignHook <> nil then
-    GlobalDesignHook.RemoveAllHandlersForObject(Self);
-end;
-
-procedure TMainMenuEditorForm.List_menusClick(Sender: TObject);
-var
-  i, j: Integer;
-  CurComponent: TComponent;
-begin
-  for i := 0 to List_menus.Items.Count - 1 do
-    if List_menus.Selected[i] then
-      for j := 0 to FDesigner.Form.ComponentCount - 1 do
-      begin
-        CurComponent:=FDesigner.Form.Components[j];
-        if (List_menus.Items[i] = CurComponent.Name) and (CurComponent is TMenu) then 
-        begin
-          SetMenu(TMenu(CurComponent));
-          Exit;
-        end;
-      end;
-end;
-
-procedure TMainMenuEditorForm.OnPersistentDeleting(APersistent: TPersistent);
-var
-  i: Integer;
-  AComponent: TComponent;
-begin
-  if APersistent is TComponent then 
+  procedure CheckLevel(aMI: TMenuItem; aLevel: integer);
+  var
+    j: integer;
   begin
-    AComponent := TComponent(APersistent);
-    if FindRootDesigner(AComponent) <> FDesigner then Exit;
-    i := List_menus.Items.IndexOf(AComponent.Name);
-    if i >= 0 then List_menus.Items.Delete(i);
-    
-    if AComponent = FMenu then
-      SetMenu(nil);
-  end;
-end;
-
-procedure TMainMenuEditorForm.OnPersistentAdded(APersistent: TPersistent;
-  Select: boolean);
-begin
-  //debugln('TMainMenuEditorForm.OnPersistentAdded ',dbgsName(APersistent));
-  if APersistent is TMenu then
-    UpdateListOfMenus;
-end;
-
-procedure TMainMenuEditorForm.UpdateListOfMenus;
-var
-  i: Integer;
-  CurComponent: TComponent;
-begin
-  List_menus.Items.BeginUpdate;
-  List_menus.Items.Clear;
-  if FDesigner <> nil then
-  begin
-    for i := 0 to FDesigner.Form.ComponentCount - 1 do
-    begin
-      CurComponent:=FDesigner.Form.Components[i];
-      //debugln('TMainMenuEditorForm.UpdateListOfMenus A ',dbgsName(CurComponent));
-      if (CurComponent is TMainMenu) or (CurComponent is TPopupMenu) then
-        List_menus.Items.Add(CurComponent.Name);
+    if (aMI.Count > 0) then begin
+      if (Succ(aLevel) > Result) then
+        Result:=Succ(aLevel);
+      for j:=0 to aMI.Count-1 do
+        CheckLevel(aMI.Items[j], Succ(aLevel));
     end;
   end;
-  List_menus.Items.EndUpdate;
 
-  if FMenu <> nil then 
-    for i := 0 to List_menus.Items.Count - 1 do
-      if (FMenu.Name = List_menus.Items[i]) then
-        List_menus.Selected[i] := True;
-end;
-
-procedure TMainMenuEditorForm.SetMenu(NewMenu: TMenu);
-begin
-  if NewMenu <> FMenu then
-  begin
-    FreeAndNil(FDesignerMainMenu);
-    FMenu := NewMenu;
-    FDesigner := FindRootDesigner(FMenu) as TComponentEditorDesigner;
-    UpdateListOfMenus;
-    if FMenu <> nil then
-    begin
-      FDesignerMainMenu := TDesignerMainMenu.CreateWithMenu(Self, FMenu);
-      with FDesignerMainMenu do
-      begin
-        Parent := Self;
-        ParentCanvas := Canvas;
-        LoadMainMenu;
-        SetCoordinates(10, 10, 0, FDesignerMainMenu.Root);
-      end;
-      FDesignerMainMenu.Panel := Panel;
-      FDesignerMainMenu.RealignDesigner;
-     end
-     else
-       Close;
-  end;
-end;
-
-{ TMainMenuComponentEditor}
-
-constructor TMainMenuComponentEditor.Create(AComponent: TComponent;
-  ADesigner: TComponentEditorDesigner);
-begin
-  inherited Create(AComponent, ADesigner);
-  FDesigner := ADesigner;
-end;
-
-procedure TMainMenuComponentEditor.Edit;
-begin
-  ShowMenuEditor(Component as TMenu);
-end;
-
-function TMainMenuComponentEditor.GetVerbCount: Integer;
-begin
-  Result := 1;
-end;
-
-function TMainMenuComponentEditor.GetVerb(Index: Integer): string;
-begin
-  case Index of
-    0: Result := lisMenuEditor;
-    else Result := '';;
-  end;
-end;
-
-procedure TMainMenuComponentEditor.ExecuteVerb(Index: Integer);
-begin
-  case Index of
-    0: Edit;
-  end;
-end;
-
-{ TMenuItemsPropertyEditor }
-
-procedure TMenuItemsPropertyEditor.Edit;
 var
-  Menu: TMenu;
-  MenuItem: TMenuItem;
+  i: integer;
 begin
-  MenuItem := TMenuItem(GetObjectValue(TMenuItem));
-  if MenuItem = nil then exit;
-  Menu := MenuItem.GetParentMenu;
-  if Menu = nil then exit;
-  ShowMenuEditor(Menu);
+  Result:=0;
+  for i:=0 to aMenu.Items.Count-1 do
+    CheckLevel(aMenu.Items[i], 0);
 end;
 
-function TMenuItemsPropertyEditor.GetAttributes: TPropertyAttributes;
+function ChooseIconFromImageListDlg(anImageList: TCustomImageList): integer;
+var
+  dlg: TdlgChooseIcon;
 begin
-  Result := [paDialog, paRevertable, paReadOnly];
+  if (anImageList = nil) or (anImageList.Count = 0) then
+    Exit(-1);
+  if (anImageList.Count = 1) then
+    Exit(0);
+  dlg := TdlgChooseIcon.Create(nil);
+  try
+    dlg.SetRadioIconGroup(anImageList);
+    if (dlg.ShowModal = mrOK) then
+      Result := dlg.ImageIndex
+    else
+      Result := -1;
+  finally
+    dlg.Free;
+  end;
 end;
 
-//=============================================================================
+{ TMenuDesignerForm }
 
-procedure InitMenuEditorGlobals;
+constructor TMenuDesignerForm.Create(aDesigner: TMenuDesignerBase);
 begin
-  RegisterComponentEditor(TMenu,TMainMenuComponentEditor);
-
-  RegisterPropertyEditor(GetPropInfo(TMenu,'Items')^.PropType,
-    TMenu,'',TMenuItemsPropertyEditor);
+  Inherited Create(Nil);  // LazarusIDE.OwningComponent
+  FDesigner := aDesigner;
 end;
 
-initialization
-  InitMenuEditorGlobals;
+destructor TMenuDesignerForm.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TMenuDesignerForm.FormCreate(Sender: TObject);
+begin
+  Name:='MenuDesignerWindow';
+  Caption:=lisMenuEditorMenuEditor;
+  ButtonsGroupBox.Caption:=lisMenuEditorMenuItemActions;
+  FGUIEnabled:=False;
+  LoadFixedButtonGlyphs;
+  LoadVariableButtonGlyphs(True);
+  KeyPreview:=True;
+  GlobalDesignHook.AddHandlerSetSelection(@OnDesignerSetSelection);
+  InitializeStatisticVars;
+  SetupPopupAssignmentsDisplay;
+end;
+
+procedure TMenuDesignerForm.FormDestroy(Sender: TObject);
+begin
+  FreeAndNil(FPopupAssignments);
+end;
+
+procedure TMenuDesignerForm.HelpButtonClick(Sender: TObject);
+const
+  helpPath = 'http://wiki.lazarus.freepascal.org/IDE_Window:_menu_editor';
+begin
+  //LazarusHelp.ShowHelpForIDEControl(Self);
+  OpenURL(helpPath);
+end;
+
+procedure TMenuDesignerForm.OnDesignerSetSelection(const ASelection: TPersistentSelectionList);
+var
+  mnu: TMenu;
+  mi, tmp: TMenuItem;
+  isTMenu, isTMenuItem: boolean;
+  persist: TPersistent;
+begin
+  if FUpdateCount > 0 then
+    Exit; // This event will be executed after all updates, look at EndUpdate
+
+  persist:=GetSelectedMenuComponent(ASelection, isTMenu, isTMenuItem);
+  if (persist <> nil) then
+    begin
+      if isTMenu then
+        SetMenu(TMenu(persist), nil)
+      else if isTMenuItem then begin
+        mi:=TMenuItem(persist);
+        tmp:=mi;
+        while (tmp.Parent <> nil) do
+          tmp:=tmp.Parent;
+        mnu:=tmp.Menu;
+        if (mnu = nil) then
+          mnu:=mi.GetParentMenu;
+        if (mnu = FEditedMenu) and (FDesigner.ShadowMenu <> nil) then
+          FDesigner.ShadowMenu.SetSelectedMenuItem(mi, True, False)
+        else if (mnu <> nil) then
+          SetMenu(mnu, mi);
+      end;
+    end
+  else
+    SetMenu(nil, nil);
+end;
+
+procedure TMenuDesignerForm.ShowPopupAssignmentsInfo;
+var
+  count: integer;
+begin
+  if (FEditedMenu <> nil) and (FEditedMenu is TPopupMenu) then begin
+    count:=GetPopupAssignmentCount;
+    PopupAssignmentsCountLabel.Enabled:=True;
+    if (count > 0) then
+      PopupAssignmentsCountLabel.BorderSpacing.Bottom:=0
+    else
+      PopupAssignmentsCountLabel.BorderSpacing.Bottom:=Double_Margin;
+    if (count= -1) then
+      PopupAssignmentsCountLabel.Caption:=Format(lisMenuEditorPopupAssignmentsS,[lisMenuEditorNA])
+    else
+      PopupAssignmentsCountLabel.Caption:=Format(lisMenuEditorPopupAssignmentsS, [IntToStr(count)]);
+    if (count > 0) then begin
+      FPopupAssignmentsListBox.Items.Assign(FPopupAssignments);
+      FPopupAssignmentsListBox.Visible:=True;
+    end
+    else
+      FPopupAssignmentsListBox.Visible:=False;
+  end;
+end;
+
+procedure TMenuDesignerForm.HidePopupAssignmentsInfo;
+begin
+  if (FEditedMenu <> nil) and (FEditedMenu is TMainMenu) then begin
+    PopupAssignmentsCountLabel.Caption:=Format(lisMenuEditorPopupAssignmentsS,[lisMenuEditorNA]);
+    PopupAssignmentsCountLabel.Enabled:=False;
+    FPopupAssignmentsListBox.Visible:=False;
+  end;
+end;
+
+procedure TMenuDesignerForm.SetupPopupAssignmentsDisplay;
+begin
+  FPopupAssignmentsListBox:=TListBox.Create(Self);
+  with FPopupAssignmentsListBox do begin
+    Name:='FPopupAssignmentsListBox';
+    Color:=clBtnFace;
+    BorderSpacing.Top:=2;
+    BorderSpacing.Left:=3*Margin;
+    BorderSpacing.Right:=Margin;
+    BorderSpacing.Bottom:=Margin;
+    Anchors:=[akTop, akLeft, akRight];
+    AnchorSideLeft.Control:=StatisticsGroupBox;
+    AnchorSideTop.Control:=PopupAssignmentsCountLabel;
+    AnchorSideTop.Side:=asrBottom;
+    AnchorSideRight.Control:=StatisticsGroupBox;
+    AnchorSideRight.Side:=asrBottom;
+    ParentFont:=False;
+    TabStop:=False;
+    BorderStyle:=bsNone;
+    ExtendedSelect:=False;
+    Height:=45;
+    Parent:=StatisticsGroupBox;
+    Visible:=False;
+  end;
+end;
+
+function TMenuDesignerForm.GetItemCounts(out aCaptionedItemCount,
+  aShortcutItemCount, anIconCount, anAccelCount: integer): integer;
+var
+  imgCount: integer;
+
+  procedure ProcessItems(aMI: TMenuItem);
+  var
+    i: integer;
+    sc: TShortCut;
+  begin
+    Inc(Result);
+    if not aMI.IsLine and (aMI.Caption <> '') then begin
+      Inc(aCaptionedItemCount);
+      if HasAccelerator(aMI.Caption, sc) then
+        Inc(anAccelCount);
+    end;
+    if (aMI.ShortCut <> 0) or (aMI.ShortCutKey2 <> 0) then
+      Inc(aShortcutItemCount);
+    if (imgCount > 0) and (aMI.ImageIndex > -1) and (aMI.ImageIndex < imgCount) then
+      Inc(anIconCount)
+    else if aMI.HasBitmap and not aMI.Bitmap.Empty then
+      Inc(anIconCount);
+    for i:=0 to aMI.Count-1 do
+      ProcessItems(aMI.Items[i]);   // Recursive call for sub-menus.
+  end;
+
+var
+  i: integer;
+begin
+  if (FEditedMenu = nil) then
+    Exit;
+  aCaptionedItemCount:=0;
+  aShortcutItemCount:=0;
+  anIconCount:=0;
+  anAccelCount:=0;
+  if (FEditedMenu.Images <> nil) and (FEditedMenu.Images.Count > 0) then
+    imgCount:=FEditedMenu.Images.Count
+  else
+    imgCount:=0;
+  Result:=0;
+  for i:=0 to FEditedMenu.Items.Count-1 do
+    ProcessItems(FEditedMenu.Items[i]);
+end;
+
+function TMenuDesignerForm.GetSelectedMenuComponent(const aSelection: TPersistentSelectionList;
+                                out isTMenu: boolean; out isTMenuItem: boolean): TPersistent;
+begin
+  if (aSelection.Count = 1) then begin
+    if (aSelection.Items[0] is TMenu) then
+      begin
+        isTMenu:=True;
+        isTMenuItem:=False;
+        Result:=aSelection.Items[0];
+      end
+    else
+    if (aSelection.Items[0] is TMenuItem) then
+      begin
+        isTMenu:=False;
+        isTMenuItem:=True;
+        Result:=aSelection.Items[0];
+      end
+    else begin
+      isTMenu:=False;
+      isTMenuItem:=False;
+      Result:=nil;
+    end;
+  end
+  else
+    Result:=nil;
+end;
+
+procedure TMenuDesignerForm.ProcessForPopup(aControl: TControl);
+var
+  wc: TWinControl;
+  j:integer;
+begin
+  if (aControl.PopupMenu = FEditedMenu) and (aControl.Name <> '') then
+    FPopupAssignments.Add(aControl.Name);
+  if (aControl is TWinControl) then begin
+    wc:=TWinControl(aControl);
+    for j:=0 to wc.ControlCount-1 do
+      ProcessForPopup(wc.Controls[j]);   // Recursive call
+  end;
+end;
+
+procedure TMenuDesignerForm.ScanLookupRoot(aForm: TCustomForm);
+var
+  i: integer;
+begin
+  if (aForm.PopupMenu = FEditedMenu) then
+    FPopupAssignments.Add(aForm.Name);
+  for i:=0 to aForm.ControlCount-1 do
+    ProcessForPopup(aForm.Controls[i]);
+end;
+
+function TMenuDesignerForm.GetPopupAssignmentCount: integer;
+var
+  lookupRoot: TPersistent;
+begin
+  lookupRoot:=GlobalDesignHook.LookupRoot;
+  if (FEditedMenu is TMainMenu) or (lookupRoot is TDataModule) then
+    Exit(-1)
+  else begin
+    FreeAndNil(FPopupAssignments);
+    FPopupAssignments:=TStringList.Create;
+    ScanLookupRoot(lookupRoot as TCustomForm);
+    Result:=FPopupAssignments.Count;
+  end
+end;
+
+procedure TMenuDesignerForm.LoadVariableButtonGlyphs(isInMenubar: boolean);
+begin
+  if isInMenubar then
+  begin
+    MoveItemUpButton.LoadGlyphFromResourceName(HINSTANCE,'arrow_left');
+    MoveItemDownButton.LoadGlyphFromResourceName(HINSTANCE,'arrow_right');
+    AddItemAboveButton.LoadGlyphFromResourceName(HINSTANCE,'add_item_left');
+    AddItemBelowButton.LoadGlyphFromResourceName(HINSTANCE,'add_item_right');
+    AddSubMenuButton.LoadGlyphFromResourceName(HINSTANCE,'add_submenu_below');
+  end else
+  begin
+    MoveItemUpButton.LoadGlyphFromResourceName(HINSTANCE,'arrow_up');
+    MoveItemDownButton.LoadGlyphFromResourceName(HINSTANCE,'arrow_down');
+    AddItemAboveButton.LoadGlyphFromResourceName(HINSTANCE,'add_item_above');
+    AddItemBelowButton.LoadGlyphFromResourceName(HINSTANCE,'add_item_below');
+    AddSubMenuButton.LoadGlyphFromResourceName(HINSTANCE,'add_submenu_right');
+  end;
+  UpdateSubmenuGroupBox(nil, nil, False);
+  FDesigner.VariableGlyphsInMenuBar:=isInMenubar;
+end;
+
+procedure TMenuDesignerForm.LoadFixedButtonGlyphs;
+begin
+  DeleteItemButton.LoadGlyphFromResourceName(HINSTANCE,'laz_delete');
+  AddSeparatorAboveButton.LoadGlyphFromResourceName(HINSTANCE,'add_sep_above');
+  AddSeparatorBelowButton.LoadGlyphFromResourceName(HINSTANCE,'add_sep_below');
+  HelpButton.Hint:=lisMenuEditorGetHelpToUseThisEditor;
+end;
+
+procedure TMenuDesignerForm.EnableGUI(selectedIsNil: boolean);
+var
+  isPopupMenu: boolean;
+begin
+  if not FGUIEnabled then
+    begin
+      StatisticsGroupBox.Font.Style:=[fsBold];
+      StatisticsGroupBox.Caption:=FEditedMenu.Name;
+      StatisticsGroupBox.Enabled:=True;
+      ButtonsGroupBox.Enabled:=not selectedIsNil;
+      if selectedIsNil then
+        Caption:=Format(lisMenuEditorEditingSSNoMenuItemSelected,
+          [TComponent(GlobalDesignHook.LookupRoot).Name, FEditedMenu.Name]);
+      isPopupMenu:=(FEditedMenu is TPopupMenu);
+      LoadVariableButtonGlyphs(not isPopupMenu);
+      if isPopupMenu then
+        ShowPopupAssignmentsInfo
+      else HidePopupAssignmentsInfo;
+      FGUIEnabled:=True;
+    end;
+end;
+
+procedure TMenuDesignerForm.InitializeStatisticVars;
+begin
+  FDesigner.Shortcuts.ResetMenuItemsCount;
+  FIconsCount := -1;
+  FDeepestNestingLevel := -1;
+  FCaptionedItemsCount := -1;
+end;
+
+procedure TMenuDesignerForm.DisableGUI;
+begin
+  if FGUIEnabled then begin
+    StatisticsGroupBox.Font.Style:=[];
+    StatisticsGroupBox.Caption:=lisMenuEditorNoMenuSelected;
+    CaptionedItemsCountLabel.Caption:=Format(lisMenuEditorCaptionedItemsS,[lisMenuEditorNA]);
+    ShortcutItemsCountLabel.Caption:=Format(lisMenuEditorShortcutItemsS,[lisMenuEditorNA]);
+    IconCountLabel.Caption:=Format(lisMenuEditorItemsWithIconS, [lisMenuEditorNA]);
+    DeepestNestingLevelLabel.Caption:=Format(lisMenuEditorDeepestNestedMenuLevelS, [lisMenuEditorNA]);
+    PopupAssignmentsCountLabel.Caption:=Format(lisMenuEditorPopupAssignmentsS,[lisMenuEditorNA]);
+    StatisticsGroupBox.Enabled:=False;
+    UpdateSubmenuGroupBox(nil, nil, False);
+    ButtonsGroupBox.Enabled:=False;
+    FPopupAssignmentsListBox.Visible:=False;
+    FGUIEnabled:=False;
+    InitializeStatisticVars;
+    Caption:=Format('%s - %s',[lisMenuEditorMenuEditor, lisMenuEditorNoMenuSelected]);
+  end;
+end;
+
+procedure TMenuDesignerForm.SetMenu(aMenu: TMenu; aMenuItem: TMenuItem);
+var
+  selection: TMenuItem;
+begin
+  if (aMenu = nil) then
+  begin
+    DisableGUI;
+    FDesigner.FreeShadowMenu;
+    FEditedMenu:=nil;
+    Application.ProcessMessages;
+  end
+  else begin
+    if (aMenu = FEditedMenu) and (FDesigner.ShadowMenu <> nil) then
+      FDesigner.ShadowMenu.SetSelectedMenuItem(aMenuItem, True, False)
+    else begin
+      if (aMenu = FEditedMenu) and (FDesigner.ShadowMenu = nil) then
+      begin
+        if (FEditedMenu.Items.Count > 0) then
+          selection := FEditedMenu.Items[0]
+        else
+          selection := nil;
+      end
+      else if (aMenu <> FEditedMenu) then
+      begin
+        FDesigner.ShadowMenu.Free;
+        FDesigner.ShadowMenu := Nil;
+        FEditedMenu := aMenu;
+        selection := aMenuItem;
+      end;
+
+      FGUIEnabled := False;
+      EnableGUI(selection = nil);
+      UpdateStatistics;
+      FDesigner.CreateShadowMenu(FEditedMenu, selection, Width-LeftPanel.Width, Height);
+    end;
+  end;
+end;
+
+procedure TMenuDesignerForm.BeginUpdate;
+begin
+  Inc(FUpdateCount);
+end;
+
+procedure TMenuDesignerForm.EndUpdate;
+begin
+  if FUpdateCount<=0 then
+    RaiseGDBException('');
+  Dec(FUpdateCount);
+  if FUpdateCount = 0 then
+    OnDesignerSetSelection(FormEditingHook.GetCurrentObjectInspector.Selection);
+end;
+
+function TMenuDesignerForm.IsUpdate: Boolean;
+begin
+  Result := FUpdateCount > 0;
+end;
+
+procedure TMenuDesignerForm.UpdateStatistics;
+var
+  captions, shrtcuts, icons, accels, tmp: integer;
+  s: String;
+begin
+  if not SameText(StatisticsGroupBox.Caption, FEditedMenu.Name) then
+    StatisticsGroupBox.Caption:=FEditedMenu.Name;
+
+  FDesigner.TotalMenuItemsCount:=GetItemCounts(captions, shrtcuts, icons, accels);
+  if (FCaptionedItemsCount <> captions) then begin
+    FCaptionedItemsCount:=captions;
+    CaptionedItemsCountLabel.Caption:=
+      Format(lisMenuEditorCaptionedItemsS, [IntToStr(captions)]);
+  end;
+  s:=FDesigner.Shortcuts.Statistics(shrtcuts);
+  if s <> '' then
+    ShortcutItemsCountLabel.Caption := s;
+  if (FIconsCount <> icons) then begin
+    FIconsCount:=icons;
+    IconCountLabel.Caption:=
+      Format(lisMenuEditorItemsWithIconS, [IntToStr(FIconsCount)]);
+  end;
+  if (FAcceleratorMenuItemsCount <> accels) then
+    FAcceleratorMenuItemsCount:=accels;
+  tmp:=GetNestingLevelDepth(FEditedMenu);
+  if (FDeepestNestingLevel <> tmp) then begin
+    DeepestNestingLevelLabel.Caption:=
+      Format(lisMenuEditorDeepestNestedMenuLevelS, [IntToStr(tmp)]);
+    FDeepestNestingLevel:=tmp;
+  end;
+  StatisticsGroupBox.Invalidate;
+end;
+
+procedure TMenuDesignerForm.UpdateSubmenuGroupBox(selMI: TMenuItem;
+  selBox: TShadowBoxBase; boxIsRoot: boolean);
+begin
+  if SubmenuGroupBox = nil then
+    Exit;
+
+  if (selMI = nil) then begin
+    SubmenuGroupBox.Caption:=lisMenuEditorNoMenuSelected;
+    RadioGroupsLabel.Caption:='';
+    GroupIndexLabel.Caption:='';
+  end
+  else begin
+    selBox.LastRIValue:=selMI.RadioItem;
+    if boxIsRoot then
+      SubmenuGroupBox.Caption:=lisMenuEditorRootMenu
+    else SubmenuGroupBox.Caption:=Format(lisMenuEditorSSubmenu,[selBox.ParentMenuItem.Name]);
+
+    if selMI.RadioItem then begin
+      GroupIndexLabel.Caption:=Format(lisMenuEditorSGroupIndexD,
+                                      [selMI.Name, selMI.GroupIndex]);
+      GroupIndexLabel.Enabled:=True;
+    end
+    else begin
+      GroupIndexLabel.Caption:=Format(lisMenuEditorSIsNotARadioitem,
+                                      [selMI.Name]);
+      GroupIndexLabel.Enabled:=False;
+    end;
+
+    if selBox.HasRadioItems then begin
+      RadioGroupsLabel.Caption:=Format(lisMenuEditorGroupIndexValueSS,
+                                       [selBox.RadioGroupsString]);
+      RadioGroupsLabel.Enabled:=True;
+    end
+    else begin
+      RadioGroupsLabel.Caption:=lisMenuEditorNoRadioitemsInThisMenu;
+      RadioGroupsLabel.Enabled:=False;
+      RadioGroupsLabel.Invalidate; //for some reason this seems necessary
+    end;
+  end;
+end;
+
+procedure TMenuDesignerForm.UpdateItemInfo(aMenu: TMenu; aMenuItem: TMenuItem;
+  aShadowBox: TShadowBoxBase; aPropEditHook: TPropertyEditorHook);
+var
+  s: string;
+  method: TMethod;
+begin
+  if aMenuItem = nil then
+  begin
+    Caption:=Format(lisMenuEditorEditingSSNoMenuitemSelected,
+                    [aMenu.Owner.Name, aMenu.Name]);
+    ButtonsGroupBox.Enabled:=False;
+    UpdateSubmenuGroupBox(nil, nil, False);
+  end
+  else begin
+    method:=GetMethodProp(aMenuItem, 'OnClick');
+    s:=aPropEditHook.GetMethodName(method, aMenuItem);
+    if s = '' then
+      s:=lisMenuEditorIsNotAssigned;
+    Caption:=Format(lisMenuEditorSSSOnClickS,
+                    [aMenu.Owner.Name, aMenu.Name, aMenuItem.Name, s]);
+    ButtonsGroupBox.Enabled:=True;
+    UpdateSubmenuGroupBox(aMenuItem, aShadowBox, aShadowBox.Level=0);
+  end;
+end;
+
+{ TRadioIcon }
+
+constructor TRadioIcon.CreateWithGlyph(aRIGroup: TRadioIconGroup;
+  anImgIndex: integer);
+begin
+  Assert(anImgIndex > -1, 'TRadioIcon.CreateWithGlyph: param not > -1');
+  inherited Create(aRIGroup);
+  FRIGroup:=aRIGroup;
+
+  FBGlyph:=TButtonGlyph.Create;
+  FBGlyph.IsDesigning:=False;
+  FBGlyph.ShowMode:=gsmAlways;
+  FBGlyph.OnChange:=nil;
+  FBGlyph.CacheSetImageList(FRIGroup.FImageList);
+  FBGlyph.CacheSetImageIndex(0, anImgIndex);
+  Tag:=anImgIndex;
+
+  SetInitialBounds(0, 0, FRIGroup.FRadioWidth, FRIGroup.FRadioHeight);
+  ControlStyle:=ControlStyle + [csCaptureMouse]-[csSetCaption, csClickEvents, csOpaque];
+  FRIState:=risUp;
+  Color:=clBtnFace;
+end;
+
+destructor TRadioIcon.Destroy;
+begin
+  FreeAndNil(FBGlyph);
+  inherited Destroy;
+end;
+
+function TRadioIcon.GetChecked: Boolean;
+begin
+  Result:=FRIState in [risDown, risPressed, risCheckedHot];
+end;
+
+procedure TRadioIcon.SetChecked(aValue: Boolean);
+begin
+  case aValue of
+    True: if (FRIState <> risDown) then begin // set to True
+            FRIState:=risDown;
+            Repaint;
+          end;
+    False: if (FRIState <> risUp) then begin // set to False
+             FRIState:=risUp;
+             Repaint;
+           end;
+  end;
+end;
+
+procedure TRadioIcon.DoChange;
+begin
+  if Assigned(FOnChange) then
+    FOnChange(Self);
+end;
+
+procedure TRadioIcon.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseDown(Button, Shift, X, Y);
+  if (Button = mbLeft) and (FRIState in [risUncheckedHot, risUp]) then begin
+    FRIState:=risPressed;
+    Repaint;
+    DoChange;
+  end;
+end;
+
+procedure TRadioIcon.MouseEnter;
+begin
+  inherited MouseEnter;
+  case FRIState of
+    risUp: FRIState:=risUncheckedHot;
+    risDown: FRIState:=risCheckedHot;
+  end;
+  Repaint;
+end;
+
+procedure TRadioIcon.MouseLeave;
+begin
+  case FRIState of
+    risPressed, risCheckedHot: FRIState:=risDown;
+    risUncheckedHot:           FRIState:=risUp;
+  end;
+  Repaint;
+  inherited MouseLeave;
+end;
+
+procedure TRadioIcon.Paint;
+var
+  ted: TThemedElementDetails;
+begin
+  if (Canvas.Brush.Color <> Color) then
+    Canvas.Brush.Color:=Color;
+  Canvas.FillRect(ClientRect);
+  case FRIState of
+    risUp:           ted:=FRIGroup.FedUnchecked;
+    risDown:         ted:=FRIGroup.FedChecked;
+    risPressed:      ted:=FRIGroup.FedPressed;
+    risUncheckedHot: ted:=FRIGroup.FedUncheckedHot;
+    risCheckedHot:   ted:=FRIGroup.FedCheckedHot;
+  end;
+  ThemeServices.DrawElement(Canvas.Handle, ted, FRIGroup.FRadioRect);
+  FBGlyph.Draw(Canvas, ClientRect, FRIGroup.FGlyphPt, bsUp, False, 0);
+
+  inherited Paint;
+end;
+
+{ TRadioIconGroup }
+
+constructor TRadioIconGroup.CreateWithImageList(AOwner: TComponent;
+  anImgList: TCustomImageList);
+var
+  topOffset: integer;
+begin
+  Assert(AOwner<>nil,'TRadioIconGroup.CreateWithImageList: AOwner is nil');
+  Assert(anImgList<>nil,'TRadioIconGroup.CreateWithImageList:anImgList is nil');
+
+  inherited Create(AOwner);
+  FImageList:=anImgList;
+  FedUnChecked:=ThemeServices.GetElementDetails(tbRadioButtonUncheckedNormal);
+  FedChecked:=ThemeServices.GetElementDetails(tbRadioButtonCheckedNormal);
+  FedPressed:=ThemeServices.GetElementDetails(tbRadioButtonCheckedPressed);
+  FedUncheckedHot:=ThemeServices.GetElementDetails(tbRadioButtonUncheckedHot);
+  FedCheckedHot:=ThemeServices.GetElementDetails(tbRadioButtonCheckedHot);
+  FedSize:=ThemeServices.GetDetailSize(FedUnChecked);
+  FRadioHeight:=FedSize.cy;
+  if (anImgList.Height > FRadioHeight) then
+    FRadioHeight:=anImgList.Height;
+  topOffset:=(FRadioHeight - FedSize.cy) div 2;
+  FRadioRect:=Rect(0, topOffset, FedSize.cx, topOffset+FedSize.cy);
+  FSpacing:=5;
+  FRadioWidth:=FedSize.cx + FSpacing + anImgList.Width;
+  FGlyphPt:=Point(FedSize.cx+FSpacing, 0);
+  FItemIndex:= -1;
+  CreateRadioItems;
+end;
+
+procedure TRadioIconGroup.CreateRadioItems;
+var
+  i: integer;
+begin
+  SetLength(FRIArray, FImageList.Count);
+  for i:=Low(FRIArray) to High(FRIArray) do
+    begin
+      FRIArray[i]:=TRadioIcon.CreateWithGlyph(Self, i);
+      FRIArray[i].OnChange:=@RIOnChange;
+    end;
+end;
+
+procedure TRadioIconGroup.ApplyLayout;
+var
+  unitArea, hSpace, sepn, count, cols, rows, lastRowCount, space, h, num, denom: integer;
+
+  procedure CalcSepn;
+  begin
+    rows:=count div cols;
+    if (cols*rows < count) or (rows < 2) then
+      Inc(rows);
+    lastRowCount:=count mod cols;
+    if (lastRowCount = 0) then
+      lastRowCount:=cols;
+    num:=space + hSpace*FRIArray[0].Height - lastRowCount*unitArea;
+    denom:=Pred(rows)*hSpace + FRIArray[0].Height*Pred(cols)*Pred(rows);
+    Assert(denom > 0,'TRadioIconGroup.ApplyLayout: divisor is zero');
+    sepn:=trunc(num/denom);
+    repeat
+      Dec(sepn);
+      h:=cols*FRIArray[0].Width + Pred(cols)*sepn;
+    until (h < hSpace) or (sepn <= Margin);
+  end;
+
+const
+  BPanelVertDim = 46;
+var
+  areaToFill, hBorderAndMargins, vSpace, vSepn, oldCols,
+    i, v, gap, hInc, vInc, maxIdx, vBorderAndMargins: integer;
+  lft: integer = Margin;
+  tp: integer = Margin;
+  r: integer = 1;
+  c: integer = 1;
+begin
+  hBorderAndMargins:=integer(BorderSpacing.Left)+integer(BorderSpacing.Right)+integer(BorderSpacing.Around*2) + Double_Margin;
+  hSpace:=Parent.ClientWidth - hBorderAndMargins;
+  vBorderAndMargins:=integer(BorderSpacing.Top)+integer(BorderSpacing.Bottom)+integer(BorderSpacing.Around*2) + Double_Margin;
+  vSpace:=Parent.ClientHeight - vBorderAndMargins - BPanelVertDim;
+  areaToFill:=hSpace*vSpace;
+  unitArea:=FRIArray[0].Width*FRIArray[0].Height;
+  count:=Length(FRIArray);
+  space:=areaToFill - count*unitArea;
+
+  cols:=trunc(sqrt(count)); // assume area is roughly square
+  if (cols = 0) then
+    Inc(cols);
+  oldCols:=cols;
+  CalcSepn;
+
+  gap:=hSpace - h;
+  if (gap > 0) and (gap > FRIArray[0].Width) then
+  begin
+    Inc(cols);
+    CalcSepn;
+  end;
+  if (sepn <= Margin) then
+  begin
+    cols:=oldcols;
+    CalcSepn;
+  end;
+
+  vSepn:=sepn;
+  v:=rows*FRIArray[0].Height + Pred(rows)*vSepn;
+  if (v > vSpace) then
+  repeat
+    Dec(vSepn);
+    v:=rows*FRIArray[0].Height + Pred(rows)*vSepn;
+  until (v < vSpace) or (vSepn <= Margin);
+
+  hInc:=FRIArray[0].Width + sepn;
+  vInc:=FRIArray[0].Height + vSepn;
+  maxIdx:=High(FRIArray);
+  for i:=Low(FRIArray) to maxIdx do
+  begin
+    FRIArray[i].Left:=lft;
+    FRIArray[i].Top:=tp;
+    Inc(c);
+    Inc(lft, hInc);
+    if (c > cols) and (i < maxIdx) then
+    begin
+      c:=1;
+      lft:=Margin;
+      Inc(r);
+      Inc(tp, vInc);
+    end;
+  end;
+  Assert(r <= rows,'TRadioIconGroup.ApplyLayout: error in calculation of space needed');
+end;
+
+procedure TRadioIconGroup.RIOnChange(Sender: TObject);
+var
+  aRi: TRadioIcon;
+  i: integer;
+begin
+  if not (Sender is TRadioIcon) then
+    Exit;
+  aRi:=TRadioIcon(Sender);
+  FItemIndex:=aRi.Tag;
+  DoSelectItem;
+  if aRi.Checked then
+  begin
+   for i:=Low(FRIArray) to High(FRIArray) do
+     if (i <> FItemIndex) then
+       FRIArray[i].Checked:=False;
+  end;
+end;
+
+procedure TRadioIconGroup.DoSelectItem;
+begin
+  if Assigned(FOnSelectItem) then
+    FOnSelectItem(Self);
+end;
+
+procedure TRadioIconGroup.SetParent(NewParent: TWinControl);
+var
+  i: Integer;
+begin
+  inherited SetParent(NewParent);
+  if (NewParent <> nil) then
+  begin
+    ApplyLayout;
+    for i:=Low(FRIArray) to High(FRIArray) do
+      FRIArray[i].SetParent(Self);
+  end;
+end;
+
+{ TdlgChooseIcon }
+
+constructor TdlgChooseIcon.Create(TheOwner: TComponent);
+begin
+  inherited CreateNew(TheOwner);
+  Position:=poScreenCenter;
+  BorderStyle:=bsDialog;
+  Width:=250;
+  Height:=250;
+  FButtonPanel:=TButtonPanel.Create(Self);
+  FButtonPanel.ShowButtons:=[pbOK, pbCancel];
+  FButtonPanel.OKButton.Name:='OKButton';
+  FButtonPanel.OKButton.DefaultCaption:=True;
+  FButtonPanel.OKButton.Enabled:=False;
+  FButtonPanel.CancelButton.Name:='CancelButton';
+  FButtonPanel.CancelButton.DefaultCaption:=True;
+  FButtonPanel.Parent:=Self;
+end;
+
+function TdlgChooseIcon.GetImageIndex: integer;
+begin
+  Result:=FRadioIconGroup.ItemIndex;
+end;
+
+procedure TdlgChooseIcon.RIGClick(Sender: TObject);
+begin
+  FButtonPanel.OKButton.Enabled:=True;
+  FButtonPanel.OKButton.SetFocus;
+end;
+
+procedure TdlgChooseIcon.SetRadioIconGroup(anImageList: TCustomImageList);
+begin
+  FRadioIconGroup:=TRadioIconGroup.CreateWithImageList(Self, anImageList);
+  with FRadioIconGroup do begin
+    Align:=alClient;
+    BorderSpacing.Top:=FButtonPanel.BorderSpacing.Around;
+    BorderSpacing.Left:=FButtonPanel.BorderSpacing.Around;
+    BorderSpacing.Right:=FButtonPanel.BorderSpacing.Around;
+    TabOrder:=0;
+    OnSelectItem:=@RIGClick;
+    Parent:=Self;
+  end;
+  Caption:=Format(lisMenuEditorPickAnIconFromS, [anImageList.Name]);
+end;
 
 end.
+

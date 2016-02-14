@@ -55,19 +55,20 @@ uses
 {$IFDEF IDE_MEM_CHECK}
   MemCheck,
 {$ENDIF}
-  Math, Classes, LCLType, LCLProc, LCLIntf, Buttons, Menus,
+  Math, Classes, LCLType, LCLProc, LCLIntf, Buttons, Menus, ComCtrls,
   SysUtils, types, Controls, Graphics, ExtCtrls, Dialogs, LazFileUtils, Forms,
   CodeToolManager, AVL_Tree, SynEditKeyCmds, PackageIntf,
   // IDEIntf
-  IDEImagesIntf, SrcEditorIntf, LazIDEIntf, MenuIntf,
-  IDECommands, IDEWindowIntf,
+  IDEImagesIntf, SrcEditorIntf, LazIDEIntf, MenuIntf, NewItemIntf,
+  IDECommands, IDEWindowIntf, ProjectIntf, ToolBarIntf,
   // IDE
-  LazConf, LazarusIDEStrConsts, ProjectDefs, Project,
-  TransferMacros, ObjectInspector, PropEdits,
+  LazConf, LazarusIDEStrConsts, ProjectDefs, Project, IDEDialogs,
+  TransferMacros, ObjectInspector, PropEdits, BuildManager,
   EnvironmentOpts, EditorOptions, CompilerOptions, KeyMapping, IDEProcs,
   Debugger, IDEOptionDefs, Splash, Designer,
   SourceEditor, FindInFilesDlg,
-  MainBar, MainIntf, SourceSynEditor, PseudoTerminalDlg;
+  MainBar, MainIntf, SourceSynEditor, PseudoTerminalDlg,
+  DesktopManager, ImgList;
 
 type
   TResetToolFlag = (
@@ -81,7 +82,6 @@ type
 
   TMainIDEBase = class(TMainIDEInterface)
   private
-    FToolStatus: TIDEToolStatus;
     FWindowMenuActiveForm: TCustomForm;
     FDisplayState: TDisplayState;
     procedure SetDisplayState(AValue: TDisplayState);
@@ -118,8 +118,7 @@ type
     procedure SetupHelpMenu; virtual;
 
     procedure LoadMenuShortCuts; virtual;
-    function GetToolStatus: TIDEToolStatus; override;
-    procedure SetToolStatus(const AValue: TIDEToolStatus); virtual;
+    procedure SetToolStatus(const AValue: TIDEToolStatus); override;
 
     procedure DoMnuWindowClicked(Sender: TObject);
     procedure mnuOpenProjectClicked(Sender: TObject); virtual; abstract;
@@ -127,6 +126,7 @@ type
     procedure mnuWindowItemClick(Sender: TObject); virtual;
     procedure mnuCenterWindowItemClick(Sender: TObject); virtual;
     procedure mnuWindowSourceItemClick(Sender: TObject); virtual;
+    procedure mnuBuildModeClicked(Sender: TObject); virtual; abstract;
 
     procedure UpdateWindowMenu;
 
@@ -137,7 +137,7 @@ type
     procedure StartIDE; virtual; abstract;
     destructor Destroy; override;
     procedure CreateOftenUsedForms; virtual; abstract;
-    function GetMainBar: TComponent; override;
+    function GetMainBar: TForm; override;
     procedure SetRecentProjectFilesMenu;
     procedure SetRecentFilesMenu;
     function BeginCodeTool(var ActiveSrcEdit: TSourceEditor;
@@ -149,7 +149,7 @@ type
                            Flags: TCodeToolsFlags): boolean;
     procedure ActivateCodeToolAbortableMode;
     function OnCodeToolBossCheckAbort: boolean;
-    procedure DoShowDesignerFormOfCurrentSrc; virtual; abstract;
+    procedure DoShowDesignerFormOfCurrentSrc(AComponentPaletteClassSelected: Boolean); virtual; abstract;
     function CreateDesignerForComponent(AnUnitInfo: TUnitInfo;
                         AComponent: TComponent): TCustomForm; virtual; abstract;
     procedure UpdateSaveMenuItemsAndButtons(UpdateSaveAll: boolean); virtual; abstract;
@@ -190,9 +190,94 @@ type
       Button: TMouseButton; Shift: TShiftState; X, Y: Integer); virtual; abstract;
     procedure SelComponentPageButtonClick(Sender: TObject); virtual; abstract;
   public
-    property ToolStatus: TIDEToolStatus read FToolStatus write SetToolStatus;
     property WindowMenuActiveForm: TCustomForm read FWindowMenuActiveForm write FWindowMenuActiveForm;
     property DisplayState: TDisplayState read FDisplayState write SetDisplayState;
+  end;
+
+  { TJumpToSectionToolButton }
+
+  TJumpToSectionToolButton = class(TIDEToolButton)
+  private
+    procedure AddMenuItem(aCmd: TIDEMenuCommand);
+  public
+    procedure DoOnAdded; override;
+    procedure RefreshMenu;
+  end;
+
+  { TSetBuildModeToolButton }
+
+  TSetBuildModeToolButton = class(TIDEToolButton)
+  private
+    procedure RefreshMenu(Sender: TObject);
+    procedure mnuSetBuildModeClick(Sender: TObject);
+  public
+    procedure DoOnAdded; override;
+  end;
+
+  { TOpenFileToolButton }
+
+  TOpenFileToolButton = class(TIDEToolButton)
+  private
+    FIndex: TStringList;
+
+    procedure RefreshMenu(Sender: TObject);
+    procedure mnuOpenFile(Sender: TObject);
+    procedure mnuProjectFile(Sender: TObject);
+  public
+    constructor Create(aOwner: TComponent); override;
+    destructor Destroy; override;
+
+    procedure DoOnAdded; override;
+  end;
+
+  { TOpenFileMenuItem }
+
+  TOpenFileMenuItem = class(TMenuItem)
+  public
+    FileName: string;
+  end;
+
+  { TNewFormUnitToolButton }
+
+  TNewFormUnitToolButton = class(TIDEToolButton)
+  private
+    SetDefaultMenuItem: TMenuItem;
+
+    procedure RefreshMenu(Sender: TObject);
+    procedure mnuSetFormUnitTemplate(Sender: TObject);
+  protected
+    class function FindDefaultTemplateName(Category: TNewIDEItemCategory): string; virtual; abstract;
+    class procedure SetTemplateName(const TemplateName: string); virtual; abstract;
+    class procedure UpdateHint(const AHint: string); virtual; abstract;
+  public
+    procedure DoOnAdded; override;
+
+    class procedure UpdateHints;
+  end;
+
+  { TNewUnitToolButton }
+
+  TNewUnitToolButton = class(TNewFormUnitToolButton)
+  protected
+    class function FindDefaultTemplateName(Category: TNewIDEItemCategory): string; override;
+    class procedure SetTemplateName(const TemplateName: string); override;
+    class procedure UpdateHint(const AHint: string); override;
+  end;
+
+  { TNewFormToolButton }
+
+  TNewFormToolButton = class(TNewFormUnitToolButton)
+  protected
+    class function FindDefaultTemplateName(Category: TNewIDEItemCategory): string; override;
+    class procedure SetTemplateName(const TemplateName: string); override;
+    class procedure UpdateHint(const AHint: string); override;
+  end;
+
+  { TNewFormUnitMenuItem }
+
+  TNewFormUnitMenuItem = class(TMenuItem)
+  public
+    TemplateName: string;
   end;
 
 function  GetMainIde: TMainIDEBase;
@@ -209,6 +294,313 @@ implementation
 function GetMainIde: TMainIDEBase;
 begin
   Result := TMainIDEBase(MainIDEInterface)
+end;
+
+{ TNewFormUnitToolButton }
+
+procedure TNewFormUnitToolButton.DoOnAdded;
+begin
+  inherited DoOnAdded;
+
+  PopupMenu := TPopupMenu.Create(Self);
+  PopupMenu.OnPopup := @RefreshMenu;
+
+  SetDefaultMenuItem:=TMenuItem.Create(PopupMenu);
+  SetDefaultMenuItem.Caption:=lisSetDefault;
+  PopupMenu.Items.Add(SetDefaultMenuItem);
+
+  UpdateHints;
+end;
+
+procedure TNewFormUnitToolButton.mnuSetFormUnitTemplate(Sender: TObject);
+begin
+  SetTemplateName((Sender as TNewFormUnitMenuItem).TemplateName);
+  EnvironmentOptions.Save(False);
+
+  UpdateHints;
+end;
+
+procedure TNewFormUnitToolButton.RefreshMenu(Sender: TObject);
+var
+  TemplateName: String;
+  Category: TNewIDEItemCategory;
+  i: Integer;
+  CurTemplate: TNewIDEItemTemplate;
+  TheIndex: Integer;
+  xItem: TNewFormUnitMenuItem;
+begin
+  Category:=NewIDEItems.FindCategoryByPath(FileDescGroupName,true);
+  TemplateName:=FindDefaultTemplateName(Category);
+
+  // create menu items
+  TheIndex:=0;
+  for i:=0 to Category.Count-1 do begin
+    CurTemplate:=Category[i];
+    if not CurTemplate.VisibleInNewDialog then continue;
+    if TheIndex<SetDefaultMenuItem.Count then
+      xItem:=SetDefaultMenuItem[TheIndex] as TNewFormUnitMenuItem
+    else begin
+      xItem:=TNewFormUnitMenuItem.Create(SetDefaultMenuItem);
+      SetDefaultMenuItem.Add(xItem);
+    end;
+    xItem.OnClick:=@mnuSetFormUnitTemplate;
+    xItem.Caption:=CurTemplate.LocalizedName;
+    xItem.TemplateName:=CurTemplate.Name;
+    xItem.ShowAlwaysCheckable:=true;
+    xItem.Checked:=CompareText(TemplateName,CurTemplate.Name)=0;
+    inc(TheIndex);
+  end;
+  // remove unneeded items
+  while SetDefaultMenuItem.Count>TheIndex do
+    SetDefaultMenuItem.Items[SetDefaultMenuItem.Count-1].Free;
+end;
+
+class procedure TNewFormUnitToolButton.UpdateHints;
+var
+  Category: TNewIDEItemCategory;
+  TemplateName: String;
+  Template: TNewIDEItemTemplate;
+begin
+  if not Assigned(NewIDEItems) then
+    Exit;
+  Category:=NewIDEItems.FindCategoryByPath(FileDescGroupName,true);
+  TemplateName:=FindDefaultTemplateName(Category);
+  if TemplateName<>'' then  //try to get the LocalizedName
+  begin
+    Template:=Category.FindTemplateByName(TemplateName);
+    if Assigned(Template) then
+      TemplateName := Template.LocalizedName;
+  end;
+  UpdateHint(Format(lisMenuNewCustom, [TemplateName]));
+end;
+
+{ TNewFormToolButton }
+
+class function TNewFormToolButton.FindDefaultTemplateName(
+  Category: TNewIDEItemCategory): string;
+begin
+  Result:=EnvironmentOptions.NewFormTemplate;
+  if (Result='') or (Category.FindTemplateByName(Result)=nil) then
+    Result:=FileDescNameLCLForm;
+end;
+
+class procedure TNewFormToolButton.SetTemplateName(const TemplateName: string);
+begin
+  EnvironmentOptions.NewFormTemplate:=TemplateName;
+end;
+
+class procedure TNewFormToolButton.UpdateHint(const AHint: string);
+begin
+  MainIDEBar.itmFileNewForm.Hint := AHint;
+end;
+
+{ TNewUnitToolButton }
+
+class function TNewUnitToolButton.FindDefaultTemplateName(
+  Category: TNewIDEItemCategory): string;
+begin
+  Result:=EnvironmentOptions.NewUnitTemplate;
+  if (Result='') or (Category.FindTemplateByName(Result)=nil) then
+    Result:=FileDescNamePascalUnit;
+end;
+
+class procedure TNewUnitToolButton.SetTemplateName(const TemplateName: string);
+begin
+  EnvironmentOptions.NewUnitTemplate:=TemplateName;
+end;
+
+class procedure TNewUnitToolButton.UpdateHint(const AHint: string);
+begin
+  MainIDEBar.itmFileNewUnit.Hint := AHint;
+end;
+
+{ TOpenFileToolButton }
+
+constructor TOpenFileToolButton.Create(aOwner: TComponent);
+begin
+  inherited Create(aOwner);
+
+  FIndex := TStringList.Create;
+end;
+
+destructor TOpenFileToolButton.Destroy;
+begin
+  FIndex.Free;
+
+  inherited Destroy;
+end;
+
+procedure TOpenFileToolButton.DoOnAdded;
+begin
+  inherited DoOnAdded;
+
+  DropdownMenu := TPopupMenu.Create(Self);
+  DropdownMenu.OnPopup := @RefreshMenu;
+  DropdownMenu.Images := TCustomImageList.Create(Self);
+  DropdownMenu.Images.Width := 16;
+  DropdownMenu.Images.Height := 16;
+  Style := tbsDropDown;
+end;
+
+procedure TOpenFileToolButton.mnuOpenFile(Sender: TObject);
+begin
+  if MainIDE.DoOpenEditorFile((Sender as TOpenFileMenuItem).FileName,-1,-1,
+    [ofAddToRecent])=mrOk then
+  begin
+    MainIDE.SetRecentFilesMenu;
+    MainIDE.SaveEnvironment;
+  end;
+end;
+
+procedure TOpenFileToolButton.mnuProjectFile(Sender: TObject);
+begin
+  MainIDE.DoOpenProjectFile((Sender as TOpenFileMenuItem).FileName,[ofAddToRecent]);
+end;
+
+procedure TOpenFileToolButton.RefreshMenu(Sender: TObject);
+  procedure AddFile(const AFileName: string; const AOnClick: TNotifyEvent);
+  var
+    AMenuItem: TOpenFileMenuItem;
+    xExt: string;
+  begin
+    AMenuItem := TOpenFileMenuItem.Create(DropdownMenu);
+    DropdownMenu.Items.Add(AMenuItem);
+    AMenuItem.OnClick := AOnClick;
+    AMenuItem.FileName := AFileName;
+    AMenuItem.Caption := AFilename;
+    xExt := ExtractFileExt(AFileName);
+    if SameFileName(xExt, '.lpi') or SameFileName(xExt, '.lpr') then
+      AMenuItem.ImageIndex := LoadProjectIconIntoImages(AFileName, DropdownMenu.Images, FIndex);
+  end;
+
+  procedure AddFiles(List: TStringList; MaxCount: integer; const AOnClick: TNotifyEvent);
+  var
+    i: integer;
+  begin
+    i := 0;
+    while (i < List.Count) and (i < MaxCount) do
+    begin
+      AddFile(List[i], AOnClick);
+      inc(i);
+    end;
+  end;
+
+begin
+  DropdownMenu.Items.Clear;
+
+  // first add recent projects
+  AddFiles(EnvironmentOptions.RecentProjectFiles, EnvironmentOptions.MaxRecentProjectFiles, @mnuProjectFile);
+  // add a separator
+  DropdownMenu.Items.AddSeparator;
+  // then add recent files
+  AddFiles(EnvironmentOptions.RecentOpenFiles, EnvironmentOptions.MaxRecentOpenFiles, @mnuOpenFile);
+end;
+
+{ TSetBuildModeToolButton }
+
+procedure TSetBuildModeToolButton.DoOnAdded;
+begin
+  inherited DoOnAdded;
+
+  DropdownMenu := TPopupMenu.Create(Self);
+  DropdownMenu.OnPopup := @RefreshMenu;
+  Style := tbsDropDown;
+end;
+
+procedure TSetBuildModeToolButton.mnuSetBuildModeClick(Sender: TObject);
+var
+  TheMenuItem: TMenuItem;
+  TheIndex: LongInt;
+  NewMode: TProjectBuildMode;
+begin
+  TheMenuItem := (Sender as TMenuItem);
+  if TheMenuItem.Caption = '-' then exit;
+  TheIndex := TheMenuItem.MenuIndex;
+  if (TheIndex < 0) or (TheIndex >= Project1.BuildModes.Count) then exit;
+  NewMode := Project1.BuildModes[TheIndex];
+  if NewMode = Project1.ActiveBuildMode then exit;
+  if not (MainIDE.ToolStatus in [itNone,itDebugger]) then begin
+    IDEMessageDialog('Error','You can not change the build mode while compiling.',
+      mtError,[mbOk]);
+    exit;
+  end;
+
+  Project1.ActiveBuildMode := NewMode;
+  MainBuildBoss.SetBuildTargetProject1(false);
+  MainIDE.UpdateCaption;
+end;
+
+procedure TSetBuildModeToolButton.RefreshMenu(Sender: TObject);
+var
+  aMenu: TPopupMenu;
+  CurIndex: Integer;
+  i: Integer;
+
+  procedure AddMode(CurMode: TProjectBuildMode);
+  var
+    AMenuItem: TMenuItem;
+  begin
+    if aMenu.Items.Count > CurIndex then
+      AMenuItem := aMenu.Items[CurIndex]
+    else
+    begin
+      AMenuItem := TMenuItem.Create(DropdownMenu);
+      AMenuItem.Name := aMenu.Name + 'Mode' + IntToStr(CurIndex);
+      AMenuItem.OnClick := @mnuSetBuildModeClick;
+      aMenu.Items.Add(AMenuItem);
+    end;
+    AMenuItem.Caption := CurMode.GetCaption;
+    AMenuItem.Checked := (Project1<>nil) and (Project1.ActiveBuildMode=CurMode);
+    AMenuItem.ShowAlwaysCheckable:=true;
+    inc(CurIndex);
+  end;
+
+begin
+  // fill the PopupMenu:
+  CurIndex := 0;
+  aMenu := DropdownMenu;
+  if Project1<>nil then
+    for i:=0 to Project1.BuildModes.Count-1 do
+      AddMode(Project1.BuildModes[i]);
+  // remove unused menuitems
+  while aMenu.Items.Count > CurIndex do
+    aMenu.Items[aMenu.Items.Count - 1].Free;
+end;
+
+{ TJumpToSectionToolButton }
+
+procedure TJumpToSectionToolButton.DoOnAdded;
+begin
+  inherited DoOnAdded;
+  RefreshMenu;
+end;
+
+procedure TJumpToSectionToolButton.AddMenuItem(aCmd: TIDEMenuCommand);
+var
+  xItem: TMenuItem;
+begin
+  xItem := TMenuItem.Create(DropdownMenu);
+  DropdownMenu.Items.Add(xItem);
+  xItem.Caption := aCmd.Caption;
+  xItem.OnClick := aCmd.OnClick;
+  xItem.ImageIndex := aCmd.ImageIndex;
+end;
+
+procedure TJumpToSectionToolButton.RefreshMenu;
+begin
+  if DropdownMenu = nil then
+  begin
+    DropdownMenu := TPopupMenu.Create(Self);
+    if Assigned(FToolBar) then
+      DropdownMenu.Images := FToolBar.Images;
+    Style := tbsDropDown;
+  end;
+  DropdownMenu.Items.Clear;
+  AddMenuItem(MainIDEBar.itmJumpToInterface);
+  AddMenuItem(MainIDEBar.itmJumpToInterfaceUses);
+  AddMenuItem(MainIDEBar.itmJumpToImplementation);
+  AddMenuItem(MainIDEBar.itmJumpToImplementationUses);
+  AddMenuItem(MainIDEBar.itmJumpToInitialization);
 end;
 
 //{$IFDEF LCLCarbon}
@@ -296,8 +688,8 @@ end;
 
 procedure TMainIDEBase.SetToolStatus(const AValue: TIDEToolStatus);
 begin
-  if FToolStatus=AValue then exit;
-  FToolStatus:=AValue;
+  if ToolStatus=AValue then exit;
+  inherited SetToolStatus(AValue);
   UpdateCaption;
 end;
 
@@ -339,7 +731,7 @@ begin
   ActiveUnitInfo:=AnUnitInfo;
 end;
 
-function TMainIDEBase.GetMainBar: TComponent;
+function TMainIDEBase.GetMainBar: TForm;
 begin
   Result:=MainIDEBar;
 end;
@@ -451,19 +843,9 @@ begin
   AFilename:=AppendPathDelim(GetPrimaryConfigPath)+DefaultProjectOptionsFilename;
   if not FileExistsUTF8(AFilename) then
     CopySecondaryConfigFile(DefaultProjectOptionsFilename);
-  if FileExistsUTF8(AFilename) then begin
-    if AProject.ReadProject(AFilename,nil,True)<>mrOk then
+  if FileExistsUTF8(AFilename) then
+    if AProject.ReadProject(AFilename,nil,False)<>mrOk then
       DebugLn(['TMainIDEBase.DoLoadDefaultCompilerOptions failed']);
-  end else begin
-    // old way (<0.9.31)
-    // load default compiler options if exists
-    AFilename:=AppendPathDelim(GetPrimaryConfigPath)+DefaultProjectCompilerOptionsFilename;
-    if not FileExistsUTF8(AFilename) then
-      CopySecondaryConfigFile(DefaultProjectCompilerOptionsFilename);
-    if not FileExistsUTF8(AFilename) then exit;
-    if AProject.CompilerOptions.LoadFromFile(AFilename)<>mrOk then
-      DebugLn(['TMainIDEBase.DoLoadDefaultCompilerOptions failed']);
-  end;
 
   // change target file name
   AFilename:=ExtractFileName(AProject.CompilerOptions.TargetFilename);
@@ -543,7 +925,7 @@ procedure TMainIDEBase.CreateMenuSeparatorSection(
   const AName: String);
 begin
   Section:=RegisterIDEMenuSection(ParentSection,AName);
-  Section.ChildsAsSubMenu := false;
+  Section.ChildrenAsSubMenu := false;
 end;
 
 procedure TMainIDEBase.CreateMenuSubSection(ParentSection: TIDEMenuSection;
@@ -777,10 +1159,6 @@ begin
       CreateMenuItem(itmViewIDEInternalsWindows, itmSearchInFPDocFiles,'itmSearchInFPDocFiles','Search in FPDoc files');
       {$ENDIF}
     end;
-    CreateMenuItem(ParentMI,itmViewComponentPalette,'itmViewComponentPalette',lisMenuViewComponentPalette, '',
-      true, EnvironmentOptions.Desktop.ComponentPaletteOptions.Visible);
-    CreateMenuItem(ParentMI,itmViewIDESpeedButtons,'itmViewIDESpeedButtons',lisMenuViewIDESpeedButtons, '',
-      true, EnvironmentOptions.Desktop.IDECoolBarOptions.IDECoolBarVisible);
   end;
 end;
 
@@ -891,7 +1269,7 @@ begin
 
     CreateMenuSeparatorSection(mnuProject,itmProjectWindowSection,'itmProjectWindowSection');
     ParentMI:=itmProjectWindowSection;
-    CreateMenuItem(ParentMI,itmProjectInspector,'itmProjectInspector',lisMenuProjectInspector,'menu_project_inspector');
+    CreateMenuItem(ParentMI,itmProjectInspector,'itmProjectInspector',lisMenuProjectInspector+' ...','menu_project_inspector');
     CreateMenuItem(ParentMI,itmProjectOptions,'itmProjectOptions',lisMenuProjectOptions,'menu_project_options');
 
     CreateMenuSeparatorSection(mnuProject,itmProjectAddRemoveSection,'itmProjectAddRemoveSection');
@@ -901,7 +1279,6 @@ begin
     CreateMenuItem(ParentMI,itmProjectViewUnits,'itmProjectViewUnits',lisMenuViewUnits, 'menu_view_units');
     CreateMenuItem(ParentMI,itmProjectViewForms,'itmProjectViewForms',lisMenuViewForms, 'menu_view_forms');
     CreateMenuItem(ParentMI,itmProjectViewSource,'itmProjectViewSource',lisMenuViewProjectSource, 'menu_project_viewsource');
-    CreateMenuItem(ParentMI,itmProjectBuildMode,'itmProjectBuildMode',lisChangeBuildMode, 'menu_compiler_options');
   end;
 end;
 
@@ -931,7 +1308,7 @@ begin
     CreateMenuItem(ParentMI,itmRunMenuRunToCursor,'itmRunMenuRunToCursor',lisMenuRunToCursor,'menu_run_cursor');
     CreateMenuItem(ParentMI,itmRunMenuStop,'itmRunMenuStop',lisStop,'menu_stop', False);
 
-    CreateMenuItem(ParentMI,itmRunMenuAttach,'itmRunMenuAttach',srkmecAttach,'', False);
+    CreateMenuItem(ParentMI,itmRunMenuAttach,'itmRunMenuAttach',srkmecAttach+' ...','', False);
     CreateMenuItem(ParentMI,itmRunMenuDetach,'itmRunMenuDetach',srkmecDetach,'', False);
 
     CreateMenuItem(ParentMI,itmRunMenuRunParameters,'itmRunMenuRunParameters',lisMenuRunParameters, 'menu_run_parameters');
@@ -963,7 +1340,7 @@ begin
     CreateMenuSeparatorSection(mnuComponent,itmPkgOpening,'itmPkgOpening');
     ParentMI:=itmPkgOpening;
     CreateMenuItem(ParentMI,itmPkgNewPackage,'itmPkgNewPackage',lisMenuNewPackage);
-    CreateMenuItem(ParentMI,itmPkgOpenPackage,'itmPkgOpenPackage',lisMenuOpenPackage,'pkg_installed');
+    CreateMenuItem(ParentMI,itmPkgOpenLoadedPackage,'itmPkgOpenPackage',lisMenuOpenPackage,'pkg_installed');
     CreateMenuItem(ParentMI,itmPkgOpenPackageFile,'itmPkgOpenPackageFile',lisMenuOpenPackageFile,'pkg_open');
     CreateMenuItem(ParentMI,itmPkgOpenPackageOfCurUnit,'itmPkgOpenPackageOfCurUnit',lisMenuOpenPackageOfCurUnit);
     CreateMenuSubSection(ParentMI,itmPkgOpenRecent,'itmPkgOpenRecent',lisMenuOpenRecentPkg);
@@ -971,11 +1348,11 @@ begin
     CreateMenuSeparatorSection(mnuComponent,itmPkgUnits,'itmPkgUnits');
     ParentMI:=itmPkgUnits;
     CreateMenuItem(ParentMI,itmPkgAddCurFileToPkg,'itmPkgAddCurFileToPkg',lisMenuAddCurFileToPkg,'pkg_add');
-    CreateMenuItem(ParentMI, itmPkgAddNewComponentToPkg, 'itmPkgAddNewComponentToPkg', lisMenuNewComponent, 'pkg_add');
+    CreateMenuItem(ParentMI, itmPkgAddNewComponentToPkg, 'itmPkgAddNewComponentToPkg', lisMenuNewComponent+' ...', 'pkg_add');
 
     CreateMenuSeparatorSection(mnuComponent,itmPkgGraphSection,'itmPkgGraphSection');
     ParentMI:=itmPkgGraphSection;
-    CreateMenuItem(ParentMI,itmPkgPkgGraph,'itmPkgPkgGraph',lisMenuPackageGraph,'pkg_graph');
+    CreateMenuItem(ParentMI,itmPkgPkgGraph,'itmPkgPkgGraph',lisMenuPackageGraph+' ...','pkg_graph');
     CreateMenuItem(ParentMI,itmPkgPackageLinks,'itmPkgPackageLinks',lisMenuPackageLinks);
     CreateMenuItem(ParentMI,itmPkgEditInstallPkgs,'itmPkgEditInstallPkgs',lisMenuEditInstallPkgs,'pkg_properties');
 
@@ -1006,18 +1383,21 @@ begin
 
     CreateMenuSeparatorSection(mnuTools,itmSecondaryTools,'itmSecondaryTools');
     ParentMI:=itmSecondaryTools;
-    CreateMenuItem(ParentMI,itmToolManageDesktops,'itmToolManageDesktops', lisDesktops);
+    CreateMenuItem(ParentMI,itmToolManageDesktops,'itmToolManageDesktops', lisDesktops, 'menu_manage_desktops');
     CreateMenuItem(ParentMI,itmToolManageExamples,'itmToolManageExamples',lisMenuExampleProjects, 'camera');
     CreateMenuItem(ParentMI,itmToolDiff,'itmToolDiff',lisMenuCompareFiles, 'menu_tool_diff');
 
+    CreateMenuSeparatorSection(mnuTools,itmConversion,'itmConversion');
+    ParentMI:=itmConversion;
+    CreateMenuItem(ParentMI,itmToolConvertEncoding,'itmToolConvertEncoding',lisMenuConvertEncoding);
+    CreateMenuItem(ParentMI,itmToolCheckLFM,'itmToolCheckLFM',lisMenuCheckLFM, 'menu_tool_check_lfm');
+
     CreateMenuSubSection(mnuTools,itmDelphiConversion,'itmDelphiConversion',lisMenuDelphiConversion,'menu_tool_dfm_to_lfm');
     ParentMI:=itmDelphiConversion;
-    CreateMenuItem(ParentMI,itmToolCheckLFM,'itmToolCheckLFM',lisMenuCheckLFM, 'menu_tool_check_lfm');
     CreateMenuItem(ParentMI,itmToolConvertDelphiUnit,'itmToolConvertDelphiUnit',lisMenuConvertDelphiUnit,'menu_tool_dfm_to_lfm');
     CreateMenuItem(ParentMI,itmToolConvertDelphiProject,'itmToolConvertDelphiProject',lisMenuConvertDelphiProject,'menu_tool_dfm_to_lfm');
     CreateMenuItem(ParentMI,itmToolConvertDelphiPackage,'itmToolConvertDelphiPackage',lisMenuConvertDelphiPackage,'menu_tool_dfm_to_lfm');
     CreateMenuItem(ParentMI,itmToolConvertDFMtoLFM,'itmToolConvertDFMtoLFM',lisMenuConvertDFMtoLFM,'menu_tool_dfm_to_lfm');
-    CreateMenuItem(ParentMI,itmToolConvertEncoding,'itmToolConvertEncoding',lisMenuConvertEncoding);
 
     CreateMenuSeparatorSection(mnuTools,itmBuildingLazarus,'itmBuildingLazarus');
     ParentMI:=itmBuildingLazarus;
@@ -1038,7 +1418,7 @@ begin
     // Populated later with a list of editor names
     CreateMenuSeparatorSection(mnuWindow,itmWindowLists,'itmWindowLists');
     CreateMenuSeparatorSection(mnuWindow,itmCenterWindowLists,'itmCenterWindowLists');
-    itmCenterWindowLists.ChildsAsSubMenu:=true;
+    itmCenterWindowLists.ChildrenAsSubMenu:=true;
     itmCenterWindowLists.Caption:=lisCenterALostWindow;
     CreateMenuSeparatorSection(mnuWindow,itmTabLists,'itmTabLists');
     CreateMenuSubSection(itmTabLists,itmTabListProject,'itmTabListProject', dlgEnvProject);
@@ -1084,18 +1464,40 @@ end;
 
 procedure TMainIDEBase.LoadMenuShortCuts;
 
-  function GetCommand(ACommand: word): TIDECommand;
+  function GetCmdAndBtn(ACommand: word; out ToolButton: TIDEButtonCommand): TIDECommand;
   begin
     Result:=IDECommandList.FindIDECommand(ACommand);
+    if Result<>nil then
+      ToolButton := RegisterIDEButtonCommand(Result)
+    else
+      ToolButton := nil;
   end;
 
+  function GetCommand(ACommand: word): TIDECommand;
+  var
+    ToolButton: TIDEButtonCommand;
+  begin
+    Result:=GetCmdAndBtn(ACommand, ToolButton);
+  end;
+
+  function GetCommand(ACommand: word; ToolButtonClass: TIDEToolButtonClass): TIDECommand;
+  var
+    ToolButton: TIDEButtonCommand;
+  begin
+    Result:=GetCmdAndBtn(ACommand, ToolButton);
+    if ToolButton<>nil then
+      ToolButton.ToolButtonClass := ToolButtonClass;
+  end;
+
+var
+  xBtnItem: TIDEButtonCommand;
 begin
   with MainIDEBar do begin
     // file menu
-    itmFileNewUnit.Command:=GetCommand(ecNewUnit);
-    itmFileNewForm.Command:=GetCommand(ecNewForm);
+    itmFileNewUnit.Command:=GetCommand(ecNewUnit, TNewUnitToolButton);
+    itmFileNewForm.Command:=GetCommand(ecNewForm, TNewFormToolButton);
     itmFileNewOther.Command:=GetCommand(ecNew);
-    itmFileOpen.Command:=GetCommand(ecOpen);
+    itmFileOpen.Command:=GetCommand(ecOpen, TOpenFileToolButton);
     itmFileRevert.Command:=GetCommand(ecRevert);
     itmFileSave.Command:=GetCommand(ecSave);
     itmFileSaveAs.Command:=GetCommand(ecSaveAs);
@@ -1103,7 +1505,6 @@ begin
     itmFileClose.Command:=GetCommand(ecClose);
     itmFileCloseAll.Command:=GetCommand(ecCloseAll);
     itmFileCleanDirectory.Command:=GetCommand(ecCleanDirectory);
-    itmFileQuit.Command:=GetCommand(ecQuit);
     itmFileQuit.Command:=GetCommand(ecQuit);
 
     // edit menu
@@ -1148,11 +1549,17 @@ begin
     itmSetFreeBookmark.Command:=GetCommand(ecSetFreeBookmark);
     itmJumpToNextBookmark.Command:=GetCommand(ecNextBookmark);
     itmJumpToPrevBookmark.Command:=GetCommand(ecPrevBookmark);
-    itmJumpToInterface.Command:=GetCommand(ecJumpToInterface);
-    itmJumpToInterfaceUses.Command:=GetCommand(ecJumpToInterfaceUses);
-    itmJumpToImplementation.Command:=GetCommand(ecJumpToImplementation);
-    itmJumpToImplementationUses.Command:=GetCommand(ecJumpToImplementationUses);
-    itmJumpToInitialization.Command:=GetCommand(ecJumpToInitialization);
+    itmJumpToInterface.Command:=GetCommand(ecJumpToInterface, TJumpToSectionToolButton);
+    itmJumpToInterfaceUses.Command:=GetCommand(ecJumpToInterfaceUses, TJumpToSectionToolButton);
+    itmJumpToImplementation.Command:=GetCommand(ecJumpToImplementation, TJumpToSectionToolButton);
+    itmJumpToImplementationUses.Command:=GetCommand(ecJumpToImplementationUses, TJumpToSectionToolButton);
+    itmJumpToInitialization.Command:=GetCommand(ecJumpToInitialization, TJumpToSectionToolButton);
+    GetCmdAndBtn(ecJumpToProcedureHeader, xBtnItem);
+    xBtnItem.OnClick := @SourceEditorManager.JumpToProcedureHeaderClicked;
+    xBtnItem.ImageIndex := IDEImages.LoadImage(16, 'menu_jumpto_procedureheader');
+    GetCmdAndBtn(ecJumpToProcedureBegin, xBtnItem);
+    xBtnItem.ImageIndex := IDEImages.LoadImage(16, 'menu_jumpto_procedurebegin');
+    xBtnItem.OnClick := @SourceEditorManager.JumpToProcedureBeginClicked;
     itmFindBlockOtherEnd.Command:=GetCommand(ecFindBlockOtherEnd);
     itmFindBlockStart.Command:=GetCommand(ecFindBlockStart);
     itmFindDeclaration.Command:=GetCommand(ecFindDeclaration);
@@ -1175,8 +1582,6 @@ begin
     itmViewSearchResults.Command:=GetCommand(ecToggleSearchResults);
     itmViewAnchorEditor.Command:=GetCommand(ecViewAnchorEditor);
     itmViewTabOrder.Command:=GetCommand(ecViewTabOrder);
-    itmViewComponentPalette.Command:=GetCommand(ecToggleCompPalette);
-    itmViewIDESpeedButtons.Command:=GetCommand(ecToggleIDESpeedBtns);
     //itmPkgPackageLinks.Command:=GetCommand(ec?);
 
     // source menu
@@ -1246,6 +1651,10 @@ begin
     itmProjectViewUnits.Command:=GetCommand(ecViewProjectUnits);
     itmProjectViewForms.Command:=GetCommand(ecViewProjectForms);
     itmProjectViewSource.Command:=GetCommand(ecViewProjectSource);
+    GetCmdAndBtn(ecProjectChangeBuildMode, xBtnItem);
+    xBtnItem.ToolButtonClass:=TSetBuildModeToolButton;
+    xBtnItem.ImageIndex := IDEImages.LoadImage(16, 'menu_compiler_options');
+    xBtnItem.OnClick := @mnuBuildModeClicked;
 
     // run menu
     itmRunMenuCompile.Command:=GetCommand(ecCompile);
@@ -1271,7 +1680,7 @@ begin
 
     // package menu
     itmPkgNewPackage.Command:=GetCommand(ecNewPackage);
-    itmPkgOpenPackage.Command:=GetCommand(ecOpenPackage);
+    itmPkgOpenLoadedPackage.Command:=GetCommand(ecOpenPackage);
     itmPkgOpenPackageFile.Command:=GetCommand(ecOpenPackageFile);
     itmPkgOpenPackageOfCurUnit.Command:=GetCommand(ecOpenPackageOfCurUnit);
     itmPkgAddCurFileToPkg.Command:=GetCommand(ecAddCurFileToPkg);
@@ -1291,7 +1700,7 @@ begin
 
     itmToolConfigure.Command:=GetCommand(ecExtToolSettings);
 
-    itmToolManageDesktops.Command:=GetCommand(ecManageDesktops);
+    itmToolManageDesktops.Command:=GetCommand(ecManageDesktops, TShowDesktopsToolButton);
     itmToolManageExamples.Command:=GetCommand(ecManageExamples);
     itmToolDiff.Command:=GetCommand(ecDiff);
 
@@ -1312,11 +1721,6 @@ begin
     itmHelpOnlineHelp.Command:=GetCommand(ecOnlineHelp);
     itmHelpReportingBug.Command:=GetCommand(ecReportingBug);
   end;
-end;
-
-function TMainIDEBase.GetToolStatus: TIDEToolStatus;
-begin
-  Result:=FToolStatus;
 end;
 
 function TMainIDEBase.DoOpenMacroFile(Sender: TObject; const AFilename: string
@@ -1369,7 +1773,7 @@ begin
     AForm:=Screen.Forms[i];
     //debugln(['TMainIDEBase.UpdateWindowMenu ',DbgSName(AForm),' Vis=',AForm.IsVisible,' Des=',DbgSName(AForm.Designer)]);
     if (not AForm.IsVisible) or (AForm=MainIDEBar) or (AForm=SplashForm)
-    or (AForm.Designer<>nil) or (WindowsList.IndexOf(AForm)>=0) then
+    or IsFormDesign(AForm) or (WindowsList.IndexOf(AForm)>=0) then
       continue;
     if IDEDockMaster<>nil then
     begin
@@ -1392,7 +1796,7 @@ begin
     // in the 'bring to front' list
     CurMenuItem := GetMenuItem(i, itmWindowLists);
     if EnvironmentOptions.Desktop.IDENameForDesignedFormList
-    and (TCustomForm(WindowsList[i]).Designer<>nil) then
+    and IsFormDesign(TWinControl(WindowsList[i])) then
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Name
     else
        CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Caption;
@@ -1401,7 +1805,7 @@ begin
     // in the 'center' list
     CurMenuItem := GetMenuItem(i, itmCenterWindowLists);
     if EnvironmentOptions.Desktop.IDENameForDesignedFormList
-    and (TCustomForm(WindowsList[i]).Designer<>nil) then
+    and IsFormDesign(TWinControl(WindowsList[i])) then
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Name
     else
       CurMenuItem.Caption:=TCustomForm(WindowsList[i]).Caption;

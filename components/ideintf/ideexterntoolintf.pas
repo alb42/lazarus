@@ -23,18 +23,19 @@ const
   SubToolFPCLinker = 'FPCLinker';
   SubToolFPCRes = 'FPCRes';
   SubToolFPCWindRes = 'FPCWindRes';
+  SubToolFPCAssembler = 'FPCAssembler';
 
   SubToolMake = 'make';
   SubToolMakePriority = 1000; // higher than FPC
 
-  SubToolDefault = 'External Tool';
+  SubToolDefault = 'External Tool'; // this parser simply writes all output to Messages window
   SubToolDefaultPriority = 0;
 
   AbortedExitCode = 12321;
 
 const
   IDEToolCompilePackage = 'Package';
-  IDEToolCompileProject = 'Project';
+  IDEToolCompileProject = 'Project'; // the active project
   IDEToolCompileIDE     = 'IDE';
 type
 
@@ -309,6 +310,7 @@ type
   private
     FHideHintsSenderNotUsed: boolean;
     FHideHintsUnitNotUsedInMainSource: boolean;
+    FShowLinesCompiled: boolean;
   protected
     FFilesToIgnoreUnitNotUsed: TStrings;
   public
@@ -321,6 +323,8 @@ type
     class function GetFPCMsgValues(Msg: TMessageLine; out Value1, Value2: string): boolean; virtual; abstract;
     property FilesToIgnoreUnitNotUsed: TStrings read FFilesToIgnoreUnitNotUsed
                                                 write FFilesToIgnoreUnitNotUsed;
+    property ShowLinesCompiled: boolean read FShowLinesCompiled
+                                     write FShowLinesCompiled default false;
     property HideHintsSenderNotUsed: boolean read FHideHintsSenderNotUsed
                                      write FHideHintsSenderNotUsed default true;
     property HideHintsUnitNotUsedInMainSource: boolean

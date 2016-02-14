@@ -20,8 +20,8 @@ unit ColorBox;
 interface
 
 uses
-  LResources, SysUtils, LCLProc, LCLType, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, LCLStrConsts;
+  LResources, SysUtils, Types, Classes,
+  LCLProc, LCLType, LCLStrConsts, Graphics, Controls, Forms, Dialogs, StdCtrls;
 
 const
   cDefaultColorRectWidth = 14;
@@ -378,7 +378,6 @@ begin
   FNoneColorColor := clBlack;
   FDefaultColorColor := clBlack;
   FSelected := clBlack;
-
   SetColorList;
 end;
 {------------------------------------------------------------------------------

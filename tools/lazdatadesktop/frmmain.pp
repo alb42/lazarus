@@ -18,6 +18,18 @@
  *                                                                         *
  ***************************************************************************
 }
+
+{
+  Adding support for new connection types requires implementing a Data Dictionary for your connection type
+  see fcl-db/src/datadict for many implementations.
+  When done so, add the unit to the uses clause in the implementation, and register it in RegisterDDEngines
+}
+
+{ MS-SQL server connectop}
+{$IFDEF VER3_1_1}
+{$DEFINE HAVEMSSQLCONN}
+{$ENDIF}
+
 unit frmmain;
 
 {$mode objfpc}{$H+}
@@ -25,10 +37,10 @@ unit frmmain;
 interface
 
 uses
-  Classes, SysUtils, LResources, FileUtil, Forms, Controls, Graphics, Dialogs,
-  Menus, ActnList, StdActns, ComCtrls, dicteditor, fpdatadict, IniPropStorage,
-  conneditor, LCLType, RTTICtrls, ExtCtrls, {StdCtrls,} ddfiles, LCLProc,
-  Translations, lazdatadeskstr;
+  Classes, SysUtils, Forms, Controls, Dialogs, Menus, ActnList, StdActns,
+  ComCtrls, IniPropStorage, LCLType, ExtCtrls, LCLProc, Translations,
+  dicteditor, fraconnection, ddfiles, fpdatadict, lazdatadeskstr,
+  FileUtil, LazFileUtils, LazUTF8;
 
 type
   TEngineMenuItem = Class(TMenuItem)
@@ -76,6 +88,9 @@ type
     ILMain: TImageList;
     LVConnections: TListView;
     LVDicts: TListView;
+    MenuItem10: TMenuItem;
+    PMIDeleteDataDictA: TMenuItem;
+    PMINewDataDictA: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem3: TMenuItem;
     MenuItem4: TMenuItem;
@@ -83,9 +98,16 @@ type
     MenuItem6: TMenuItem;
     MenuItem7: TMenuItem;
     MenuItem8: TMenuItem;
+    PMIOpenDataDictA: TMenuItem;
+    MIListView: TMenuItem;
+    MView: TMenuItem;
     MICreateCode: TMenuItem;
+    PCItems: TPageControl;
+    PMIDeleteConnectionA: TMenuItem;
     PMINewConnection: TMenuItem;
+    PMINewConnectionA: TMenuItem;
     PMINewDataDict: TMenuItem;
+    PMIOpenConnectionA: TMenuItem;
     PMIOpenDataDict: TMenuItem;
     MIDeleteRecentConnection: TMenuItem;
     MIOpenRecentConnection: TMenuItem;
@@ -110,6 +132,7 @@ type
     MIDataDict: TMenuItem;
     PMRecentConnections: TPopupMenu;
     PMDataDict: TPopupMenu;
+    PMAll: TPopupMenu;
     PStatus: TPanel;
     PStatusText: TPanel;
     PBSTatus: TProgressBar;
@@ -122,14 +145,19 @@ type
     MIOpen: TMenuItem;
     MFIle: TMenuItem;
     ODDD: TOpenDialog;
-    PCDD: TPageControl;
+    PCRecent: TPageControl;
     SDDD: TSaveDialog;
+    SRecent: TSplitter;
+    TSAll: TTabSheet;
     TBAddIndex: TToolButton;
     TBCreateCode: TToolButton;
     TBAddSequence: TToolButton;
     ToolButton4: TToolButton;
     ToolButton5: TToolButton;
     ToolButton6: TToolButton;
+    ToolButton7: TToolButton;
+    ToolButton8: TToolButton;
+    TVAll: TTreeView;
     TSConnections: TTabSheet;
     ToolButton1: TToolButton;
     TBNewTable: TToolButton;
@@ -182,31 +210,43 @@ type
     procedure HaveTabs(Sender: TObject);
     procedure HaveTab(Sender: TObject);
     procedure HaveTables(Sender: TObject);
+    procedure MIListViewClick(Sender: TObject);
     procedure OpenRecentConnection(Sender: TObject);
     procedure LVConnectionsKeyUp(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure OpenRecentDatadict(Sender: TObject);
     procedure LVDictsKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure MIDataDictClick(Sender: TObject);
+    procedure PMAllPopup(Sender: TObject);
     procedure SaveAsExecute(Sender: TObject);
+    procedure TVAllDblClick(Sender: TObject);
   private
+    FTreeIntf : Boolean;
+    FNRecentConnections : TTreeNode;
+    FNRecentDictionaries : TTreeNode;
     FRecentDicts : TRecentDataDicts;
     FRecentConnections : TRecentConnections;
-    procedure AddRecentConnection(RC: TRecentConnection; AssumeNew: Boolean);
+    PCDD : TPageControl;
+    procedure AddRecentConnectionList(RC: TRecentConnection; AssumeNew: Boolean);
+    procedure AddRecentConnectionTree(RC: TRecentConnection; AssumeNew: Boolean);
     procedure CheckParams;
     function CloseCurrentConnection: TModalResult;
     function CloseCurrentTab(AddCancelClose: Boolean = False): TModalResult;
     procedure DeleteRecentConnection;
     procedure DeleteRecentDataDict;
     procedure DoShowNewConnectionTypes(ParentMenu: TMenuItem);
+    procedure DoTestConnection(Sender: TObject; const ADriver: String; Params: TStrings);
     function GetConnectionName(out AName: String): Boolean;
     function GetCurrentConnection: TConnectionEditor;
     function GetCurrentEditor: TDataDictEditor;
+    function GetSelectedRecentConnection: TRecentConnection;
+    function GetSelectedRecentDataDict: TRecentDataDict;
     procedure NewConnection(EngineName : String);
     procedure NewConnection;
     procedure OpenConnection(RC: TRecentConnection);
     procedure RegisterDDEngines;
     Function SelectEngineType(out EngineName : String) : Boolean;
+    procedure SetupIntf;
     procedure ShowImportRecentconnections;
     procedure ShowNewConnectionTypes;
     procedure ShowRecentConnections;
@@ -218,17 +258,17 @@ type
     procedure RegisterConnectionCallBacks;
     procedure GetDBFDir(Sender : TObject; Var ADir : String);
     procedure GetSQLConnectionDlg(Sender : TObject; Var AConnection : String);
-    Procedure AddRecentDict(DF : TRecentDataDict; AssumeNew : Boolean);
+    Procedure AddRecentDictList(DF : TRecentDataDict; AssumeNew : Boolean);
+    Procedure AddRecentDictTree(DF : TRecentDataDict; AssumeNew : Boolean);
     Function  FindLi(LV : TListView;RI : TRecentItem) : TListItem;
+    function FindTN(AParent: TTreeNode; RI: TRecentItem): TTreeNode;
     procedure ImportClick(Sender : TObject);
     procedure RecentImportClick(Sender : TObject);
     procedure NewConnectionClick(Sender : TObject);
     procedure DoImport(Const EngineName : String);
     procedure DoImport(Const EngineName,ConnectionString : String);
     Procedure DoDDEProgress(Sender : TObject; Const Msg : String);
-    { private declarations }
   public
-    { public declarations }
     procedure OpenDataDict(DDF : TRecentDataDict);
     procedure OpenFile(AFileName : String);
     procedure RaiseEditor(DDE: TDataDictEditor);
@@ -245,7 +285,9 @@ type
     procedure ShowGenerateSQL;
     Property CurrentEditor : TDataDictEditor Read GetCurrentEditor;
     Property CurrentConnection : TConnectionEditor Read GetCurrentConnection;
-  end; 
+    Property SelectedRecentConnection : TRecentConnection Read GetSelectedRecentConnection;
+    Property SelectedRecentDataDict : TRecentDataDict Read GetSelectedRecentDataDict;
+  end;
 
 
 var
@@ -254,6 +296,8 @@ var
 implementation
 
 {$R *.lfm}
+
+{ $DEFINE HAVEMSSQLCONN}
 
 uses
   frmselectconnectiontype,
@@ -271,6 +315,9 @@ uses
   {$endif}
   fpddsqlite3, // SQLite 3
   fpddodbc,    // Any ODBC supported
+  {$ifdef HAVEMSSQLCONN}
+  fpddmssql,
+  {$endif HAVEMSSQLCONN}
   frmimportdd,frmgeneratesql,fpddsqldb,frmSQLConnect,fpstdexports;
 
 { ---------------------------------------------------------------------
@@ -309,6 +356,7 @@ begin
   MenuItem2.Caption:= sld_Menuedit;
   MIDataDict.Caption:= sld_Menudictionary;
   MIConnection.Caption:= sld_Menuconnections;
+  MView.Caption:= sld_View;
   MIImport.Caption:= sld_Menudictionaryimport;
   MICloseSep.Caption:= sld_Separator;
   MISep.Caption:= sld_Separator;
@@ -371,6 +419,7 @@ begin
   //
   TSRecent.Caption:= sld_Dictionaries;
   TSConnections.Caption:= sld_Connections;
+  TSAll.Caption:= sld_ConnectionsDictionaries;
   LVDicts.Column[0].Caption:= sld_Recentlv1;
   LVDicts.Column[1].Caption:= sld_Recentlv2;
   LVDicts.Column[2].Caption:= sld_Recentlv3;
@@ -384,6 +433,8 @@ begin
   SDDD.Title:= sld_savefileastitle;
   SDDD.Filter:= sld_savefileasfilter;
   //
+  MIListView.Caption:=sld_LegacyView;
+  //
   //
   // Register DD engines.
   RegisterDDEngines;
@@ -394,13 +445,22 @@ begin
   FN:=SysToUTF8(GetAppConfigDir(False));
   ForceDirectoriesUTF8(FN);
   FN:=SysToUTF8(GetAppConfigFile(False));
+  PSMain.IniFileName:=ChangeFileExt(FN,'.ini');
+  FTreeIntf:=PSMain.ReadBoolean('TreeInterface',True);
+  if FTreeIntf then
+    PCRecent.Width:=PSMain.ReadInteger('TreeWidth',PCRecent.Width);
+// We need these 2 in all cases
+  FNRecentConnections:=TVAll.Items.AddChild(Nil,sld_Connections);
+  FNRecentConnections.ImageIndex:=16;
+  FNRecentDictionaries:=TVAll.Items.AddChild(Nil,sld_Dictionaries);
+  FNRecentDictionaries.ImageIndex:=19;
+  SetupIntf;
   FRecentDicts.LoadFromFile(UTF8ToSys(FN),'RecentDicts');
   FRecentConnections.LoadFromFile(UTF8ToSys(FN),'RecentConnections');
   ShowRecentDictionaries;
   ShowRecentConnections;
   ShowDDImports;
   ShowNewConnectionTypes;
-  PSMain.IniFileName:=ChangeFileExt(FN,'.ini');
   LVDicts.Columns[0].Width:=120;
   LVDicts.Columns[1].Width:=380;
   LVDicts.Columns[2].Width:=150;
@@ -411,15 +471,55 @@ begin
   RegisterConnectionCallBacks;
 end;
 
+procedure TMainForm.SetupIntf;
+
+begin
+  TSAll.TabVisible:=FTreeIntf;
+  TSRecent.TabVisible:=Not FTreeIntf;
+  TSConnections.TabVisible:=Not FTreeIntf;
+  if FTreeIntf then
+    begin
+    PCDD:=PCItems;
+    PCRecent.Align:=alLeft;
+    //PCRecent.Width:=300;
+    SRecent.Align:=alLeft;
+    SRecent.Visible:=True;
+    PCItems.Visible:=True;
+    PCItems.Align:=alClient;
+    end
+  else
+    begin
+    PCItems.Align:=alRight;
+    PCItems.Visible:=False;
+    SRecent.Align:=alRight;
+    SRecent.Visible:=False;
+    PCRecent.Align:=alClient;
+    PCDD:=PCRecent;
+    end;
+end;
+
+
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   FreeAndNil(FRecentConnections);
   FreeAndNil(FRecentDicts);
+  PSMain.WriteBoolean('TreeInterface',FTreeIntf);
+  if FTreeIntf then
+    PSMain.WriteInteger('TreeWidth',PCRecent.Width);
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
 begin
   CheckParams;
+  if (FRecentConnections.Count=0) and (FRecentDicts.Count=0) then
+    case QuestionDlg(sld_FirstStart,sql_NoConnectionsFound,mtInformation,[
+         mrOK,sld_startnewdict,
+         mrYes,sld_startnewconnection,
+         mrCancel,sld_startempty
+       ],0) of
+       mrYes : NewConnection;
+       mrOK  : NewDataDict;
+    end
 end;
 
 procedure TMainForm.CheckParams;
@@ -484,6 +584,9 @@ begin
 {$endif}
   RegisterSQLite3DDEngine;
   RegisterODBCDDengine;
+{$IFDEF HAVEMSSQLCONN}
+  RegisterMSSQLDDEngine;
+{$ENDIF}
 end;
 
 procedure TMainForm.RegisterConnectionCallBacks;
@@ -512,6 +615,9 @@ begin
     MaybeRegisterConnectionStringCallback('TSQLDBPOSTGRESQLDDEngine',@GetSQLConnectionDlg);
     MaybeRegisterConnectionStringCallback('TSQLDBFBDDEngine',@GetSQLConnectionDlg);
     MaybeRegisterConnectionStringCallback('TSQLDBSQLite3DDEngine',@GetSQLConnectionDlg);
+{$IFDEF HAVEMSSQLCONN}
+    MaybeRegisterConnectionStringCallback('TSQLDBMSSQLDDEngine',@GetSQLConnectionDlg);
+{$ENDIF}
   finally
     L.free;
   end;
@@ -538,6 +644,49 @@ begin
     Result:=Nil;
 end;
 
+function TMainForm.GetSelectedRecentConnection: TRecentConnection;
+
+Var
+  TN : TTreeNode;
+  LI : TListItem;
+
+begin
+  Result:=Nil;
+  if FTreeIntf then
+     begin
+     TN:=TVAll.Selected;
+     if Assigned(TN) AND Assigned(TN.Data) AND TObject(TN.Data).InheritsFrom(TRecentConnection) then
+       Result:=TRecentConnection(TN.Data);
+     end
+  else
+    begin
+    LI:=LVConnections.Selected;
+    if (LI<>Nil) and (LI.Data<>Nil) then
+      Result:=TRecentConnection(LI.Data)
+    end;
+end;
+
+function TMainForm.GetSelectedRecentDataDict: TRecentDataDict;
+Var
+  TN : TTreeNode;
+  LI : TListItem;
+
+begin
+  Result:=Nil;
+  if FTreeIntf then
+     begin
+     TN:=TVAll.Selected;
+     if Assigned(TN) AND Assigned(TN.Data) AND TObject(TN.Data).InheritsFrom(TRecentDataDict) then
+       Result:=TRecentDataDict(TN.Data);
+     end
+  else
+    begin
+    LI:=LVDicts.Selected;
+    if (LI<>Nil) AND (LI.Data<>Nil) then
+      Result:=TRecentDataDict(LI.Data);
+    end;
+end;
+
 function TMainForm.GetCurrentConnection: TConnectionEditor;
 
 Var
@@ -562,8 +711,10 @@ begin
   For I:=0 to FRecentDicts.Count-1 do
     begin
     DF:=FRecentDicts[i];
-    AddRecentDict(DF,True);
+    AddRecentDictList(DF,True);
+    AddRecentDictTree(DF,True);
     end;
+  FNRecentDictionaries.Expand(False);
 end;
 
 procedure TMainForm.ShowRecentConnections;
@@ -577,8 +728,10 @@ begin
   For I:=0 to FRecentConnections.Count-1 do
     begin
     RC:=FRecentConnections[i];
-    AddRecentConnection(RC,True);
+    AddRecentConnectionList(RC,True);
+    AddRecentConnectionTree(RC,True);
     end;
+  FNRecentConnections.Expand(False);
 end;
 
 procedure TMainForm.ShowDDImports;
@@ -698,6 +851,21 @@ begin
   MIImport.Enabled:=(MIImport.Count>0);
 end;
 
+procedure TMainForm.DoTestConnection(Sender: TObject;Const ADriver : String; Params: TStrings);
+
+Var
+  DDE : TFPDDEngine;
+
+
+begin
+  DDE:=CreateDictionaryEngine(ADriver,Self);
+  try
+    DDE.Connect(Params.CommaText);
+  finally
+    DDE.Free;
+  end;
+end;
+
 procedure TMainForm.StartStatus;
 begin
   PBStatus.Position:=0;
@@ -714,7 +882,7 @@ begin
   Application.ProcessMessages;
 end;
 
-procedure TMainForm.ShowStatus(Const Msg : String);
+procedure TMainForm.ShowStatus(const Msg: String);
 
 begin
   PStatusText.Caption:=Msg;
@@ -727,7 +895,7 @@ begin
   Application.ProcessMessages;
 end;
 
-Procedure TMainForm.DoDDEProgress(Sender : TObject; Const Msg : String);
+procedure TMainForm.DoDDEProgress(Sender: TObject; const Msg: String);
 
 begin
   ShowStatus(Msg);
@@ -756,7 +924,8 @@ begin
 end;
 
 
-procedure TMainForm.GetSQLConnectionDlg(Sender : TObject; Var AConnection : String);
+procedure TMainForm.GetSQLConnectionDlg(Sender: TObject; var AConnection: String
+  );
 
 Var
   Last : String;
@@ -764,12 +933,13 @@ Var
 begin
   Last:=PSmain.StoredValue[Sender.ClassName];
   With (Sender as TSQLDBDDEngine) do
-    AConnection:=GetSQLDBConnectString(HostSupported,Last);
+    AConnection:=GetSQLDBConnectString(HostSupported,Last,ClassName,@DoTestConnection);
   If (AConnection<>'') then
     PSmain.StoredValue[Sender.ClassName]:=AConnection;
 end;
 
-procedure TMainForm.GetDBFDir(Sender : TObject; Var ADir : String);
+
+procedure TMainForm.GetDBFDir(Sender: TObject; var ADir: String);
 
 Var
   IDir : String;
@@ -804,7 +974,7 @@ Var
 begin
   B:=Assigned(CurrentEditor) and (CurrentEditor.DataDictionary.Tables.Count>0);
   If not B then
-    B:=Assigned(CurrentConnection) and CurrentConnection.CanCreateSQL;
+    B:=Assigned(CurrentConnection) and CurrentConnection.Frame.CanCreateSQL;
   (Sender as TAction).Enabled:=B;
 end;
 
@@ -828,7 +998,7 @@ begin
     end
   else if Assigned(CurrentConnection) then
     begin
-    CurrentConnection.CreateCode;
+    CurrentConnection.Frame.CreateCode;
     end;
 end;
 
@@ -846,7 +1016,7 @@ begin
     begin
     B:=Assigned(CurrentConnection);
     If B then
-      B:=CurrentConnection.CanCreateCode;
+      B:=CurrentConnection.Frame.CanCreateCode;
     end;
   (Sender as TAction).Enabled:=B;
 end;
@@ -862,13 +1032,12 @@ Var
   R : TRecentConnection;
 
 begin
-  If (LVConnections.Selected<>Nil)
-     and (LVConnections.Selected.Data<>Nil) then
+  R:=SelectedRecentConnection;
+  If Assigned(R) then
     begin
-    R:=TRecentConnection(LVConnections.Selected.Data);
-    If (R<>Nil) then
-      FRecentConnections.Delete(R.Index);
-    ShowRecentConnections;
+    FRecentConnections.Delete(R.Index);
+    FindLI(LVConnections,R).Free;
+    FindTN(FNRecentConnections,R).Free;
     end;
 end;
 
@@ -997,15 +1166,15 @@ begin
 end;
 
 procedure TMainForm.HaveRecentConnection(Sender: TObject);
+
 begin
-  (Sender as Taction).Enabled:=(LVConnections.Selected<>Nil)
-                                and (LVConnections.Selected.Data<>Nil);
+  (Sender as Taction).Enabled:=Assigned(SelectedRecentConnection);
 end;
 
 procedure TMainForm.HaveRecentDataDict(Sender: TObject);
+
 begin
-  (Sender as Taction).Enabled:=(LVDicts.Selected<>Nil)
-                                and (LVDicts.Selected.Data<>Nil);
+  (Sender as Taction).Enabled:=Assigned(SelectedRecentDataDict);
 end;
 
 procedure TMainForm.HaveTabs(Sender: TObject);
@@ -1015,13 +1184,22 @@ end;
 
 procedure TMainForm.HaveTab(Sender: TObject);
 begin
-  (Sender as TAction).Enabled:=(PCDD.PageCount>2);
+  if FTreeIntf then
+    (Sender as TAction).Enabled:=(PCDD.PageCount>0)
+  else
+    (Sender as TAction).Enabled:=(PCDD.PageCount>2);
 end;
 
 procedure TMainForm.HaveTables(Sender: TObject);
 begin
   (Sender as TAction).Enabled:=Assigned(CurrentEditor)
                                and (CurrentEditor.DataDictionary.Tables.Count>0);
+end;
+
+procedure TMainForm.MIListViewClick(Sender: TObject);
+begin
+  FTreeIntf:=Not MIListView.Checked;
+  SetupIntf;
 end;
 
 procedure TMainForm.OpenRecentConnection(Sender: TObject);
@@ -1042,6 +1220,22 @@ procedure TMainForm.SaveAsExecute(Sender: TObject);
 begin
   SaveCurrentEditorAs;
 end;
+
+procedure TMainForm.TVAllDblClick(Sender: TObject);
+
+Var
+  TN : TTreeNode;
+
+begin
+  TN:=TVAll.Selected;
+  if Assigned(TN) and Assigned(Tn) then
+    if TObject(TN.Data).InheritsFrom(TRecentConnection) then
+      OpenConnection(TRecentConnection(TN.Data))
+    else if TObject(TN.Data).InheritsFrom(TRecentDatadict) then
+      OpenDataDict(TRecentDatadict(TN.Data))
+end;
+
+
 
 
 { ---------------------------------------------------------------------
@@ -1082,7 +1276,8 @@ begin
     end;
   DDF.Use;
   DDF.UserData:=DDE;
-  AddRecentDict(DDF,B);
+  AddRecentDictList(DDF,B);
+  AddRecentDictTree(DDF,B);
 end;
 
 procedure TMainForm.SaveCurrentEditor;
@@ -1128,12 +1323,13 @@ begin
         DDF.Name:=CurrentEditor.DataDictionary.Name;
         DDF.UserData:=CurrentEditor;
         DDF.Use;
-        AddRecentDict(DDF,True);
+        AddRecentDictList(DDF,True);
+        AddRecentDictTree(DDF,True);
         end;
       end;
 end;
 
-Function TMainForm.CloseAllEditors : Boolean;
+function TMainForm.CloseAllEditors: Boolean;
 
 begin
   Result:=True;
@@ -1142,7 +1338,7 @@ begin
     Result:=CloseCurrentTab(True)<>mrCancel;
 end;
 
-Function TMainForm.CloseCurrentTab(AddCancelClose : Boolean = False) : TModalResult;
+function TMainForm.CloseCurrentTab(AddCancelClose: Boolean): TModalResult;
 
 begin
   If (CurrentEditor<>Nil) then
@@ -1154,20 +1350,20 @@ begin
     end;
 end;
 
-Function TMainForm.CloseCurrentConnection : TModalResult;
+function TMainForm.CloseCurrentConnection: TModalResult;
 
 Var
   CE : TConnectionEditor;
 
 begin
   CE:=CurrentConnection;
-  CE.DisConnect;
+  CE.Frame.DisConnect;
   Application.ReleaseComponent(CE);
   CE.Free;
   Result:=mrOK;
 end;
 
-Function TMainForm.CloseCurrentEditor(AddCancelClose : Boolean) : TModalResult;
+function TMainForm.CloseCurrentEditor(AddCancelClose: Boolean): TModalResult;
 
 Var
   DD : TDataDictEditor;
@@ -1204,7 +1400,7 @@ end;
   Data dictionary Editor Auxiliary routines
   ---------------------------------------------------------------------}
 
-Function TMainForm.NewDataDict : TFPDataDictionary;
+function TMainForm.NewDataDict: TFPDataDictionary;
 
 Var
   DD : TDataDictEditor;
@@ -1219,6 +1415,7 @@ begin
   Result:=TDataDictEditor.Create(Self);
   Result.PageControl:=PCDD;
   Result.Parent:=PCDD;
+  Result.ImageIndex:=15;
   PCDD.ActivePage:=Result;
   Result.DataDictionary.OnProgress:=@DoDDEprogress;
 end;
@@ -1235,7 +1432,7 @@ Var
 
 begin
   if Assigned(CurrentConnection) then
-    CurrentConnection.CreateSQL
+    CurrentConnection.Frame.CreateSQL
   else
     begin
     If CurrentEditor.CurrentTable<>Nil then
@@ -1318,13 +1515,13 @@ begin
       CurrentEditor.NewTableObject(AObjectName,TD,AObjectType);
 end;
 
-procedure TMainForm.DoImport(Const EngineName : String);
+procedure TMainForm.DoImport(const EngineName: String);
 
 begin
   DoImport(EngineName,'');
 end;
 
-procedure TMainForm.DoImport(Const EngineName, Connectionstring : String);
+procedure TMainForm.DoImport(const EngineName, ConnectionString: String);
 
   Function UseNewDataDict : Boolean;
   
@@ -1409,12 +1606,14 @@ procedure TMainForm.DeleteRecentDataDict;
 
 Var
   D: TRecentDatadict;
+
 begin
-  If (LVDicts.Selected<>Nil)  and (LVDicts.Selected.Data<>Nil) then
+  D:=SelectedRecentDataDict;
+  If Assigned(D) then
    begin
-   D:=TRecentDatadict(LVDicts.Selected.Data);
    FRecentDicts.Delete(D.Index);
-   ShowRecentDictionaries;
+   FindLI(LVDicts,D).Free;
+   FindTN(FNRecentDictionaries,D).Free;
    end;
 end;
 
@@ -1425,8 +1624,34 @@ begin
   ShowDDImports;
 end;
 
+procedure TMainForm.PMAllPopup(Sender: TObject);
 
-Function TMainForm.FindLi(LV : TListView;RI : TRecentItem) : TListItem;
+Type
+  TOption = (oConnection,oDataDict);
+  TOptions = Set of TOption;
+
+Var
+  TN : TTreeNode;
+  S : TOptions;
+
+begin
+  TN:=TVAll.Selected;
+  S:=[];
+  if Assigned(TN) and Assigned(TN.Data) then
+    if TObject(TN.Data).InheritsFrom(TRecentConnection) then
+      S:=[oConnection]
+    else if TObject(TN.Data).InheritsFrom(TRecentDatadict) then
+      S:=[oDataDict];
+   PMINewConnectionA.Visible:=True;
+   PMIOpenConnectionA.Visible:=oConnection in S;
+   PMIDeleteConnectionA.Visible:=oConnection in S;
+   PMINewDataDictA.Visible:=True;
+   PMIOpenDataDictA.Visible:=oDataDict in S;
+   PMIDeleteDataDictA.Visible:=oDataDict in S;
+end;
+
+
+function TMainForm.FindLi(LV: TListView; RI: TRecentItem): TListItem;
 
 Var
   LI : TListItem;
@@ -1444,8 +1669,17 @@ begin
     end;
 end;
 
+function TMainForm.FindTN(AParent: TTreeNode; RI: TRecentItem): TTreeNode;
 
-Procedure TMainForm.AddRecentDict(DF : TRecentDataDict; AssumeNew : Boolean);
+
+begin
+  Result:=APArent.GetFirstChild;
+  While (Result<>Nil) and (Result.Data<>Pointer(RI)) do
+    Result:=Result.GetNextSibling;
+end;
+
+
+procedure TMainForm.AddRecentDictList(DF: TRecentDataDict; AssumeNew: Boolean);
 
 Var
   LI : TListItem;
@@ -1467,11 +1701,32 @@ begin
   LI.Data:=DF;
 end;
 
+procedure TMainForm.AddRecentDictTree(DF: TRecentDataDict; AssumeNew: Boolean);
+
+Var
+  TN : TTreeNode;
+
+begin
+  TN:=Nil;
+  If Not AssumeNew then
+    TN:=FindTN(FNRecentDictionaries,DF);
+  If (TN=Nil) then
+    TN:=TVAll.Items.AddChild(FNRecentDictionaries,DF.Name);
+  TN.DeleteChildren;
+  TVAll.Items.AddChild(TN,sld_Recentlv2+': '+DF.Filename);
+  TVAll.Items.AddChild(TN,sld_Recentlv3+': '+DateTimeToStr(DF.LastUse));
+  TN.Data:=DF;
+  TN.ImageIndex:=15;
+  TN.SelectedIndex:=15;
+end;
+
+
 { ---------------------------------------------------------------------
   Connection handling
   ---------------------------------------------------------------------}
 
-Procedure TMainForm.AddRecentConnection(RC : TRecentConnection; AssumeNew : Boolean);
+procedure TMainForm.AddRecentConnectionList(RC: TRecentConnection;
+  AssumeNew: Boolean);
 
 Var
   LI : TListItem;
@@ -1494,7 +1749,28 @@ begin
   LI.Data:=RC;
 end;
 
-Function TMainForm.GetConnectionName(out AName : String) : Boolean;
+procedure TMainForm.AddRecentConnectionTree(RC: TRecentConnection; AssumeNew: Boolean);
+
+Var
+  TN : TTreeNode;
+
+begin
+  If Not AssumeNew then
+    TN:=FindTN(FNRecentConnections,RC)
+  else
+    TN:=Nil;
+  if TN=Nil then
+    TN:=TVAll.Items.AddChild(FNRecentConnections,RC.Name);
+  TN.DeleteChildren;
+  TVAll.Items.AddChild(TN,sld_Connectionlv2+': '+RC.EngineName);
+  TVAll.Items.AddChild(TN,sld_Connectionlv3+': '+DateTimeToStr(RC.LastUse));
+  TVAll.Items.AddChild(TN,sld_Connectionlv2+': '+RC.ConnectionString);
+  TN.Data:=RC;
+  TN.ImageIndex:=18;
+  TN.SelectedIndex:=18;
+end;
+
+function TMainForm.GetConnectionName(out AName: String): Boolean;
 
 Var
   OK : Boolean;
@@ -1533,8 +1809,8 @@ begin
   RC.Use;
   DDE:=CreateDictionaryEngine(RC.EngineName,Self);
   CDE:=NewConnectionEditor(RC.Name);
-  CDE.Engine:=DDE;
-  CDE.Connect(RC.ConnectionString);
+  CDE.Frame.Engine:=DDE;
+  CDE.Frame.Connect(RC.ConnectionString);
 end;
 
 procedure TMainForm.NewConnection(EngineName : String);
@@ -1557,18 +1833,19 @@ begin
   RC.EngineName:=EngineName;
   RC.Use;
   CDE:=NewConnectionEditor(Aname);
-  CDE.Engine:=DDE;
-  CDE.Connect(CS);
+  CDE.Frame.Engine:=DDE;
+  CDE.Frame.Connect(CS);
   ShowRecentConnections;
 end;
 
-Function TMainForm.NewConnectionEditor(AName : String) : TConnectionEditor;
+function TMainForm.NewConnectionEditor(AName: String): TConnectionEditor;
 
 begin
   Result:=TConnectioneditor.Create(Self);
   Result.PageControl:=PCDD;
   Result.Parent:=PCDD;
-  Result.Description:=AName;
+  Result.Frame.Description:=AName;
+  Result.ImageIndex:=18;
   PCDD.ActivePage:=Result;
 end;
 
@@ -1582,7 +1859,7 @@ begin
     NewConnection(ET);
 end;
 
-Function TMainForm.SelectEngineType(out EngineName : String) : Boolean;
+function TMainForm.SelectEngineType(out EngineName: String): Boolean;
 
 begin
   With TSelectConnectionTypeForm.Create(Self) do
@@ -1610,7 +1887,7 @@ begin
   LangID2 := '';
   if Trim(LangId1) = '' then
   begin
-    LCLGetLanguageIDs(LangID1,LangID2);
+    LazGetLanguageIDs(LangID1,LangID2);
     if LangID2 = 'pt' then
     begin
        LangID1 := 'pb';

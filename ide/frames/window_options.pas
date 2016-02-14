@@ -150,7 +150,7 @@ begin
     ProjectDirInIdeTitleCheckBox.Checked:=IDEProjectDirectoryInIdeTitle;
   end;
 
-  FLayouts.Assign(IDEWindowCreators.SimpleLayoutStorage);
+  FLayouts.CopyItemsFrom(IDEWindowCreators.SimpleLayoutStorage);
 
   if FShowSimpleLayout then begin
     // Window Positions
@@ -217,7 +217,7 @@ end;
 procedure TWindowOptionsFrame.WriteSettings(AOptions: TAbstractIDEOptions);
 begin
   SaveLayout;
-  IDEWindowCreators.SimpleLayoutStorage.Assign(FLayouts);
+  IDEWindowCreators.SimpleLayoutStorage.CopyItemsFrom(FLayouts);
 
   with (AOptions as TEnvironmentOptions).Desktop do
   begin
@@ -483,7 +483,7 @@ end;
 constructor TWindowOptionsFrame.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
-  FLayouts:=TSimpleWindowLayoutList.Create;
+  FLayouts:=TSimpleWindowLayoutList.Create(False);
   FShowSimpleLayout:=(IDEDockMaster=nil) or (not IDEDockMaster.HideSimpleLayoutOptions);
 end;
 

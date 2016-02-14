@@ -856,6 +856,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Append(const Value: String);
+    procedure ScrollBy(DeltaX, DeltaY: Integer); override;
   public
     property Lines: TStrings read FLines write SetLines;
     property HorzScrollBar: TMemoScrollBar read FHorzScrollBar write SetHorzScrollBar;
@@ -1399,6 +1400,7 @@ type
     constructor Create(TheOwner: TComponent); override;
   published
     property Align;
+    property Alignment;
     property Anchors;
     property AutoSize default True;
     property BidiMode;

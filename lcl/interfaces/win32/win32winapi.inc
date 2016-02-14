@@ -356,11 +356,9 @@ var
   DbgFormatID: integer;
   {$ENDIF}
   Bitmap: TBitmap;
-  {$IFDEF WindowsUnicodeSupport}
   BufferStream: TMemoryStream;
   BufferWideString: widestring;
   BufferString: ansistring;
-  {$ENDIF}
 
   function ReadClipboardToStream(DestStream: TStream): Boolean;
   begin
@@ -413,7 +411,6 @@ begin
           Bitmap.Free;
           Result := true;
         end;
-      {$IFDEF WindowsUnicodeSupport}
       { In the case of unicode text, it's necessary to
         convert it from UTF-16 to UTF-8 }
       Windows.CF_UNICODETEXT, Windows.CF_TEXT:
@@ -451,7 +448,6 @@ begin
             BufferStream.Free;
           end;
         end
-      {$ENDIF}
       else
         Result := ReadClipboardToStream(Stream)
       end;
@@ -551,10 +547,8 @@ function TWin32WidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType;
   var
     DataStream, BufferStream: TStream;
     Bitmap: TBitmap;
-    {$IFDEF WindowsUnicodeSupport}
     BufferWideString: widestring;
     BufferString: ansistring;
-    {$ENDIF}
     ScreenDC, MemDC: HDC;
     OldBitmap, NewBitmap, Mask: HBitmap;
   begin
@@ -593,7 +587,6 @@ function TWin32WidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType;
             Bitmap.Free;
           end;
         end;
-     {$IFDEF WindowsUnicodeSupport}
       Windows.CF_UNICODETEXT, Windows.CF_TEXT:
         // CF_UNICODETEXT is used by UnicodeEnabledOS, CF_TEXT by others
         // we need to convert it from UTF8 to UTF16 or Ansi
@@ -617,9 +610,6 @@ function TWin32WidgetSet.ClipboardGetOwnerShip(ClipboardType: TClipboardType;
           end;
           WriteStreamToClipBoard(FormatID, BufferStream);
         end
-     {$ELSE}
-        // no clipboard support without unicode anymore
-     {$ENDIF}
       else
         begin
           WriteStreamToClipBoard(FormatID, DataStream);
@@ -704,13 +694,7 @@ function TWin32WidgetSet.ClipboardRegisterFormat(const AMimeType: String
   ): TClipboardFormat;
 begin
   if AMimeType=PredefinedClipboardMimeTypes[pcfText] then
-  {$IFDEF WindowsUnicodeSupport}
-    if UnicodeEnabledOS
-      then Result := Windows.CF_UNICODETEXT
-      else Result := Windows.CF_TEXT
-  {$ELSE}
-    Result := Windows.CF_TEXT
-  {$ENDIF}
+    Result := Windows.CF_UNICODETEXT
   else if (AMimeType=PredefinedClipboardMimeTypes[pcfBitmap]) then
     Result := Windows.CF_BITMAP
   else
@@ -845,12 +829,8 @@ end;
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.CreateFontIndirect(const LogFont: TLogFont): HFONT;
 var
-{$ifdef WindowsUnicodeSupport}
   TempLogFontW: TLogFontW;
   TempLogFont: TLogFontA absolute TempLogFontW;
-{$else}
-  TempLogFont: TLogFont;
-{$endif}
   FontName: String;
 begin
   FontName := LogFont.lfFaceName;
@@ -858,34 +838,15 @@ begin
   TempLogFont := LogFont;
   if FontName = DefFontData.Name then
   begin
-    {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-      TempLogFontW.lfFaceName := UTF8ToUTF16(FMetrics.lfMessageFont.lfFaceName) // FMetrics must be UTF16
-    else
-      Move(FMetrics.lfMessageFont.lfFaceName, TempLogFont.lfFaceName, LF_FACESIZE);
-    {$else}
-    Move(FMetrics.lfMessageFont.lfFaceName, TempLogFont.lfFaceName, LF_FACESIZE);
-    {$endif}
+    TempLogFontW.lfFaceName := UTF8ToUTF16(FMetrics.lfMessageFont.lfFaceName); // FMetrics must be UTF16
     if TempLogFont.lfHeight = 0 then
       TempLogFont.lfHeight := FMetrics.lfMessageFont.lfHeight;
   end
   else
   begin
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-    TempLogFontW.lfFaceName := UTF8ToUTF16(FontName)
-  else
-    TempLogFont.lfFaceName := Utf8ToAnsi(FontName);
-  {$endif}
+    TempLogFontW.lfFaceName := UTF8ToUTF16(FontName);
   end;
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-    Result := Windows.CreateFontIndirectW(@TempLogFontW)
-  else
-    Result := Windows.CreateFontIndirectA(@TempLogFont)
-  {$else}
-  Result := Windows.CreateFontIndirect(@TempLogFont);
-  {$endif}
+  Result := Windows.CreateFontIndirectW(@TempLogFontW);
 end;
 
 {------------------------------------------------------------------------------
@@ -1127,7 +1088,6 @@ end;
 
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.DrawText(DC: HDC; Str: PChar; Count: Integer; var Rect: TRect; Flags: Cardinal): Integer;
-{$ifdef WindowsUnicodeSupport}
 var
   s: AnsiString;
   w: WideString;
@@ -1136,9 +1096,7 @@ var
   aABC: ABC;
   paABC: LPABC;
   len: Integer;
-{$endif}
 begin
- {$ifdef WindowsUnicodeSupport}
   // use temp buffer, if count is set, there might be no null terminator
   if count = -1 then
     s := str
@@ -1148,18 +1106,10 @@ begin
     move(str^, PChar(s)^, count);
   end;
   // the length of utf8 vs Wide/Ansi the strings differ, so recalc.
-  if UnicodeEnabledOS then
-  begin
-    W := UTF8ToUTF16(s);
-    len := Length(W);
-    Result := Windows.DrawTextW(DC, PWideChar(W), len, @Rect, Flags);
-  end
-  else
-  begin
-    S := Utf8ToAnsi(S);
-    len := Length(S);
-    Result := Windows.DrawText(DC, PChar(S), len, @Rect, Flags);
-  end;
+  W := UTF8ToUTF16(s);
+  len := Length(W);
+  Result := Windows.DrawTextW(DC, PWideChar(W), len, @Rect, Flags);
+
 
   // Theoretically, we need to augment the returned rect by the text overhang
   // The overhang is returned in the abcC field as documented in the
@@ -1183,19 +1133,13 @@ begin
     begin
 
       paABC := @aABC;
-      if UnicodeEnabledOS then
-        res := GetCharABCWidthsW(DC, Uint(W[len]), Uint(W[len]), paABC)
-      else
-        res := GetCharABCWidthsA(DC, ord(s[len]), ord(s[len]), paABC);
+      res := GetCharABCWidthsW(DC, Uint(W[len]), Uint(W[len]), paABC);
 
      if res then
        Rect.Right := Rect.Right + Abs(aABC.abcC);
 
     end;
   end;
- {$else}
-  Result := Windows.DrawText(DC, Str, Count, @Rect, Flags);
- {$endif} 
 end;
 
 {------------------------------------------------------------------------------
@@ -1285,7 +1229,6 @@ begin
     Windows.FontEnumProc(EnumFontFamProc), LParam);
 end;
 
-{$ifdef WindowsUnicodeSupport}
 type
   TProcRedirRec = record
     LParam: LParam;
@@ -1322,42 +1265,23 @@ begin
 
   Result := Rec^.CallBack(ALogFont, Metric, FontType, Rec^.LParam);
 end;
-{$endif}
 
 function TWin32WidgetSet.EnumFontFamiliesEx(DC: HDC; lpLogFont: PLogFont;
   Callback: FontEnumExProc; LParam: Lparam; flags: dword): longint;
-{$ifdef WindowsUnicodeSupport}
 var
   FontName: String;
   LFW: LogFontW;
-  LFA: LogFontA absolute LFW;
   Rec: TProcRedirRec;
-{$endif}
 begin
-{$ifdef WindowsUnicodeSupport}
   FontName := lpLogFont^.lfFaceName;
   ZeroMemory(@LFW, SizeOf(LFW));
   LFW.lfCharSet := lpLogFont^.lfCharSet;
   LFW.lfPitchAndFamily := lpLogFont^.lfPitchAndFamily;
   Rec.LParam := LParam;
   Rec.CallBack := CallBack;
-  if UnicodeEnabledOS then
-  begin
-    LFW.lfFaceName := UTF8ToUTF16(FontName);
-    Result := LongInt(Windows.EnumFontFamiliesExW(DC,
-      LFW, windows.FontEnumExProc(@EnumExProcRedirW), Windows.LParam(@Rec), Flags));
-  end
-  else
-  begin
-    LFA.lfFaceName := Utf8ToAnsi(FontName);
-    Result := LongInt(Windows.EnumFontFamiliesExA(DC,
-      LFA, windows.FontEnumExProc(@EnumExProcRedirA), Windows.LParam(@Rec), Flags));
-  end;
-{$else}
-  Result := Windows.EnumFontFamiliesEx(DC,
-    windows.LPLOGFONT(lpLogFont),
-    windows.FontEnumExProc(Callback), LParam, Flags);
-{$endif}
+  LFW.lfFaceName := UTF8ToUTF16(FontName);
+  Result := LongInt(Windows.EnumFontFamiliesExW(DC,
+    LFW, windows.FontEnumExProc(@EnumExProcRedirW), Windows.LParam(@Rec), Flags));
 end;
 
 {------------------------------------------------------------------------------
@@ -1421,13 +1345,10 @@ end;
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.ExtTextOut(DC: HDC; X, Y: Integer; Options: LongInt;
   Rect: PRect; Str: PChar; Count: LongInt; Dx: PInteger): Boolean;
-{$ifdef WindowsUnicodeSupport}
 var
   s: AnsiString;
   w: WideString;
-{$ENDIF}
 begin
-{$ifdef WindowsUnicodeSupport}
   // use temp buffer, if count is set, there might be no null terminator
   if count = -1 then
    s := str
@@ -1437,21 +1358,9 @@ begin
     move(str^, PChar(s)^, count);
   end;
   // the length of utf8 vs Wide/Ansi the strings differ, so recalc.
-  if UnicodeEnabledOS 
-  then
-  begin
-    // TODO: use the real number of chars (and not the lenght)
-    W := UTF8ToUTF16(S);
-    Result := Windows.ExtTextOutW(DC, X, Y, Options, LPRECT(Rect), PWideChar(W), Length(W), Dx);
-  end                                        
-  else
-  begin
-    S := Utf8ToAnsi(S);
-    Result := Windows.ExtTextOut(DC, X, Y, Options, LPRECT(Rect), PChar(S), Length(S), Dx);
-  end;
- {$else}
-  Result := Windows.ExtTextOut(DC, X, Y, Options, LPRECT(Rect), Str, Count, Dx);
- {$endif}
+  // TODO: use the real number of chars (and not the lenght)
+  W := UTF8ToUTF16(S);
+  Result := Windows.ExtTextOutW(DC, X, Y, Options, LPRECT(Rect), PWideChar(W), Length(W), Dx);
 end;
 
 {------------------------------------------------------------------------------
@@ -1928,30 +1837,19 @@ begin
 end;
 
 function TWin32WidgetSet.GetMonitorInfo(hMonitor: HMONITOR; lpmi: LCLType.PMonitorInfo): Boolean;
-{$IFDEF WindowsUnicodeSupport}
 var
   LocalInfo: TMonitorInfoExW;
-{$ENDIF}
 begin
-  {$IFDEF WindowsUnicodeSupport}
   if (lpmi <> nil) and (lpmi^.cbSize >= SizeOf(TMonitorInfoEx)) then
   begin
-    if UnicodeEnabledOS then
-    begin
-      LocalInfo.cbSize := SizeOf(TMonitorInfoExW);
-      Result := MultiMon.GetMonitorInfo(hMonitor, @LocalInfo);
-      lpmi^.rcMonitor := LocalInfo.rcMonitor;
-      lpmi^.rcWork := LocalInfo.rcWork;
-      lpmi^.dwFlags := LocalInfo.dwFlags;
-      PMonitorInfoEx(lpmi)^.szDevice := UTF16ToUTF8(LocalInfo.szDevice);
-    end
-    else begin
-      PMonitorInfoEx(lpmi)^.szDevice := AnsiToUtf8(PMonitorInfoEx(lpmi)^.szDevice);
-      Result := True;
-    end;
+    LocalInfo.cbSize := SizeOf(TMonitorInfoExW);
+    Result := MultiMon.GetMonitorInfo(hMonitor, @LocalInfo);
+    lpmi^.rcMonitor := LocalInfo.rcMonitor;
+    lpmi^.rcWork := LocalInfo.rcWork;
+    lpmi^.dwFlags := LocalInfo.dwFlags;
+    PMonitorInfoEx(lpmi)^.szDevice := UTF16ToUTF8(LocalInfo.szDevice);
   end
   else
-  {$ENDIF}
     Result := MultiMon.GetMonitorInfo(hMonitor, LPMonitorInfo(lpmi));
 end;
 
@@ -1965,16 +1863,13 @@ end;
   Gets information about a specified graphics object.
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointer): Integer;
-{$ifdef WindowsUnicodeSupport}
 var
   LF: PLogFontA absolute Buf;
   LFW: TLogFontW;
-{$endif}
 begin
-  {$ifdef WindowsUnicodeSupport}
   if GetObjectType(GDIObj) = OBJ_FONT then
   begin
-    if (UnicodeEnabledOS) and (BufSize = Sizeof(LOGFONTA)) then
+    if (BufSize = Sizeof(LOGFONTA)) then
     begin
       BufSize := SizeOf(LogFontW);
       Result := Windows.GetObjectW(GDIObj, BufSize, @LFW);
@@ -1989,7 +1884,6 @@ begin
     end;
   end
   else
-  {$endif}
   Result := Windows.GetObject(GDIObj, BufSize, Buf);
 end;
 
@@ -2127,6 +2021,8 @@ begin
       Result := Windows.GetSystemMetrics(SM_CYMAXIMIZED) -
         (Windows.GetSystemMetrics(SM_CYCAPTION) +
         (Windows.GetSystemMetrics(SM_CYSIZEFRAME) * 2));
+    SM_LCLHasFormAlphaBlend:
+      Result := 1;
   else
     Result := Windows.GetSystemMetrics(NIndex);
   end;
@@ -2142,7 +2038,6 @@ function TWin32WidgetSet.GetTextExtentExPoint(DC: HDC; Str: PChar;
   Count, MaxWidth: Integer; MaxCount, PartialWidths: PInteger; var Size: TSize): Boolean;
 var
   LCLStr: string;
-  s: AnsiString;
   w: WideString;
 begin
   // use temp buffer, if count is set, there might be no null terminator
@@ -2154,19 +2049,10 @@ begin
     move(str^, PChar(LCLStr)^, count);
   end;
   // the length of utf8 vs Wide/Ansi the strings differ, so recalc.
-  if UnicodeEnabledOS then
-  begin
-    // TODO: use the real number of chars (and not the length)
-    w := UTF8ToUTF16(LCLStr);
-    Result := Windows.GetTextExtentExPointW(DC, PWideChar(W), Length(W),
-      MaxWidth, MaxCount, PartialWidths, Size);
-  end
-  else
-  begin
-    s := Utf8ToAnsi(LCLStr);
-    Result := Windows.GetTextExtentExPoint(DC, pchar(s), length(s),
-      MaxWidth, MaxCount, PartialWidths, Size);
-  end;
+  // TODO: use the real number of chars (and not the length)
+  w := UTF8ToUTF16(LCLStr);
+  Result := Windows.GetTextExtentExPointW(DC, PWideChar(W), Length(W),
+    MaxWidth, MaxCount, PartialWidths, Size);
 end;
 
 {------------------------------------------------------------------------------
@@ -2181,13 +2067,10 @@ end;
   Computes the width and height of the specified string of text.
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.GetTextExtentPoint(DC: HDC; Str: PChar; Count: Integer; var Size: TSize): Boolean;
-{$ifdef WindowsUnicodeSupport}
 var
   s: AnsiString;
   w: WideString;
-{$ENDIF}
 begin
-{$ifdef WindowsUnicodeSupport}
   // use temp buffer, if count is set, there might be no null terminator
   if count = -1 then
     s := str
@@ -2197,22 +2080,9 @@ begin
     move(str^, PChar(s)^, count);
   end;
   // the length of utf8 vs Wide/Ansi the strings differ, so recalc.
-  if UnicodeEnabledOS then
-  begin
-    // TODO: use the real number of chars (and not the length)
-    w := UTF8ToUTF16(S);
-    Result := Windows.GetTextExtentPoint32W(DC, PWideChar(W), Length(W), @Size);
-  end else
-  begin
-    // Important: Althougth the MSDN Docs point that GetTextExtentPoint32W
-    // works under Windows 9x, tests showed that this function produces
-    // a wrong output
-    s := Utf8ToAnsi(s);
-    Result := Windows.GetTextExtentPoint32(DC, pchar(s), length(s), @Size);
-  end;
-{$else}
-    Result := Windows.GetTextExtentPoint32(DC, Str, Count, @Size);
-{$endif}
+  // TODO: use the real number of chars (and not the length)
+  w := UTF8ToUTF16(S);
+  Result := Windows.GetTextExtentPoint32W(DC, PWideChar(W), Length(W), @Size);
 end;
 
 {------------------------------------------------------------------------------
@@ -2253,10 +2123,7 @@ end;
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.GetWindowLong(Handle: HWND; Int: Integer): PtrInt;
 begin
-  if UnicodeEnabledOS then
-    Result := Windows.GetWindowLongPtrW(Handle, int)
-  else
-    Result := Windows.GetWindowLongPtr(Handle, int);
+  Result := Windows.GetWindowLongPtrW(Handle, int);
 end;
 
 {------------------------------------------------------------------------------
@@ -2365,11 +2232,8 @@ var
 
   procedure SetWidthHeightFromRect(const R: TRect); inline;
   begin
-    with R do
-    begin
-      Width := Right - Left;
-      Height := Bottom - Top;
-    end;
+     Width := R.Right - R.Left;
+     Height := R.Bottom - R.Top;
   end;
 
 begin
@@ -2639,20 +2503,14 @@ end;
  and includes buttons.
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.MessageBox(HWnd: HWND; LPText, LPCaption: PChar; UType: Cardinal): Integer;
-{$ifdef WindowsUnicodeSupport}
 var
   WideLPText, WideLPCaption: widestring;
-{$endif}
 begin
-  {$ifdef WindowsUnicodeSupport}
   WideLPText := UTF8ToUTF16(string(LPText));
   WideLPCaption := UTF8ToUTF16(string(LPCaption));
 
   Result := Windows.MessageBoxW(HWnd, PWideChar(WideLPText),
     PWideChar(WideLPCaption), UType);
-  {$else}
-  Result := Windows.MessageBox(HWnd, LPText, LPCaption, UType);
-  {$endif}
 end;
 
 function TWin32WidgetSet.MonitorFromPoint(ptScreenCoords: TPoint; dwFlags: DWord): HMONITOR;
@@ -2717,14 +2575,7 @@ end;
 function TWin32WidgetSet.PeekMessage(var LPMsg: TMsg; Handle: HWND;
   WMsgFilterMin, WMsgFilterMax, WRemoveMsg: UINT): Boolean;
 begin
-  {$IFDEF WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-      Result := Boolean(Windows.PeekMessageW(@LPMsg, Handle, WMsgFilterMin, WMsgFilterMax, WRemoveMsg))
-    else
-      Result := Boolean(Windows.PeekMessage(@LPMsg, Handle, WMsgFilterMin, WMsgFilterMax, WRemoveMsg));
-  {$ELSE}
-    Result := Boolean(Windows.PeekMessage(@LPMsg, Handle, WMsgFilterMin, WMsgFilterMax, WRemoveMsg));
-  {$ENDIF}
+  Result := Boolean(Windows.PeekMessageW(@LPMsg, Handle, WMsgFilterMin, WMsgFilterMax, WRemoveMsg));
 end;
 
 function TWin32WidgetSet.Pie(DC: HDC; EllipseX1, EllipseY1, EllipseX2,
@@ -2739,7 +2590,7 @@ end;
   Params:  DC, Points, NumPts, Filled, Continous
   Returns: Boolean
 
-  Use Polybezier to draw cubic BÃ©zier curves. The first curve is drawn from the
+  Use Polybezier to draw cubic Bézier curves. The first curve is drawn from the
   first point to the fourth point with the second and third points being the
   control points. If the Continuous flag is TRUE then each subsequent curve
   requires three more points, using the end-point of the previous Curve as its
@@ -2749,7 +2600,7 @@ end;
   excatly as in the first curve. Any additonal points which do not add up to
   a full bezier(4 for Continuous, 3 otherwise) are ingored. There must be at
   least 4 points for an drawing to occur. If the Filled Flag is set to TRUE
-  then the resulting Poly-BÃ©zier will be drawn as a Polygon.
+  then the resulting Poly-Bézier will be drawn as a Polygon.
 
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.PolyBezier(DC: HDC; Points: PPoint; NumPts: Integer;
@@ -3133,6 +2984,7 @@ function TWin32WidgetSet.SetComboMinDropDownSize(Handle: HWND; MinItemsWidth,
 begin
   Result:= ThemeServices.ThemesEnabled and
     boolean(Windows.SendMessage(Handle, CB_SETMINVISIBLE, MinItemCount, 0));
+  Result := Result and boolean(Windows.SendMessage(Handle, CB_SETDROPPEDWIDTH, MinItemsWidth, 0));
 end;
 
 {------------------------------------------------------------------------------
@@ -3402,10 +3254,7 @@ end;
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.SetWindowLong(Handle: HWND; Idx: Integer; NewLong: PtrInt): PtrInt;
 begin
-  if UnicodeEnabledOS then
-    Result := Windows.SetWindowLongPtrW(Handle, Idx, NewLong)
-  else
-    Result := Windows.SetWindowLongPtr(Handle, Idx, NewLong);
+  Result := Windows.SetWindowLongPtrW(Handle, Idx, NewLong);
 end;
 
 {------------------------------------------------------------------------------
@@ -3765,17 +3614,11 @@ end;
   selected font.
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.TextOut(DC: HDC; X, Y: Integer; Str: PChar; Count: Integer): Boolean;
-{$ifdef WindowsUnicodeSupport}
 var
   ws: widestring;
-{$endif}
 begin
-{$ifdef WindowsUnicodeSupport}
   ws := UTF8ToUTF16(copy(str,1,Count));
   Result := Boolean(Windows.TextOutW(DC, X, Y, PWideChar(ws), length(ws)));
-{$else}
-  Result := Boolean(Windows.TextOut(DC, X, Y, Str, Count));
-{$endif}
 end;
 
 function TWin32WidgetSet.UpdateWindow(Handle: HWND): Boolean;

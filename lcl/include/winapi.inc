@@ -94,6 +94,11 @@ begin
   Result := WidgetSet.CreateBrushIndirect(LogBrush);
 end;
 
+function CreateBrushWithRadialGradient(const LogBrush: TLogRadialGradient): HBRUSH;
+begin
+  Result := WidgetSet.CreateBrushWithRadialGradient(LogBrush);
+end;
+
 function CreateCaret(Handle : HWND; Bitmap : hBitmap; width, Height : Integer) : Boolean;
 begin
   Result := WidgetSet.CreateCaret(Handle, Bitmap, width, Height);
@@ -1583,15 +1588,13 @@ end;
   Params:
   Returns:
  ------------------------------------------------------------------------------}
-function SetRect(var ARect : TRect; xLeft,yTop,xRight,yBottom : Integer) : Boolean;
+function SetRect(var ARect : TRect; aLeft,aTop,aRight,aBottom : Integer) : Boolean;
 begin
   Result := True;
-  with ARect do begin
-    Left := xLeft;
-    Top := yTop;
-    Right := xRight;
-    Bottom := yBottom;
-  end;
+  ARect.Left := aLeft;
+  ARect.Top := aTop;
+  ARect.Right := aRight;
+  ARect.Bottom := aBottom;
 End;
 
 {------------------------------------------------------------------------------

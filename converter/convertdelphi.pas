@@ -32,15 +32,16 @@ unit ConvertDelphi;
 interface
 
 uses
-  // LCL+FCL
-  Classes, SysUtils, LCLProc, Forms, Controls, Dialogs, LConvEncoding,
-  FileUtil, LazFileUtils, LazUTF8Classes, contnrs, IniFiles,
-  // codetools
+  // RTL + FCL + LCL
+  Classes, SysUtils, contnrs, IniFiles, LCLProc, Forms, Controls, Dialogs,
+  // CodeTools
   CodeToolManager, DefineTemplates, CodeCache, LinkScanner, FileProcs, CodeToolsStructs,
+  // LazUtils
+  LConvEncoding, FileUtil, LazFileUtils, LazUTF8, LazUTF8Classes,
   // IDEIntf
-  ComponentReg, LazIDEIntf, PackageIntf, ProjectIntf,
+  ComponentReg, LazIDEIntf, PackageIntf, ProjectIntf, IDEDialogs,
   // IDE
-  IDEProcs, DialogProcs, IDEDialogs, EditorOptions, CompilerOptions,
+  IDEProcs, DialogProcs, EditorOptions, CompilerOptions,
   ProjPackBase, Project, ProjectDefs, PackageDefs, PackageSystem, PackageEditor,
   BasePkgManager, LazarusIDEStrConsts,
   // Converter
@@ -1022,7 +1023,7 @@ begin
   finally
     EndTime:=Now;
     s:=FormatDateTime('hh:nn:ss', EndTime-StartTime);
-    if s<>'00:00:00' then
+    if (Result<>mrAbort) and (s<>'00:00:00') then
       fSettings.AddLogLine(Format(lisConvDelphiConversionTook, [s]));
     EndConvert(Result);
   end;
@@ -1803,7 +1804,6 @@ function TConvertDelphiPackage.CreateInstance: TModalResult;
 // open new package. If .lpk does not exist, create it
 var
   PkgName: String;
-  CurEditor: TPackageEditorForm;
 begin
   fProjPack:=nil;
   if FileExistsUTF8(fLazPMainFilename) then begin
@@ -1835,8 +1835,7 @@ begin
     LazPackage.Filename:=fLazPMainFilename;
     fProjPack.BaseCompilerOptions.SyntaxMode:='delphi';
     // open a package editor
-    CurEditor:=PackageEditors.OpenEditor(LazPackage);
-    CurEditor.Show;
+    PackageEditors.OpenEditor(LazPackage,true);
     // save .lpk file
     PackageEditors.SavePackage(LazPackage,false);
     Result:=mrOK;

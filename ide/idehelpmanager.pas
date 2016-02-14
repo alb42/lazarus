@@ -35,15 +35,15 @@ uses
   // FCL+LCL
   Classes, SysUtils, AVL_Tree, LCLProc, LCLIntf, LCLType, Forms, Controls,
   Buttons, StdCtrls, Dialogs, ExtCtrls, FileProcs, Graphics, ButtonPanel,
-  LConvEncoding, lazutf8classes,
+  LConvEncoding, lazutf8classes, LazFileUtils,
   // CodeTools
   BasicCodeTools, CodeToolManager, CodeCache, CustomCodeTool, CodeTree,
   PascalParserTool, FindDeclarationTool,
   // IDEIntf
   PropEdits, ObjectInspector, ProjectIntf, TextTools,
   IDEDialogs, LazHelpIntf, LazHelpHTML, HelpFPDoc, MacroIntf, IDEWindowIntf,
-  IDEMsgIntf, PackageIntf, LazIDEIntf, HelpIntfs, IDEHelpIntf,
-  IDEExternToolIntf,
+  IDEMsgIntf, PackageIntf, LazIDEIntf, HelpIntfs, ComCtrls, IDEHelpIntf,
+  IDEExternToolIntf, IDEImagesIntf,
   // IDE
   LazarusIDEStrConsts, TransferMacros, DialogProcs, IDEOptionDefs,
   ObjInspExt, EnvironmentOpts, AboutFrm, Project, MainBar,
@@ -250,16 +250,20 @@ type
   THelpSelectorDialog = class(TForm)
     BtnPanel: TButtonPanel;
     NodesGroupBox: TGroupBox;
-    NodesListBox: TListBox;
+    NodesTreeView: TTreeView;
     procedure HelpSelectorDialogClose(Sender: TObject; var {%H-}CloseAction: TCloseAction);
-    procedure NodesListBoxDblClick(Sender: TObject);
+    procedure NodesTreeViewDblClick(Sender: TObject);
+    procedure NodesTreeViewSelectionChanged(Sender: TObject);
   private
     FNodes: THelpNodeQueryList;
+    FImgIndexDB, FImgIndexNode: Integer;
     procedure SetNodes(const AValue: THelpNodeQueryList);
-    procedure FillNodesListBox;
+    procedure FillNodesTV;
+    procedure UpdateButtons;
   public
     constructor Create(TheOwner: TComponent); override;
     property Nodes: THelpNodeQueryList read FNodes write SetNodes;
+    function GetSelectedNodeQuery: THelpNodeQuery;
   end;
 
   { Help Contexts for IDE help }
@@ -464,12 +468,12 @@ begin
         Result:=copy(Result,1,p-1)+NewTag+copy(Result,EndPos,length(Result));
         inc(p,length(NewTag));
       end;
-    end else if Result[p] in [' ',#9,#10,#13] then begin
+    end else if Result[p] in [#9,#10,#13] then begin
       // replace spaces and newline characters with a single space
       EndPos:=p+1;
-      while (EndPos<=length(Result)) and (Result[EndPos] in [' ',#9,#10,#13]) do
+      while (EndPos<=length(Result)) and (Result[EndPos] in [#9,#10,#13]) do
         inc(EndPos);
-      if (p > 1) and not (Result[p-1] in [' ',#9,#10,#13]) then
+      if (p > 1) and not (Result[p-1] in [#9,#10,#13]) then
       begin
         Result:=copy(Result,1,p-1)+' '+copy(Result,EndPos,length(Result));
         inc(p);
@@ -477,7 +481,7 @@ begin
       else
         Result:=copy(Result,1,p-1)+copy(Result,EndPos,length(Result));
     end else if Result[p]='&' then begin
-      // special chars: &lt; &gt; &amp;
+      // special chars: &lt; &gt; &amp; &nbsp;
         if (p+2<Length(Result)) and (Result[p+1]='l') and (Result[p+2]='t') and (Result[p+3]=';') then begin
           EndPos:=p+4;
           Result:=copy(Result,1,p-1)+'<'+copy(Result,EndPos,length(Result));
@@ -485,6 +489,10 @@ begin
         if (p+2<Length(Result)) and (Result[p+1]='g') and (Result[p+2]='t') and (Result[p+3]=';') then begin
           EndPos:=p+4;
           Result:=copy(Result,1,p-1)+'>'+copy(Result,EndPos,length(Result));
+        end else
+        if (p+4<Length(Result)) and (Result[p+1]='n') and (Result[p+2]='b') and (Result[p+3]='s') and (Result[p+4]='p') and (Result[p+5]=';') then begin
+          EndPos:=p+6;
+          Result:=copy(Result,1,p-1)+' '+copy(Result,EndPos,length(Result));
         end else
         if (p+3<Length(Result)) and (Result[p+1]='a') and (Result[p+2]='m') and (Result[p+3]='p') and (Result[p+4]=';') then begin
           EndPos:=p+5;
@@ -1020,34 +1028,64 @@ begin
   IDEDialogLayoutList.SaveLayout(Self);
 end;
 
-procedure THelpSelectorDialog.NodesListBoxDblClick(Sender: TObject);
+procedure THelpSelectorDialog.NodesTreeViewDblClick(Sender: TObject);
 begin
   ModalResult := mrOK;
+end;
+
+procedure THelpSelectorDialog.NodesTreeViewSelectionChanged(Sender: TObject);
+begin
+  UpdateButtons;
 end;
 
 procedure THelpSelectorDialog.SetNodes(const AValue: THelpNodeQueryList);
 begin
   if FNodes=AValue then exit;
   FNodes:=AValue;
-  FillNodesListBox;
+  FillNodesTV;
 end;
 
-procedure THelpSelectorDialog.FillNodesListBox;
+procedure THelpSelectorDialog.FillNodesTV;
 var
-  List: TStringList;
   i: Integer;
   NodeQuery: THelpNodeQuery;
+  Node: THelpNode;
+  DB: THelpDatabase;
+  DBTVNode, TVNode: TTreeNode;
 begin
-  List:=TStringList.Create;
-  if (Nodes<>nil) then begin
-    for i:=0 to Nodes.Count-1 do begin
-      NodeQuery:=Nodes[i];
-      List.Add(NodeQuery.AsString);
+  NodesTreeView.BeginUpdate;
+  try
+    TVNode:=nil;
+    NodesTreeView.Items.Clear;
+    if (Nodes<>nil) then begin
+      for i:=0 to Nodes.Count-1 do begin
+        NodeQuery:=Nodes[i];
+        Node:=NodeQuery.Node;
+        DB:=Node.Owner;
+
+        DBTVNode:=NodesTreeView.Items.FindTopLvlNode(DB.ID);
+        if DBTVNode=nil then
+        begin
+          DBTVNode:=NodesTreeView.Items.AddChild(nil,DB.ID);
+          DBTVNode.ImageIndex:=FImgIndexDB;
+        end;
+
+        TVNode:=NodesTreeView.Items.AddChild(DBTVNode,NodeQuery.AsString);
+        TVNode.ImageIndex:=FImgIndexNode;
+        TVNode.Data:=NodeQuery;
+
+        DBTVNode.Expand(true);
+      end;
     end;
+    NodesTreeView.Selected:=TVNode;
+  finally
+    NodesTreeView.EndUpdate;
   end;
-  NodesListBox.Items.Assign(List);
-  List.Free;
-  if NodesListBox.Count > 0 then NodesListBox.ItemIndex := 0;
+end;
+
+procedure THelpSelectorDialog.UpdateButtons;
+begin
+  BtnPanel.OKButton.Enabled:=GetSelectedNodeQuery<>nil;
 end;
 
 constructor THelpSelectorDialog.Create(TheOwner: TComponent);
@@ -1058,6 +1096,20 @@ begin
   Caption := lisHelpSelectorDialog;
   NodesGroupBox.Caption:=lisSelectAHelpItem;
   BtnPanel.OKButton.Caption:=lisMenuOk;
+
+  NodesTreeView.Images:=IDEImages.Images_16;
+  FImgIndexDB:=IDEImages.LoadImage(16, 'item_package');
+  FImgIndexNode:=IDEImages.LoadImage(16, 'menu_help');
+end;
+
+function THelpSelectorDialog.GetSelectedNodeQuery: THelpNodeQuery;
+var
+  TVNode: TTreeNode;
+begin
+  Result:=nil;
+  TVNode:=NodesTreeView.Selected;
+  if (TVNode=nil) or (TVNode.Data=nil) then exit;
+  Result:=TObject(TVNode.Data) as THelpNodeQuery;
 end;
 
 { TIDEHelpDatabases }
@@ -1069,7 +1121,6 @@ function TIDEHelpDatabases.ShowHelpSelector(Query: THelpQuery;
   ): TShowHelpResult;
 var
   Dialog: THelpSelectorDialog;
-  i: LongInt;
 begin
   Selection:=nil;
   Result:=shrNone;
@@ -1077,11 +1128,9 @@ begin
   try
     Dialog.Nodes:=Nodes;
     if Dialog.ShowModal=mrOk then begin
-      i:=Dialog.NodesListBox.ItemIndex;
-      if i>=0 then begin
-        Selection:=Nodes[i];
+      Selection:=Dialog.GetSelectedNodeQuery;
+      if Selection<>nil then
         Result:=shrSuccess;
-      end;
     end else begin
       Result:=shrCancel;
     end;

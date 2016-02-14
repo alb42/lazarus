@@ -36,7 +36,7 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, FileProcs, LazUTF8, lazutf8classes;
+  Classes, SysUtils, LazFileUtils, LazUTF8, lazutf8classes, LazDbgLog;
 
 type
   TSourceLog = class;
@@ -893,6 +893,13 @@ begin
   Result := False;
   LastError:='';
   try
+    s := Source;
+    // convert encoding
+    EncodeSaving(Filename, s);
+    // convert line ending to disk line ending
+    if (DiskLineEnding<>'') and (LineEnding <> DiskLineEnding) then
+      s := ChangeLineEndings(s, DiskLineEnding);
+
     // keep filename case on disk
     if FileExistsUTF8(Filename) then begin
       InvalidateFileStateCache(Filename);
@@ -903,12 +910,6 @@ begin
       fs := TFileStreamUTF8.Create(Filename, fmCreate);
     end;
     try
-      s := Source;
-      EncodeSaving(Filename, s);
-
-      // convert line ending to disk line ending
-      if (DiskLineEnding<>'') and (LineEnding <> DiskLineEnding) then
-        s := ChangeLineEndings(s, DiskLineEnding);
       if s <> '' then
         fs.Write(s[1], length(s));
     finally

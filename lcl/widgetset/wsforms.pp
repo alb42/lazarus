@@ -49,8 +49,7 @@ type
   TWSScrollingWinControlClass = class of TWSScrollingWinControl;
   TWSScrollingWinControl = class(TWSWinControl)
   published
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl; 
-      const DeltaX, DeltaY: integer); virtual;
+    // procedure ScrollBy is moved to TWSWinControl.
   end;
 
   { TWSScrollBox }
@@ -86,8 +85,9 @@ type
     class procedure SetFormStyle(const AForm: TCustomform; const AFormStyle, AOldFormStyle: TFormStyle); virtual;
     class procedure SetIcon(const AForm: TCustomForm; const Small, Big: HICON); virtual;
     class procedure ShowModal(const ACustomForm: TCustomForm); virtual;
-    class procedure SetPopupParent(const ACustomForm: TCustomForm;
-      const APopupMode: TPopupMode; const APopupParent: TCustomForm); virtual;
+    class procedure SetModalResult(const ACustomForm: TCustomForm; ANewValue: TModalResult); virtual;
+    class procedure SetRealPopupParent(const ACustomForm: TCustomForm;
+      const APopupParent: TCustomForm); virtual;
     class procedure SetShowInTaskbar(const AForm: TCustomForm; const AValue: TShowInTaskbar); virtual;
     class procedure SetZPosition(const AWinControl: TWinControl; const APosition: TWSZPosition); virtual;
     class function GetDefaultColor(const AControl: TControl; const ADefaultColorType: TDefaultColorType): TColor; override;
@@ -138,14 +138,6 @@ type
 
 implementation
 
-{ TWSScrollingWinControl }
-
-class procedure TWSScrollingWinControl.ScrollBy(const AWinControl: TScrollingWinControl;
-  const DeltaX, DeltaY: integer);
-begin
-  AWinControl.Invalidate;
-end;
-  
 { TWSCustomForm }
 
 class procedure TWSCustomForm.CloseModal(const ACustomForm: TCustomForm);
@@ -200,8 +192,15 @@ class procedure TWSCustomForm.ShowModal(const ACustomForm: TCustomForm);
 begin
 end;
 
-class procedure TWSCustomForm.SetPopupParent(const ACustomForm: TCustomForm;
-  const APopupMode: TPopupMode; const APopupParent: TCustomForm);
+// This needs implementing only if the TWSCustomForm.ShowModal implementation
+// is fully blocking (which it shouldn't be ideally)
+class procedure TWSCustomForm.SetModalResult(const ACustomForm: TCustomForm;
+  ANewValue: TModalResult);
+begin
+end;
+
+class procedure TWSCustomForm.SetRealPopupParent(
+  const ACustomForm: TCustomForm; const APopupParent: TCustomForm);
 begin
 end;
 

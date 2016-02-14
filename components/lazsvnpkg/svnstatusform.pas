@@ -23,9 +23,14 @@ unit SVNStatusForm;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, LazFileUtils, Forms, Controls, Dialogs,
-  ComCtrls, StdCtrls, ButtonPanel, ExtCtrls, LCLProc, Process,
-  SVNClasses, Menus, LazIDEIntf, BaseIDEIntf, LazConfigStorage;
+  Classes, SysUtils, Process, LCLProc,
+  Forms, Controls, Dialogs, ComCtrls, StdCtrls, ButtonPanel, ExtCtrls, Menus,
+  // LazUtils
+  FileUtil, LazFileUtils, LazConfigStorage, UTF8Process,
+  // IDEIntf
+  LazIDEIntf, BaseIDEIntf,
+  // LazSvn
+  SVNClasses;
 
 type
   { TSVNStatusFrm }
@@ -168,9 +173,9 @@ end;
 
 procedure TSVNStatusFrm.ExecuteSvnCommand(ACommand: String; AFile: String);
 var
-  AProcess: TProcess;
+  AProcess: TProcessUTF8;
 begin
-  AProcess := TProcess.Create(nil);
+  AProcess := TProcessUTF8.Create(nil);
 
   if pos(RepositoryPath, AFile) <> 0 then
     AProcess.CommandLine := SVNExecutable + ' ' + ACommand + ' "' + AFile + '"'
@@ -224,7 +229,7 @@ begin
         CmdLine := CmdLine + ' "' + StatusItem.Path + '"';
   end;
 
-  FileName := GetTempFileName('','');
+  FileName := GetTempFileNameUTF8('','');
   SVNCommitMsgMemo.Lines.SaveToFile(FileName);
   CmdLine := CmdLine + ' --file ' + FileName;
 

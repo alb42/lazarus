@@ -13,7 +13,7 @@ msgstr ""
 
 #: todoliststrconsts.dlgfiltercsv
 msgid "CSV files"
-msgstr ""
+msgstr "CSV fájlok"
 
 #: todoliststrconsts.dlgfropts
 msgid "Options"

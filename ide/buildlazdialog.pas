@@ -318,7 +318,7 @@ begin
   CleanDir(fWorkingDir+PathDelim+'test');
 
   // clean config directory
-  CleanDir(GetPrimaryConfigPath+PathDelim+'units');
+  CleanDir(AppendPathDelim(GetPrimaryConfigPath)+'units');
 
   // clean custom target directory
   if fProfile.TargetDirectory<>'' then begin
@@ -951,7 +951,9 @@ begin
     fs:=TFileStreamUTF8.Create(Filename,fmCreate);
     try
       if fExtraOptions<>'' then begin
-        OptionsAsText:=BreakExtraOptions;
+        // FPC expects console codepage for command line params
+        // and system codepage in config files
+        OptionsAsText:=UTF8ToWinCP(BreakExtraOptions);
         fs.Write(OptionsAsText[1],length(OptionsAsText));
       end;
     finally

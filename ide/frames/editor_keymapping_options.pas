@@ -59,6 +59,7 @@ type
     procedure EditMenuItemClick(Sender: TObject);
     procedure ChooseSchemeButtonClick(Sender: TObject);
     procedure ClearButtonClick(Sender: TObject);
+    procedure FilterEditAfterFilter(Sender: TObject);
     function FilterEditFilterItem(Item: TObject; out Done: Boolean): Boolean;
     procedure FilterEditKeyPress(Sender: TObject; var {%H-}Key: char);
     procedure FindKeyButtonClick(Sender: TObject);
@@ -473,6 +474,11 @@ begin
   end;
 end;
 
+procedure TEditorKeymappingOptionsFrame.FilterEditAfterFilter(Sender: TObject);
+begin
+  TreeView.MakeSelectionVisible;
+end;
+
 function TEditorKeymappingOptionsFrame.KeyMappingRelationToCaption(Index: Integer): String;
 begin
   Result := KeyMappingRelationToCaption(FEditingKeyMap.Relations[Index]);
@@ -482,12 +488,6 @@ function TEditorKeymappingOptionsFrame.KeyMappingRelationToCaption(
   KeyRelation: TKeyCommandRelation): String;
 const
   MaxLength = 60;
-
-  function AddBrakets(S: String): String;
-  begin
-    Result := '[' + S + ']';
-  end;
-
 begin
   with KeyRelation do
   begin
@@ -496,18 +496,7 @@ begin
       Result := UTF8Copy(LocalizedName, 1, MaxLength)+'...';
     if Result <> '' then
       Result := Result + '  ';
-    if (ShortcutA.Key1 = VK_UNKNOWN) and (ShortcutB.Key1 = VK_UNKNOWN) then
-      Result := Result{ + lisNone2 }
-    else
-    if (ShortcutA.Key1 = VK_UNKNOWN) then
-      Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutB))
-    else
-    if (ShortcutB.Key1 = VK_UNKNOWN) then
-      Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutA))
-    else
-      Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutA))
-                       + '  '+lisOr+'  ' +
-                         AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutB));
+    Result := Result + KeyValuesToCaptionStr(ShortcutA, ShortcutB, '[');
   end;
 end;
 

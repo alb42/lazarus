@@ -272,7 +272,13 @@ end;
 procedure TCustomSpeedButton.RealSetText(const Value: TCaption);
 begin
   if Caption = Value then Exit;
-  inherited RealSetText(Value);
+  if (Parent<>nil) and (Parent.HandleAllocated) and (not (csLoading in ComponentState)) then
+  begin
+    InvalidatePreferredSize;
+    inherited RealSetText(Value);
+    AdjustSize;
+  end else
+    inherited RealSetText(Value);
   
   Invalidate;
 end;
@@ -543,7 +549,7 @@ begin
   end;
   ClientSize.cx:= PaintRect.Right - PaintRect.Left;
   ClientSize.cy:= PaintRect.Bottom - PaintRect.Top;
-  //debugln(['TCustomSpeedButton.MeasureDraw AAA1 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect)]);
+  //debugln(['TCustomSpeedButton.MeasureDraw Step1 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect)]);
   // compute size of glyph
   GlyphSize := GetGlyphSize(Draw,PaintRect);
   GlyphWidth := GlyphSize.CX;
@@ -551,7 +557,7 @@ begin
     GlyphWidth:=GlyphWidth div NumGlyphs;
   GlyphHeight := GlyphSize.CY;
   HasGlyph:=(GlyphWidth<>0) and (GlyphHeight<>0);
-  //debugln(['TCustomSpeedButton.MeasureDraw AAA2 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect),' GlyphSize=',GlyphWidth,'x',GlyphHeight]);
+  //debugln(['TCustomSpeedButton.MeasureDraw Step2 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect),' GlyphSize=',GlyphWidth,'x',GlyphHeight]);
 
   // compute size of text
   CurLayout:=BidiAdjustButtonLayout(UseRightToLeftReading, Layout);
@@ -644,7 +650,7 @@ begin
     end;
   end;
 
-  //debugln(['TCustomSpeedButton.MeasureDraw AAA3 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect),' GlyphSize=',GlyphWidth,'x',GlyphHeight,' TextSize=',TextSize.cx,'x',TextSize.cy,' S=',S,' M=',M]);
+  //debugln(['TCustomSpeedButton.MeasureDraw Step3 ',DbgSName(Self),' PaintRect=',dbgs(PaintRect),' GlyphSize=',GlyphWidth,'x',GlyphHeight,' TextSize=',TextSize.cx,'x',TextSize.cy,' S=',S,' M=',M]);
 
   if Draw then
   begin
@@ -1046,12 +1052,7 @@ function TCustomSpeedButton.DrawGlyph(ACanvas: TCanvas; const AClient: TRect;
   BiDiFlags: Longint): TRect;
 begin
   if Assigned(FGlyph) then
-  begin
-    if (AState = bsDown) or (Down = true) then
-      Result := FGlyph.Draw(ACanvas, AClient, point(AOffset.x + 1, AOffset.y + 1), AState, ATransparent, BiDiFlags)
-    else
-      Result := FGlyph.Draw(ACanvas, AClient, AOffset, AState, ATransparent, BiDiFlags);
-  end
+    Result := FGlyph.Draw(ACanvas, AClient, AOffset, AState, ATransparent, BiDiFlags)
   else
     Result := Rect(0,0,0,0);
 end;

@@ -25,24 +25,26 @@ unit codetools_codecreation_options;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, ExtCtrls, StdCtrls, Dialogs,
-  SourceChanger, CodeToolsOptions, LazarusIDEStrConsts, IDEOptionsIntf,
-  IDEDialogs;
+  Classes, SysUtils, FileUtil, Forms, ExtCtrls, StdCtrls, Dialogs, EditBtn,
+  SourceChanger, CodeToolsOptions, LazarusIDEStrConsts, IDEOptionsIntf;
 
 type
 
   { TCodetoolsCodeCreationOptionsFrame }
 
   TCodetoolsCodeCreationOptionsFrame = class(TAbstractIDEOptionsEditor)
-    ForwardProcsInsertPolicyRadioGroup: TRadioGroup;
+    ForwardProcsInsertPolicyComboBox: TComboBox;
+    TemplateFileEdit: TFileNameEdit;
+    UsesInsertPolicyComboBox: TComboBox;
     ForwardProcsKeepOrderCheckBox: TCheckBox;
-    TemplateFileBrowseButton: TButton;
-    TemplateFileEdit: TEdit;
+    ForwardProcsInsertPolicyLabel: TLabel;
+    EventMethodSectionComboBox: TComboBox;
+    UsesInsertPolicyLabel: TLabel;
     TemplateFileLabel: TLabel;
     UpdateMultiProcSignaturesCheckBox: TCheckBox;
     UpdateOtherProcSignaturesCaseCheckBox: TCheckBox;
-    UsesInsertPolicyRadioGroup: TRadioGroup;
-    procedure TemplateFileBrowseButtonClick(Sender: TObject);
+    GroupLocalVariablesCheckBox: TCheckBox;
+    EventMethodSectionLabel: TLabel;
   private
   public
     function GetTitle: String; override;
@@ -58,26 +60,6 @@ implementation
 
 { TCodetoolsCodeCreationOptionsFrame }
 
-procedure TCodetoolsCodeCreationOptionsFrame.TemplateFileBrowseButtonClick(
-  Sender: TObject);
-var
-  OpenDialog: TOpenDialog;
-begin
-  OpenDialog:=TOpenDialog.Create(nil);
-  try
-    InitIDEFileDialog(OpenDialog);
-    OpenDialog.Title:=lisChooseAFileWithCodeToolsTemplates;
-    OpenDialog.Options:=OpenDialog.Options+[ofFileMustExist];
-    OpenDialog.Filter:=dlgFilterCodetoolsTemplateFile+' (*.xml)|*.xml|'+dlgFilterAll+
-      '|'+GetAllFilesMask;
-    if OpenDialog.Execute then
-      TemplateFileEdit.Text:=OpenDialog.FileName;
-  finally
-    StoreIDEFileDialog(OpenDialog);
-    OpenDialog.Free;
-  end;
-end;
-
 function TCodetoolsCodeCreationOptionsFrame.GetTitle: String;
 begin
   Result := dlgCodeCreation;
@@ -86,8 +68,8 @@ end;
 procedure TCodetoolsCodeCreationOptionsFrame.Setup(
   ADialog: TAbstractOptionsEditorDialog);
 begin
-  with ForwardProcsInsertPolicyRadioGroup do begin
-    Caption:=dlgForwardProcsInsertPolicy;
+  ForwardProcsInsertPolicyLabel.Caption:=dlgForwardProcsInsertPolicy;
+  with ForwardProcsInsertPolicyComboBox do begin
     with Items do begin
       BeginUpdate;
       Add(dlgLast);
@@ -99,8 +81,8 @@ begin
 
   ForwardProcsKeepOrderCheckBox.Caption:=dlgForwardProcsKeepOrder;
 
-  with UsesInsertPolicyRadioGroup do begin
-    Caption:=lisNewUnitsAreAddedToUsesSections;
+  UsesInsertPolicyLabel.Caption:=lisNewUnitsAreAddedToUsesSections;
+  with UsesInsertPolicyComboBox do begin
     with Items do begin
       BeginUpdate;
       Add(lisFirst);
@@ -112,17 +94,36 @@ begin
     end;
   end;
 
+  EventMethodSectionLabel.Caption:=lisEventMethodSectionLabel;
+  with EventMethodSectionComboBox do begin
+    Assert(Ord(High(TInsertClassSectionResult)) = 3,  'TCodetoolsCodeCreationOptionsFrame.Setup: High(TInsertClassSectionResult) <> 3');
+    with Items do begin
+      BeginUpdate;
+      Add(lisPrivate);
+      Add(lisProtected);
+      Add(lisEMDPublic);
+      Add(lisEMDPublished);
+      Add(dlgEnvAsk);
+      EndUpdate;
+    end;
+  end;
+
   UpdateMultiProcSignaturesCheckBox.Caption:=
     lisCTOUpdateMultipleProcedureSignatures;
   UpdateOtherProcSignaturesCaseCheckBox.Caption:=
     lisUpdateOtherProcedureSignaturesWhenOnlyLetterCaseHa;
+  GroupLocalVariablesCheckBox.Caption:=
+    lisGroupLocalVariables;
 
   TemplateFileLabel.Caption:=lisTemplateFile;
   {$IFNDEF EnableCodeCompleteTemplates}
   TemplateFileLabel.Enabled:=false;
   TemplateFileEdit.Enabled:=false;
-  TemplateFileBrowseButton.Enabled:=false;
   {$ENDIF}
+
+  TemplateFileEdit.DialogTitle:=lisChooseAFileWithCodeToolsTemplates;
+  TemplateFileEdit.Filter:=dlgFilterCodetoolsTemplateFile+' (*.xml)|*.xml|'+
+    dlgFilterAll+'|'+GetAllFilesMask;
 end;
 
 procedure TCodetoolsCodeCreationOptionsFrame.ReadSettings(
@@ -131,27 +132,29 @@ begin
   with AOptions as TCodetoolsOptions do
   begin
     case ForwardProcBodyInsertPolicy of
-      fpipLast: ForwardProcsInsertPolicyRadioGroup.ItemIndex:=0;
-      fpipInFrontOfMethods: ForwardProcsInsertPolicyRadioGroup.ItemIndex:=1;
+      fpipLast: ForwardProcsInsertPolicyComboBox.ItemIndex:=0;
+      fpipInFrontOfMethods: ForwardProcsInsertPolicyComboBox.ItemIndex:=1;
     else
       // fpipBehindMethods
-      ForwardProcsInsertPolicyRadioGroup.ItemIndex:=2;
+      ForwardProcsInsertPolicyComboBox.ItemIndex:=2;
     end;
 
     ForwardProcsKeepOrderCheckBox.Checked := KeepForwardProcOrder;
 
     case UsesInsertPolicy of
-    uipFirst:             UsesInsertPolicyRadioGroup.ItemIndex:=0;
-    uipInFrontOfRelated:  UsesInsertPolicyRadioGroup.ItemIndex:=1;
-    uipBehindRelated:     UsesInsertPolicyRadioGroup.ItemIndex:=2;
-    uipLast:              UsesInsertPolicyRadioGroup.ItemIndex:=3;
+    uipFirst:             UsesInsertPolicyComboBox.ItemIndex:=0;
+    uipInFrontOfRelated:  UsesInsertPolicyComboBox.ItemIndex:=1;
+    uipBehindRelated:     UsesInsertPolicyComboBox.ItemIndex:=2;
+    uipLast:              UsesInsertPolicyComboBox.ItemIndex:=3;
     else
       //uipAlphabetically:
-                          UsesInsertPolicyRadioGroup.ItemIndex:=4;
+                          UsesInsertPolicyComboBox.ItemIndex:=4;
     end;
+    EventMethodSectionComboBox.ItemIndex := Ord(EventMethodSection);
 
     UpdateMultiProcSignaturesCheckBox.Checked:=UpdateMultiProcSignatures;
     UpdateOtherProcSignaturesCaseCheckBox.Checked:=UpdateOtherProcSignaturesCase;
+    GroupLocalVariablesCheckBox.Checked:=GroupLocalVariables;
 
     TemplateFileEdit.Text:=CodeCompletionTemplateFileName;
   end;
@@ -162,7 +165,7 @@ procedure TCodetoolsCodeCreationOptionsFrame.WriteSettings(
 begin
   with AOptions as TCodetoolsOptions do
   begin
-    case ForwardProcsInsertPolicyRadioGroup.ItemIndex of
+    case ForwardProcsInsertPolicyComboBox.ItemIndex of
       0: ForwardProcBodyInsertPolicy := fpipLast;
       1: ForwardProcBodyInsertPolicy := fpipInFrontOfMethods;
       2: ForwardProcBodyInsertPolicy := fpipBehindMethods;
@@ -170,7 +173,7 @@ begin
 
     KeepForwardProcOrder := ForwardProcsKeepOrderCheckBox.Checked;
 
-    case UsesInsertPolicyRadioGroup.ItemIndex of
+    case UsesInsertPolicyComboBox.ItemIndex of
     0: UsesInsertPolicy:=uipFirst;
     1: UsesInsertPolicy:=uipInFrontOfRelated;
     2: UsesInsertPolicy:=uipBehindRelated;
@@ -178,8 +181,11 @@ begin
     else UsesInsertPolicy:=uipAlphabetically;
     end;
 
+    EventMethodSection := TInsertClassSection(EventMethodSectionComboBox.ItemIndex);
+
     UpdateMultiProcSignatures:=UpdateMultiProcSignaturesCheckBox.Checked;
     UpdateOtherProcSignaturesCase:=UpdateOtherProcSignaturesCaseCheckBox.Checked;
+    GroupLocalVariables:=GroupLocalVariablesCheckBox.Checked;
 
     CodeCompletionTemplateFileName:=TemplateFileEdit.Text;
   end;

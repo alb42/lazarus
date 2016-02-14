@@ -87,7 +87,8 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, FileUtil, LazFileUtils, StringHashList, AvgLvlTree,
-  LConvEncoding, LazUTF8, LazUTF8Classes, jsonparser, fpjson;
+  LConvEncoding, LazUTF8, LazUTF8Classes,
+  {$IF FPC_FULLVERSION>=30101}jsonscanner,{$ENDIF} jsonparser, fpjson;
 
 type
   TStringsType = (
@@ -140,6 +141,8 @@ type
     FFormatChecked: Boolean;
     procedure RemoveTaggedItems(aTag: Integer);
     procedure RemoveUntaggedModules;
+    function Remove(Index: Integer): TPOFileItem;
+    procedure UpdateCounters(Item: TPOFileItem; Removed: Boolean);
     // used by pochecker
     function GetCount: Integer;
     procedure SetCharSet(const AValue: String);
@@ -168,14 +171,19 @@ type
     procedure AddToModuleList(Identifier: string);
     procedure UntagAll;
 
+    procedure RemoveIdentifier(const AIdentifier: string);
+    procedure RemoveOriginal(const AOriginal: string);
+    procedure RemoveIdentifiers(AIdentifiers: TStrings);
+    procedure RemoveOriginals(AOriginals: TStrings);
+
     property Tag: integer read FTag write FTag;
     property Modified: boolean read FModified;
     property Items: TFPList read FItems;
     // used by pochecker /pohelper
   public
     procedure CheckFormatArguments;
-    procedure CleanUp; // removes previous ID from non-fuzzy entries
-                       // and badformat flags if appropriate
+    procedure CleanUp; { removes previous ID from non-fuzzy entries
+                         and badformat flags if appropriate }
     property PoName: String read FPoName;
     property PoRename: String write FPoName;
     property NrTranslated: Integer read FNrTranslated;
@@ -183,14 +191,14 @@ type
     property NrFuzzy: Integer read FNrFuzzy;
     property NrErrors: Integer read FNrErrors;
     function FindPoItem(const Identifier: String): TPoFileItem;
-    function OriginalToItem(Data: String): TPoFileItem;
+    function OriginalToItem(const Data: String): TPoFileItem;
     property OriginalList: TStringHashList read FOriginalToItem;
     property PoItems[Index: Integer]: TPoFileItem read GetPoItem;
     property Count: Integer read GetCount;
     property Header: TPOFileItem read FHeader;
     property FormatChecked: boolean read FFormatChecked;
-
   end;
+
   EPOFileError = class(Exception)
   public
     ResFileName: string;
@@ -261,6 +269,59 @@ begin
   {$ELSE}
   Result:=UTF8ToSys(s);
   {$ENDIF}
+end;
+
+function SkipLineEndings(var P: PChar; var DecCount: Integer): Integer;
+  procedure Skip;
+  begin
+    Dec(DecCount);
+    Inc(P);
+  end;
+begin
+  Result  := 0;
+  while (P^ in [#10,#13]) do begin
+    Inc(Result);
+    if (P^=#13) then begin
+      Skip;
+      if P^=#10 then
+        Skip;
+    end else
+      Skip;
+  end;
+end;
+
+function CompareMultilinedStrings(const S1,S2: string): Integer;
+var
+  C1,C2,L1,L2: Integer;
+  P1,P2: PChar;
+begin
+  L1 := Length(S1);
+  L2 := Length(S2);
+  P1 := pchar(S1);
+  P2 := pchar(S2);
+  Result := ord(P1^) - ord(P2^);
+
+  while (Result=0) and (L1>0) and (L2>0) and (P1^<>#0) do begin
+    if (P1^<>P2^) or (P1^ in [#10,#13]) then begin
+      C1 := SkipLineEndings(P1, L1);
+      C2 := SkipLineEndings(P2, L2);
+      if (C1<>C2) then
+        // different amount of lineendings
+        result := C1-C2
+      else
+      if (C1=0) then
+        // there are no lineendings at all, will end loop
+        result := Ord(P1^)-Ord(P2^);
+    end;
+    Inc(P1); Inc(P2);
+    Dec(L1); Dec(L2);
+  end;
+
+  // if strings are the same, check that all chars have been consumed
+  // just in case there are unexpected chars in between, in this case
+  // L1=L2=0;
+  if Result=0 then
+    Result := L1-L2;
 end;
 
 function StrToPoStr(const s:string):string;
@@ -473,7 +534,7 @@ begin
       BasePOFile := TPOFile.Create;
     BasePOFile.Tag:=1;
 
-    // Update po file with lrt or/and rst RSTFiles
+    // Update po file with lrt,rst/rsj of RSTFiles
     for i:=0 to RSTFiles.Count-1 do begin
       Filename:=RSTFiles[i];
       if (CompareFileExt(Filename,'.lrt')=0) or
@@ -964,6 +1025,77 @@ begin
   AddEntry(LineNr);
 end;
 
+procedure TPOFile.RemoveIdentifiers(AIdentifiers: TStrings);
+var
+  I: Integer;
+begin
+  for I := 0 to AIdentifiers.Count - 1 do
+    RemoveIdentifier(AIdentifiers[I]);
+end;
+
+procedure TPOFile.RemoveOriginals(AOriginals: TStrings);
+var
+  I: Integer;
+begin
+  for I := 0 to AOriginals.Count - 1 do
+    RemoveOriginal(AOriginals[I]);
+end;
+
+procedure TPOFile.RemoveIdentifier(const AIdentifier: string);
+var
+  Index: Integer;
+  Item: TPOFileItem;
+begin
+  if Length(AIdentifier) > 0 then
+  begin
+    Item := TPOFileItem(FIdentifierLowToItem[LowerCase(AIdentifier)]);
+    if Item <> nil then
+    begin
+      Index := FItems.IndexOf(Item);
+      // We should always find our item, unless there is data corruption.
+      if Index >= 0 then
+      begin
+        Remove(Index);
+        Item.Free;
+      end;
+    end;
+  end;
+end;
+
+procedure TPOFile.RemoveOriginal(const AOriginal: string);
+var
+  Index: Integer;
+  Item: TPOFileItem;
+begin
+  if Length(AOriginal) > 0 then
+    // This search is expensive, it could be reimplemented using
+    // yet another hash map which maps to items by "original" value
+    // with stripped line ending characters.
+    for Index := FItems.Count - 1 downto 0 do
+    begin
+      Item := TPOFileItem(FItems[Index]);
+      if CompareMultilinedStrings(Item.Original, AOriginal) = 0 then
+      begin
+        Remove(Index);
+        Item.Free;
+      end;
+    end;
+end;
+
+function TPOFile.Remove(Index: Integer): TPOFileItem;
+var
+  P: Integer;
+begin
+  Result := TPOFileItem(FItems[Index]);
+  FOriginalToItem.Remove(Result.Original, Result);
+  FIdentifierLowToItem.Remove(Result.IdentifierLow);
+  P := Pos('.', Result.IdentifierLow);
+  if P>0 then
+    FIdentLowVarToItem.Remove(Copy(Result.IdentifierLow, P+1, Length(Result.IdentifierLow)));
+  FItems.Delete(Index);
+  UpdateCounters(Result, True);
+end;
+
 procedure TPOFile.Add(const Identifier, OriginalValue, TranslatedValue,
   Comments, Context, Flags, PreviousID: string; SetFuzzy: boolean = false; LineNr: Integer = -1);
 var
@@ -981,9 +1113,7 @@ begin
   Item.Tag:=FTag;
   Item.LineNr := LineNr;
 
-  if TranslatedValue = '' then Inc(FNrUntranslated)
-  else if pos(sFuzzyFlag,Item.Flags)<>0 then Inc(FNrFuzzy)
-  else inc(FNrTranslated);
+  UpdateCounters(Item, False);
 
   FItems.Add(Item);
 
@@ -995,6 +1125,22 @@ begin
 
   if OriginalValue<>'' then
     FOriginalToItem.Add(OriginalValue,Item);
+end;
+
+procedure TPOFile.UpdateCounters(Item: TPOFileItem; Removed: Boolean);
+var
+  IncrementBy: Integer;
+begin
+  if Removed then
+    IncrementBy := -1
+  else
+    IncrementBy := 1;
+  if Item.Translation = '' then
+    Inc(FNrUntranslated, IncrementBy)
+  else if Pos(sFuzzyFlag, Item.Flags)<>0 then
+    Inc(FNrFuzzy, IncrementBy)
+  else
+    Inc(FNrTranslated, IncrementBy);
 end;
 
 function TPOFile.Translate(const Identifier, OriginalValue: String): String;
@@ -1151,9 +1297,9 @@ end;
 
 procedure TPOFile.UpdateStrings(InputLines: TStrings; SType: TStringsType);
 var
-  i,j,n: integer;
+  i, j, n: integer;
   p: LongInt;
-  Identifier, Value,Line: string;
+  Identifier, Value, Line: string;
   Ch: Char;
   MultiLinedValue: boolean;
 
@@ -1169,22 +1315,83 @@ var
     p := 1;
   end;
 
-  procedure UpdateFromRsj;
+  procedure NormalizeValue;
+  begin
+    if MultiLinedValue then begin
+      // check that we end on lineending, multilined
+      // resource strings from rst usually do not end
+      // in lineending, fix here.
+      if not (Value[Length(Value)] in [#13,#10]) then
+        Value := Value + LineEnding;
+
+      //treat #10#13 sequences as #13#10 for consistency,
+      //e.g. #10#13#13#13#10#13#10 should become #13#10#13#13#10#13#10
+      p:=2;
+      while p<=Length(Value) do begin
+        if (Value[p]=#13) and (Value[p-1]=#10) then begin
+          Value[p]:=#10;
+          Value[p-1]:=#13;
+        end;
+        // further analysis shouldn't affect found #13#10 pair
+        if (Value[p]=#10) and (Value[p-1]=#13) then
+          inc(p);
+        inc(p);
+      end;
+      Value := AdjustLineBreaks(Value);
+    end;
+    // po requires special characters as #number
+    p:=1;
+    while p<=length(Value) do begin
+      j := UTF8CharacterLength(pchar(@Value[p]));
+      if (j=1) and (Value[p] in [#0..#9,#11,#12,#14..#31,#127..#255]) then
+        Value := copy(Value,1,p-1)+'#'+IntToStr(ord(Value[p]))+copy(Value,p+1,length(Value))
+      else
+        inc(p,j);
+    end;
+  end;
+
+  procedure UpdateFromRSJ;
   var
     Parser: TJSONParser;
-    JsonItems: TJSONArray;
+    JsonItems, SourceBytes: TJSONArray;
     JsonData, JsonItem: TJSONObject;
-    I: Integer;
+    K, L: Integer;
+    Data: TJSONData;
   begin
-    Parser := TJSONParser.Create(InputLines.Text);
+    Parser := TJSONParser.Create(InputLines.Text{$IF FPC_FULLVERSION>=30101},jsonscanner.DefaultOptions{$ENDIF});
     try
       JsonData := Parser.Parse as TJSONObject;
       try
         JsonItems := JsonData.Arrays['strings'];
-        for I := 0 to JsonItems.Count - 1 do
+        for K := 0 to JsonItems.Count - 1 do
         begin
-          JsonItem := JsonItems.Items[I] as TJSONObject;
-          UpdateItem(JsonItem.Get('name'), JsonItem.Get('value'));
+          MultiLinedValue := false;
+          JsonItem := JsonItems.Items[K] as TJSONObject;
+          Data:=JsonItem.Find('sourcebytes');
+          if Data is TJSONArray then begin
+            // fpc 3.1.1 writes the bytes of the source without encoding change
+            // while 'value' contains the string encoded as UTF16 with \u hexcodes.
+            SourceBytes := TJSONArray(Data);
+            SetLength(Value,SourceBytes.Count);
+            for L := 1 to length(Value) do begin
+              Value[L] := chr(SourceBytes.Integers[L-1]);
+              if Value[L] in [#13,#10] then
+                MultilinedValue := True;
+            end;
+          end else begin
+            Value:=JsonItem.Get('value');
+            // check if the value we got is multilined
+            L := 1;
+            while (L<=Length(Value)) and (MultiLinedValue = false) do begin
+              if Value[L] in [#13,#10] then
+                MultilinedValue := True;
+              inc(L);
+            end;
+          end;
+          if Value<>'' then begin
+            NormalizeValue;
+            UpdateItem(JsonItem.Get('name'), Value);
+          end;
         end;
       finally
         JsonData.Free;
@@ -1198,10 +1405,11 @@ begin
   ClearModuleList;
   UntagAll;
   if SType = stRsj then
-    UpdateFromRsj
+    // .rsj file
+    UpdateFromRSJ
   else
   begin
-    // for each string in lrt/rst list check if it's already in PO
+    // for each string in lrt/rst/rsj list check if it's already in PO
     // if not add it
     MultilinedValue := false;
     Value := '';
@@ -1216,14 +1424,14 @@ begin
         // empty line
       else
       if SType=stLrt then begin
-
+        // .lrt file
         p:=Pos('=',Line);
         Value :=copy(Line,p+1,n-p); //if p=0, that's OK, all the string
         Identifier:=copy(Line,1,p-1);
         UpdateItem(Identifier, Value);
 
       end else begin
-        // rst file
+        // .rst file
         if Line[1]='#' then begin
           // rst file: comment
 
@@ -1276,38 +1484,7 @@ begin
             end;
 
             if Value<>'' then begin
-              if MultiLinedValue then begin
-                // check that we end on lineending, multilined
-                // resource strings from rst usually do not end
-                // in lineending, fix here.
-                if not (Value[Length(Value)] in [#13,#10]) then
-                  Value := Value + LineEnding;
-
-                //treat #10#13 sequences as #13#10 for consistency,
-                //e.g. #10#13#13#13#10#13#10 should become #13#10#13#13#10#13#10
-                p:=2;
-                while p<=Length(Value) do begin
-                  if (Value[p]=#13) and (Value[p-1]=#10) then begin
-                    Value[p]:=#10;
-                    Value[p-1]:=#13;
-                  end;
-                  // further analysis shouldn't affect found #13#10 pair
-                  if (Value[p]=#10) and (Value[p-1]=#13) then
-                    inc(p);
-                  inc(p);
-                end;
-                Value := AdjustLineBreaks(Value);
-              end;
-              // po requires special characters as #number
-              p:=1;
-              while p<=length(Value) do begin
-                j := UTF8CharacterLength(pchar(@Value[p]));
-                if (j=1) and (Value[p] in [#0..#9,#11,#12,#14..#31,#127..#255]) then
-                  Value := copy(Value,1,p-1)+'#'+IntToStr(ord(Value[p]))+copy(Value,p+1,length(Value))
-                else
-                  inc(p,j);
-              end;
-
+              NormalizeValue;
               UpdateItem(Identifier, Value);
             end;
 
@@ -1397,20 +1574,20 @@ begin
     WriteItem(TPOFileItem(FItems[j]));
 end;
 
+// Remove all entries that have Tag=aTag
 procedure TPOFile.RemoveTaggedItems(aTag: Integer);
 var
   Item: TPOFileItem;
   i: Integer;
 begin
-  // get rid of all entries that have Tag=aTag
-  for i:=FItems.Count-1 downto 0 do begin
+  for i:=FItems.Count-1 downto 0 do
+  begin
     Item := TPOFileItem(FItems[i]);
-    if Item.Tag<>aTag then
-      Continue;
-    FIdentifierLowToItem.Remove(Item.IdentifierLow);
-    FOriginalToItem.Remove(Item.Original, Item);
-    FItems.Delete(i);
-    Item.Free;
+    if Item.Tag = aTag then
+    begin
+      Remove(i);
+      Item.Free;
+    end;
   end;
 end;
 
@@ -1425,59 +1602,6 @@ begin
   finally
     OutLst.Free;
   end;
-end;
-
-function SkipLineEndings(var P: PChar; var DecCount: Integer): Integer;
-  procedure Skip;
-  begin
-    Dec(DecCount);
-    Inc(P);
-  end;
-begin
-  Result  := 0;
-  while (P^ in [#10,#13]) do begin
-    Inc(Result);
-    if (P^=#13) then begin
-      Skip;
-      if P^=#10 then
-        Skip;
-    end else
-      Skip;
-  end;
-end;
-
-function CompareMultilinedStrings(const S1,S2: string): Integer;
-var
-  C1,C2,L1,L2: Integer;
-  P1,P2: PChar;
-begin
-  L1 := Length(S1);
-  L2 := Length(S2);
-  P1 := pchar(S1);
-  P2 := pchar(S2);
-  Result := ord(P1^) - ord(P2^);
-
-  while (Result=0) and (L1>0) and (L2>0) and (P1^<>#0) do begin
-    if (P1^<>P2^) or (P1^ in [#10,#13]) then begin
-      C1 := SkipLineEndings(P1, L1);
-      C2 := SkipLineEndings(P2, L2);
-      if (C1<>C2) then
-        // different amount of lineendings
-        result := C1-C2
-      else
-      if (C1=0) then
-        // there are no lineendings at all, will end loop
-        result := Ord(P1^)-Ord(P2^);
-    end;
-    Inc(P1); Inc(P2);
-    Dec(L1); Dec(L2);
-  end;
-
-  // if strings are the same, check that all chars have been consumed
-  // just in case there are unexpected chars in between, in this case
-  // L1=L2=0;
-  if Result=0 then
-    Result := L1-L2;
 end;
 
 procedure TPOFile.UpdateItem(const Identifier: string; Original: string);
@@ -1659,8 +1783,9 @@ begin
   Result := TPOFileItem(FIdentifierLowToItem[lowercase(Identifier)]);
 end;
 
-function TPOFile.OriginalToItem(Data: String): TPoFileItem;
+function TPOFile.OriginalToItem(const Data: String): TPoFileItem;
 begin
+  // TODO: Should we take into account CompareMultilinedStrings ?
   Result := TPOFileItem(FOriginalToItem.Data[Data]);
 end;
 

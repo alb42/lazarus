@@ -1,7 +1,7 @@
 {%MainUnit cocoaint.pas}
 
 {******************************************************************************
-  All utility method implementations of the TCarbonWidgetSet class are here.
+  All utility method implementations of the TCocoaWidgetSet class are here.
 
 
  ******************************************************************************
@@ -22,7 +22,7 @@
   Method:  TCocoaWidgetSet.AppInit
   Params:  ScreenInfo
 
-  Initialize Carbon Widget Set
+  Initialize Cocoa Widget Set
  ------------------------------------------------------------------------------}
 procedure TCocoaWidgetSet.AppInit(var ScreenInfo: TScreenInfo);
 var
@@ -33,7 +33,9 @@ begin
   {$ENDIF}
 
   { Creates the application NSApp object }
-  FNsApp := NSApplication.sharedApplication;
+  FNSApp := NSApplication.sharedApplication;
+  FNSApp_Delegate := TAppDelegate.alloc.init;
+  FNSApp.setDelegate(FNSApp_Delegate);
 
   // Sandboxing
   lDict := NSProcessInfo.processInfo.environment;
@@ -153,7 +155,7 @@ end;
 {------------------------------------------------------------------------------
   Method:  TCocoaWidgetSet.AppTerminate
 
-  Tells Carbon to halt the application
+  Tells Cocoa to halt the application
  ------------------------------------------------------------------------------}
 procedure TCocoaWidgetSet.AppTerminate;
 begin
@@ -227,9 +229,14 @@ begin
     lcNeedMininimizeAppWithMainForm,
     lcApplicationTitle,
     lcFormIcon,
+    {$ifndef COCOA_USE_NATIVE_MODAL}
     lcModalWindow,
+    {$endif}
     lcReceivesLMClearCutCopyPasteReliably:
       Result := LCL_CAPABILITY_NO;
+    {$ifdef COCOA_USE_NATIVE_MODAL}
+    lcModalWindow,
+    {$endif}
     lcAntialiasingEnabledByDefault:
       Result := LCL_CAPABILITY_YES;
   else
@@ -418,10 +425,65 @@ begin
     DeleteAndNilObject(FSysColorBrushes[i]);
 end;
 
-procedure TCocoaWidgetSet.SetMainMenu(const AMenu: HMENU);
+procedure TCocoaWidgetSet.SetMainMenu(const AMenu: HMENU; const ALCLMenu: TMenu);
+var
+  i: Integer;
+  lCurItem: TMenuItem;
+  lMenuObj: NSObject;
+  lNSMenu: NSMenu absolute AMenu;
 begin
   if AMenu<>0 then
-    NSApp.setMainMenu(NSMenu(AMenu));
+  begin
+    NSApp.setMainMenu(lNSMenu);
+    if (ALCLMenu = nil) or not ALCLMenu.HandleAllocated then Exit;
+
+    // Some older docs say we should use setAppleMenu to obtain the Services/Hide/Quit items,
+    // but its now private and in 10.10 it doesn't seam to do anything
+    for i := 0 to ALCLMenu.Items.Count-1 do
+    begin
+      lCurItem := ALCLMenu.Items.Items[i];
+      if not lCurItem.HandleAllocated or (lCurItem.Caption <> '') then Continue;
+
+      lMenuObj := NSObject(lCurItem.Handle);
+      if lMenuObj.isKindOfClass_(TCocoaMenuItem) and NSMenuItem(lMenuObj).hasSubmenu and
+        (NSMenuItem(lMenuObj).submenu <> nil) then
+      begin
+        TCocoaMenuItem(lMenuObj).attachAppleMenuItems();
+        //NSApp.setAppleMenu(NSMenuItem(lMenuObj).submenu);
+        Exit;
+      end;
+      {else if lMenuObj.isKindOfClass_(NSMenu) then
+      begin
+        //NSApp.setAppleMenu(NSMenu(lMenuObj));
+        Exit;
+      end;}
+    end;
+
+    // for modal windows work around bug, but doesn't work :(
+    {$ifdef COCOA_USE_NATIVE_MODAL}
+    {if CurModalForm <> nil then
+    for i := 0 to lNSMenu.numberOfItems()-1 do
+    begin
+      lNSMenu.itemAtIndex(i).setTarget(TCocoaWSCustomForm.GetWindowFromHandle(CurModalForm));
+    end;}
+    {$endif}
+  end;
+end;
+
+function TCocoaWidgetSet.IsControlDisabledDueToModal(AControl: NSView): Boolean;
+var
+  lNSObj: NSWindow;
+  lNSWin: TCocoaWindow absolute lNSObj;
+begin
+  Result := False;
+  {$ifndef COCOA_USE_NATIVE_MODAL}
+  if CurModalForm = nil then Exit;
+  lNSObj := AControl.window();
+  if lNSObj = nil then Exit;
+  if not lNSObj.isKindOfClass_(TCocoaWindow) then Exit;
+  if lNSWin.LCLForm = CurModalForm then Exit;
+  Result := True;
+  {$endif}
 end;
 
 {------------------------------------------------------------------------------
@@ -499,19 +561,34 @@ begin
   Result.func:=afunc;
 end;
 
-{ TClipboardData }
+{ TCocoaClipboardData }
 
-constructor TClipboardData.Create(AMimeType: string; ACocoaFormat: NSString; ADataType: TCocoaClipboardDataType);
+constructor TCocoaClipboardData.Create(AMimeType: string; ACocoaFormat: NSString; ADataType: TCocoaClipboardDataType);
 begin
   MimeType := AMimeType;
   CocoaFormat := ACocoaFormat;
   DataType := ADataType;
 end;
 
-{------------------------------------------------------------------------------
-  Method:  TCarbonWidgetSet.RawImage_DescriptionFromCarbonBitmap
+procedure TAppDelegate.application_openFiles(sender: NSApplication; filenames: NSArray);
+var
+  lFiles: array of string;
+  lNSStr: NSString;
+  i: Integer;
+begin
+  SetLength(lFiles, filenames.count);
+  for i := 0 to filenames.count-1 do
+  begin
+    lNSStr := NSString(filenames.objectAtIndex(i));
+    lFiles[i] := NSStringToString(lNSStr);
+  end;
+  Application.IntfDropFiles(lFiles);
+end;
 
-  Creates a rawimage description for a carbonbitmap
+{------------------------------------------------------------------------------
+  Method:  TCocoaWidgetSet.RawImage_DescriptionFromCocoaBitmap
+
+  Creates a rawimage description for a cocoabitmap
  ------------------------------------------------------------------------------}
 function TCocoaWidgetSet.RawImage_DescriptionFromCocoaBitmap(out ADesc: TRawImageDescription; ABitmap: TCocoaBitmap): Boolean;
 var
@@ -527,11 +604,8 @@ begin
     ADesc.Format := ricfRGBA;
   end;
 
-  with ABitmap.image.size do
-  begin
-    ADesc.Width := Round(width);
-    ADesc.Height := Round(Height);
-  end;
+  ADesc.Width := Round(ABitmap.image.size.width);
+  ADesc.Height := Round(ABitmap.image.size.Height);
 
   //ADesc.PaletteColorCount := 0;
 
@@ -631,7 +705,7 @@ begin
 
   if AMask.Depth > 1
   then begin
-    DebugLn('[WARNING] RawImage_FromCarbonBitmap: AMask.Depth > 1');
+    DebugLn('[WARNING] RawImage_FromCocoaBitmap: AMask.Depth > 1');
     Exit;
   end;
 

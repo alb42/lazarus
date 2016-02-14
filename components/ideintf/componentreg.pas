@@ -135,7 +135,6 @@ type
     procedure AddToPalette; virtual;
     function CanBeCreatedInDesigner: boolean; virtual;
     function GetCreationClass: TComponentClass; virtual;
-    function IsTControl: boolean;
   public
     property ComponentClass: TComponentClass read FComponentClass;
     property OnGetCreationClass: TOnGetCreationClass read FOnGetCreationClass
@@ -188,7 +187,7 @@ type
   TUpdateCompVisibleEvent = procedure(AComponent: TRegisteredComponent;
                       var VoteVisible: integer { Visible>0 }  ) of object;
   TPaletteHandlerEvent = procedure of object;
-  //TComponentAddedEvent = procedure(ALookupRoot, AComponent: TComponent; ARegisteredComponent: TRegisteredComponent) of object;
+  TComponentAddedEvent = procedure(ALookupRoot, AComponent: TComponent; ARegisteredComponent: TRegisteredComponent) of object;
   RegisterUnitComponentProc = procedure(const Page, UnitName: ShortString;
                                         ComponentClass: TComponentClass);
   TBaseComponentPageList = specialize TFPGList<TBaseComponentPage>;
@@ -257,14 +256,15 @@ type
     procedure IterateRegisteredClasses(Proc: TGetComponentClassEvent);
     procedure SetSelectedComp(AComponent: TRegisteredComponent; AMulti: Boolean);
     // Registered handlers
-    procedure DoAfterComponentAdded;
+    procedure DoAfterComponentAdded(ALookupRoot, AComponent: TComponent;
+                            ARegisteredComponent: TRegisteredComponent); virtual;
     procedure DoAfterSelectionChanged;
     procedure RemoveAllHandlersOfObject(AnObject: TObject);
     procedure AddHandlerUpdateVisible(const OnUpdateCompVisibleEvent: TUpdateCompVisibleEvent;
                                       AsLast: boolean = false);
     procedure RemoveHandlerUpdateVisible(OnUpdateCompVisibleEvent: TUpdateCompVisibleEvent);
-    procedure AddHandlerComponentAdded(OnComponentAddedEvent: TPaletteHandlerEvent);
-    procedure RemoveHandlerComponentAdded(OnComponentAddedEvent: TPaletteHandlerEvent);
+    procedure AddHandlerComponentAdded(OnComponentAddedEvent: TComponentAddedEvent);
+    procedure RemoveHandlerComponentAdded(OnComponentAddedEvent: TComponentAddedEvent);
     procedure AddHandlerSelectionChanged(OnSelectionChangedEvent: TPaletteHandlerEvent);
     procedure RemoveHandlerSelectionChanged(OnSelectionChangedEvent: TPaletteHandlerEvent);
     {$IFDEF CustomIDEComps}
@@ -328,13 +328,13 @@ end;
 
 function CompareIDEComponentByClassName(Data1, Data2: Pointer): integer;
 var
-  Comp1: TRegisteredComponent;
-  Comp2: TRegisteredComponent;
+  Comp1: TRegisteredComponent absolute Data1;
+  Comp2: TRegisteredComponent absolute Data2;
 begin
-  Comp1:=TRegisteredComponent(Data1);
-  Comp2:=TRegisteredComponent(Data2);
-  Result:=AnsiCompareText(Comp1.ComponentClass.Classname,
-                          Comp2.ComponentClass.Classname);
+  // The same case-insensitive compare function should be used in this function
+  //  and in CompareClassNameWithRegisteredComponent.
+  Result:=ShortCompareText(Comp1.ComponentClass.Classname,
+                           Comp2.ComponentClass.Classname);
 end;
 
 function CompareClassNameWithRegisteredComponent(Key, Data: Pointer): integer;
@@ -344,7 +344,7 @@ var
 begin
   AClassName:=String(Key);
   RegComp:=TRegisteredComponent(Data);
-  Result:=AnsiCompareText(AClassName, RegComp.ComponentClass.ClassName);
+  Result:=ShortCompareText(AClassName, RegComp.ComponentClass.ClassName);
 end;
 
 function dbgs(const c: TComponentPriorityCategory): string;
@@ -639,11 +639,6 @@ begin
   Result:=FComponentClass;
   if Assigned(OnGetCreationClass) then
     OnGetCreationClass(Self,Result);
-end;
-
-function TRegisteredComponent.IsTControl: boolean;
-begin
-  Result:=ComponentClass.InheritsFrom(TControl);
 end;
 
 { TBaseComponentPage }
@@ -1083,7 +1078,7 @@ var
   i, Vote: Integer;
 begin
   Vote:=1;
-  if HideControls and AComponent.IsTControl then
+  if HideControls and AComponent.ComponentClass.InheritsFrom(TControl) then
     Dec(Vote);
   i:=FHandlers[cphtUpdateVisible].Count;
   while FHandlers[cphtUpdateVisible].NextDownIndex(i) do
@@ -1092,13 +1087,14 @@ begin
   AComponent.Visible:=Result;
 end;
 
-procedure TBaseComponentPalette.DoAfterComponentAdded;
+procedure TBaseComponentPalette.DoAfterComponentAdded(ALookupRoot,
+  AComponent: TComponent; ARegisteredComponent: TRegisteredComponent);
 var
   i: Integer;
 begin
   i:=FHandlers[cphtComponentAdded].Count;
   while FHandlers[cphtComponentAdded].NextDownIndex(i) do
-    TPaletteHandlerEvent(FHandlers[cphtComponentAdded][i])();
+    TComponentAddedEvent(FHandlers[cphtComponentAdded][i])(ALookupRoot, AComponent, ARegisteredComponent);
 end;
 
 procedure TBaseComponentPalette.DoAfterSelectionChanged;
@@ -1135,13 +1131,13 @@ end;
 
 // ComponentAdded
 procedure TBaseComponentPalette.AddHandlerComponentAdded(
-  OnComponentAddedEvent: TPaletteHandlerEvent);
+  OnComponentAddedEvent: TComponentAddedEvent);
 begin
   AddHandler(cphtComponentAdded,TMethod(OnComponentAddedEvent));
 end;
 
 procedure TBaseComponentPalette.RemoveHandlerComponentAdded(
-  OnComponentAddedEvent: TPaletteHandlerEvent);
+  OnComponentAddedEvent: TComponentAddedEvent);
 begin
   RemoveHandler(cphtComponentAdded,TMethod(OnComponentAddedEvent));
 end;

@@ -38,8 +38,6 @@ type
 
   TWin32WSScrollingWinControl = class(TWSScrollingWinControl)
   published
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl;
-      const DeltaX, DeltaY: integer); override;
   end;
 
   { TWin32WSScrollBox }
@@ -80,8 +78,8 @@ type
     class procedure SetFormStyle(const AForm: TCustomform; const AFormStyle, AOldFormStyle: TFormStyle); override;
     class procedure SetIcon(const AForm: TCustomForm; const Small, Big: HICON); override;
     class procedure ShowModal(const ACustomForm: TCustomForm); override;
-    class procedure SetPopupParent(const ACustomForm: TCustomForm;
-       const APopupMode: TPopupMode; const APopupParent: TCustomForm); override;
+    class procedure SetRealPopupParent(const ACustomForm: TCustomForm;
+       const APopupParent: TCustomForm); override;
     class procedure SetShowInTaskbar(const AForm: TCustomForm; const AValue: TShowInTaskbar); override;
     class procedure ShowHide(const AWinControl: TWinControl); override;
   end;
@@ -210,17 +208,6 @@ begin
   {$IFDEF NewScrollingLayer}
   CreateScrollingLayer(Result);
   {$ENDIF}
-end;
-
-{ TWin32WSScrollingWinControl }
-
-function ScrollWindowPtr(hWnd:HWND; XAmount:longint; YAmount:longint; lpRect: pointer; lpClipRect: pointer):WINBOOL; stdcall; external 'user32' name 'ScrollWindow';
-
-class procedure TWin32WSScrollingWinControl.ScrollBy(const AWinControl: TScrollingWinControl;
-  const DeltaX, DeltaY: integer);
-begin
-  if Windows.IsWindowVisible(AWinControl.Handle) then
-    ScrollWindowPtr(AWinControl.Handle, DeltaX, DeltaY, nil, nil);
 end;
 
 { TWin32WSCustomForm }
@@ -650,8 +637,8 @@ begin
     RDW_INVALIDATE or RDW_FRAME or RDW_NOCHILDREN or RDW_ERASE);
 end;
 
-class procedure TWin32WSCustomForm.SetPopupParent(const ACustomForm: TCustomForm;
-  const APopupMode: TPopupMode; const APopupParent: TCustomForm);
+class procedure TWin32WSCustomForm.SetRealPopupParent(
+  const ACustomForm: TCustomForm; const APopupParent: TCustomForm);
 begin
   // changing parent is not possible without handle recreation
   RecreateWnd(ACustomForm);

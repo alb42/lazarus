@@ -37,6 +37,7 @@ type
   TPage = class;
 
   TBeforeShowPageEvent = procedure (ASender: TObject; ANewPage: TPage; ANewIndex: Integer) of object;
+  TImagePaintBackgroundEvent = procedure (ASender: TObject; ACanvas: TCanvas; ARect: TRect) of object;
 
   TPage = class(TCustomControl)
   private
@@ -250,13 +251,16 @@ type
   { TShape }
 
   TShapeType = (stRectangle, stSquare, stRoundRect, stRoundSquare,
-    stEllipse, stCircle, stSquaredDiamond, stDiamond, stTriangle);
+    stEllipse, stCircle, stSquaredDiamond, stDiamond,
+    stTriangle, stTriangleLeft, stTriangleRight, stTriangleDown,
+    stStar, stStarDown);
 
   TShape = class(TGraphicControl)
   private
     FPen: TPen;
     FBrush: TBrush;
     FShape: TShapeType;
+    function GetStarAngle(N: Integer; ADown: boolean): Double;
     procedure SetBrush(Value: TBrush);
     procedure SetPen(Value: TPen);
     procedure SetShape(Value: TShapeType);
@@ -344,6 +348,8 @@ type
     procedure SetBeveled(const AValue: boolean);
     procedure SetMinSize(const AValue: integer);
   protected
+    procedure CMEnabledChanged(var Message: TLMEssage); message CM_ENABLEDCHANGED;
+
     class procedure WSRegisterClass; override;
     function AdaptAnchors(const a: TAnchors): TAnchors;
     function CheckNewSize(var NewSize: Integer): Boolean; virtual;
@@ -365,12 +371,13 @@ type
     procedure SetResizeControl(const AValue: TControl); virtual;
     procedure StartSplitterMove(const MouseXY: TPoint);
     procedure StopSplitterMove(const MouseXY: TPoint);
+    procedure UpdateCursor; virtual;
   public
     constructor Create(TheOwner: TComponent); override;
     procedure AnchorSplitter(Kind: TAnchorKind; AControl: TControl);
     property ResizeControl: TControl read GetResizeControl write SetResizeControl;
     function GetOtherResizeControl: TControl;
-    procedure MoveSplitter(Offset: integer);
+    procedure MoveSplitter(Offset: integer); virtual;
     procedure SetSplitterPosition(NewPosition: integer);
     function GetSplitterPosition: integer;
   public
@@ -407,6 +414,7 @@ type
     property OnMouseWheel;
     property OnMouseWheelDown;
     property OnMouseWheelUp;
+    property OnPaint;
     property ParentColor;
     property ParentShowHint;
     property PopupMenu;
@@ -474,8 +482,11 @@ type
   private
     FAntialiasingMode: TAntialiasingMode;
     FOnPictureChanged: TNotifyEvent;
+    FOnPaintBackground: TImagePaintBackgroundEvent;
     FPicture: TPicture;
     FCenter: Boolean;
+    FKeepOriginXWhenClipped: Boolean;
+    FKeepOriginYWhenClipped: Boolean;
     FProportional: Boolean;
     FTransparent: Boolean;
     FStretch: Boolean;
@@ -485,6 +496,8 @@ type
     procedure SetAntialiasingMode(AValue: TAntialiasingMode);
     procedure SetPicture(const AValue: TPicture);
     procedure SetCenter(const AValue : Boolean);
+    procedure SetKeepOriginX(AValue: Boolean);
+    procedure SetKeepOriginY(AValue: Boolean);
     procedure SetProportional(const AValue: Boolean);
     procedure SetStretch(const AValue : Boolean);
     procedure SetTransparent(const AValue : Boolean);
@@ -507,6 +520,8 @@ type
     property Align;
     property AutoSize;
     property Center: Boolean read FCenter write SetCenter default False;
+    property KeepOriginXWhenClipped: Boolean read FKeepOriginXWhenClipped write SetKeepOriginX default False;
+    property KeepOriginYWhenClipped: Boolean read FKeepOriginYWhenClipped write SetKeepOriginY default False;
     property Constraints;
     property Picture: TPicture read FPicture write SetPicture;
     property Visible;
@@ -523,6 +538,7 @@ type
     property Transparent: Boolean read FTransparent write SetTransparent default False;
     property Proportional: Boolean read FProportional write SetProportional default False;
     property OnPictureChanged: TNotifyEvent read FOnPictureChanged write FOnPictureChanged;
+    property OnPaintBackground: TImagePaintBackgroundEvent read FOnPaintBackground write FOnPaintBackground;
   end;
 
 
@@ -536,6 +552,8 @@ type
     property AutoSize;
     property BorderSpacing;
     property Center;
+    property KeepOriginXWhenClipped;
+    property KeepOriginYWhenClipped;
     property Constraints;
     property DragCursor;
     property DragMode;
@@ -556,6 +574,7 @@ type
     property OnMouseWheelUp;
     property OnPaint;
     property OnPictureChanged;
+    property OnPaintBackground;
     property OnResize;
     property OnStartDrag;
     property ParentShowHint;
@@ -1092,6 +1111,150 @@ type
     property OnUnDock;
   end;
 
+  { TCustomFlowPanel }
+
+  TFlowPanel = class;
+  TCustomFlowPanel = class;
+  TFlowPanelControl = class;
+  TFlowPanelControlList = class;
+
+  TFlowStyle = (fsLeftRightTopBottom, fsRightLeftTopBottom, fsLeftRightBottomTop, fsRightLeftBottomTop,
+                fsTopBottomLeftRight, fsBottomTopLeftRight, fsTopBottomRightLeft, fsBottomTopRightLeft);
+
+  TWrapAfter = (
+    waAuto,    // auto
+    waForce,   // always wrap after this control
+    waAvoid,   // try not to wrap after this control, if the control is already at the beginning of the row, wrap though
+    waForbid); // never wrap after this control
+
+  TFlowPanelControl = class(TCollectionItem)
+  private
+    FControl: TControl;
+    FWrapAfter: TWrapAfter;
+    procedure SetControl(const aControl: TControl);
+    procedure SetWrapAfter(const AWrapAfter: TWrapAfter);
+  protected
+    procedure SetIndex(Value: Integer); override;
+    procedure AssignTo(Dest: TPersistent); override;
+    function FPCollection: TFlowPanelControlList;
+    function FPOwner: TCustomFlowPanel;
+  published
+    property Control: TControl read FControl write SetControl;
+    property WrapAfter: TWrapAfter read FWrapAfter write SetWrapAfter;
+    property Index;
+  end;
+
+  TFlowPanelControlList = class(TOwnedCollection)
+  private
+    function GetItem(Index: Integer): TFlowPanelControl;
+    procedure SetItem(Index: Integer; const AItem: TFlowPanelControl);
+  protected
+    function FPOwner: TCustomFlowPanel;
+
+    function Add: TFlowPanelControl;
+    procedure AddControl(AControl: TControl; AIndex: Integer = -1);
+    procedure RemoveControl(AControl: TControl);
+  public
+    constructor Create(AOwner: TPersistent);
+  public
+    function IndexOf(AControl: TControl): Integer;
+
+    property Items[Index: Integer]: TFlowPanelControl read GetItem write SetItem; default;
+  end;
+
+  TCustomFlowPanel = class(TCustomPanel)
+  private
+    FControlList: TFlowPanelControlList;
+    FAutoWrap: Boolean;
+    FFlowStyle: TFlowStyle;
+    FFlowLayout: TTextLayout;
+    procedure SetAutoWrap(const AAutoWrap: Boolean);
+    procedure SetControlList(const AControlList: TFlowPanelControlList);
+    procedure SetFlowLayout(const aFlowLayout: TTextLayout);
+    procedure SetFlowStyle(const AFlowStyle: TFlowStyle);
+  protected
+    procedure CMControlChange(var Message: TCMControlChange); message CM_CONTROLCHANGE;
+
+    procedure AlignControls(AControl: TControl; var RemainingClientRect: TRect); override;
+    procedure CalculatePreferredSize(
+                         var PreferredWidth, PreferredHeight: integer;
+                         WithThemeSpace: Boolean); override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  public
+    function GetControlIndex(AControl: TControl): Integer;
+    procedure SetControlIndex(AControl: TControl; Index: Integer);
+
+    property AutoWrap: Boolean read FAutoWrap write SetAutoWrap;
+    property ControlList: TFlowPanelControlList read FControlList write SetControlList;
+    property FlowStyle: TFlowStyle read FFlowStyle write SetFlowStyle;
+    property FlowLayout: TTextLayout read FFlowLayout write SetFlowLayout;
+  end;
+
+  TFlowPanel = class(TCustomFlowPanel)
+  published
+    property Align;
+    property Alignment;
+    property Anchors;
+    property AutoSize;
+    property AutoWrap default True;
+    property BevelInner;
+    property BevelOuter;
+    property BevelWidth;
+    property BiDiMode;
+    property BorderWidth;
+    property BorderStyle;
+    property Caption;
+    property Color;
+    property Constraints;
+    property ControlList;
+    property UseDockManager default True;
+    property DockSite;
+    property DoubleBuffered;
+    property DragCursor;
+    property DragKind;
+    property DragMode;
+    property Enabled;
+    property FlowLayout;
+    property FlowStyle;
+    property FullRepaint;
+    property Font;
+    property ParentBiDiMode;
+    property ParentColor;
+    property ParentFont;
+    property ParentShowHint;
+    property PopupMenu;
+    property ShowHint;
+    property TabOrder;
+    property TabStop;
+    property Visible;
+    property OnAlignInsertBefore;
+    property OnAlignPosition;
+    property OnClick;
+    property OnConstrainedResize;
+    property OnContextPopup;
+    property OnDockDrop;
+    property OnDockOver;
+    property OnDblClick;
+    property OnDragDrop;
+    property OnDragOver;
+    property OnEndDock;
+    property OnEndDrag;
+    property OnEnter;
+    property OnExit;
+    property OnGetSiteInfo;
+    property OnMouseDown;
+    property OnMouseEnter;
+    property OnMouseLeave;
+    property OnMouseMove;
+    property OnMouseUp;
+    property OnResize;
+    property OnStartDock;
+    property OnStartDrag;
+    property OnUnDock;
+  end;
+
   { TCustomTrayIcon }
 
   TBalloonFlags = (bfNone, bfInfo, bfWarning, bfError);
@@ -1464,7 +1627,7 @@ procedure Register;
 begin
   RegisterComponents('Standard',[TRadioGroup,TCheckGroup,TPanel]);
   RegisterComponents('Additional',[TImage,TShape,TBevel,TPaintBox,
-    TNotebook, TLabeledEdit, TSplitter, TTrayIcon, TControlBar]);
+    TNotebook, TLabeledEdit, TSplitter, TTrayIcon, TControlBar, TFlowPanel]);
   RegisterComponents('System',[TTimer,TIdleTimer]);
   RegisterNoIcon([TPage]);
 end;
@@ -1479,6 +1642,7 @@ end;
 {$I boundlabel.inc}
 {$I customlabelededit.inc}
 {$I custompanel.inc}
+{$I customflowpanel.inc}
 {$I radiogroup.inc}
 {$I bevel.inc}
 {$I customimage.inc}

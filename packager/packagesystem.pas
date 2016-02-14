@@ -45,9 +45,9 @@ uses
   MemCheck,
 {$ENDIF}
   // FPC + LCL
-  Classes, SysUtils, FileProcs, FileUtil, LCLProc, Forms, Controls, Dialogs,
-  Laz2_XMLCfg, LazLogger, LazFileUtils, InterfaceBase, LazUTF8, laz2_XMLRead,
-  strutils,
+  Classes, SysUtils, strutils, Forms, Controls, Dialogs,
+  FileProcs, FileUtil, LCLProc, LazFileCache,
+  Laz2_XMLCfg, LazLogger, LazFileUtils, LazUTF8, laz2_XMLRead,
   // codetools
   AVL_Tree, contnrs, DefineTemplates, CodeCache,
   BasicCodeTools, CodeToolsStructs, NonPascalCodeTools, SourceChanger,
@@ -89,6 +89,10 @@ type
     puifDoNotConfirm,
     puifDoNotBuildIDE
     );
+  TPkgVerbosityFlag = (
+   pvPkgSearch // write debug messsages what packages are searched and found
+   );
+  TPkgVerbosityFlags = set of TPkgVerbosityFlag;
 
   TPkgUninstallFlags = set of TPkgUninstallFlag;
 
@@ -140,9 +144,36 @@ type
     ErrorMessage: string;
   end;
 
+  TLazPackageGraph = class;
+
+  { TLazPackageGraphFileCachePackageInfo }
+
+  TLazPackageGraphFileCachePackageInfo = record
+    FileName: string;
+    ChangeStamp: Integer;
+  end;
+
+  { TLazPackageGraphFileCache }
+
+  TLazPackageGraphFileCache = class(TObject)
+  private
+    FGraph: TLazPackageGraph;
+    FPackageInfo: array of TLazPackageGraphFileCachePackageInfo;
+    FFilesList: TFilenameToPointerTree;
+    FRemovedFilesList: TFilenameToPointerTree;
+    function NeedsUpdate: Boolean;
+    procedure Update;
+  public
+    constructor Create(AOwner: TLazPackageGraph);
+    destructor Destroy; override;
+  public
+    function FindFileInAllPackages(TheFilename: string;
+      IgnoreDeleted, FindVirtualFile: boolean): TPkgFile;
+  end;
+
   { TLazPackageGraph }
 
-  TLazPackageGraph = class
+  TLazPackageGraph = class(TPackageGraphInterface)
   private
     FAbortRegistration: boolean;
     fChanged: boolean;
@@ -177,6 +208,9 @@ type
     FLazControlsPackage: TLazPackage;
     FTree: TAVLTree; // sorted tree of TLazPackage
     FUpdateLock: integer;
+    FLockedChangeStamp: int64;
+    FVerbosity: TPkgVerbosityFlags;
+    FFindFileCache: TLazPackageGraphFileCache;
     function CreateDefaultPackage: TLazPackage;
     function GetCount: Integer;
     function GetPackages(Index: integer): TLazPackage;
@@ -196,6 +230,9 @@ type
                     var Note: string): TModalResult;
     procedure InvalidateStateFile(APackage: TLazPackage);
     procedure OnExtToolBuildStopped(Sender: TObject);
+    procedure PkgModify(Sender: TObject);
+  protected
+    procedure IncChangeStamp; override;
   public
     constructor Create;
     destructor Destroy; override;
@@ -214,11 +251,16 @@ type
                                       var {%H-}Abort: boolean): string;
     function MacroFunctionPkgIncPath(const s: string; const {%H-}Data: PtrInt;
                                      var {%H-}Abort: boolean): string;
+    function MacroFunctionPkgName(const s: string; const {%H-}Data: PtrInt;
+                                     var {%H-}Abort: boolean): string;
+    function MacroFunctionPkgOutDir(const s: string; const {%H-}Data: PtrInt;
+                                     var {%H-}Abort: boolean): string;
     function MacroFunctionCTPkgDir(Data: Pointer): boolean;
     function MacroFunctionCTPkgSrcPath(Data: Pointer): boolean;
     function MacroFunctionCTPkgUnitPath(Data: Pointer): boolean;
     function MacroFunctionCTPkgIncPath(Data: Pointer): boolean;
     function MacroFunctionCTPkgName(Data: Pointer): boolean;
+    function MacroFunctionCTPkgOutDir(Data: Pointer): boolean;
     function GetPackageFromMacroParameter(const TheID: string;
                                           out APackage: TLazPackage): boolean;
   public
@@ -408,6 +450,7 @@ type
     property ErrorMsg: string read FErrorMsg write FErrorMsg;
     property Packages[Index: integer]: TLazPackage read GetPackages; default; // see Count for the number
     property UpdateLock: integer read FUpdateLock;
+    property Verbosity: TPkgVerbosityFlags read FVerbosity write FVerbosity;
 
     // base packages
     property FCLPackage: TLazPackage read FFCLPackage;
@@ -626,6 +669,93 @@ begin
   Result:=UTF8Trim(Result,[]);
 end;
 
+{ TLazPackageGraphFileCache }
+
+constructor TLazPackageGraphFileCache.Create(AOwner: TLazPackageGraph);
+begin
+  inherited Create;
+
+  FGraph := AOwner;
+  SetLength(FPackageInfo, 0);
+  FFilesList := TFilenameToPointerTree.Create(true);
+  FRemovedFilesList := TFilenameToPointerTree.Create(true);
+end;
+
+destructor TLazPackageGraphFileCache.Destroy;
+begin
+  SetLength(FPackageInfo, 0);
+  FreeAndNil(FFilesList);
+  FreeAndNil(FRemovedFilesList);
+
+  inherited Destroy;
+end;
+
+function TLazPackageGraphFileCache.FindFileInAllPackages(
+  TheFilename: string; IgnoreDeleted, FindVirtualFile: boolean): TPkgFile;
+
+  procedure FindFileInStrList(const Files: TFilenameToPointerTree);
+  begin
+    Result:=TPkgFile(Files[TheFilename]);
+    if (Result<>nil) and (not FindVirtualFile)
+    and (not FilenameIsAbsolute(Result.Filename)) then
+      Result := nil;
+  end;
+
+begin
+  Result:=nil;
+
+  if NeedsUpdate then
+    Update;
+
+  FindFileInStrList(FFilesList);
+  if Result<>nil then Exit;
+  if not IgnoreDeleted then
+    FindFileInStrList(FRemovedFilesList);
+end;
+
+function TLazPackageGraphFileCache.NeedsUpdate: Boolean;
+var
+  I: Integer;
+begin
+  if FGraph.Count <> Length(FPackageInfo) then
+    Exit(True);
+
+  for I := 0 to FGraph.Count-1 do
+    if (FPackageInfo[I].ChangeStamp <> FGraph[I].ChangeStamp)
+      or (FPackageInfo[I].FileName<>FGraph[I].Filename)
+    then
+      Exit(True);
+
+  Result := False;
+end;
+
+procedure TLazPackageGraphFileCache.Update;
+var
+  I, L: Integer;
+  xPck: TLazPackage;
+begin
+  SetLength(FPackageInfo, FGraph.Count);
+  FFilesList.Clear;
+  FRemovedFilesList.Clear;
+  for I := 0 to FGraph.Count-1 do
+  begin
+    xPck := FGraph[I];
+    FPackageInfo[I].ChangeStamp := xPck.ChangeStamp;
+    FPackageInfo[I].FileName := xPck.Filename;
+
+    for L := 0 to xPck.FileCount-1 do
+    begin
+      FFilesList[xPck.Files[L].GetFullFilename]:=xPck.Files[L];
+      FFilesList[xPck.Files[L].Filename]:=xPck.Files[L];
+    end;
+    for L := 0 to xPck.RemovedFilesCount-1 do
+    begin
+      FRemovedFilesList[xPck.RemovedFiles[L].GetFullFilename]:=xPck.RemovedFiles[L];
+      FRemovedFilesList[xPck.RemovedFiles[L].Filename]:=xPck.RemovedFiles[L];
+    end;
+  end;
+end;
+
 { TLazPkgGraphBuildItem }
 
 // inline
@@ -778,18 +908,23 @@ begin
   BeginUpdate(false);
   try
     AFilename:=PkgLink.GetEffectiveFilename;
+    if pvPkgSearch in Verbosity then
+      debugln(['Info: (lazarus) Open dependency: trying "'+Dependency.PackageName+'" in '+dbgs(PkgLink.Origin)+' links: "'+PkgLink.GetEffectiveFilename+'" ...']);
     //debugln(['TLazPackageGraph.OpenDependencyWithPackageLink AFilename=',AFilename,' ',PkgLink.Origin=ploGlobal]);
     if not FileExistsUTF8(AFilename) then begin
       DebugLn('Note: (lazarus) Invalid Package Link: file "'+AFilename+'" does not exist.');
       PkgLink.LPKFileDateValid:=false;
       exit(mrCancel);
     end;
+    if pvPkgSearch in Verbosity then
+      debugln(['Info: (lazarus) Open dependency: package file found: "'+AFilename+'". Parsing lpk ...']);
     try
       PkgLink.LPKFileDate:=FileDateToDateTimeDef(FileAgeUTF8(AFilename));
       PkgLink.LPKFileDateValid:=true;
       XMLConfig:=TXMLConfig.Create(nil);
       NewPackage:=TLazPackage.Create;
       NewPackage.Filename:=AFilename;
+      NewPackage.OnModifySilently := @PkgModify;
       Result:=LoadXMLConfigFromCodeBuffer(AFilename,XMLConfig,
                          Code,[lbfUpdateFromDisk,lbfRevert],ShowAbort);
       if Result<>mrOk then exit;
@@ -798,16 +933,20 @@ begin
     except
       on E: Exception do begin
         DebugLn('Error: (lazarus) unable to read file "'+AFilename+'" ',E.Message);
-        Result:=mrCancel;
-        exit;
+        exit(mrCancel);
       end;
     end;
-    if not NewPackage.MakeSense then begin
+    if not NewPackage.IsMakingSense then begin
       DebugLn('Error: (lazarus) invalid package file "'+AFilename+'".');
       exit(mrCancel);
     end;
-    if SysUtils.CompareText(PkgLink.Name,NewPackage.Name)<>0 then exit;
+    if SysUtils.CompareText(PkgLink.Name,NewPackage.Name)<>0 then begin
+      DebugLn('Error: (lazarus) package file "'+AFilename+'" and name "'+NewPackage.Name+'" mismatch.');
+      exit(mrCancel);
+    end;
     // ok
+    if pvPkgSearch in Verbosity then
+      debugln('Info: (lazarus) Open dependency ['+Dependency.PackageName+']: Success: "'+NewPackage.Filename+'"');
     Result:=mrOk;
     Dependency.RequiredPackage:=NewPackage;
     Dependency.LoadPackageResult:=lprSuccess;
@@ -893,6 +1032,12 @@ begin
     GlobalMacroList.Add(TTransferMacro.Create('PkgIncPath','',
       lisPkgMacroPackageIncludeFilesSearchPathParameterIsPackageID,
       @MacroFunctionPkgIncPath,[]));
+    GlobalMacroList.Add(TTransferMacro.Create('PkgName','',
+      lisPkgMacroPackageNameParameterIsPackageID,
+      @MacroFunctionPkgName,[]));
+    GlobalMacroList.Add(TTransferMacro.Create('PkgOutDir','',
+      lisPkgMacroPackageOutputDirectoryParameterIsPackageID,
+      @MacroFunctionPkgOutDir,[]));
   end;
 end;
 
@@ -911,6 +1056,7 @@ begin
   FreeAndNil(FLazarusBasePackages);
   FreeAndNil(FItems);
   FreeAndNil(FTree);
+  FreeAndNil(FFindFileCache);
   inherited Destroy;
 end;
 
@@ -973,6 +1119,7 @@ begin
   inc(FUpdateLock);
   if FUpdateLock=1 then begin
     fChanged:=Change;
+    FLockedChangeStamp:=0;
     if Assigned(OnBeginUpdate) then OnBeginUpdate(Self);
   end else
     fChanged:=fChanged or Change;
@@ -983,6 +1130,8 @@ begin
   if FUpdateLock<=0 then RaiseException('TLazPackageGraph.EndUpdate');
   dec(FUpdateLock);
   if FUpdateLock=0 then begin
+    if FLockedChangeStamp>0 then
+      IncChangeStamp;
     if Assigned(OnEndUpdate) then OnEndUpdate(Self,fChanged);
   end;
 end;
@@ -1044,6 +1193,23 @@ begin
     Result:='';
 end;
 
+function TLazPackageGraph.MacroFunctionPkgName(const s: string;
+  const Data: PtrInt; var Abort: boolean): string;
+begin
+  Result := s;
+end;
+
+function TLazPackageGraph.MacroFunctionPkgOutDir(const s: string;
+  const Data: PtrInt; var Abort: boolean): string;
+var
+  APackage: TLazPackage;
+begin
+  if GetPackageFromMacroParameter(s,APackage) then
+    Result:=APackage.GetOutputDirectory
+  else
+    Result:='';
+end;
+
 function TLazPackageGraph.MacroFunctionCTPkgDir(Data: Pointer): boolean;
 var
   FuncData: PReadFunctionData;
@@ -1095,6 +1261,17 @@ begin
   FuncData:=PReadFunctionData(Data);
   FuncData^.Result:=GetIdentifier(PChar(FuncData^.Param));
   Result:=true;
+end;
+
+function TLazPackageGraph.MacroFunctionCTPkgOutDir(Data: Pointer): boolean;
+var
+  FuncData: PReadFunctionData;
+  APackage: TLazPackage;
+begin
+  FuncData:=PReadFunctionData(Data);
+  Result:=GetPackageFromMacroParameter(FuncData^.Param,APackage);
+  if Result then
+    FuncData^.Result:=APackage.GetOutputDirectory;
 end;
 
 function TLazPackageGraph.GetPackageFromMacroParameter(const TheID: string;
@@ -1463,17 +1640,11 @@ end;
 
 function TLazPackageGraph.FindFileInAllPackages(const TheFilename: string;
   IgnoreDeleted, FindVirtualFile: boolean): TPkgFile;
-var
-  Cnt: Integer;
-  i: Integer;
 begin
-  Cnt:=Count;
-  for i:=0 to Cnt-1 do begin
-    Result:=Packages[i].FindPkgFile(TheFilename,IgnoreDeleted,
-                                    FindVirtualFile);
-    if Result<>nil then exit;
-  end;
-  Result:=nil;
+  if FFindFileCache=nil then
+    FFindFileCache := TLazPackageGraphFileCache.Create(Self);
+
+  Result := FFindFileCache.FindFileInAllPackages(TheFilename, IgnoreDeleted, FindVirtualFile);
 end;
 
 procedure TLazPackageGraph.FindPossibleOwnersOfUnit(const TheFilename: string;
@@ -1544,6 +1715,11 @@ begin
   end;
 end;
 
+procedure TLazPackageGraph.PkgModify(Sender: TObject);
+begin
+  IncChangeStamp;
+end;
+
 function TLazPackageGraph.DependencyExists(Dependency: TPkgDependency;
   Flags: TFindPackageFlags): boolean;
 begin
@@ -1580,6 +1756,7 @@ function TLazPackageGraph.CreateNewPackage(const Prefix: string): TLazPackage;
 begin
   BeginUpdate(true);
   Result:=TLazPackage.Create;
+  Result.OnModifySilently:=@PkgModify;
   Result.Name:=CreateUniquePkgName(Prefix,nil);
   AddPackage(Result);
   EndUpdate;
@@ -1815,7 +1992,9 @@ begin
     AddRequiredDependency(SynEditPackage.CreateDependencyWithOwner(Result));
 
     Modified:=false;
+    OnModifySilently:=@PkgModify;
   end;
+  IncChangeStamp;
 end;
 
 function TLazPackageGraph.GetCount: Integer;
@@ -1922,6 +2101,8 @@ var
   OldEditor: TBasePackageEditor;
   i: Integer;
 begin
+  if pvPkgSearch in Verbosity then
+    debugln(['Info: (lazarus) replacing package "'+OldPackage.Filename+'" with "'+NewPackage.Filename+'"']);
   BeginUpdate(true);
   // save flags
   OldInstalled:=OldPackage.Installed;
@@ -1996,7 +2177,7 @@ var
 begin
   for i:=0 to PkgList.Count-1 do begin
     PackageName:=PkgList[i];
-    if (PackageName='') or (not IsValidUnitName(PackageName)) then continue;
+    if not IsValidPkgName(PackageName) then continue;
     Dependency:=FindDependencyByNameInList(FirstAutoInstallDependency,
                                            pdlRequires,PackageName);
     //DebugLn('TLazPackageGraph.LoadAutoInstallPackages ',dbgs(Dependency),' ',PackageName);
@@ -4239,7 +4420,7 @@ begin
     s:=s+'unitdir='+FormUnitPath+e;
   if IncPath<>'' then
     s:=s+'includedir='+FormIncPath+e;
-  s:=s+'options='+OtherOptions+e;
+  s:=s+'options='+OtherOptions+' $(DBG_OPTIONS)'+e;
   s:=s+''+e;
   s:=s+'[target]'+e;
   s:=s+'units='+MainSrcFile+e;
@@ -4255,6 +4436,7 @@ begin
   end;
   s:=s+'      $(wildcard $(COMPILER_UNITTARGETDIR)/*.compiled) \'+e;
   s:=s+'      $(wildcard *$(OEXT)) $(wildcard *$(PPUEXT)) $(wildcard *$(RSTEXT))'+e;
+  s:=s+''+e;
   s:=s+'[prerules]'+e;
   s:=s+'# LCL Platform'+e;
   s:=s+'ifndef LCL_PLATFORM'+e;
@@ -4273,6 +4455,11 @@ begin
   s:=s+'endif'+e;
   s:=s+'endif'+e;
   s:=s+'export LCL_PLATFORM'+e;
+  s+=e;
+  s:=s+'DBG_OPTIONS='+e;
+  s:=s+'ifeq ($(OS_TARGET),darwin)'+e;
+  s:=s+'DBG_OPTIONS=-gw'+e;
+  s:=s+'endif'+e;
 
   s:=s+''+e;
   s:=s+'[rules]'+e;
@@ -4937,9 +5124,9 @@ begin
     exit;
   end;
   // ignore comments
-  OldShortenSrc:=CodeToolBoss.ExtractCodeWithoutComments(CodeBuffer);
+  OldShortenSrc:=CodeToolBoss.ExtractCodeWithoutComments(CodeBuffer,true);
   NewShortenSrc:=CleanCodeFromComments(Src,
-                CodeToolBoss.GetNestedCommentsFlagForFile(CodeBuffer.Filename));
+           CodeToolBoss.GetNestedCommentsFlagForFile(CodeBuffer.Filename),true);
   // ignore case and spaces
   if CompareTextIgnoringSpace(OldShortenSrc,NewShortenSrc,false)=0 then begin
     Result:=mrOk;
@@ -5025,6 +5212,16 @@ begin
       ListOfPackages:=TStringList.Create;
     ListOfPackages.AddObject(NewFilename,APackage);
   end;
+end;
+
+procedure TLazPackageGraph.IncChangeStamp;
+begin
+  {$push}{$R-}  // range check off
+  if FUpdateLock = 0 then
+    Inc(FChangeStamp)
+  else
+    Inc(FLockedChangeStamp)
+  {$pop}
 end;
 
 procedure TLazPackageGraph.SortDependencyListTopologicallyOld(
@@ -5321,6 +5518,8 @@ var
   i: Integer;
 begin
   if Dependency.LoadPackageResult=lprUndefined then begin
+    if pvPkgSearch in Verbosity then
+      debugln('Info: (lazarus) Open dependency '+Dependency.AsString(true,true)+' ...');
     //debugln(['TLazPackageGraph.OpenDependency ',Dependency.PackageName,' ',Dependency.DefaultFilename,' Prefer=',Dependency.PreferDefaultFilename]);
     BeginUpdate(false);
     // search compatible package in opened packages
@@ -5330,6 +5529,8 @@ begin
       APackage:=TLazPackage(ANode.Data);
       Dependency.RequiredPackage:=APackage;
       Dependency.LoadPackageResult:=lprSuccess;
+      if pvPkgSearch in Verbosity then
+        debugln(['Info: (lazarus) Open dependency ['+Dependency.PackageName+']: Success: was already loaded']);
     end;
     // load preferred package
     if (Dependency.DefaultFilename<>'') and Dependency.PreferDefaultFilename
@@ -5341,6 +5542,8 @@ begin
         or ((Dependency.RequiredPackage.FindUsedByDepPrefer(Dependency)=nil)
             and (CompareFilenames(PreferredFilename,Dependency.RequiredPackage.Filename)<>0)))
       then begin
+        if pvPkgSearch in Verbosity then
+          debugln(['Info: (lazarus) Open dependency ['+Dependency.PackageName+']: trying resolved preferred filename: "'+PreferredFilename+'" ...']);
         OpenFile(PreferredFilename);
       end;
     end;
@@ -5378,6 +5581,8 @@ begin
         and (Dependency.DefaultFilename<>'') then begin
           AFilename:=Dependency.FindDefaultFilename;
           if AFilename<>'' then begin
+            if pvPkgSearch in Verbosity then
+              debugln(['Info: (lazarus) Open dependency ['+Dependency.PackageName+']: trying resolved default filename: "'+PreferredFilename+'" ...']);
             OpenFile(AFilename);
           end;
         end;
@@ -5386,6 +5591,8 @@ begin
         if Dependency.LoadPackageResult=lprNotFound then begin
           CurDir:=GetDependencyOwnerDirectory(Dependency);
           if (CurDir<>'') then begin
+            if pvPkgSearch in Verbosity then
+              debugln(['Info: (lazarus) Open dependency ['+Dependency.PackageName+']: trying in owner directory "'+AppendPathDelim(CurDir)+'" ...']);
             AFilename:=FindDiskFileCaseInsensitive(
                          AppendPathDelim(CurDir)+Dependency.PackageName+'.lpk');
             if FileExistsCached(AFilename) then begin
@@ -5401,32 +5608,33 @@ begin
             if APackage.ProvidesPackage(Dependency.PackageName) then begin
               Dependency.RequiredPackage:=APackage;
               Dependency.LoadPackageResult:=lprSuccess;
+              if pvPkgSearch in Verbosity then
+                debugln(['Info: (lazarus) Open dependency ['+Dependency.PackageName+']: Success. Package "'+APackage.IDAsString+'" provides '+Dependency.AsString]);
+              break;
             end;
           end;
         end;
       end else begin
         // there is already a package with this name, but wrong version open
         // -> unable to load this dependency due to conflict
-        debugln('Error: (lazarus) [TLazPackageGraph.OpenDependency}:');
+        debugln('Error: (lazarus) Open dependency found incompatible package: searched for '+Dependency.AsString(true)+', but found '+APackage.IDAsString);
         if IsStaticBasePackage(APackage.Name) then
         begin
-          debugln(['  LazarusDir="',EnvironmentOptions.GetParsedLazarusDirectory,'"']);
+          debugln(['Note: (lazarus) LazarusDir="',EnvironmentOptions.GetParsedLazarusDirectory,'"']);
           // wrong base package
           if (EnvironmentOptions.LazarusDirectory='')
           or (not DirPathExistsCached(EnvironmentOptions.GetParsedLazarusDirectory))
           then begin
             // the lazarus directory is not set
-            debugln(['  The Lazarus directory is not set. Pass parameter --lazarusdir.']);
+            debugln(['Note: (lazarus) The Lazarus directory is not set. Pass parameter --lazarusdir.']);
           end else if not DirPathExistsCached(PkgLinks.GetGlobalLinkDirectory)
           then begin
-            debugln(['  The lpl directory is missing. Check that the Lazarus (--lazarusdir) directory is correct.']);
+            debugln(['Note: (lazarus) The lpl directory is missing. Check that the Lazarus (--lazarusdir) directory is correct.']);
           end;
         end;
         if APackage.Missing then
         begin
-          debugln(['  The lpk (',APackage.Filename,') is missing for dependency=',Dependency.AsString])
-        end else begin
-          debugln(['  Another package with wrong version is already open: Dependency=',Dependency.AsString,' Pkg=',APackage.IDAsString])
+          debugln(['Note: (lazarus) The lpk (',APackage.Filename,') is missing for dependency=',Dependency.AsString])
         end;
         Dependency.LoadPackageResult:=lprLoadError;
       end;
@@ -5539,7 +5747,7 @@ begin
 
     // nothing found via dependencies
     // search in links
-    PkgLink:=PkgLinks.FindLinkWithPkgName(APackage.Name,IgnoreFiles,true);
+    PkgLink:=PkgLinks.FindLinkWithPkgName(APackage.Name,IgnoreFiles);
     if PkgLink<>nil then begin
       Result:=PkgLink.GetEffectiveFilename;
       exit;
@@ -5588,6 +5796,7 @@ begin
       UsageOptions.UnitPath:='';
 
       Modified:=false;
+      OnModifySilently:=@PkgModify;
       EndUpdate;
     end;
     AddPackage(BrokenPackage);

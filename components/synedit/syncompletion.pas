@@ -127,6 +127,7 @@ type
     FClSelect: TColor;
     FCaseSensitive: boolean;
     FBackgroundColor: TColor;
+    FDrawBorderColor: TColor;
     FOnSearchPosition: TSynBaseCompletionSearchPosition;
     FOnKeyCompletePrefix: TNotifyEvent;
     FOnKeyNextChar: TNotifyEvent;
@@ -189,7 +190,6 @@ type
     procedure RegisterHandlers(EditOnly: Boolean = False);
     procedure UnRegisterHandlers(EditOnly: Boolean = False);
     procedure SetVisible(Value: Boolean); override;
-    property DrawBorderWidth: Integer read FDrawBorderWidth write SetDrawBorderWidth;
     procedure IncHintLock;
     procedure DecHintLock;
     procedure DoOnDragResize(Sender: TObject);
@@ -225,6 +225,8 @@ type
     property OnKeyPrevChar: TNotifyEvent read FOnKeyPrevChar write FOnKeyPrevChar;// e.g. arrow left
     property OnPositionChanged: TNotifyEvent read FOnPositionChanged write FOnPositionChanged;
     property BackgroundColor: TColor read FBackgroundColor write SetBackgroundColor;
+    property DrawBorderColor: TColor read FDrawBorderColor write FDrawBorderColor;
+    property DrawBorderWidth: Integer read FDrawBorderWidth write SetDrawBorderWidth;
     property TextColor: TColor read FTextColor write FTextColor;
     property TextSelectedColor: TColor
       read FTextSelectedColor write FTextSelectedColor;
@@ -251,6 +253,7 @@ type
 
   TSynBaseCompletion = class(TLazSynMultiEditPlugin)
   private
+    FAutoUseSingleIdent: Boolean;
     Form: TSynBaseCompletionForm;
     FAddedPersistentCaret: boolean;
     FOnExecute: TNotifyEvent;
@@ -354,6 +357,7 @@ type
              write SetLongLineHintType default sclpExtendRightOnly;
     property DoubleClickSelects: Boolean read GetDoubleClickSelects write SetDoubleClickSelects default True;
     property ShowSizeDrag: Boolean read GetShowSizeDrag write SetShowSizeDrag default False;
+    property AutoUseSingleIdent: Boolean read FAutoUseSingleIdent write FAutoUseSingleIdent;
   end;
 
   { TSynCompletion }
@@ -617,6 +621,7 @@ begin
   Caption:='Completion';
   Color:=clNone;
   FBackgroundColor:=clWhite;
+  FDrawBorderColor:=clBlack;
   FHint := TSynBaseCompletionHint.Create(Self);
   FHint.FormStyle := fsSystemStayOnTop;
   {$IFDEF HintClickWorkaround}
@@ -939,7 +944,7 @@ begin
   // draw a rectangle around the window
   if DrawBorderWidth > 0 then
   begin
-    Canvas.Pen.Color := TextColor;
+    Canvas.Pen.Color := DrawBorderColor;
     Canvas.Pen.Width := DrawBorderWidth;
     Canvas.Moveto(0, 0);
     Canvas.LineTo(Width - 1, 0);
@@ -1316,6 +1321,7 @@ begin
   inherited Create(AOwner);
   Form := GetCompletionFormClass.Create(nil); // Do not create with owner, or the designer will make it visible
   Form.Width := FWidth;
+  FAutoUseSingleIdent := True;
 end;
 
 destructor TSynBaseCompletion.Destroy;
@@ -1398,7 +1404,7 @@ begin
   CurrentString := s;
   if Assigned(OnExecute) then
     OnExecute(Self);
-  if (ItemList.Count=1) and Assigned(OnValidate) then begin
+  if (ItemList.Count=1) and Assigned(OnValidate) and FAutoUseSingleIdent then begin
     OnValidate(Form, '', []);
     exit;
   end;
@@ -1732,6 +1738,7 @@ var
   Value, CurLine: string;
   NewBlockBegin, NewBlockEnd: TPoint;
   LogCaret: TPoint;
+  HighlighterIdentChars: TSynIdentChars;
 begin
   //debugln('TSynCompletion.Validate ',dbgsName(Sender),' ',dbgs(Shift),' Position=',dbgs(Position));
   F := Sender as TSynBaseCompletionForm;
@@ -1741,11 +1748,17 @@ begin
       BeginUndoBlock{$IFDEF SynUndoDebugBeginEnd}('TSynCompletion.Validate'){$ENDIF};
       BeginUpdate;
       try
+        if Editor.Highlighter<>nil then
+          HighlighterIdentChars := Editor.Highlighter.IdentChars
+        else
+          HighlighterIdentChars := [];
         LogCaret := LogicalCaretXY;
         NewBlockBegin:=LogCaret;
         CurLine:=Lines[NewBlockBegin.Y - 1];
         while (NewBlockBegin.X>1) and (NewBlockBegin.X-1<=length(CurLine))
-        and (IsIdentifierChar(@CurLine[NewBlockBegin.X-1])) do
+        and ((IsIdentifierChar(@CurLine[NewBlockBegin.X-1]))
+             or (CurLine[NewBlockBegin.X-1] in HighlighterIdentChars))
+        do
           dec(NewBlockBegin.X);
         //BlockBegin:=NewBlockBegin;
         if ssShift in Shift then begin
@@ -1756,7 +1769,9 @@ begin
           NewBlockEnd := LogCaret;
           CurLine:=Lines[NewBlockEnd.Y - 1];
           while (NewBlockEnd.X<=length(CurLine))
-          and (IsIdentifierChar(@CurLine[NewBlockEnd.X])) do
+          and ((IsIdentifierChar(@CurLine[NewBlockEnd.X]))
+               or (CurLine[NewBlockEnd.X] in HighlighterIdentChars))
+          do
             inc(NewBlockEnd.X);
         end;
         //debugln('TSynCompletion.Validate B Position=',dbgs(Position));

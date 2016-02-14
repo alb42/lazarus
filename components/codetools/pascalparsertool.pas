@@ -412,12 +412,19 @@ begin
   'L':
     if CompareSrcIdentifiers('LABEL',p) then exit(KeyWordFuncTypeLabel);
   'O':
-    if CompareSrcIdentifiers('OBJECT',p)
-    or CompareSrcIdentifiers('OBJCCLASS',p)
-    or CompareSrcIdentifiers('OBJCCATEGORY',p) then
-      exit(KeyWordFuncTypeClass)
-    else if CompareSrcIdentifiers('OBJCPROTOCOL',p) then
-      exit(KeyWordFuncTypeClassInterface(ctnObjCProtocol));
+    begin
+      if CompareSrcIdentifiers('OBJECT',p) then
+        exit(KeyWordFuncTypeClass);
+      if (UpChars[p[1]]='B') and (UpChars[p[2]]='J') and (UpChars[p[3]]='C')
+      and (Scanner.CompilerModeSwitches*[cmsObjectiveC1,cmsObjectiveC2]<>[])
+      then begin
+        if CompareSrcIdentifiers('OBJCCLASS',p)
+        or CompareSrcIdentifiers('OBJCCATEGORY',p) then
+          exit(KeyWordFuncTypeClass)
+        else if CompareSrcIdentifiers('OBJCPROTOCOL',p) then
+          exit(KeyWordFuncTypeClassInterface(ctnObjCProtocol));
+      end;
+    end;
   'P':
     case UpChars[p[1]] of
     'A': if CompareSrcIdentifiers('PACKED',p) then exit(KeyWordFuncTypePacked);
@@ -1495,6 +1502,8 @@ end;
 function TPascalParserTool.ReadParamType(ExceptionOnError, Extract: boolean;
   const Attr: TProcHeadAttributes): boolean;
 // after reading, CurPos is the atom after the type
+// Examples:
+//   Domain: LongInt location 'd0'  (only m68k, powerpc)
 var
   copying: boolean;
   IsArrayType: Boolean;
@@ -1595,7 +1604,16 @@ begin
     else exit;
   end;
   if AtomIsChar('<') then
-    ReadGenericParam;
+    ReadGenericParam
+  else if UpAtomIs('LOCATION')
+  and (Scanner.Values.IsDefined('CPUM68K') or Scanner.Values.IsDefined('CPUPOWERPC'))
+  then begin
+    // for example Domain: LongInt location 'd0'
+    ReadNextAtom;
+    if not AtomIsStringConstant then
+      SaveRaiseStringExpectedButAtomFound(ctsStringConstant);
+    ReadNextAtom;
+  end;
   Result:=true;
 end;
 
@@ -1778,6 +1796,8 @@ begin
         SaveRaiseCharExpectedButAtomFound(':');
       ReadNextAtom;
       ReadConstant(true,false,[]);
+    end else if UpAtomIs('INTERRUPT') then begin
+      ReadNextAtom;
     end else if UpAtomIs('SYSCALL') then begin
       ReadNextAtom;
       AtomIsIdentifierSaveE;
@@ -1984,6 +2004,7 @@ function TPascalParserTool.ReadUsesSection(ExceptionOnError: boolean): boolean;
 }
 var
   IsUses: Boolean;
+  LastUnitNode: TCodeTreeNode;
 begin
   Result:=false;
   IsUses:=CurNode.Desc=ctnUsesSection;
@@ -2007,8 +2028,14 @@ begin
     CurNode.Desc:=ctnUseUnit;
     repeat
       CurNode.EndPos:=CurPos.EndPos;
+      CreateChildNode;
+      LastUnitNode := CurNode;
+      CurNode.Desc:=ctnUseUnitClearName;
+      CurNode.EndPos:=CurNode.Parent.EndPos;
+      EndChildNode;
       ReadNextAtom;
       if CurPos.Flag<>cafPoint then break;
+      LastUnitNode.Desc:=ctnUseUnitNamespace;
       ReadNextAtom;
       AtomIsIdentifierSaveE;
     until false;
@@ -3021,10 +3048,14 @@ end;
 
 function TPascalParserTool.ReadTilVariableEnd(
   ExceptionOnError, WithAsOperator: boolean): boolean;
-{ Examples:
+{ After reading CurPos is at atom behind variable.
+
+  Examples:
     A
+    A^
     A.B^.C[...].D(...).E
     (...).A
+    T(...).A
     @B
     inherited A
     A as B
@@ -3162,11 +3193,12 @@ begin
     end;
   end;
   // read statement
-  ReadNextAtom;
   if CreateNodes then begin
     CreateChildNode;
+    CurNode.StartPos:=CurPos.EndPos;
     CurNode.Desc:=ctnWithStatement;
   end;
+  ReadNextAtom;
   Result:=ReadTilStatementEnd(ExceptionOnError,CreateNodes);
   CloseNodes;
 end;
@@ -3337,7 +3369,8 @@ begin
   end;
 
   // optional: hint modifier
-  ReadHintModifiers([cafSemicolon,cafEqual]);
+  if CurPos.Flag<>cafSemicolon then
+    ReadHintModifiers([cafSemicolon,cafEqual]);
 
   if (ParentNode.Desc=ctnVarSection) then begin
     // optional: initial value
@@ -3472,9 +3505,11 @@ begin
       ReadConstant(true,false,[]);
       CurNode.EndPos:=CurPos.StartPos;
     end;
+    EndChildNode;
+    if IsModifier then // support modifiers not separated with semicolons: "faVolumeId = $00000008 platform deprecated;"
+      continue;
     if not (CurPos.Flag in AllowedAtomsBehind) then
       SaveRaiseCharExpectedButAtomFound(';');
-    EndChildNode;
     if CurPos.Flag<>cafSemicolon then
       break;
     ReadNextAtom;
@@ -3741,7 +3776,8 @@ begin
         SaveRaiseStringExpectedButAtomFound(ctsStringConstant);
       ReadConstant(true,false,[]);
       // read hint modifier
-      ReadHintModifiers;
+      if CurPos.Flag<>cafSemicolon then
+        ReadHintModifiers;
       // read ;
       if CurPos.Flag<>cafSemicolon then
         SaveRaiseCharExpectedButAtomFound(';');
@@ -3882,7 +3918,8 @@ begin
   end;
   ReadConstExpr;
   // optional: hint modifier
-  ReadHintModifiers;
+  if CurPos.Flag<>cafSemicolon then
+    ReadHintModifiers;
   if CurPos.Flag=cafSemicolon then begin
     if (CurNode.Parent.Desc=ctnConstSection)
     and (CurNode.Parent.Parent.Desc in AllCodeSections) then begin
@@ -3972,7 +4009,8 @@ begin
   ReadNextAtom;
   ParseType(CurPos.StartPos);
   // read hint modifier
-  ReadHintModifiers;
+  if CurPos.Flag<>cafSemicolon then
+    ReadHintModifiers;
   // read ;
   if CurPos.Flag<>cafSemicolon then
     SaveRaiseCharExpectedButAtomFound(';');
@@ -4076,6 +4114,7 @@ procedure TPascalParserTool.ReadTypeReference;
     TButton
     controls.TButton
     TGenericClass<TypeReference,TypeReference>
+    TGenericClass<TypeReference,TypeReference>.TNestedClass
 }
 var SavePos: TAtomPosition;
 begin
@@ -4097,6 +4136,11 @@ begin
   CurNode.LastChild := nil;
   ReadSpecialize(True);
   CurNode.EndPos := CurPos.EndPos;
+  while CurPos.Flag=cafPoint do begin
+    ReadNextAtom;
+    AtomIsIdentifierSaveE;
+    ReadNextAtom;
+  end;
 end;
 
 procedure TPascalParserTool.ReadClassInterfaceContent;
@@ -4112,6 +4156,8 @@ begin
       if UpAtomIs('EXTERNAL') then begin
         IsJVM:=Scanner.Values.IsDefined('CPUJVM');
         if IsJVM or (IntfDesc=ctnObjCProtocol) then begin
+          // objcprotocol external [name '']
+          // cpujvm: class external '' [name '']
           CreateChildNode;
           CurNode.Desc:=ctnClassExternal;
           ReadNextAtom;
@@ -4311,7 +4357,8 @@ begin
           EndChildNode;
           IsForward:=false;
         end;
-      end else if UpAtomIs('HELPER') then begin
+      end else if UpAtomIs('HELPER')
+      and (ClassDesc in [ctnClass,ctnRecordType,ctnTypeType]) then begin
         IsHelper:=true;
         case ClassDesc of
           ctnClass: CurNode.Desc:=ctnClassHelper;
@@ -5185,7 +5232,7 @@ begin
   if (ExtractSearchPos>0)
   and (ExtractSearchPos<=ExtractMemStream.Position)
   then begin
-    ExtractFoundPos:=ExtractSearchPos-1-LastStreamPos+CurPos.StartPos;
+    ExtractFoundPos:=ExtractSearchPos-1-integer(LastStreamPos)+CurPos.StartPos;
     ExtractSearchPos:=-1;
   end;
   ReadNextAtom;
@@ -5629,7 +5676,7 @@ begin
     CurNode.EndPos:=CurPos.EndPos;
   end;
   ReadNextAtom;
-  if Curpos.Flag=cafPoint then begin
+  while Curpos.Flag=cafPoint do begin
     // first identifier was unitname, now read the type
     ReadNextAtom;
     AtomIsIdentifierSaveE;
@@ -5652,13 +5699,22 @@ begin
     // read identifier (a parameter of the generic type)
     ReadNextAtom;
     AtomIsIdentifierSaveE;
+    if CreateChildNodes then begin
+      CreateChildNode;
+      CurNode.Desc:=ctnSpecializeParam;
+      CurNode.EndPos:=CurPos.EndPos;
+    end;
     ReadNextAtom;
-    if Curpos.Flag=cafPoint then begin
+    while Curpos.Flag=cafPoint do begin
       // first identifier was unitname, now read the type
       ReadNextAtom;
       AtomIsIdentifierSaveE;
+      if CreateChildNodes then
+        CurNode.EndPos:=CurPos.EndPos;
       ReadNextAtom;
     end;
+    if CreateChildNodes then
+      EndChildNode; // close ctnSpecializeParam
     if AtomIsChar('>') then
       break
     else if CurPos.Flag=cafComma then begin
@@ -5796,7 +5852,7 @@ procedure TPascalParserTool.BuildSubTreeForProcHead(ProcNode: TCodeTreeNode;
 begin
   if ProcNode.Desc=ctnProcedureHead then
     ProcNode:=ProcNode.Parent;
-  if ProcNode.Desc<>ctnProcedure then
+  if not(ProcNode.Desc in [ctnProcedure,ctnProcedureType]) then
     RaiseException('INTERNAL ERROR: TPascalParserTool.BuildSubTreeForProcHead with FunctionResult');
   BuildSubTreeForProcHead(ProcNode);
   FunctionResult:=ProcNode.FirstChild.FirstChild;

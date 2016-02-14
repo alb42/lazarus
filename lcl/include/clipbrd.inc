@@ -14,6 +14,8 @@
   The clipboard is able to work with the windows and gtk behaviour/features.
 }
 
+{$I clipbrd_html.inc}
+
 { TClipboard }
 
 constructor TClipboard.Create;
@@ -174,6 +176,7 @@ procedure TClipboard.Open;
 begin
   BeginUpdate;
 end;
+
 
 procedure TClipboard.Close;
 begin
@@ -768,5 +771,137 @@ begin
     end else
       Result:=0;
   end;
+end;
+
+{ Retrieves html formatted text from the clipboard. If ExtractFragmentOnly is
+  true then only the relevant html fragment is returned, the rest of the html
+  string is dropped. The Office applications in Windows and Linux write the
+  full html code which can be retrieved with ExtractFragmentOnly = false.
+  In case of Windows, the MS header is automatically removed.}
+function TClipboard.GetAsHtml(ExtractFragmentOnly: Boolean): String;
+var
+  Stream: TMemoryStream;
+  bom: TBOM;
+  US: UnicodeString;
+begin
+  //debugln(['TClipboard.GetAsHtml: ExtractFragmentOnly = ',ExtractFragmentOnly]);
+  Result := '';
+  if (CF_HTML = 0) or not HasFormat(CF_HTML) then
+  begin
+    //debugln(['TClipboard.GetAsHtml: CF_HTML= ',CF_HTML,' HasFormat(CF_HTML) = ',HasFormat(CF_HTML)]);
+    exit;
+  end;
+
+  Stream := TMemoryStream.Create;
+  try
+    if not GetFormat(CF_HTML, Stream) then
+    begin
+      //debugln(['TClipboard.GetAsHtml: GetFormat(CF_HTML, stream) = False']);
+      exit;
+    end;
+    Stream.Write(#0#0, Length(#0#0));
+
+    bom := GetBomFromStream(Stream);
+    case Bom of
+      bomUtf8:
+        begin
+          Stream.Position := 3;
+          SetLength(Result, Stream.Size - 3);
+          Stream.Read(Result, Stream.Size - 3);
+          //ClipBoard may return a larger Stream than the size of the string
+          //this gets rid of it, since the string will end in a #0 (wide)char
+          Result := PAnsiChar(Result);
+          //debugln(['TClipboard.GetAsHtml: Found bomUtf8']);
+        end;
+      bomUTF16LE:
+        begin
+          Stream.Position := 2;
+          SetLength(US, Stream.Size - 2);
+          Stream.Read(US[1], Stream.Size - 2);
+          //ClipBoard may return a larger Stream than the size of the string
+          //this gets rid of it, since the string will end in a #0 (wide)char
+          US := PWideChar(US);
+          Result := Utf16ToUtf8(US);
+          //debugln(['TClipboard.GetAsHtml: FoundbomUtf16LE']);
+        end;
+      bomUtf16BE:
+        begin
+          //this may need swapping of WideChars????
+          Stream.Position := 2;
+          SetLength(US, Stream.Size - 2);
+          Stream.Read(US[1], Stream.Size - 2);
+          //ClipBoard may return a larger Stream than the size of the string
+          //this gets rid of it, since the string will end in a #0 (wide)char
+          US := PWideChar(US);
+          Result := Utf16ToUtf8(US);
+          //debugln(['TClipboard.GetAsHtml: Found bomUtf16BE']);
+        end;
+      bomUndefined:
+        begin
+          //assume the first byte is part of the string and it is some AnsiString
+          //CF_HTML returns a string encoded as UTF-8 on Windows
+          Result := PAnsiChar(Stream.Memory);
+          //debugln(['TClipboard.GetAsHtml: Found bomUndefined']);
+        end;
+    end;
+
+    if (Result <> '') then begin
+      if ExtractFragmentOnly then
+        Result := ExtractHtmlFragmentFromClipBoardHtml(Result)
+     {$IFDEF WINDOWS}
+      else
+        Result := ExtractHtmlFromClipboardHtml(Result);
+     {$ENDIF}
+    end;
+
+  finally
+    Stream.Free;
+  end;
+end;
+
+{ Adds html-formatted text to the clipboard. The main Office applications in
+  Windows and Linux require a valid and complete html text (i.e. with <html>
+  and <body> tags), therefore we insert them if they are not present.
+  In case of Windows, a specific header will be added,
+  otherwise the format will not be recognized by the clipboard.
+  }
+procedure TClipboard.SetAsHtml(Html: String; const PlainText: String);
+var
+  Stream: TStream;
+  IsValid: Boolean;
+begin
+  if CF_HTML = 0 then
+    exit;
+  //If the HTML does not have correct <html><body> and closing </body></html> insert them
+  MaybeInsertHtmlAndBodyTags(HTML, IsValid);
+  if not IsValid then
+    exit;
+
+  {$IFDEF WINDOWS}
+  Stream := TStringStream.Create(InsertClipHeader(Html));
+  {$ELSE}
+  Stream := TStringStream.Create(Html);
+  {$ENDIF}
+  try
+    Stream.Position := 0;
+    Clipboard.AddFormat(CF_HTML, Stream);
+
+    if (PlainText <> '') then
+    begin
+      Stream.Size := 0;
+      Stream.Position := 0;
+      Stream.WriteBuffer(Pointer(PlainText)^, Length(PlainText)+1); //Also write terminating zero
+      Stream.Position := 0;
+      ClipBoard.AddFormat(CF_TEXT, Stream);
+    end;
+
+  finally
+    Stream.Free;
+  end;
+end;
+
+procedure TClipboard.SetAsHtml(Html: String);
+begin
+  SetAsHtml(Html, '');
 end;
 

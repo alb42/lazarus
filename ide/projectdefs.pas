@@ -37,10 +37,9 @@ unit ProjectDefs;
 interface
 
 uses
-  Classes, SysUtils,
-  Controls, Forms, SynRegExpr, FileProcs, Laz2_XMLCfg, LazUTF8,
+  Classes, SysUtils, Controls, Forms,
+  FileProcs, LazFileUtils, Laz2_XMLCfg, LazUTF8,
   CompOptsIntf, ProjectIntf, LazIDEIntf,
-  ProjectResourcesIntf,
   frmCustomApplicationOptions, PublishModule, IDEProcs, LazarusIDEStrConsts;
 
 type
@@ -1261,8 +1260,7 @@ begin
   Result := GetLocalizedName + LineEnding+LineEnding + lisApplicationProgramDescriptor;
 end;
 
-function TProjectApplicationDescriptor.InitProject(
-  AProject: TLazProject): TModalResult;
+function TProjectApplicationDescriptor.InitProject(AProject: TLazProject): TModalResult;
 var
   NewSource: String;
   MainFile: TLazProjectFile;

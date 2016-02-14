@@ -1,32 +1,29 @@
 object CompilerOtherOptionsFrame: TCompilerOtherOptionsFrame
   Left = 0
-  Height = 373
+  Height = 407
   Top = 0
   Width = 521
-  ClientHeight = 373
+  ClientHeight = 407
   ClientWidth = 521
   TabOrder = 0
   DesignLeft = 444
   DesignTop = 275
   object grpConditionals: TGroupBox
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 166
-    Top = 0
+    Height = 194
+    Top = 213
     Width = 521
-    Align = alClient
-    Anchors = [akTop, akLeft, akRight]
+    Align = alBottom
     Caption = 'grpConditionals'
-    ClientHeight = 150
-    ClientWidth = 519
+    ClientHeight = 176
+    ClientWidth = 513
     TabOrder = 0
     inline CondSynEdit: TSynEdit
       AnchorSideRight.Side = asrBottom
       Left = 0
-      Height = 133
+      Height = 154
       Top = 0
-      Width = 519
+      Width = 513
       Align = alClient
       Font.Height = 9
       Font.Name = '-misc-dejavu sans mono-*-*-*-*-*-*-*-*-*-*-iso10646-1'
@@ -654,9 +651,9 @@ object CompilerOtherOptionsFrame: TCompilerOtherOptionsFrame
     end
     object CondStatusbar: TStatusBar
       Left = 0
-      Height = 17
-      Top = 133
-      Width = 519
+      Height = 22
+      Top = 154
+      Width = 513
       Panels = <      
         item
           Width = 80
@@ -674,32 +671,32 @@ object CompilerOtherOptionsFrame: TCompilerOtherOptionsFrame
     Cursor = crVSplit
     Left = 0
     Height = 5
-    Top = 166
+    Top = 208
     Width = 521
     Align = alBottom
     ResizeAnchor = akBottom
   end
   object grpCustomOptions: TGroupBox
-    AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 202
-    Top = 171
+    Height = 208
+    Top = 0
     Width = 521
-    Align = alBottom
+    Align = alClient
     Caption = 'grpCustomOptions'
-    ClientHeight = 186
-    ClientWidth = 519
+    ClientHeight = 190
+    ClientWidth = 513
     TabOrder = 2
     object memoCustomOptions: TMemo
       AnchorSideLeft.Control = grpCustomOptions
       AnchorSideBottom.Control = grpCustomOptions
       AnchorSideBottom.Side = asrBottom
       Left = 0
-      Height = 182
+      Height = 186
       Top = 4
-      Width = 363
+      Width = 357
       Anchors = [akTop, akLeft, akRight, akBottom]
       BorderSpacing.Right = 6
+      OnChange = memoCustomOptionsChange
       ParentShowHint = False
       ScrollBars = ssAutoBoth
       ShowHint = True
@@ -711,14 +708,16 @@ object CompilerOtherOptionsFrame: TCompilerOtherOptionsFrame
       AnchorSideLeft.Side = asrBottom
       AnchorSideRight.Control = btnDefines
       AnchorSideRight.Side = asrBottom
-      Left = 369
-      Height = 27
+      Left = 363
+      Height = 29
       Top = 4
       Width = 150
       Anchors = [akTop, akLeft, akRight]
       AutoSize = True
       Caption = 'All options ...'
       OnClick = btnAllOptionsClick
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 1
     end
     object btnDefines: TBitBtn
@@ -726,16 +725,37 @@ object CompilerOtherOptionsFrame: TCompilerOtherOptionsFrame
       AnchorSideTop.Control = btnAllOptions
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Side = asrBottom
-      Left = 369
-      Height = 27
-      Top = 37
+      Left = 363
+      Height = 29
+      Top = 39
       Width = 150
       Anchors = [akTop, akLeft, akRight]
       AutoSize = True
       BorderSpacing.Top = 6
       Caption = 'Defines ...'
       OnClick = btnDefinesClick
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 2
+    end
+    object btnFcUTF8: TBitBtn
+      AnchorSideLeft.Control = btnDefines
+      AnchorSideTop.Control = btnDefines
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = btnDefines
+      AnchorSideRight.Side = asrBottom
+      Left = 363
+      Height = 29
+      Top = 81
+      Width = 150
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = True
+      BorderSpacing.Top = 13
+      Caption = 'Add -FcUTF8'
+      OnClick = btnFcUTF8Click
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 3
     end
   end
 end

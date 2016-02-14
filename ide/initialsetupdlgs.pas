@@ -40,11 +40,16 @@ unit InitialSetupDlgs;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, Forms, Controls, Buttons,
-  Dialogs, FileUtil, lazutf8classes, LazFileUtils, LazFileCache,
-  LazLogger, Graphics, ComCtrls, ExtCtrls, StdCtrls, DefineTemplates,
-  CodeToolManager, FileProcs, TransferMacros, MacroDefIntf, GDBMIDebugger,
-  DbgIntfDebuggerBase, LazarusIDEStrConsts, LazConf, EnvironmentOpts, IDEProcs,
+  // RTL + FCL + LCL
+  Classes, SysUtils,
+  Forms, Controls, Buttons, Dialogs, Graphics, ComCtrls, ExtCtrls, StdCtrls, LCLProc,
+  // CodeTools
+  FileProcs, CodeToolManager, DefineTemplates,
+  // LazUtils
+  FileUtil, LazUTF8, LazUTF8Classes, LazFileUtils, LazFileCache, LazLogger,
+  // Other
+  MacroDefIntf, GDBMIDebugger, DbgIntfDebuggerBase,
+  TransferMacros, LazarusIDEStrConsts, LazConf, EnvironmentOpts,
   AboutFrm, IDETranslations, BaseBuildManager, InitialSetupProc;
   
 type
@@ -974,17 +979,16 @@ begin
   fLastParsedCompiler:=EnvironmentOptions.GetParsedCompilerFilename;
   //debugln(['TInitialSetupDialog.UpdateCompilerNote ',fLastParsedCompiler]);
 
-  // check compiler again
-  CfgCache:=CodeToolBoss.FPCDefinesCache.ConfigCaches.Find(
-                                             fLastParsedCompiler,'','','',true);
-  CfgCache.Update(CodeToolBoss.FPCDefinesCache.TestFilename);
-  BuildBoss.SetBuildTargetIDE;
-
   Quality:=CheckCompilerQuality(fLastParsedCompiler,Note,
                                 CodeToolBoss.FPCDefinesCache.TestFilename);
   if Quality<>sddqInvalid then begin
     CodeToolBoss.FPCDefinesCache.ConfigCaches.Find(
       fLastParsedCompiler,'','','',true);
+    // check compiler again
+    CfgCache:=CodeToolBoss.FPCDefinesCache.ConfigCaches.Find(
+                                               fLastParsedCompiler,'','','',true);
+    CfgCache.Update(CodeToolBoss.FPCDefinesCache.TestFilename);
+    BuildBoss.SetBuildTargetIDE;
   end;
 
   case Quality of
@@ -1286,12 +1290,19 @@ begin
 
   // Make executable
   UpdateMakeExeCandidates;
-  if IsFirstStart or (EnvironmentOptions.MakeFilename='') then
+  if IsFirstStart
+  or (EnvironmentOptions.MakeFilename='')
+  or (not FileExistsCached(EnvironmentOptions.GetParsedMakeFilename)) then
   begin
     // first start => choose first best candidate
     Candidate:=GetFirstCandidate(FCandidates[sddtMakeExeFilename]);
     if Candidate<>nil then
-      EnvironmentOptions.MakeFilename:=Candidate.Caption;
+      EnvironmentOptions.MakeFilename:=Candidate.Caption
+    else begin // second chance => better an incomplete instead of none (especially for windows)
+      Candidate:=GetFirstCandidate(FCandidates[sddtMakeExeFilename], sddqIncomplete);
+      if Candidate<>nil then
+        EnvironmentOptions.MakeFilename:=Candidate.Caption;
+    end;
   end;
   MakeExeComboBox.Text:=EnvironmentOptions.MakeFilename;
   fLastParsedMakeExe:='. .';
@@ -1312,12 +1323,10 @@ begin
   UpdateDebuggerNote;
 
   // select first error
-  if PropertiesTreeView.Selected=nil then begin
-    Node:=FirstErrorNode;
-    if Node=nil then
-      Node:=TVNodeLazarus;
-    PropertiesTreeView.Selected:=Node;
-  end;
+  Node:=FirstErrorNode;
+  if Node=nil then
+    Node:=TVNodeLazarus;
+  PropertiesTreeView.Selected:=Node;
 end;
 
 end.

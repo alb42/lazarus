@@ -80,25 +80,11 @@ const
 //
 // helper functions used commonly
 //
-  function GetClickCount: Integer;
-  var
-    ClickCount: UInt32;
-  begin
-    Result := 1;
-    
-    if OSError(
-      GetEventParameter(AEvent, kEventParamClickCount, typeUInt32, nil,
-        SizeOf(ClickCount), nil, @ClickCount),
-      SName, SGetEvent, 'kEventParamClickCount') then Exit;
-
-    Result := Integer(ClickCount);
-    {debugln('GetClickCount ClickCount=',dbgs(ClickCount));}
-  end;
-
   function GetMousePoint: TPoint;
   var
     MousePoint: HIPoint;
   begin
+    Result:=Classes.Point(0,0); // Force sane value if mouse location not found
     if OSError(
       GetEventParameter(AEvent, kEventParamWindowMouseLocation, typeHIPoint, nil,
         SizeOf(MousePoint), nil, @MousePoint),
@@ -166,7 +152,7 @@ const
     {$ENDIF}
     Msg := @AMsg;
 
-    ClickCount := GetClickCount;
+    ClickCount := GetCarbonMouseClickCount(AEvent);
     MouseButton := GetCarbonMouseButton(AEvent);
     MousePoint := GetMousePoint;
 
@@ -1580,7 +1566,10 @@ end;
  ------------------------------------------------------------------------------}
 function TCarbonWindow.GetScreenBounds(var ARect: TRect): Boolean;
 begin
-  Result := GetBounds(ARect);
+  if Assigned(FWindowRef) then
+    Result := GetBounds(ARect)
+  else
+    Result := inherited GetScreenBounds(ARect);
 end;
 
 {------------------------------------------------------------------------------
@@ -1688,7 +1677,7 @@ procedure TCarbonWindow.ShowHide(AVisible: Boolean);
 begin
   //DebugLn('TCarbonWindow.ShowHide ' + DbgSName(LCLobject),' ', DbgS(AVisible));
   if Assigned(fWindowRef) then begin
-    if AVisible or (csDesigning in LCLobject.ComponentState) then
+    if AVisible then
     begin
       MacOSAll.ShowWindow(fWindowRef);
     end

@@ -997,7 +997,8 @@ begin
   ToolBar.Images            := IDEImages.Images_16;
   FilterEdit.OnGetImageIndex:=@OnTreeViewGetImageIndex;
 
-  AddBitBtn     := CreateToolButton('AddBitBtn', lisAddSub, lisClickToSeeTheChoices, 'laz_add', nil);
+  AddBitBtn     := CreateToolButton('AddBitBtn', lisAdd, lisClickToSeeTheChoices, 'laz_add', nil);
+  AddBitBtn.Style:=tbsButtonDrop;
   RemoveBitBtn  := CreateToolButton('RemoveBitBtn', lisRemove, lisPckEditRemoveSelectedItem, 'laz_delete', @RemoveBitBtnClick);
   CreateDivider;
   OptionsBitBtn := CreateToolButton('OptionsBitBtn', lisOptions, lisPckEditEditGeneralOptions, 'menu_environment_options', @OptionsBitBtnClick);
@@ -1356,16 +1357,31 @@ end;
 procedure TProjectInspectorForm.UpdateTitle;
 var
   NewCaption: String;
+  IconStream: TStream;
 begin
   if not CanUpdate(pifNeedUpdateTitle) then exit;
 
+  Icon.Clear;
   if LazProject=nil then
-    Caption:=lisMenuProjectInspector
-  else begin
+  begin
+    Caption:=lisMenuProjectInspector;
+  end else
+  begin
     NewCaption:=LazProject.GetTitle;
     if NewCaption='' then
       NewCaption:=ExtractFilenameOnly(LazProject.ProjectInfoFile);
     Caption:=Format(lisProjInspProjectInspector, [NewCaption]);
+
+    if not LazProject.ProjResources.ProjectIcon.IsEmpty then
+    begin
+      IconStream := LazProject.ProjResources.ProjectIcon.GetStream;
+      if IconStream<>nil then
+        try
+          Icon.LoadFromStream(IconStream);
+        finally
+          IconStream.Free;
+        end;
+    end;
   end;
 end;
 

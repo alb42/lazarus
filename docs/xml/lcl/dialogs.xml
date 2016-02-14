@@ -730,6 +730,8 @@ and then check the result to see if the user made a valid choice and pressed the
 The available filters and their description are separated by pipe symbols. <br/>
 
 To set this property during runtime assign a value like: "All files|*.*|Lazarus Project files|*.lpr"<br/>
+
+An entry can contain multiple masks separated by semicolon, e.g. "Pascal units|*.pas;*.pp;*.p"<br/>
         </descr>
       </element>
       <!-- property Visibility: published -->
@@ -2772,29 +2774,28 @@ or you can make your own set.</descr>
       <!-- function Visibility: default -->
       <element name="QuestionDlg">
         <short>Show a question to the user and get a response</short>
-        <descr>QuestionDlg has the same functionality as MessageDlg <br/>
-
-except for the parameter Buttons which is of a different type. <br/>
-
-You can define your own captions and return values of this function.<br/>
-          <br/>
-
-
-Buttons is a list of TModalResult (defined as constants [mrNone..MrYesToAll] in <link id="Controls"/>
-
-) and strings. <br/>
-
-For each TModalResult a button is
- created. <br/>
-
-To set a custom caption, add a string after a button.<br/>
-          <br/>
-
-
-
-The default TModalResults defined in controls.pp (mrNone..mrLast) <br/>
-
-doesn't need a caption. The default captions will be used.</descr>
+        <descr><p>QuestionDlg has the same functionality as MessageDlg except for the parameter Buttons which is of a different type. <br/>
+You can define your own captions and return values of this function.
+</p><p>Buttons is a list of TModalResult (defined as constants [mrNone..MrYesToAll] in <link id="Controls"/>) and strings. <br/>
+For each TModalResult a button is created. <br/>
+To set a custom caption, add a string after a button. You can use the special string parameters 'isdefault' and 'iscancel' to setup the default and cancel buttons.
+</p><p>The default TModalResults defined in controls.pp (mrNone..mrLast) don't need a caption. The default captions will be used.
+</p><p>You can mark one default button using the 'IsDefault' option. When the user presses 'Return' this button is triggered.
+</p><p>Some widgetsets provide an Escape key and/or a close button. This results in mrCancel even if it is not in the given button list. Use the 'IsCancel' option to redirect it to a button of your choice. You can combine 'IsDefault' and 'IsCancel'.
+</p><pre>case QuestionDlg('COPYING',
+                   'Abort?',
+                   mtConfirmation,
+                   [mrNo, '&amp;No','IsDefault',
+                   mrYes,'&amp;Yes'],0) 
+of
+   mrYes : ShowMessage('You clicked Yes');
+   mrNo : ShowMessage('You clicked No');
+else
+  // mrCancel
+  ShowMessage('You cancelled the dialog.');
+end;
+</pre>
+        </descr>
         <errors/>
         <seealso>
           <link id="MessageDlg"/>

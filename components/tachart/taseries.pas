@@ -107,6 +107,8 @@ type
   { TPieSeries }
 
   TPieSeries = class(TCustomPieSeries)
+  public
+    property Radius;
   published
     property EdgePen;
     property Depth;
@@ -342,7 +344,7 @@ implementation
 
 uses
   GraphMath, GraphType, IntfGraphics, LResources, Math, PropEdits, SysUtils,
-  TADrawerCanvas, TAGeometry, TAGraph, TAMath, TAStyles;
+  TAChartStrConsts, TADrawerCanvas, TAGeometry, TAGraph, TAMath, TAStyles;
 
 { TLineSeries }
 
@@ -1016,7 +1018,7 @@ var
     with imageBar do begin
       TopLeft := ParentChart.GraphToImage(graphBar.a);
       BottomRight := ParentChart.GraphToImage(graphBar.b);
-      NormalizeRect(imageBar);
+      TAGeometry.NormalizeRect(imageBar);
 
       // Draw a line instead of an empty rectangle.
       if Bottom = Top then Dec(Top);
@@ -1494,14 +1496,14 @@ begin
 end;
 
 initialization
-  RegisterSeriesClass(TLineSeries, 'Line series');
-  RegisterSeriesClass(TAreaSeries, 'Area series');
-  RegisterSeriesClass(TBarSeries, 'Bar series');
-  RegisterSeriesClass(TPieSeries, 'Pie series');
-  RegisterSeriesClass(TUserDrawnSeries, 'User-drawn series');
-  RegisterSeriesClass(TConstantLine, 'Constant line');
-  RegisterSeriesClass(TManhattanSeries, 'Manhattan plot series');
-  {$WARNINGS OFF}RegisterSeriesClass(TLine, '');{$WARNINGS ON}
+  RegisterSeriesClass(TLineSeries, @rsLineSeries);
+  RegisterSeriesClass(TAreaSeries, @rsAreaSeries);
+  RegisterSeriesClass(TBarSeries, @rsBarSeries);
+  RegisterSeriesClass(TPieSeries, @rsPieSeries);
+  RegisterSeriesClass(TUserDrawnSeries, @rsUserDrawnSeries);
+  RegisterSeriesClass(TConstantLine, @rsConstantLine);
+  RegisterSeriesClass(TManhattanSeries, @rsManhattanPlotSeries);
+//  {$WARNINGS OFF}RegisterSeriesClass(TLine, nil);{$WARNINGS ON}
   SkipObsoleteProperties;
 
 end.

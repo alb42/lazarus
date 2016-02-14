@@ -32,17 +32,16 @@ unit CheckCompilerOpts;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, Forms, Controls, Graphics, Dialogs, FileUtil,
-  Clipbrd, StdCtrls, Buttons, Process, AVL_Tree, Menus, ExtCtrls,
-  ButtonPanel, ComCtrls,
+  Classes, SysUtils, Forms, Controls, Dialogs, FileUtil,
+  Clipbrd, StdCtrls, AVL_Tree, Menus, ExtCtrls, ButtonPanel, ComCtrls,
   // codetools
-  KeywordFuncLists, CodeToolManager, FileProcs, DefineTemplates,
-  CodeToolsStructs,
+  CodeToolManager, FileProcs, LazFileCache, LazFileUtils, LazUTF8,
+  DefineTemplates, CodeToolsStructs,
   // IDEIntf
   ProjectIntf, MacroIntf, IDEExternToolIntf, LazIDEIntf, IDEDialogs,
   PackageIntf, IDEMsgIntf,
   // IDE
-  Project, PackageSystem, ExtToolEditDlg, IDEProcs, EnvironmentOpts,
+  Project, PackageSystem, IDEProcs,
   LazarusIDEStrConsts, PackageDefs, CompilerOptions, TransferMacros, LazConf;
 
 type
@@ -73,8 +72,8 @@ type
     OutputTreeView: TTreeView;
     Splitter1: TSplitter;
     TestMemo: TMemo;
-    TestGroupbox: TGroupBox;
-    OutputGroupBox: TGroupBox;
+    LabelTest: TLabel;
+    LabelOutput: TLabel;
     procedure ApplicationOnIdle(Sender: TObject; var {%H-}Done: Boolean);
     procedure CopyOutputMenuItemClick(Sender: TObject);
   private
@@ -263,7 +262,7 @@ var
   CompilerFiles: TStrings;
 begin
   FTest:=cotCheckCompilerExe;
-  TestGroupbox.Caption:=dlgCCOTestCheckingCompiler;
+  LabelTest.Caption:=dlgCCOTestCheckingCompiler;
   try
     CheckIfFileIsExecutable(CompilerFilename);
   except
@@ -277,7 +276,7 @@ begin
 
   // check if there are several compilers in path
   CompilerFiles:=SearchAllFilesInPath(GetDefaultCompilerFilename,'',
-              GetEnvironmentVariableUTF8('PATH'),':',[sffDontSearchInBasePath]);
+              GetEnvironmentVariableUTF8('PATH'),PathSeparator,[sffDontSearchInBasePath]);
   try
     ResolveLinksInFileList(CompilerFiles,false);
     RemoveDoubles(CompilerFiles);
@@ -305,7 +304,7 @@ var
 begin
   // compile bogus file
   FTest:=cotCompileBogusFiles;
-  TestGroupbox.Caption:=dlgCCOTestCompilingEmptyFile;
+  LabelTest.Caption:=dlgCCOTestCompilingEmptyFile;
   
   // get Test directory
   TestDir:=AppendPathDelim(LazarusIDE.GetTestBuildDirectory);
@@ -419,7 +418,7 @@ var
   CfgCount: Integer;
 begin
   FTest:=cotCheckCompilerConfig;
-  TestGroupbox.Caption:=dlgCCOTestCheckingCompilerConfig;
+  LabelTest.Caption:=dlgCCOTestCheckingCompilerConfig;
 
   CfgCount:=0;
   for i:=0 to CfgCache.ConfigFiles.Count-1 do begin
@@ -501,7 +500,7 @@ function TCheckCompilerOptsDlg.CheckMissingFPCPPUs(
   
 begin
   FTest:=cotCheckMissingFPCPPUs;
-  TestGroupbox.Caption:=dlgCCOTestMissingPPU;
+  LabelTest.Caption:=dlgCCOTestMissingPPU;
 
   Result:=mrCancel;
 
@@ -561,7 +560,7 @@ begin
   if CfgCache.Units=nil then exit(mrOK);
 
   FTest:=cotCheckCompilerDate;
-  TestGroupbox.Caption:=dlgCCOTestCompilerDate;
+  LabelTest.Caption:=dlgCCOTestCompilerDate;
 
   Result:=mrCancel;
   
@@ -673,7 +672,7 @@ var
   WarnedDirectories: TStringList;
 begin
   FTest:=cotCheckFPCUnitPathsContainSources;
-  TestGroupbox.Caption:=dlgCCOTestSrcInPPUPaths;
+  LabelTest.Caption:=dlgCCOTestSrcInPPUPaths;
 
   Result:=mrCancel;
   WarnedDirectories:=TStringList.Create;
@@ -958,7 +957,7 @@ begin
     CompilerFiles.Free;
     CompileTool.Free;
     FTest:=cotNone;
-    TestGroupbox.Caption:=dlgCCOTest;
+    LabelTest.Caption:=dlgCCOTest;
     FPC_PPUs.Free;
     Target_PPUs.Free;
   end;
@@ -970,8 +969,8 @@ begin
   inherited Create(TheOwner);
   IdleConnected:=true;
   Caption:=dlgCCOCaption;
-  TestGroupbox.Caption:=dlgCCOTest;
-  OutputGroupBox.Caption:=dlgCCOResults;
+  LabelTest.Caption:=dlgCCOTest;
+  LabelOutput.Caption:=dlgCCOResults;
   CopyOutputMenuItem.Caption:=lisCCOCopyOutputToCliboard;
 end;
 

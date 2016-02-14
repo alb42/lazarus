@@ -53,11 +53,14 @@ uses
 {$IFDEF UNIX}
    Unix,BaseUnix,termio,
 {$ENDIF}
-  Classes, SysUtils, strutils, math, Controls, Maps, Variants, FileUtil, Dialogs,
+  Classes, SysUtils, strutils, math, Variants,
+  Controls, Maps, FileUtil, Dialogs, Forms,
   BaseIDEIntf, LCLProc, LazUTF8, LazClasses, LazLoggerBase,
+  {$IFDEF Darwin}
+  LazFileUtils,
+  {$ENDIF}
   DebugUtils, GDBTypeInfo, GDBMIDebugInstructions, GDBMIMiscClasses,
-  DbgIntfBaseTypes, DbgIntfDebuggerBase, GdbmiStringConstants,
-  Forms;
+  DbgIntfBaseTypes, DbgIntfDebuggerBase, GdbmiStringConstants;
 
 type
   TGDBMIProgramInfo = record
@@ -1780,14 +1783,14 @@ begin
   FTheDebugger.FReRaiseBreak.Clear(Self);
   if DebuggerState = dsError then Exit;
 
-  S := FTheDebugger.ConvertToGDBPath(UTF8ToSys(FTheDebugger.FileName), cgptExeName);
+  S := FTheDebugger.ConvertToGDBPath(FTheDebugger.FileName, cgptExeName);
   Result := ExecuteCommand('-file-exec-and-symbols %s', [S], R);
   if not Result then exit;
   {$IFDEF darwin}
   if  (R.State = dsError) and (FTheDebugger.FileName <> '')
   then begin
     S := FTheDebugger.FileName + '/Contents/MacOS/' + ExtractFileNameOnly(FTheDebugger.FileName);
-    S := FTheDebugger.ConvertToGDBPath(UTF8ToSys(S), cgptExeName);
+    S := FTheDebugger.ConvertToGDBPath(S, cgptExeName);
     Result := ExecuteCommand('-file-exec-and-symbols %s', [S], R);
     if not Result then exit;
   end;
@@ -2797,7 +2800,7 @@ function TGDBMIDebugger.ConvertToGDBPath(APath: string; ConvType: TConvertToGDBP
 var
   esc: TGDBMIDebuggerFilenameEncoding;
 begin
-  Result := APath;
+  Result := UTF8ToWinCP(APath);
   // no need to process empty filename
   if Result = '' then exit;
 
@@ -5015,7 +5018,7 @@ begin
       // otherwise on second run within the same gdb session the workingdir
       // is set to c:\windows
       ExecuteCommand('-environment-cd %s', ['.'], []);
-      ExecuteCommand('-environment-cd %s', [FTheDebugger.ConvertToGDBPath(UTF8ToSys(FTheDebugger.WorkingDir), cgptCurDir)], [cfCheckError]);
+      ExecuteCommand('-environment-cd %s', [FTheDebugger.ConvertToGDBPath(FTheDebugger.WorkingDir, cgptCurDir)], [cfCheckError]);
     end;
 
     TargetInfo^.TargetFlags := [tfHasSymbols]; // Set until proven otherwise
@@ -5026,7 +5029,7 @@ begin
 
     // also call execute -exec-arguments if there are no arguments in this run
     // so the possible arguments of a previous run are cleared
-    ExecuteCommand('-exec-arguments %s', [UTF8ToSys(FTheDebugger.Arguments)], [cfCheckState]);
+    ExecuteCommand('-exec-arguments %s', [UTF8ToWinCP(FTheDebugger.Arguments)], [cfCheckState]);
 
     {$IF defined(UNIX) or defined(DBG_ENABLE_TERMINAL)}
     InitConsole;
@@ -5231,7 +5234,7 @@ begin
   FSuccess := False;
 
   if not ExecuteCommand('-file-exec-and-symbols %s',
-                        [FTheDebugger.ConvertToGDBPath(UTF8ToSys(''), cgptExeName)], R)
+                        [FTheDebugger.ConvertToGDBPath('', cgptExeName)], R)
   then
     R.State := dsError;
   if R.State = dsError then begin
@@ -5327,7 +5330,7 @@ begin
     ExecuteCommand('ptype TObject', [], R);
     if pos('NO SYMBOL TABLE IS LOADED', UpperCase(FFullCmdReply)) > 0 then begin
       ExecuteCommand('-file-exec-and-symbols %s',
-                     [FTheDebugger.ConvertToGDBPath(UTF8ToSys(FTheDebugger.FileName), cgptExeName)], R);
+                     [FTheDebugger.ConvertToGDBPath(FTheDebugger.FileName, cgptExeName)], R);
       DoSetPascal;
     end;
   end;

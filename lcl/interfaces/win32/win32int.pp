@@ -30,7 +30,7 @@ interface
 uses
   Windows, // keep as first
   ActiveX, Classes,
-  Translations, ComCtrls, Controls, Buttons,
+  Translations, Controls, Buttons,
   LCLIntf, LclProc, LazUTF8, LCLType, LMessages,
   Forms, Dialogs, GraphMath, GraphType, InterfaceBase,
   StdCtrls, SysUtils, Win32Def, Graphics, Menus, CommCtrl,
@@ -287,24 +287,16 @@ var
 {$I win32winapi.inc}
 {$I win32lclintf.inc}
 
-const
-  W95_MENUITEMINFO_SIZE = 44;
-  
+
 initialization
   { initialize mousedownclick to far before double click time }
-  if GetTickCount > 5000 then
-    MouseDownTime := GetTickCount - 5000
+  if GetTickCount64 > 5000 then
+    MouseDownTime := GetTickCount64 - 5000
   else
     MouseDownTime := 0;
-  {$IFDEF WindowsUnicodeSupport}
   SystemCharSetIsUTF8:=true;
-  {$ELSE}
-  SystemCharSetIsUTF8:=false;
-  {$ENDIF}
 
-  if (Win32MajorVersion = 4) and (Win32MinorVersion = 0)
-  then MMenuItemInfoSize := W95_MENUITEMINFO_SIZE
-  else MMenuItemInfoSize := sizeof(MENUITEMINFO);
+  MMenuItemInfoSize := sizeof(MENUITEMINFO);
   
   // Vista with classic theme is buggy with Windows.SetPixel() 
   // http://bugs.freepascal.org/view.php?id=15822

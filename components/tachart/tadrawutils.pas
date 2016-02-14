@@ -84,11 +84,13 @@ type
       const APoints: array of TPoint; AStartIndex, ANumPts: Integer);
     procedure PrepareSimplePen(AColor: TChartColor);
     procedure PutImage(AX, AY: Integer; AImage: TFPCustomImage);
+    procedure PutPixel(AX, AY: Integer; AColor: TChartColor);
     procedure RadialPie(
       AX1, AY1, AX2, AY2: Integer;
       AStartAngle16Deg, AAngleLength16Deg: Integer);
     procedure Rectangle(const ARect: TRect);
     procedure Rectangle(AX1, AY1, AX2, AY2: Integer);
+    procedure ResetFont;
     function Scale(ADistance: Integer): Integer;
     procedure SetAntialiasingMode(AValue: TChartAntialiasingMode);
     procedure SetBrushColor(AColor: TChartColor);
@@ -146,6 +148,7 @@ type
     procedure Polygon(
       const APoints: array of TPoint; AStartIndex, ANumPts: Integer); virtual; abstract;
     procedure PutImage(AX, AY: Integer; AImage: TFPCustomImage); virtual;
+    procedure PutPixel(AX, AY: Integer; AColor: TChartColor); virtual;
     function Scale(ADistance: Integer): Integer; virtual;
     procedure SetAntialiasingMode(AValue: TChartAntialiasingMode);
     procedure SetDoChartColorToFPColorFunc(AValue: TChartColorToFPColorFunc);
@@ -354,6 +357,12 @@ procedure TBasicDrawer.PutImage(AX, AY: Integer; AImage: TFPCustomImage);
 begin
   Unused(AX, AY);
   Unused(AImage);
+end;
+
+procedure TBasicDrawer.PutPixel(AX, AY: Integer; AColor: TChartColor);
+begin
+  Unused(AX, AY);
+  Unused(AColor);
 end;
 
 function TBasicDrawer.Scale(ADistance: Integer): Integer;

@@ -143,18 +143,8 @@ begin
      not (ofOldStyleDialog in TPreviewFileDialog(ACommonDialog).Options) then
     with OFN^ do
     begin
-    {$ifdef WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        lpTemplateName := AllocMem(Length(ResName) * 2 + 2);
-        Move(PChar(ResName)^, lpTemplateName^, Length(ResName) * 2);
-      end
-      else
-    {$endif}
-      begin
-        lpTemplateName := AllocMem(Length(ResName) + 1);
-        Move(PChar(AnsiString(ResName))^, lpTemplateName^, Length(ResName));
-      end;
+      lpTemplateName := AllocMem(Length(ResName) * 2 + 2);
+      Move(PChar(ResName)^, lpTemplateName^, Length(ResName) * 2);
       Flags := Flags or OFN_ENABLETEMPLATE;
       lpfnHook := LPOFNHOOKPROC(@OpenPictureDialogCallBack);
     end;
@@ -163,14 +153,11 @@ end;
 { TWin32WSOpenPictureDialog }
 
 class function TWin32WSOpenPictureDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileOpenDialog;
   fos: FILEOPENDIALOGOPTIONS;
-{$endif}
 begin
   Result := inherited CreateHandle(ACommonDialog);
-  {$ifdef UseVistaDialogs}
   //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
   if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
   begin
@@ -182,7 +169,6 @@ begin
     end;
   end
   else
-  {$endif}
     AddPreviewControl(ACommonDialog, LPOPENFILENAME(Result));
 end;
 
@@ -210,14 +196,11 @@ end;
 
 class function TWin32WSSavePictureDialog.CreateHandle(
   const ACommonDialog: TCommonDialog): THandle;
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileSaveDialog;
   fos: FILEOPENDIALOGOPTIONS;
-{$endif}
 begin
   Result := inherited CreateHandle(ACommonDialog);
-  {$ifdef UseVistaDialogs}
   //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
   if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
   begin
@@ -229,7 +212,6 @@ begin
     end;
   end
   else
-  {$endif}
     AddPreviewControl(ACommonDialog, LPOPENFILENAME(Result));
 end;
 

@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Controls, StdCtrls, Graphics, Math, ActnList, Forms, Menus,
-  LCLIntf, LMessages, LCLProc, LResources, LCLType, Themes, Types; //PropEdits,
+  LCLIntf, LMessages, LCLProc, LResources, LCLType, Themes, Types;
 
 type
   TCustomCheckBoxThemed = class;
@@ -66,9 +66,6 @@ type
     procedure MouseEnter; override;
     procedure MouseLeave; override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
-    class procedure PaintSelf(ACanvas: TCanvas; ACaption: string; ARect: TRect;
-      AState: TCheckBoxState; ARightToLeft, AHovered, APressed, AFocused: Boolean;
-      AAlignment: TLeftRight; AEnabled: Boolean = True);
     procedure Paint; override;
     procedure TextChanged; override;
     procedure WMSize(var Message: TLMSize); message LM_SIZE;
@@ -78,6 +75,9 @@ type
     cFocusBorder: SmallInt = 2;
     cIndent: SmallInt = 5;
   public
+    class procedure PaintSelf(ACanvas: TCanvas; ACaption: string; ARect: TRect;
+      AState: TCheckBoxState; ARightToLeft, AHovered, APressed, AFocused: Boolean;
+      AAlignment: TLeftRight; AEnabled: Boolean = True);
     constructor Create(AOwner: TComponent); override;
     property Alignment: TLeftRight read FAlignment write SetAlignment default taRightJustify;
     property AllowGrayed: Boolean read FAllowGrayed write FAllowGrayed default False;
@@ -295,7 +295,7 @@ end;
 
 procedure TCustomCheckBoxThemed.KeyUp(var Key: Word; Shift: TShiftState);
 begin
-  inherited KeyDown(Key, Shift);
+  inherited KeyUp(Key, Shift);
   if (Key in [VK_RETURN, VK_SPACE]) and not (ssCtrl in Shift) then begin
     CheckBoxPressed :=  False;
     DoClick;
@@ -360,33 +360,20 @@ begin
     if ARightToLeft then inc(aFlags, DT_RTLREADING);
     with ThemeServices.GetTextExtent(ACanvas.Handle, aDetails, ACaption, aFlags, nil) do begin
       aTextSize.cx := Right;
-      aTextSize.cy := Bottom + 2 * cFocusBorder;
+      aTextSize.cy := Bottom;
     end;
-    aCaptionPoint.Y := (ARect.Bottom - aTextSize.cy) div 2;
-    aCheckBoxPoint.Y := (ARect.Bottom - CheckBoxSize.cy) div 2;
-    case AAlignment of
-      taLeftJustify: begin
-        if not ARightToLeft then begin  { Caption is on the Left, aligned to the Left }
-          aCaptionPoint.X := cFocusBorder;
-          aCheckBoxPoint.X := ARect.Right - CheckBoxSize.cx ;//cFocusBorder + aTextSize.cx + cIndent;
-        end else begin  { Caption is on the Right, aligned to the Right }
-          aCaptionPoint.X := ARect.Right - aTextSize.cx - cFocusBorder;
-          aCheckBoxPoint.X := 0;//aCaptionPoint.X - cIndent - CheckBoxSize.cx;
-        end;
-      end;
-      taRightJustify: begin
-        if not ARightToLeft then begin  { Caption is on the Right, aligned to the Left }
-          aCaptionPoint.X := CheckBoxSize.cx + cIndent;
-          aCheckBoxPoint.X := 0;
-        end else begin  { Caption is on the Left, aligned to the Right }
-          aCheckBoxPoint.X := ARect.Right - CheckBoxSize.cx;
-          aCaptionPoint.X := aCheckBoxPoint.X - cIndent - aTextSize.cx;
-        end;
-      end;
+    aCaptionPoint.Y := (ARect.Bottom + ARect.Top - aTextSize.cy) div 2;
+    aCheckBoxPoint.Y := (ARect.Bottom + ARect.Top - CheckBoxSize.cy) div 2;
+    if ARightToLeft xor (AAlignment = taLeftJustify) then begin  { Caption is on the Left }
+      aCheckBoxPoint.X := ARect.Right - CheckBoxSize.cx;
+      aCaptionPoint.X := ARect.Left;
+    end else begin  { Caption is on the Right }
+      aCheckBoxPoint.X := ARect.Left;
+      aCaptionPoint.X := aCheckBoxPoint.X + cIndent + CheckBoxSize.cx;
     end;
   end else begin
     if not ARightToLeft then
-      aCheckBoxPoint.X := 0
+      aCheckBoxPoint.X := ARect.Left
     else
       aCheckBoxPoint.X := ARect.Right - CheckBoxSize.cx;
     aCheckBoxPoint.Y := (ARect.Bottom - CheckBoxSize.cy) div 2;

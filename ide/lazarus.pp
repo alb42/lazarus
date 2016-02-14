@@ -55,6 +55,7 @@ uses
   {$IFEND}
   SysUtils,
   Interfaces,
+  IDEInstances,//keep IDEInstances up so that it will be initialized soon
   Forms, LCLProc,
   IDEOptionsIntf,
   LazConf, IDEGuiCmdLine,
@@ -106,7 +107,16 @@ begin
   Application.{%H-}MainFormOnTaskBar := False;
   {$ENDIF}
 
+  {$IF (FPC_FULLVERSION >= 30101) AND DEFINED(MSWINDOWS) AND DECLARED(useheaptrace)}
+  // don't show empty heaptrc output dialog on windows
+  heaptrc.GlobalSkipIfNoLeaks := True;
+  {$ENDIF}
+
   Application.Initialize;
+  LazIDEInstances.PerformCheck;
+  if not LazIDEInstances.StartIDE then
+    Exit;
+  LazIDEInstances.StartServer;
   TMainIDE.ParseCmdLineOptions;
   if not SetupMainIDEInstance then exit;
   if Application.Terminated then exit;

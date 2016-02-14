@@ -37,8 +37,8 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, SourceLog, LinkScanner, FileProcs, DirectoryCacher,
-  Avl_Tree, Laz2_XMLCfg;
+  Classes, SysUtils, SourceLog, LinkScanner, FileProcs, LazFileUtils, LazFileCache,
+  DirectoryCacher, Avl_Tree, Laz2_XMLCfg, LazDbgLog;
 
 const
   IncludeLinksFileVersion = 2;
@@ -95,6 +95,7 @@ type
     procedure IncrementRefCount;
     procedure ReleaseRefCount;
     procedure MakeFileDateValid;
+    procedure InvalidateLoadDate;
     function SourceIsText: boolean;
   public
     property CodeCache: TCodeCache read FCodeCache write FCodeCache;
@@ -1124,11 +1125,11 @@ var LinkCnt, i: integer;
 begin
   FIncludeLinks.FreeAndClear;
 
-  FileVersion:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Version',0);
+  FileVersion:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Version',IncludeLinksFileVersion);
   FExpirationTimeInDays:=XMLConfig.GetValue(
       XMLPath+'IncludeLinks/ExpirationTimeInDays',
       FExpirationTimeInDays);
-  if FileVersion=2 then begin
+  if FileVersion>=2 then begin
     List:=TStringList.Create;
     try
       List.Text:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Data','');
@@ -1417,6 +1418,11 @@ begin
   FFileChangeStep:=ChangeStep;
   FLoadDateValid:=true;
   FLoadDate:=FileAgeCached(Filename);
+end;
+
+procedure TCodeBuffer.InvalidateLoadDate;
+begin
+  FLoadDateValid:=false;
 end;
 
 function TCodeBuffer.SourceIsText: boolean;

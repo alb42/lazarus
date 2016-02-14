@@ -1372,6 +1372,8 @@ end;
 ------------------------------------------------------------------------------}
 procedure TControl.DoConstraintsChange(Sender : TObject);
 begin
+  Width:=Constraints.MinMaxWidth(Width);
+  Height:=Constraints.MinMaxHeight(Height);
   AdjustSize;
 end;
 
@@ -1843,6 +1845,16 @@ begin
   FControlHandlers[HandlerType].CallNotifyEvents(Self);
 end;
 
+procedure TControl.DoCallKeyEventHandler(HandlerType: TControlHandlerType;
+  var Key: Word; Shift: TShiftState);
+var
+  i: Integer;
+begin
+  i := FControlHandlers[HandlerType].Count;
+  while FControlHandlers[HandlerType].NextDownIndex(i) do
+    TKeyEvent(FControlHandlers[HandlerType][i])(Self, Key, Shift);
+end;
+
 {------------------------------------------------------------------------------
   procedure TControl.DoContextPopup(const MousePos: TPoint;
     var Handled: Boolean);
@@ -2021,7 +2033,7 @@ begin
   if (csDesigning in ComponentState) then
   begin
     // redirect messages to designer
-    Form := GetParentForm(Self);
+    Form := GetDesignerForm(Self);
     //debugln(['TControl.WndProc ',dbgsname(Self)]);
     if Assigned(Form) and Assigned(Form.Designer) and Form.Designer.IsDesignMsg(Self, TheMessage) then
       Exit;
@@ -3029,8 +3041,8 @@ begin
   if CheckPosition(Self) then
   DebugLn('[TControl.SetBoundsRect] ',Name,':',ClassName);
   {$ENDIF}
-  with ARect do
-    SetBounds(Left, Top, Max(Right - Left, 0), Max(Bottom - Top, 0));
+  SetBounds(ARect.Left, ARect.Top,
+    Max(ARect.Right - ARect.Left, 0), Max(ARect.Bottom - ARect.Top, 0));
 end;
 
 procedure TControl.SetBoundsRectForNewParent(const AValue: TRect);
@@ -3225,16 +3237,15 @@ procedure TControl.DoFloatMsg(ADockSource: TDragDockObject);
 var
   P: TPoint;
   FloatHost: TWinControl;
+  R: TRect;
 begin
   DebugLn(['TControl.DoFloatMsg ',DbgSName(Self),' Floating=',Floating]);
   if Floating and (Parent <> nil) then
   begin
     P := Parent.ClientToScreen(Point(Left, Top));
-    with ADockSource.DockRect do
-    begin
-      Parent.BoundsRect := Bounds(Left + Parent.Left - P.X, Top + Parent.Top - P.Y,
-        Right - Left + Parent.Width - Width,  Bottom - Top + Parent.Height - Height);
-    end;
+    R := ADockSource.DockRect;
+    Parent.BoundsRect := Bounds(R.Left + Parent.Left - P.X, R.Top + Parent.Top - P.Y,
+      R.Right - R.Left + Parent.Width - Width,  R.Bottom - R.Top + Parent.Height - Height);
   end else
   begin
     FloatHost := CreateFloatingDockSite(ADockSource.DockRect);
@@ -5415,6 +5426,7 @@ procedure TControl.EnableAutoSizing
   procedure CheckReason;
   var
     i: Integer;
+    s: String;
   begin
     i:=FAutoSizingLockReasons.Count-1;
     while i>=0 do begin
@@ -5424,7 +5436,10 @@ procedure TControl.EnableAutoSizing
       end;
       dec(i);
     end;
-    RaiseGDBException('TControl.EnableAutoSizing never disabled with reason: '+Reason);
+    s:='TControl.EnableAutoSizing '+DbgSName(Self)+' never disabled with reason "'+Reason+'"';
+    for i:=0 to FAutoSizingLockReasons.Count-1 do
+      s+=','+LineEnding+'reason['+IntToStr(i)+']="'+FAutoSizingLockReasons[i]+'"';
+    RaiseGDBException(s);
   end;
   {$ENDIF}
 

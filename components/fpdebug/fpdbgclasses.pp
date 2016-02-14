@@ -195,7 +195,7 @@ type
   TDbgInstance = class(TObject)
   private
     FMode: TFPDMode;
-    FName: String;
+    FFileName: String;
     FProcess: TDbgProcess;
     FSymbolTableInfo: TFpSymbolInfo;
     FLoaderList: TDbgImageLoaderList;
@@ -203,7 +203,7 @@ type
   protected
     FDbgInfo: TDbgInfo;
     procedure InitializeLoaders; virtual;
-    procedure SetName(const AValue: String);
+    procedure SetFileName(const AValue: String);
     property LoaderList: TDbgImageLoaderList read FLoaderList write FLoaderList;
   public
     constructor Create(const AProcess: TDbgProcess); virtual;
@@ -229,7 +229,7 @@ type
     FBaseAddr: TDBGPtr;
   public
     constructor Create(const AProcess: TDbgProcess; const ADefaultName: String; const AModuleHandle: THandle; const ABaseAddr: TDbgPtr);
-    property Name: String read FName;
+    property Name: String read FFileName;
     property ModuleHandle: THandle read FModuleHandle;
     property BaseAddr: TDBGPtr read FBaseAddr;
   end;
@@ -271,7 +271,7 @@ type
     function AnalyseDebugEvent(AThread: TDbgThread): TFPDEvent; virtual; abstract;
   public
     class function StartInstance(AFileName: string; AParams, AnEnvironment: TStrings; AWorkingDirectory, AConsoleTty: string; AOnLog: TOnLog; ReDirectOutput: boolean): TDbgProcess; virtual;
-    constructor Create(const AName: string; const AProcessID, AThreadID: Integer; AOnLog: TOnLog); virtual;
+    constructor Create(const AFileName: string; const AProcessID, AThreadID: Integer; AOnLog: TOnLog); virtual;
     destructor Destroy; override;
     function  AddBreak(const ALocation: TDbgPtr): TDbgBreakpoint; overload;
     function  FindSymbol(const AName: String): TFpDbgSymbol;
@@ -312,7 +312,7 @@ type
     procedure TerminateProcess; virtual; abstract;
 
     property Handle: THandle read GetHandle;
-    property Name: String read FName write SetName;
+    property Name: String read FFileName write SetFileName;
     property ProcessID: integer read FProcessID;
     property ThreadID: integer read FThreadID;
     property ExitCode: DWord read FExitCode;
@@ -392,8 +392,10 @@ end;
 
 function TDbgCallstackEntry.GetSymbol: TFpDbgSymbol;
 begin
-  if not FIsSymbolResolved then
+  if not FIsSymbolResolved then begin
     FSymbol := FThread.Process.FindSymbol(FAnAddress);
+    FIsSymbolResolved := FSymbol <> nil
+  end;
   result := FSymbol;
 end;
 
@@ -481,7 +483,8 @@ end;
 
 destructor TDbgCallstackEntry.Destroy;
 begin
-  FRegisterValueList.Free;
+  FreeAndNil(FRegisterValueList);
+  ReleaseRefAndNil(FSymbol);
   inherited Destroy;
 end;
 
@@ -686,9 +689,9 @@ begin
   Result := FProcess.RemoveBreak(addr - AddrOffset);
 end;
 
-procedure TDbgInstance.SetName(const AValue: String);
+procedure TDbgInstance.SetFileName(const AValue: String);
 begin
-  FName := AValue;
+  FFileName := AValue;
 end;
 
 procedure TDbgInstance.InitializeLoaders;
@@ -724,7 +727,7 @@ begin
     end;
 end;
 
-constructor TDbgProcess.Create(const AName: string; const AProcessID, AThreadID: Integer; AOnLog: TOnLog);
+constructor TDbgProcess.Create(const AFileName: string; const AProcessID, AThreadID: Integer; AOnLog: TOnLog);
 const
   {.$IFDEF CPU64}
   MAP_ID_SIZE = itu8;
@@ -744,7 +747,7 @@ begin
 
   FSymInstances := TList.Create;
 
-  SetName(AName);
+  SetFileName(AFileName);
 
   inherited Create(Self);
 end;
@@ -1242,9 +1245,9 @@ end;
 destructor TDbgThread.Destroy;
 begin
   FProcess.ThreadDestroyed(Self);
-  FRegisterValueList.Free;
+  FreeAndNil(FRegisterValueList);
   ClearCallStack;
-  FCallStackEntryList.Free;
+  FreeAndNil(FCallStackEntryList);
   inherited;
 end;
 

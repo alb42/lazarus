@@ -35,7 +35,7 @@ uses
   Classes, SysUtils,
   Masks, LazUTF8, LazFileUtils;
   
-{$if defined(Windows) or defined(darwin)}
+{$if defined(Windows) or defined(darwin) or defined(HASAMIGA)}
 {$define CaseInsensitiveFilenames}
 {$endif}
 {$IF defined(CaseInsensitiveFilenames) or defined(darwin)}
@@ -286,17 +286,25 @@ const
 implementation
 
 uses
-{$IFDEF windows}
-  Windows;
+{$IFDEF HASAMIGA}
+  dos;
 {$ELSE}
-  Unix;
+  {$IFDEF windows}
+    Windows;
+  {$ELSE}
+    Unix;
+  {$ENDIF}
 {$ENDIF}
 
 {$I fileutil.inc}
-{$IFDEF windows}
-  {$i winfileutil.inc}
+{$IFDEF HASAMIGA}
+  {$i arosfileutil.inc}
 {$ELSE}
-  {$i unixfileutil.inc}
+  {$IFDEF windows}
+    {$i winfileutil.inc}
+  {$ELSE}
+    {$i unixfileutil.inc}
+{$ENDIF}
 {$ENDIF}
 
 end.

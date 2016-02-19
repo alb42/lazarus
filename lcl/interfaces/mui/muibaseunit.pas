@@ -740,19 +740,25 @@ procedure TMUIObject.CreateScrollbars;
 var
   Tags1, Tags2: TATagList;
 begin
-  Tags1.Clear;
-  Tags1.AddTags([MUIA_Group_Horiz, TagFalse]);
-  VScroll := TMUIScrollBar.Create(Tags1);
-  VScroll.PasObject := Self.PasObject;
-  VScroll.Parent := self;
-  VScroll.Visible := False;
+  if not Assigned(VScroll) then
+  begin
+    Tags1.Clear;
+    Tags1.AddTags([MUIA_Group_Horiz, TagFalse]);
+    VScroll := TMUIScrollBar.Create(Tags1);
+    VScroll.PasObject := Self.PasObject;
+    VScroll.Parent := self;
+    VScroll.Visible := False;
+  end;
   //
-  Tags2.Clear;
-  Tags2.AddTags([MUIA_Group_Horiz, TagTrue]);
-  HScroll := TMUIScrollBar.Create(Tags2);
-  HScroll.PasObject := Self.PasObject;
-  HScroll.Parent := Self;
-  HScroll.Visible := False;
+  if not Assigned(HScroll) then
+  begin
+    Tags2.Clear;
+    Tags2.AddTags([MUIA_Group_Horiz, TagTrue]);
+    HScroll := TMUIScrollBar.Create(Tags2);
+    HScroll.PasObject := Self.PasObject;
+    HScroll.Parent := Self;
+    HScroll.Visible := False;
+  end;
   if PasObject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
   SetScrollbarPos;

@@ -343,11 +343,14 @@ begin
   //TODO: This calculation is acutally wrong, Return Value is 1,2,3,...,N,0
   {$ifdef MorphOS}
   // App after MUI_RequestA is blocked
-  Res := (ButtonCount - 1) - EasyRequestArgs(nil, ES, nil, nil);
+  Res := EasyRequestArgs(nil, ES, nil, nil);
   {$else}
-  Res := (ButtonCount - 1) - MUI_RequestA(MuiApp.Obj, MuiApp.MainWin, 0, ES^.es_Title, ES^.es_GadgetFormat, ES^.es_TextFormat, nil);
+  Res := MUI_RequestA(MuiApp.Obj, MuiApp.MainWin, 0, ES^.es_Title, ES^.es_GadgetFormat, ES^.es_TextFormat, nil);
   {$endif}
   Result := EscapeResult;
+  Res := Res - 1;
+  if Res < 0 then
+    Res := ButtonCount - 1;
   if (Res >= 0) and (Res < ButtonCount) then
     Result := Buttons[Res];
   Dispose(ES);
@@ -371,7 +374,7 @@ type
   TABGRPixel = array[0..3] of Byte;
   PABGRPixel = ^TABGRPixel;
 
-
+{$define VERBOSEAROS}
 
 function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;
@@ -379,10 +382,14 @@ var
   Bit: TMUIBitmap;
   //Ridx, GIdx, BIdx, AIdx: Byte;
 begin
-  Bit := TMUIBitmap.create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_CreateBitmaps ' + IntToStr(ARawImage.Description.Width) + ' x ' + IntToStr(ARawImage.Description.Height) + ' - ' + IntToStr(ARawImage.Description.Depth) + ' = ' + IntToStr(ARawImage.DataSize));
+  {$endif}
+  Bit := TMUIBitmap.Create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
   //ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
   //writeln('R: ',Ridx, ' G: ', GIdx, ' B: ', BIdx, ' A: ', AIdx);
   Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
+  PLongWord(Bit.FImage)^ := $FFFFFFFF;
   ABitmap := HBITMAP(Bit);
   AMask := 0;
   Result := True;
@@ -397,6 +404,9 @@ function RawImage_DescriptionFromDrawable(out
 var
   IsBitmap: Boolean;
 begin
+  {$ifdef VERBOSEAROS}
+  writeln('RawImage_DescriptionFromDrawable');
+  {$endif}
   //writeln('GetDescription from Drawable');
   IsBitMap := False;
 

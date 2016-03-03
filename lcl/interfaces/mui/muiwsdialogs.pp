@@ -28,7 +28,7 @@ interface
 {$if defined(AROS) and defined(VER3_0)}
   {$define USE_OLD_ASL}
 {$endif}
-{$if defined(MotphOS) or defined(Amiga)}
+{$if defined(MorphOS) or defined(Amiga)}
   {$define USE_OLD_ASL}
 {$endif}
 

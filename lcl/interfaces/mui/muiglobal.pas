@@ -16,7 +16,9 @@
 unit MUIglobal;
 
 {$mode objfpc}{$H+}
-
+{$if defined(AROS) and defined(VER3_0)}
+  {$define FPC4AROS_VER3_FIXES}
+{$endif}
 interface
 
 uses
@@ -34,6 +36,11 @@ procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 {$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
 {$endif}
+{$ifdef FPC4AROS_VER3_FIXES}
+function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR;
+function GetAttr(AttrID: LongWord; Object_: PObject_; var Storage: IPTR): LongWord; overload syscall IntuitionBase 109;
+{$endif}
+
 
 {$ifdef Amiga}
 var
@@ -120,10 +127,18 @@ begin
 end;
 {$endif}
 
+{$ifdef FPC4AROS_VER3_FIXES}
+function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR; inline;
+begin
+  DoMethod := 0;
+  if obj = nil then 
+    Exit;
+  DoMethod := CALLHOOKPKT_(PHook(OCLASS(Obj)), Obj, @Args);
+end;
+{$endif}
 
 initialization
 {$ifdef Amiga}
   IntuitionBase := _IntuitionBase;
 {$endif}
 end.
-

@@ -25,6 +25,13 @@ unit MuiWSDialogs;
 
 interface
 
+{$if defined(AROS) and defined(VER3_0)}
+  {$define USE_OLD_ASL}
+{$endif}
+{$if defined(MotphOS) or defined(Amiga)}
+  {$define USE_OLD_ASL}
+{$endif}
+
 uses
   // RTL + LCL
   AGraphics, SysUtils, Classes, LCLType, LCLProc, Dialogs, Controls, Forms, Graphics,
@@ -226,7 +233,21 @@ begin
   //Hook.h_SubEntry := 0;
   //Hook.h_Data := MuiDialog;
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}
-
+{$ifdef USE_OLD_ASL}
+  if MUI_AslRequest(MuiDialog, TagsList) then
+  begin
+    FileDialog.FileName := GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_file));
+    if MultiSelect then
+    begin
+      FileDialog.Files.Clear;
+      for i := 1 to  MuiDialog^.rf_NumArgs do
+      begin
+        FileDialog.Files.Add(GetFilename(string(MuiDialog^.rf_Dir), string(PWBArgList(MuiDialog^.rf_ArgList)^[i].wa_Name)));
+      end;
+    end;
+    FileDialog.UserChoice := mrOK;
+  end else
+{$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.fr_Drawer), string(MuiDialog^.fr_file));
@@ -240,6 +261,7 @@ begin
     end;
     FileDialog.UserChoice := mrOK;
   end else
+{$endif}
     FileDialog.UserChoice := mrCancel;
 end;
 

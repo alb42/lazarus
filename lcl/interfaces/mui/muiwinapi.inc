@@ -1723,20 +1723,22 @@ var
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
 begin
-  {.$ifdef VERBOSEAROS}
-  //writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
+  {$ifdef VERBOSEAROS}
+  writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
 
-  //writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
-  //writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
-  {.$endif}
+  writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
+  writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
+  {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
     Dest.Drawn := True;
     if (SrcWidth = Width) and (SrcHeight = height) then
     begin
       //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);
-      //writeln('wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight, ', ', Src.Bitmap.FWidth);
-      //writeln('Draw Bitmap: ', HexStr(Src.Bitmap), ' width: ', Src.Bitmap.FWidth, ' ', Src.Drawn);
+      {$ifdef VERBOSEAROS}
+      writeln('   wrote: ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight, ', ', Src.Bitmap.FWidth);
+      writeln('   Draw Bitmap: ', HexStr(Src.Bitmap), ' width: ', Src.Bitmap.FWidth, ' ', Src.Drawn);
+      {$endif}
       if Src.Drawn then // means something was drawn on -> no alpha anymore :(
       begin
         ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);

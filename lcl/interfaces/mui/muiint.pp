@@ -374,7 +374,7 @@ type
   TABGRPixel = array[0..3] of Byte;
   PABGRPixel = ^TABGRPixel;
 
-{$define VERBOSEAROS}
+{.$define VERBOSEAROS}
 
 function TMUIWidgetSet.RawImage_CreateBitmaps(const ARawImage: TRawImage; out
   ABitmap: HBITMAP; out AMask: HBITMAP; ASkipMask: Boolean): Boolean;

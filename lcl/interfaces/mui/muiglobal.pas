@@ -44,6 +44,9 @@ function CreateRastPort: PRastPort;
 function CloneRastPort(Rp: PRastPort): PRastPort;
 procedure FreeRastPort(Rp: PRastPort);
 {$endif}
+{$ifdef MorphOS}
+function DoMethodA(obj : pObject_; msg1 : Pointer): longword; overload;
+{$endif}
 
 {$ifdef Amiga}
 var
@@ -54,6 +57,13 @@ function DoMethod(obj: LongWord; params: array of DWord): LongWord; overload;
 {$endif}
 
 implementation
+
+{$ifdef MorphOS}
+function DoMethodA(obj : pObject_; msg1 : Pointer): longword;
+begin
+  Result := Amigalib.DoMethodA(LongWord(Obj), Msg1);
+end;
+{$endif}
 
 {$undef SetHook}
 

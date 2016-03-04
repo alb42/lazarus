@@ -61,7 +61,7 @@ type
     c_ospeed : speed_t;
   end;
 
-{$ifdef AROS}
+{$ifdef HASAMIGA}
 function tcgetattr(__fd:cint; __termios_p: Ptermios):cint;
 function tcsetattr(__fd:cint; __optional_actions:cint; __termios_p: Ptermios):cint;
 function __read(Handle: cint; var Buffer; Count: size_t): ssize_t;
@@ -86,7 +86,7 @@ function fcntl(Handle: cint; Command: cint; Arg: clong): cint; cdecl;external cl
 {$endif}
 implementation
 
-{$ifdef AROS}
+{$ifdef HASAMIGA}
 function tcgetattr(__fd:cint; __termios_p: Ptermios):cint;
 begin
   Result := 0;

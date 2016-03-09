@@ -18,17 +18,15 @@ unit LazUTF8;
 
 {$mode objfpc}{$H+}{$inline on}
 
-{$IF defined(EnableUTF8RTL) and (FPC_FULLVERSION<20701)}
-  {$error UTF8 in RTL requires fpc 2.7.1+}
-{$ENDIF}
+{$i lazutils_defines.inc}
 
 interface
 
 uses
-  {$IFDEF EnableUTF8RTL}
-    {$ifdef unix}
-    cwstring, // UTF8 RTL on Unix requires this. Must be used although it pulls in clib.
-    {$endif}
+  {$IFDEF UTF8_RTL}
+  {$ifdef unix}
+  cwstring, // UTF8 RTL on Unix requires this. Must be used although it pulls in clib.
+  {$endif}
   FPCAdds,
   {$ENDIF}
   {$ifdef windows}
@@ -43,8 +41,8 @@ function NeedRTLAnsi: boolean;// true if system encoding is not UTF-8
 procedure SetNeedRTLAnsi(NewValue: boolean);
 
 // UTF8ToSys works like UTF8ToAnsi but more independent of widestringmanager
-function UTF8ToSys(const s: string): string; overload; {$IFDEF EnableUTF8RTL}inline;{$ENDIF}
-function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings; overload; {$IFDEF EnableUTF8RTL}inline;{$ENDIF}
+function UTF8ToSys(const s: string): string; overload; {$IFDEF UTF8_RTL}inline;{$ENDIF}
+function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings; overload; {$IFDEF UTF8_RTL}inline;{$ENDIF}
 
 // SysToUTF8 works like AnsiToUTF8 but more independent of widestringmanager
 function SysToUTF8(const s: string): string; overload;
@@ -54,13 +52,12 @@ function SysToUTF8(const AFormatSettings: TFormatSettings): TFormatSettings; ove
 function ConsoleToUTF8(const s: string): string;
 // converts UTF8 string to console encoding (used by Write, WriteLn)
 function UTF8ToConsole(const s: string): string;
-{$IFDEF MSWindows}
+
 // for all Windows supporting 8bit codepages (e.g. not WinCE)
 // converts string in Windows code page to UTF8 (used with some Windows specific functions)
-function WinCPToUTF8(const s: string): string;
+function WinCPToUTF8(const s: string): string; {$ifdef WinCe}inline;{$endif}
 // converts UTF8 string to Windows code page encoding (used by Write, WriteLn)
-function UTF8ToWinCP(const s: string): string;
-{$ENDIF}
+function UTF8ToWinCP(const s: string): string; {$ifdef WinCe}inline;{$endif}
 
 function ParamStrUTF8(Param: Integer): string;
 
@@ -94,8 +91,14 @@ function UTF8Pos(const SearchForText, SearchInText: string; StartPos: SizeInt = 
 function UTF8PosP(SearchForText: PChar; SearchForTextLen: SizeInt;
   SearchInText: PChar; SearchInTextLen: SizeInt): PChar;
 function UTF8Copy(const s: string; StartCharIndex, CharCount: PtrInt): string;
+{$IFnDEF NO_CP_RTL}
+procedure UTF8Delete(var s: Utf8String; StartCharIndex, CharCount: PtrInt);
+{$ENDIF}
 procedure UTF8Delete(var s: String; StartCharIndex, CharCount: PtrInt);
-procedure UTF8Insert(const source: String; var s: string; StartCharIndex: PtrInt);
+{$IFnDEF NO_CP_RTL}
+procedure UTF8Insert(const source: Utf8String; var s: Utf8String; StartCharIndex: PtrInt);
+{$ENDIF}
+procedure UTF8Insert(const source: String; var s: String; StartCharIndex: PtrInt);
 function UTF8StringReplace(const S, OldPattern, NewPattern: String;
   Flags: TReplaceFlags; ALanguage: string=''): String;
 
@@ -117,6 +120,8 @@ function UTF8LeftStr(const AText: String; const ACount: Integer): String;
 function UTF8RightStr(const AText: String; const ACount: Integer): String;
 function UTF8QuotedStr(const S, Quote: string): string;
 //Utf8 version of MidStr is just Utf8Copy with same parameters, so it is not implemented here
+function Utf8StartsText(const ASubText, AText: string): Boolean;
+function Utf8EndsText(const ASubText, AText: string): Boolean;
 
 function UTF8WrapText(S, BreakStr :string; BreakChars :TSysCharSet; MaxCol: integer): string; overload;
 function UTF8WrapText(S :string; MaxCol :integer) :string; overload;
@@ -252,7 +257,7 @@ end;
 
 function UTF8ToSys(const s: string): string;
 begin
-  {$IFDEF EnableUTF8RTL}
+  {$IFDEF UTF8_RTL}
   Result:=s;
   {$ELSE}
   if NeedRTLAnsi and (not IsASCII(s)) then
@@ -264,7 +269,7 @@ end;
 
 function SysToUTF8(const s: string): string;
 begin
-  {$IFDEF EnableUTF8RTL}
+  {$IFDEF UTF8_RTL}
   Result:=s;
   {$ELSE}
   if NeedRTLAnsi and (not IsASCII(s)) then
@@ -298,13 +303,13 @@ begin
 end;
 
 function UTF8ToSys(const AFormatSettings: TFormatSettings): TFormatSettings;
-{$IFNDEF EnableUTF8RTL}
+{$IFnDEF UTF8_RTL}
 var
   i: Integer;
 {$ENDIF}
 begin
   Result := AFormatSettings;
-  {$IFNDEF EnableUTF8RTL}
+  {$IFnDEF UTF8_RTL}
   Result.CurrencyString := UTF8ToSys(AFormatSettings.CurrencyString);
   for i:=1 to 12 do begin
     Result.LongMonthNames[i] := UTF8ToSys(AFormatSettings.LongMonthNames[i]);
@@ -890,6 +895,26 @@ begin
   end;
 end;
 
+{$IFnDEF NO_CP_RTL}
+procedure UTF8Delete(var s: Utf8String; StartCharIndex, CharCount: PtrInt);
+var
+  tmp: String;
+begin
+  tmp := RawByteString(s);
+  {.$IFDEF ACP_RTL}
+  { change code page without converting the data }
+  SetCodePage(RawByteString(tmp), CP_UTF8, False);
+  {.$ENDIF}
+  { keep refcount to 1 if it was 1, to avoid unnecessary copies }
+  s := '';
+  UTF8Delete(tmp,StartCharIndex,CharCount);
+  { same as above }
+  s := RawByteString(tmp);
+  tmp := '';
+  SetCodePage(RawByteString(s), CP_UTF8, False);
+end;
+{$ENDIF NO_ACP_RTL}
+
 procedure UTF8Delete(var s: String; StartCharIndex, CharCount: PtrInt);
 var
   StartBytePos: PChar;
@@ -908,7 +933,20 @@ begin
   end;
 end;
 
-procedure UTF8Insert(const source: String; var s: string; StartCharIndex: PtrInt);
+{$IFnDEF NO_CP_RTL}
+{It's simper to copy the code from the variant with String parameters than writing a wrapper}
+procedure UTF8Insert(const source: UTF8String; var s: UTF8string;
+  StartCharIndex: PtrInt);
+var
+  StartBytePos: PChar;
+begin
+  StartBytePos:=UTF8CharStart(PChar(s),length(s),StartCharIndex-1);
+  if StartBytePos <> nil then
+    Insert(source, s, StartBytePos-PChar(s)+1);
+end;
+{$ENDIF NO_CP_RTL}
+
+procedure UTF8Insert(const source: String; var s: String; StartCharIndex: PtrInt);
 var
   StartBytePos: PChar;
 begin
@@ -2008,7 +2046,7 @@ begin
             case c3 of
             #$A2: OutStr^ := #$AB;
             #$A4: OutStr^ := #$BD;
-            #$AD: OutStr^ := #$90;
+            #$AD: OutStr^ := #$91;
             #$AE: OutStr^ := #$B1;
             #$AF: OutStr^ := #$90;
             #$B0: OutStr^ := #$92;
@@ -2773,6 +2811,34 @@ begin
   Result+=copy(S,CopyPos-PChar(S)+1,p-CopyPos)+Quote;
 end;
 
+function Utf8StartsText(const ASubText, AText: string): Boolean;
+var
+  TextLen, SubTextLen: PtrInt;
+begin
+  Result := False;
+  if (ASubText <> '') then
+  begin
+    TextLen := Utf8Length(AText);
+    SubTextLen := Utf8Length(ASubText);
+    if (TextLen >= SubTextLen) then
+      Result := (Utf8CompareText(Utf8Copy(AText,1,SubTextLen),ASubText) = 0);
+  end;
+end;
+
+function Utf8EndsText(const ASubText, AText: string): Boolean;
+var
+  TextLen, SubTextLen: PtrInt;
+begin
+  Result := False;
+  if (ASubText <> '') then
+  begin
+    TextLen := Utf8Length(AText);
+    SubTextLen := Utf8Length(ASubText);
+    if (TextLen >= SubTextLen) then
+      Result := (Utf8CompareText(Utf8Copy(AText,TextLen-SubTextLen+1,SubTextLen),ASubText) = 0);
+  end;
+end;
+
 function UTF8WrapText(S, BreakStr :string; BreakChars :TSysCharSet; MaxCol: integer): string;
 var
   P :PChar;
@@ -2951,8 +3017,9 @@ end;
 {------------------------------------------------------------------------------
   Name:    UTF8CompareStr
   Params: S1, S2 - UTF8 encoded strings
-  Returns: < 0 if S1 < S2, 0 if S1 = S2, > 0 if S2 > S1.
-  Compare 2 UTF8 encoded strings, case sensitive.
+  Returns: < 0 if S1 < S2, 0 if S1 = S2, > 0 if S1 > S2.
+  Compare two UTF8 encoded strings, case sensitive.
+  Internally it uses CompareMemRange, which returns -1 if a byte of S1 is lower than S2.
  ------------------------------------------------------------------------------}
 function UTF8CompareStr(const S1, S2: string): PtrInt;
 begin
@@ -2988,10 +3055,11 @@ end;
 {------------------------------------------------------------------------------
   Name:    UTF8CompareText
   Params: S1, S2 - UTF8 encoded strings
-  Returns: < 0 if S1 < S2, 0 if S1 = S2, > 0 if S2 > S1.
-  Compare 2 UTF8 encoded strings, case insensitive.
+  Returns: < 0 if S1 < S2, 0 if S1 = S2, > 0 if S1 > S2.
+  Compare two UTF8 encoded strings, case insensitive.
   Note: Use this function instead of AnsiCompareText.
   This function guarantees proper collation on all supported platforms.
+  Internally it uses UTF8CompareStr.
  ------------------------------------------------------------------------------}
 function UTF8CompareText(const S1, S2: string): PtrInt;
 var

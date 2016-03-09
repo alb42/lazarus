@@ -292,7 +292,6 @@ const
   );
 
 
-
 { TQtWSScrollBar }
 
 {------------------------------------------------------------------------------
@@ -627,6 +626,8 @@ class procedure TQtWSCustomListBox.SetItemIndex(const ACustomListBox: TCustomLis
 begin
   if not WSCheckHandleAllocated(ACustomListBox, 'SetItemIndex') then
     Exit;
+  if TQtListWidget(ACustomListBox.Handle).currentRow <> AIndex then
+    TQtListWidget(ACustomListBox.Handle).clearSelection;
   TQtListWidget(ACustomListBox.Handle).setCurrentRow(AIndex);
 end;
 

@@ -190,6 +190,7 @@ type
     ttReintroduce,
     ttGeneric,
     ttCVar,
+    ttNostackframe,
     // used in asm
     ttOffset,
     ttPtr,
@@ -216,6 +217,7 @@ type
     { Additional Free Pascal directives }
     ttExperimental,
     ttUnimplemented,
+    ttInterrupt,
 
     { built-in constants }
     ttNil,
@@ -361,7 +363,8 @@ const
     ttNear, ttDynamic, ttExport, ttOverride, ttResident, ttLocal,
     ttOverload, ttReintroduce,
     ttDeprecated, ttLibrary, ttPlatform, ttExperimental, ttUnimplemented,
-    ttStatic, ttFinal, ttVarArgs, ttUnsafe, ttEnumerator];
+    ttStatic, ttFinal, ttVarArgs, ttUnsafe, ttEnumerator, ttNostackframe, ttInterrupt,
+    ttPublic];
 
   ClassDirectives: TTokenTypeSet =
     [ttPrivate, ttProtected, ttPublic, ttPublished, ttAutomated, ttStrict];
@@ -474,8 +477,8 @@ type
 const
   PREPROC_BLOCK_END = [ppElseIf, ppElse, ppEndIf, ppIfEnd];
 
-procedure GetPreprocessorSymbolData(const psSourceCode: WideString;
-  var peSymbolType: TPreProcessorSymbolType; var psText: WideString);
+procedure GetPreprocessorSymbolData(const psSourceCode: String;
+  var peSymbolType: TPreProcessorSymbolType; var psText: String);
 
 function PreProcSymbolTypeToString(const peSymbolType: TPreProcessorSymbolType): string;
 function PreProcSymbolTypeSetToString(
@@ -490,8 +493,7 @@ uses
 {$ENDIF}
   SysUtils,
   { local }
-  JcfStringUtils,
-  JcfUnicode;
+  JcfStringUtils;
 
 { the majority of these tokens have a fixed textual representation
   e.g. ':=', 'if'.
@@ -684,6 +686,7 @@ begin
   AddKeyword('reintroduce', wtReservedWordDirective, ttReintroduce);
 
   AddKeyword('cvar', wtReservedWordDirective, ttCVar);
+  AddKeyword('nostackframe', wtReservedWordDirective, ttNostackframe);
 
   // asm
   AddKeyword('offset', wtReservedWordDirective, ttOffset);
@@ -712,6 +715,7 @@ begin
   { Additional Free Pascal directives }
   AddKeyword('experimental', wtReservedWordDirective, ttExperimental);
   AddKeyword('unimplemented', wtReservedWordDirective, ttUnimplemented);
+  AddKeyword('interrupt', wtReservedWordDirective, ttInterrupt);
 
   { operators that are words not symbols }
   AddKeyword('and', wtOperator, ttAnd);
@@ -1072,8 +1076,8 @@ const
 
 
 { given a token, identify the preprocessor symbol and the text after it }
-procedure GetPreprocessorSymbolData(const psSourceCode: WideString;
-  var peSymbolType: TPreProcessorSymbolType; var psText: WideString);
+procedure GetPreprocessorSymbolData(const psSourceCode: String;
+  var peSymbolType: TPreProcessorSymbolType; var psText: String);
 var
   leLoop:    TPreProcessorSymbolType;
   liItemLen: integer;
@@ -1088,7 +1092,7 @@ begin
 
     liItemLen := Length(PreProcessorSymbolData[leLoop]);
     if AnsiSameText(StrLeft(psSourceCode, liItemLen), PreProcessorSymbolData[leLoop]) and
-      ( not WideCharIsAlpha(psSourceCode[liItemLen + 1])) then
+      ( not CharIsAlpha(psSourceCode[liItemLen + 1])) then
     begin
       peSymbolType := leLoop;
       break;

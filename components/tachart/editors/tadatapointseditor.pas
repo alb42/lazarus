@@ -18,6 +18,9 @@ uses
   Graphics, Dialogs;
 
 type
+
+  { TDataPointsEditorForm }
+
   TDataPointsEditorForm = class(TForm)
     ButtonPanel1: TButtonPanel;
     cdItemColor: TColorDialog;
@@ -25,6 +28,7 @@ type
     miDeleteRow: TMenuItem;
     pmRows: TPopupMenu;
     sgData: TStringGrid;
+    procedure FormCreate(Sender: TObject);
     procedure miDeleteRowClick(Sender: TObject);
     procedure miInsertRowClick(Sender: TObject);
     procedure pmRowsPopup(Sender: TObject);
@@ -32,13 +36,15 @@ type
     procedure sgDataDrawCell(
       ASender: TObject; ACol, ARow: Integer; ARect: TRect;
       AState: TGridDrawState);
+    procedure sgDataPrepareCanvas(sender: TObject; aCol, aRow: Integer;
+      aState: TGridDrawState);
   strict private
     FCurrentRow: Integer;
     FDataPoints: TStrings;
     FYCount: Integer;
   public
     procedure InitData(AYCount: Integer; ADataPoints: TStrings);
-    procedure ExtractData;
+    procedure ExtractData(out AModified: Boolean);
   end;
 
 procedure Register;
@@ -46,7 +52,8 @@ procedure Register;
 implementation
 
 uses
-  LCLIntf, Math, PropEdits, TAChartUtils, TASources;
+  LCLIntf, Math, PropEdits,
+  TAChartStrConsts, TAChartUtils, TASources;
 
 {$R *.lfm}
 
@@ -67,11 +74,13 @@ end;
 
 { TDataPointsEditorForm }
 
-procedure TDataPointsEditorForm.ExtractData;
+procedure TDataPointsEditorForm.ExtractData(out AModified: Boolean);
 var
   i: Integer;
   s: String;
+  oldDataPoints: String;
 begin
+  oldDataPoints := FDataPoints.Text;
   FDataPoints.BeginUpdate;
   try
     FDataPoints.Clear;
@@ -86,6 +95,7 @@ begin
     end;
   finally
     FDataPoints.EndUpdate;
+    AModified := FDataPoints.Text <> oldDataPoints;
   end;
 end;
 
@@ -120,6 +130,15 @@ begin
   end;
   if InRange(FCurrentRow, 1, sgData.RowCount - 1) then
     sgData.DeleteRow(FCurrentRow);
+end;
+
+procedure TDataPointsEditorForm.FormCreate(Sender: TObject);
+begin
+  Caption := desDatapointEditor;
+  sgData.Columns[2].Title.Caption := desColor;
+  sgData.Columns[3].Title.Caption := desText;
+  miInsertRow.Caption := desInsertRow;
+  miDeleteRow.Caption := desDeleteRow;
 end;
 
 procedure TDataPointsEditorForm.miInsertRowClick(Sender: TObject);
@@ -160,17 +179,34 @@ begin
   sgData.Canvas.Rectangle(ARect);
 end;
 
+procedure TDataPointsEditorForm.sgDataPrepareCanvas(sender: TObject; aCol,
+  aRow: Integer; aState: TGridDrawState);
+var
+  ts: TTextStyle;
+begin
+  Unused(aRow, aState);
+  if ACol = 0 then begin
+    ts := TStringGrid(Sender).Canvas.TextStyle;
+    ts.Alignment := taRightJustify;
+    TStringGrid(Sender).Canvas.TextStyle := ts;
+  end;
+end;
+
 { TDataPointsPropertyEditor }
 
 procedure TDataPointsPropertyEditor.Edit;
+var
+  dataModified: Boolean;
 begin
   with TDataPointsEditorForm.Create(nil) do
     try
       InitData(
         (GetComponent(0) as TListChartSource).YCount,
         GetObjectValue as TStrings);
-      if ShowModal = mrOK then
-        ExtractData;
+      if ShowModal = mrOK then begin
+        ExtractData(dataModified);
+        if dataModified then Modified;
+      end;
     finally
       Free;
     end;

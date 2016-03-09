@@ -351,7 +351,7 @@ end;
 function TChartMinorAxis.GetMarks: TChartMinorAxisMarks;
 begin
   Result := TChartMinorAxisMarks(inherited Marks);
-end;
+end{%H-}; // to silence the compiler warning of impossible inherited inside inline proc
 
 function TChartMinorAxis.GetMarkValues(AMin, AMax: Double): TChartValueTextArray;
 var
@@ -562,7 +562,7 @@ end;
 function TChartAxis.GetMarks: TChartAxisMarks;
 begin
   Result := TChartAxisMarks(inherited Marks);
-end;
+end{%H-}; // to silence the compiler warning of impossible inherited inside inline proc
 
 procedure TChartAxis.GetMarkValues;
 var
@@ -822,8 +822,8 @@ begin
   FHelper.FZOffset.Y := Min(ZPosition, AMaxZPosition);
   FHelper.FZOffset.X := -FHelper.FZOffset.Y;
   FHelper.FAtDataOnly := AtDataOnly;
-  FHelper.FMaxForMarks := -infinity;
-  FHelper.FMinForMarks := infinity;
+  FHelper.FMaxForMarks := NegInfinity;
+  FHelper.FMinForMarks := SafeInfinity;
 end;
 
 procedure TChartAxis.SetAlignment(AValue: TChartAxisAlignment);
@@ -1005,7 +1005,7 @@ end;
 function TChartAxisList.Add: TChartAxis; inline;
 begin
   Result := TChartAxis(inherited Add);
-end;
+end{%H-};
 
 constructor TChartAxisList.Create(AOwner: TCustomChart);
 begin

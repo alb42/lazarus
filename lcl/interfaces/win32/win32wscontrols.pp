@@ -81,6 +81,7 @@ type
     class procedure Invalidate(const AWinControl: TWinControl); override;
     class procedure PaintTo(const AWinControl: TWinControl; ADC: HDC; X, Y: Integer); override;
     class procedure ShowHide(const AWinControl: TWinControl); override;
+    class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
   end;
 
   { TWin32WSGraphicControl }
@@ -176,10 +177,7 @@ var
   lhFont: HFONT;
   AErrorCode: Cardinal;
   NCCreateParams: TNCCreateParams;
-  WindowClass, DummyClass: WndClass;
-{$ifdef WindowsUnicodeSupport}
   WindowClassW, DummyClassW: WndClassW;
-{$endif}
 begin
   NCCreateParams.DefWndProc := nil;
   NCCreateParams.WinControl := AWinControl;
@@ -191,60 +189,26 @@ begin
     begin
       if SubClass then
       begin
-      {$ifdef WindowsUnicodeSupport}
-        if UnicodeEnabledOS then
+        if GetClassInfoW(System.HInstance, PWideChar(WideString(pClassName)), @WindowClassW) then
         begin
-          if GetClassInfoW(System.HInstance, PWideChar(WideString(pClassName)), @WindowClassW) then
+          NCCreateParams.DefWndProc := WndProc(WindowClassW.lpfnWndProc);
+          if not GetClassInfoW(System.HInstance, PWideChar(WideString(pSubClassName)), @DummyClassW) then
           begin
-            NCCreateParams.DefWndProc := WndProc(WindowClassW.lpfnWndProc);
-            if not GetClassInfoW(System.HInstance, PWideChar(WideString(pSubClassName)), @DummyClassW) then
+            with WindowClassW do
             begin
-              with WindowClassW do
-              begin
-                LPFnWndProc := SubClassWndProc;
-                hInstance := System.HInstance;
-                lpszClassName := PWideChar(WideString(pSubClassName));
-              end;
-              Windows.RegisterClassW(@WindowClassW);
+              LPFnWndProc := SubClassWndProc;
+              hInstance := System.HInstance;
+              lpszClassName := PWideChar(WideString(pSubClassName));
             end;
-            pClassName := pSubClassName;
+            Windows.RegisterClassW(@WindowClassW);
           end;
-        end
-        else
-      {$endif}
-        begin
-          if GetClassInfo(System.HInstance, pClassName, @WindowClass) then
-          begin
-            NCCreateParams.DefWndProc := WndProc(WindowClass.lpfnWndProc);
-            if not GetClassInfo(System.HInstance, pSubClassName, @DummyClass) then
-            begin
-              with WindowClass do
-              begin
-                LPFnWndProc := SubClassWndProc;
-                hInstance := System.HInstance;
-                lpszClassName := pSubClassName;
-              end;
-              Windows.RegisterClass(@WindowClass);
-            end;
-            pClassName := pSubClassName;
-          end;
+          pClassName := pSubClassName;
         end;
       end;
 
-      {$ifdef WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-        Window := CreateWindowExW(FlagsEx, PWideChar(WideString(pClassName)),
-          PWideChar(UTF8ToUTF16(WindowTitle)), Flags,
-          Left, Top, Width, Height, Parent, 0, HInstance, @NCCreateParams)
-      else
-        Window := CreateWindowEx(FlagsEx, pClassName,
-          PChar(Utf8ToAnsi(WindowTitle)), Flags,
-          Left, Top, Width, Height, Parent, 0, HInstance, @NCCreateParams);
-      {$else}
-        Window := CreateWindowEx(FlagsEx, pClassName,
-          PChar(WindowTitle), Flags,
-          Left, Top, Width, Height, Parent, 0, HInstance, @NCCreateParams);
-      {$endif}
+      Window := CreateWindowExW(FlagsEx, PWideChar(WideString(pClassName)),
+        PWideChar(UTF8ToUTF16(WindowTitle)), Flags,
+        Left, Top, Width, Height, Parent, 0, HInstance, @NCCreateParams);
 
       if Window = 0 then
       begin
@@ -504,14 +468,7 @@ end;
 class procedure TWin32WSWinControl.SetText(const AWinControl: TWinControl; const AText: string);
 begin
   if not WSCheckHandleAllocated(AWincontrol, 'SetText') then Exit;
-{$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-    SendMessageW(AWinControl.Handle, WM_SETTEXT, 0, LPARAM(PWideChar(UTF8ToUTF16(AText))))
-  else
-    SendMessage(AWinControl.Handle, WM_SETTEXT, 0, LPARAM(PChar(Utf8ToAnsi(AText))));
-{$else}
-  SendMessage(AWinControl.Handle, WM_SETTEXT, 0, LPARAM(PChar(AText)));
-{$endif}
+  SendMessageW(AWinControl.Handle, WM_SETTEXT, 0, LPARAM(PWideChar(UTF8ToUTF16(AText))));
 end;
 
 class procedure TWin32WSWinControl.SetCursor(const AWinControl: TWinControl; const ACursor: HCursor);
@@ -598,6 +555,14 @@ const
 begin
   Windows.SetWindowPos(AWinControl.Handle, 0, 0, 0, 0, 0,
     SWP_NOSIZE or SWP_NOMOVE or SWP_NOZORDER or SWP_NOACTIVATE or VisibilityToFlag[AWinControl.HandleObjectShouldBeVisible])
+end;
+
+class procedure TWin32WSWinControl.ScrollBy(const AWinControl: TWinControl;
+  DeltaX, DeltaY: integer);
+begin
+  if AWinControl.HandleAllocated then
+    ScrollWindowEx(AWinControl.Handle, DeltaX, DeltaY, nil, nil, 0, nil,
+      SW_INVALIDATE or SW_ERASE or SW_SCROLLCHILDREN);
 end;
 
 { TWin32WSDragImageList }

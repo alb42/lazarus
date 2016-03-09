@@ -34,13 +34,13 @@ unit AnchorDockOptionsDlg;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, ButtonPanel,
-  StdCtrls, ComCtrls, LCLProc, AnchorDocking, AnchorDockStr, types;
+  Classes, SysUtils, types,
+  Forms, Controls, ButtonPanel, StdCtrls, ComCtrls,
+  AnchorDocking, AnchorDockStr;
 
 type
   TAnchorDockOptionsFlag = (
-    adofShow_ShowHeader,
-    adofShow_ShowSaveOnClose
+    adofShow_ShowHeader
     );
   TAnchorDockOptionsFlags = set of TAnchorDockOptionsFlag;
 
@@ -58,7 +58,6 @@ type
     HeaderStyleComboBox: TComboBox;
     HeaderStyleLabel: TLabel;
     HideHeaderCaptionForFloatingCheckBox: TCheckBox;
-    SaveLayoutOnCloseCheckBox: TCheckBox;
     ScaleOnResizeCheckBox: TCheckBox;
     ShowHeaderCaptionCheckBox: TCheckBox;
     ShowHeaderCheckBox: TCheckBox;
@@ -112,21 +111,24 @@ var
 begin
   Dlg:=TForm.Create(nil);
   try
-    Dlg.DisableAutoSizing;
-    Dlg.Position:=poScreenCenter;
-    Dlg.AutoSize:=true;
-    Dlg.Caption:=adrsGeneralDockingOptions;
+    Dlg.DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('ShowAnchorDockOptions'){$ENDIF};
+    try
+      Dlg.Position:=poScreenCenter;
+      Dlg.AutoSize:=true;
+      Dlg.Caption:=adrsGeneralDockingOptions;
 
-    OptsFrame:=TAnchorDockOptionsFrame.Create(Dlg);
-    OptsFrame.Align:=alClient;
-    OptsFrame.Parent:=Dlg;
-    OptsFrame.Master:=ADockMaster;
+      OptsFrame:=TAnchorDockOptionsFrame.Create(Dlg);
+      OptsFrame.Align:=alClient;
+      OptsFrame.Parent:=Dlg;
+      OptsFrame.Master:=ADockMaster;
 
-    BtnPanel:=TButtonPanel.Create(Dlg);
-    BtnPanel.ShowButtons:=[pbOK, pbCancel];
-    BtnPanel.OKButton.OnClick:=@OptsFrame.OkClick;
-    BtnPanel.Parent:=Dlg;
-    Dlg.EnableAutoSizing;
+      BtnPanel:=TButtonPanel.Create(Dlg);
+      BtnPanel.ShowButtons:=[pbOK, pbCancel];
+      BtnPanel.OKButton.OnClick:=@OptsFrame.OkClick;
+      BtnPanel.Parent:=Dlg;
+    finally
+      Dlg.EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('ShowAnchorDockOptions'){$ENDIF};
+    end;
     Result:=Dlg.ShowModal;
   finally
     Dlg.Free;
@@ -247,7 +249,6 @@ begin
     ShowHeaderCaptionCheckBox.BorderSpacing.Left:=15
   else
     ShowHeaderCaptionCheckBox.BorderSpacing.Left:=0;
-  SaveLayoutOnCloseCheckBox.Visible:=adofShow_ShowSaveOnClose in Flags;
 end;
 
 constructor TAnchorDockOptionsFrame.Create(TheOwner: TComponent);
@@ -292,7 +293,6 @@ begin
   TheSettings.HeaderAlignLeft:=HeaderAlignLeftTrackBar.Position;
   TheSettings.SplitterWidth:=SplitterWidthTrackBar.Position;
   TheSettings.ScaleOnResize:=ScaleOnResizeCheckBox.Checked;
-  TheSettings.SaveOnClose:=SaveLayoutOnCloseCheckBox.Checked;
   TheSettings.ShowHeader:=ShowHeaderCheckBox.Checked;
   TheSettings.ShowHeaderCaption:=ShowHeaderCaptionCheckBox.Checked;
   TheSettings.HideHeaderCaptionFloatingControl:=HideHeaderCaptionForFloatingCheckBox.Checked;
@@ -335,9 +335,6 @@ begin
   SplitterWidthTrackBar.Hint:=adrsSplitterThickness;
   SplitterWidthTrackBar.Position:=TheSettings.SplitterWidth;
   UpdateSplitterWidthLabel;
-
-  SaveLayoutOnCloseCheckBox.Caption:=adrsSaveLayoutOnClose;
-  SaveLayoutOnCloseCheckBox.Checked:=TheSettings.SaveOnClose;
 
   ScaleOnResizeCheckBox.Caption:=adrsScaleOnResize;
   ScaleOnResizeCheckBox.Hint:=adrsScaleSubSitesWhenASiteIsResized;

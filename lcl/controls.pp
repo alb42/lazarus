@@ -35,7 +35,7 @@ interface
 {$ENDIF}
 
 uses
-  Classes, SysUtils, TypInfo, types, LCLStrConsts, LCLType, AvgLvlTree,
+  Classes, SysUtils, TypInfo, Types, LCLStrConsts, LCLType, AvgLvlTree,
   LCLProc, GraphType, Graphics, LMessages, LCLIntf, InterfaceBase, ImgList,
   PropertyStorage, Menus, ActnList, LCLClasses, LResources;
 
@@ -466,6 +466,12 @@ type
   TGetSiteInfoEvent = procedure(Sender: TObject; DockClient: TControl;
     var InfluenceRect: TRect; MousePos: TPoint; var CanDock: Boolean) of object;
 
+  TDrawDockImageEvent = procedure(Sender: TObject; AOldRect, ANewRect: TRect; AOperation: TDockImageOperation);
+
+var
+  OnDrawDockImage: TDrawDockImageEvent = nil;
+
+type
   TDragDockObject = class(TDragObject)
   private
     FDockOffset: TPoint;
@@ -485,6 +491,7 @@ type
     procedure ShowDockImage; virtual;
     procedure HideDockImage; virtual;
     procedure MoveDockImage; virtual;
+    function HasOnDrawImage: boolean; virtual;
   public
     property DockOffset: TPoint read FDockOffset write FDockOffset;
     property DockRect: TRect read FDockRect write FDockRect; // where to drop Control, screen coordinates
@@ -693,6 +700,10 @@ type
     FRight: TSpacingSize;
     FTop: TSpacingSize;
     FDefault: PControlBorderSpacingDefault;
+    function GetControlHeight: Integer;
+    function GetControlLeft: Integer;
+    function GetControlTop: Integer;
+    function GetControlWidth: Integer;
     function IsAroundStored: boolean;
     function IsBottomStored: boolean;
     function IsInnerBorderStored: boolean;
@@ -721,6 +732,10 @@ type
   public
     property Control: TControl read FControl;
     property Space[Kind: TAnchorKind]: integer read GetSpace write SetSpace;
+    property ControlLeft: Integer read GetControlLeft;
+    property ControlTop: Integer read GetControlTop;
+    property ControlWidth: Integer read GetControlWidth;
+    property ControlHeight: Integer read GetControlHeight;
   published
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property Left: TSpacingSize read FLeft write SetLeft stored IsLeftStored;
@@ -1315,6 +1330,7 @@ type
     procedure DblClick; virtual;
     procedure TripleClick; virtual;
     procedure QuadClick; virtual;
+    function GetMousePosFromMessage(const MessageMousePos: TSmallPoint): TPoint;
     procedure MouseDown(Button: TMouseButton; Shift:TShiftState; X,Y:Integer); virtual;
     procedure MouseMove(Shift: TShiftState; X,Y: Integer); virtual;
     procedure MouseUp(Button: TMouseButton; Shift:TShiftState; X,Y:Integer); virtual;
@@ -1370,6 +1386,8 @@ type
     procedure RemoveHandler(HandlerType: TControlHandlerType;
                             const AMethod: TMethod);
     procedure DoCallNotifyHandler(HandlerType: TControlHandlerType);
+    procedure DoCallKeyEventHandler(HandlerType: TControlHandlerType;
+                                    var Key: Word; Shift: TShiftState);
     procedure DoContextPopup(MousePos: TPoint; var Handled: Boolean); virtual;
     procedure SetZOrder(TopMost: Boolean); virtual;
     class function GetControlClassDefaultSize: TSize; virtual;
@@ -2153,6 +2171,7 @@ type
     procedure DisableAlign;
     procedure EnableAlign;
     procedure ReAlign; // realign all children
+    procedure ScrollBy_WS(DeltaX, DeltaY: Integer);
     procedure ScrollBy(DeltaX, DeltaY: Integer); virtual;
     procedure WriteLayoutDebugReport(const Prefix: string); override;
     procedure AutoAdjustLayout(AMode: TLayoutAdjustmentPolicy;
@@ -2164,6 +2183,7 @@ type
     destructor Destroy; override;
     procedure DockDrop(DragDockObject: TDragDockObject; X, Y: Integer); virtual;
     function CanFocus: Boolean; virtual;
+    function CanSetFocus: Boolean; virtual;
     function GetControlIndex(AControl: TControl): integer;
     procedure SetControlIndex(AControl: TControl; NewIndex: integer);
     function Focused: Boolean; virtual;
@@ -2595,6 +2615,10 @@ procedure GetCursorValues(Proc: TGetStrProc);
 function CursorToIdent(Cursor: Longint; var Ident: string): Boolean;
 function IdentToCursor(const Ident: string; var Cursor: Longint): Boolean;
 
+function CheckMouseButtonDownUp(const AWinHandle: THandle; const AWinControl: TWinControl;
+  var LastMouse: TLastMouseInfo; const AMousePos: TPoint; const AButton: Byte;
+  const AMouseDown: Boolean): Cardinal;
+
 // shiftstate
 function GetKeyShiftState: TShiftState;
 
@@ -2912,6 +2936,123 @@ begin
   MoveWindowOrgEx(DC,X,Y);
 end;
 
+function CheckMouseButtonDownUp(const AWinHandle: THandle;
+  const AWinControl: TWinControl; var LastMouse: TLastMouseInfo;
+  const AMousePos: TPoint; const AButton: Byte; const AMouseDown: Boolean
+  ): Cardinal;
+const
+  DblClickThreshold = 3;// max Movement between two clicks of a DblClick
+
+  // array of clickcount x buttontype
+  MSGKINDDOWN: array[1..4, 1..4] of Integer =
+  (
+    (LM_LBUTTONDOWN, LM_LBUTTONDBLCLK, LM_LBUTTONTRIPLECLK, LM_LBUTTONQUADCLK),
+    (LM_RBUTTONDOWN, LM_RBUTTONDBLCLK, LM_RBUTTONTRIPLECLK, LM_RBUTTONQUADCLK),
+    (LM_MBUTTONDOWN, LM_MBUTTONDBLCLK, LM_MBUTTONTRIPLECLK, LM_MBUTTONQUADCLK),
+    (LM_XBUTTONDOWN, LM_XBUTTONDBLCLK, LM_XBUTTONTRIPLECLK, LM_XBUTTONQUADCLK)
+  );
+  MSGKINDUP: array[1..4] of Integer =
+    (LM_LBUTTONUP, LM_RBUTTONUP, LM_MBUTTONUP, LM_XBUTTONUP);
+
+  function LastClickInSameWinControl: boolean;
+  begin
+    Result := (LastMouse.WinHandle <> 0) and
+              (LastMouse.WinHandle = AWinHandle) and
+              (LastMouse.WinControl = AWinControl);
+  end;
+
+  function LastClickAtSamePosition: boolean;
+  begin
+    Result:= (Abs(AMousePos.X-LastMouse.MousePos.X) <= DblClickThreshold) and
+             (Abs(AMousePos.Y-LastMouse.MousePos.Y) <= DblClickThreshold);
+  end;
+
+  function LastClickInTime: boolean;
+  begin
+    Result:=((GetTickCount64 - LastMouse.Time) <= GetDoubleClickTime);
+  end;
+
+  function LastClickSameButton: boolean;
+  begin
+    Result:=(AButton=LastMouse.Button);
+  end;
+
+  function TestIfMultiClickDown: boolean;
+  begin
+    Result:= LastClickInSameWinControl and
+             LastClickAtSamePosition and
+             LastClickInTime and
+             LastClickSameButton;
+  end;
+
+  function TestIfMultiClickUp: boolean;
+  begin
+    Result:= LastClickInSameWinControl and
+             LastClickAtSamePosition and
+             LastClickSameButton;
+  end;
+
+var
+  IsMultiClick: boolean;
+  TargetControl: TControl;
+begin
+  Result := LM_NULL;
+
+  if AMouseDown then
+    IsMultiClick := TestIfMultiClickDown
+  else
+    IsMultiClick := TestIfMultiClickUp;
+
+  if AMouseDown then
+  begin
+    inc(LastMouse.ClickCount);
+
+    if (LastMouse.ClickCount <= 4) and IsMultiClick then
+    begin
+      // multi click
+    end else
+    begin
+      // normal click
+      LastMouse.ClickCount:=1;
+    end;
+
+    LastMouse.Time := GetTickCount64;
+    LastMouse.MousePos := AMousePos;
+    LastMouse.WinControl := AWinControl;
+    LastMouse.WinHandle := AWinHandle;
+    LastMouse.Button := AButton;
+  end else
+  begin // mouse up
+    if not IsMultiClick then
+      LastMouse.ClickCount := 1;
+  end;
+
+  if (AWinControl<>nil) and not(csDesigning in AWinControl.ComponentState) then
+  begin // runtime - handle multi clicks according to ControlStyle
+    if LastMouse.ClickCount > 1 then
+    begin
+      TargetControl := AWinControl.ControlAtPos(AWinControl.ScreenToClient(AMousePos), [capfHasScrollOffset]);
+      if TargetControl=nil then
+        TargetControl := AWinControl;
+      case LastMouse.ClickCount of
+        2: if not(csDoubleClicks in TargetControl.ControlStyle) then LastMouse.ClickCount := 1;
+        3: if not(csTripleClicks in TargetControl.ControlStyle) then LastMouse.ClickCount := 1;
+        4: if not(csQuadClicks in TargetControl.ControlStyle) then LastMouse.ClickCount := 1;
+      end;
+    end;
+  end else
+  begin // design time or special system controls without TWinControl, allow only double clicks
+    if LastMouse.ClickCount > 2 then
+      LastMouse.ClickCount := 2;
+  end;
+  LastMouse.Down := AMouseDown;
+
+  if AMouseDown then
+    Result := MSGKINDDOWN[AButton][LastMouse.ClickCount]
+  else
+    Result := MSGKINDUP[AButton];
+end;
+
 function GetKeyShiftState: TShiftState;
 begin
   Result := [];
@@ -3168,7 +3309,7 @@ const
   DeadCursors = 1;
 
 const
-  Cursors: array[0..22] of TIdentMapEntry = (
+  CursorIdents: array[0..30] of TIdentMapEntry = (
     (Value: crDefault;      Name: 'crDefault'),
     (Value: crNone;         Name: 'crNone'),
     (Value: crArrow;        Name: 'crArrow'),
@@ -3178,6 +3319,14 @@ const
     (Value: crSizeNS;       Name: 'crSizeNS'),
     (Value: crSizeNWSE;     Name: 'crSizeNWSE'),
     (Value: crSizeWE;       Name: 'crSizeWE'),
+    (Value: crSizeNW;       Name: 'crSizeNW'),
+    (Value: crSizeN;        Name: 'crSizeN'),
+    (Value: crSizeNE;       Name: 'crSizeNE'),
+    (Value: crSizeW;        Name: 'crSizeW'),
+    (Value: crSizeE;        Name: 'crSizeE'),
+    (Value: crSizeSW;       Name: 'crSizeSW'),
+    (Value: crSizeS;        Name: 'crSizeS'),
+    (Value: crSizeSE;       Name: 'crSizeSE'),
     (Value: crUpArrow;      Name: 'crUpArrow'),
     (Value: crHourGlass;    Name: 'crHourGlass'),
     (Value: crDrag;         Name: 'crDrag'),
@@ -3213,17 +3362,18 @@ procedure GetCursorValues(Proc: TGetStrProc);
 var
   I: Integer;
 begin
-  for I := Low(Cursors) to High(Cursors) - DeadCursors do Proc(Cursors[I].Name);
+  for I := Low(CursorIdents) to High(CursorIdents) - DeadCursors do
+    Proc(CursorIdents[I].Name);
 end;
 
 function CursorToIdent(Cursor: Longint; var Ident: string): Boolean;
 begin
-  Result := IntToIdent(Cursor, Ident, Cursors);
+  Result := IntToIdent(Cursor, Ident, CursorIdents);
 end;
 
 function IdentToCursor(const Ident: string; var Cursor: Longint): Boolean;
 begin
-  Result := IdentToInt(Ident, Cursor, Cursors);
+  Result := IdentToInt(Ident, Cursor, CursorIdents);
 end;
 
 // turn off before includes !!
@@ -3449,6 +3599,38 @@ begin
   if FControl <> nil then
     FControl.DoBorderSpacingChange(Self,InnerSpaceChanged);
   if Assigned(OnChange) then OnChange(Self);
+end;
+
+function TControlBorderSpacing.GetControlHeight: Integer;
+begin
+  if FControl<>nil then
+    Result := FControl.Height+Around*2+Top+Bottom
+  else
+    Result := 0;
+end;
+
+function TControlBorderSpacing.GetControlLeft: Integer;
+begin
+  if FControl<>nil then
+    Result := FControl.Left-Around-Left
+  else
+    Result := 0;
+end;
+
+function TControlBorderSpacing.GetControlTop: Integer;
+begin
+  if FControl<>nil then
+    Result := FControl.Top-Around-Top
+  else
+    Result := 0;
+end;
+
+function TControlBorderSpacing.GetControlWidth: Integer;
+begin
+  if FControl<>nil then
+    Result := FControl.Width+Around*2+Left+Right
+  else
+    Result := 0;
 end;
 
 { TControlChildSizing }

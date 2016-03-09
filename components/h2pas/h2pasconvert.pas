@@ -23,8 +23,8 @@ unit H2PasConvert;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, LResources, LazConfigStorage, XMLPropStorage,
-  Forms, Controls, Dialogs, FileUtil, LazFileUtils, LazUTF8Classes, AVL_Tree,
+  Classes, SysUtils, AVL_Tree, LCLProc, Forms, Controls, Dialogs, LResources, XMLPropStorage,
+  LazConfigStorage, FileUtil, LazFileUtils, LazFileCache, LazUTF8Classes,
   // CodeTools
   CodeAtom, CodeTree, KeywordFuncLists, NonPascalCodeTools, BasicCodeTools,
   FileProcs, CodeCache, SourceChanger, CodeToolManager,
@@ -2726,7 +2726,7 @@ begin
   repeat
     CurAtom:=ReadNextPascalAtom(Src,Position,AtomStart);
     if CurAtom='' then break;
-    //DebugLn(['TReplaceImplicitTypes.FindNextImplicitType AAA1 ',CurAtom]);
+    //DebugLn(['TReplaceImplicitTypes.FindNextImplicitType atom ',CurAtom]);
     if CurAtom=':' then begin
       // var, const, out declaration
       CurAtom:=ReadNextPascalAtom(Src,Position,AtomStart);
@@ -3780,7 +3780,7 @@ end;
 
 class function TPostH2PasTools.ClassDescription: string;
 begin
-  Result := Format(h2pPostH2PasASetOfCommonToolsToRunAfterH2pasPhReplace, [#13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13])
+  Result := Format(h2pPostH2PasASetOfCommonToolsToRunAfterH2pasPhReplace, [#13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13, #13])
     ;
 end;
 
@@ -4253,8 +4253,8 @@ var
     Identifier:=@Tool.Src[Position+Count];
     AVLNode:=NeededPointerTypes.FindKey(Identifier,
                                         @CompareImplicitTypeStringAndName);
-    DebugLn(['AddNeededPointerType ',GetIdentifier(Identifier),' Position=',Position,' Count=',Count]);
-    DebugLn(['AddNeededPointerType AAA1 ',copy(Tool.Src,Position,100)]);
+    DebugLn(['AddNeededPointerType Identifier ',GetIdentifier(Identifier),' Position=',Position,' Count=',Count]);
+    DebugLn(['AddNeededPointerType Position ',copy(Tool.Src,Position,100)]);
     if AVLNode<>nil then begin
       Item:=TImplicitType(AVLNode.Data);
       if Item.MaxPosition<Count then
@@ -4462,7 +4462,7 @@ end;
 
 class function TConvertEnumsToTypeDef.ClassDescription: string;
 begin
-  Result := h2pGiveAnoymousCEnumsATypedefName;
+  Result := h2pGiveAnonymousCEnumsATypedefName;
 end;
 
 function TConvertEnumsToTypeDef.Execute(aText: TIDETextConverter

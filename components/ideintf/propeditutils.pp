@@ -81,6 +81,7 @@ type
 
 procedure RegisterGetLookupRoot(const OnGetLookupRoot: TGetLookupRoot);
 procedure UnregisterGetLookupRoot(const OnGetLookupRoot: TGetLookupRoot);
+function StrToBoolOI(S: string): Boolean;
 
 implementation
 
@@ -91,14 +92,15 @@ var
 
 function GetLookupRootForComponent(APersistent: TPersistent): TPersistent;
 var
-  AOwner: TPersistent;
+  AOwner: TPersistent = nil;
   i: Integer;
 begin
   Result := APersistent;
   if Result = nil then
     Exit;
   repeat
-    AOwner := TPersistentAccess(Result).GetOwner;
+    if Result is TPersistent then
+      AOwner := TPersistentAccess(Result).GetOwner;
     if (AOwner=nil) and (GetLookupRoots<>nil) then begin
       for i:=GetLookupRoots.Count-1 downto 0 do begin
         AOwner:=TGetLookupRoot(GetLookupRoots[i])(Result);
@@ -122,6 +124,15 @@ procedure UnregisterGetLookupRoot(const OnGetLookupRoot: TGetLookupRoot);
 begin
   if GetLookupRoots=nil then exit;
   GetLookupRoots.Remove(OnGetLookupRoot);
+end;
+
+function StrToBoolOI(S: string): Boolean;
+// Like StrToBool but accepts also '(False)' and '(True)'.
+begin
+  if S = '' then Exit(False);
+  if (Length(S) > 2) and (S[1] = '(') and (S[Length(S)] = ')') then
+    S := Copy(S, 2, Length(S)-2);
+  Result := StrToBool(S);
 end;
 
 { TPersistentSelectionList }

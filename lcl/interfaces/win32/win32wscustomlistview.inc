@@ -81,7 +81,7 @@ var
       P.X:=0;
       P.Y:=0;
     end;
-    Result := PointToSmallPoint(P);
+    Result := Windows.PointToSmallPoint(P);
   end;
 
   procedure HandleListViewOwnerData(ALV: TCustomListViewAccess);
@@ -215,6 +215,16 @@ var
     end;
   end;
 
+  function OwnMouseUpNeeded(ALV: TCustomListViewAccess): Boolean;
+  var
+    LVInfo: PWin32WindowInfo;
+    ListItem: TListItem;
+  begin
+    LVInfo:= GetWin32WindowInfo(ALV.Handle);
+    ListItem := ALV.GetItemAt(LVInfo^.MouseX, LVInfo^.MouseY);
+    Result := Assigned(ListItem);
+  end;
+
 var
   Pos: TSmallPoint;
 begin
@@ -224,25 +234,24 @@ begin
     begin
       case PNMHdr(LParam)^.code of
         NM_CLICK, NM_RCLICK:
-        begin
-          // A listview doesn't get a WM_LBUTTONUP, WM_RBUTTONUP message,
-          // because it keeps the message in its own event loop,
-          // see msdn article about "Default List-View Message Processing"
-          // therefore we take this notification and create a
-          // LM_LBUTTONUP, LM_RBUTTONUP message out of it
-          WinProcess := False;
-          if PNMHdr(LParam)^.code = NM_CLICK then
-            Msg := LM_LBUTTONUP
-          else
-            Msg := LM_RBUTTONUP;
-          Pos := GetClientCursorPos(PNMHdr(LParam)^.hwndFrom);
-          // to make correct event sequence in LCL we should postpone this message
-          // since we are here after call of CallDefaultWindowProc
-
-          // TODO: prevent getting more than one Up, Down message by LCL
-          PostMessage(PNMHdr(LParam)^.hwndFrom, Msg, 0, MakeLParam(Pos.x, Pos.y));
-          Result := True;
-        end;
+          if OwnMouseUpNeeded(TCustomListViewAccess(AWinControl)) then
+          begin
+            // A listview doesn't get a WM_LBUTTONUP, WM_RBUTTONUP message,
+            // because it keeps the message in its own event loop,
+            // see msdn article about "Default List-View Message Processing"
+            // therefore we take this notification and create a
+            // LM_LBUTTONUP, LM_RBUTTONUP message out of it
+            WinProcess := False;
+            if PNMHdr(LParam)^.code = NM_CLICK then
+              Msg := LM_LBUTTONUP
+            else
+              Msg := LM_RBUTTONUP;
+            Pos := GetClientCursorPos(PNMHdr(LParam)^.hwndFrom);
+            // to make correct event sequence in LCL we should postpone this message
+            // since we are here after call of CallDefaultWindowProc
+            PostMessage(PNMHdr(LParam)^.hwndFrom, Msg, 0, MakeLParam(Pos.x, Pos.y));
+            Result := True;
+          end;
         LVN_GETDISPINFOA, LVN_GETDISPINFOW:
           HandleListViewOwnerData(TCustomListViewAccess(AWinControl));
         NM_CUSTOMDRAW:
@@ -309,21 +318,8 @@ begin
 
   lvc.Mask := LVCF_TEXT;
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      lvc.pszText := PChar(PWideChar(UTF8ToUTF16(AColumn.Caption)));
-      SendMessage(ALV.Handle, LVM_INSERTCOLUMNW, WPARAM(AIndex), LPARAM(@lvc));
-    end
-    else
-    begin
-      lvc.pszText := PChar(Utf8ToAnsi(AColumn.Caption));
-      ListView_InsertColumn(ALV.Handle, AIndex, lvc);
-    end;
-  {$else}
-    lvc.pszText := PChar(AColumn.Caption);
-    ListView_InsertColumn(ALV.Handle, AIndex, lvc);
-  {$endif}
+  lvc.pszText := PChar(PWideChar(UTF8ToUTF16(AColumn.Caption)));
+  SendMessage(ALV.Handle, LVM_INSERTCOLUMNW, WPARAM(AIndex), LPARAM(@lvc));
 end;
 
 class procedure TWin32WSCustomListView.ColumnMove(const ALV: TCustomListView; const AOldIndex, ANewIndex: Integer; const AColumn: TListColumn);
@@ -405,21 +401,8 @@ begin
 
   lvc.Mask := LVCF_TEXT;
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      lvc.pszText := PChar(PWideChar(UTF8ToUTF16(AColumn.Caption)));
-      SendMessage(ALV.Handle, LVM_SETCOLUMNW, WPARAM(AIndex), LPARAM(@lvc));
-    end
-    else
-    begin
-      lvc.pszText := PChar(Utf8ToAnsi(ACaption));
-      ListView_SetColumn(ALV.Handle, AIndex, lvc);
-    end;
-  {$else}
-    lvc.pszText := PChar(ACaption);
-    ListView_SetColumn(ALV.Handle, AIndex, lvc);
-  {$endif}
+  lvc.pszText := PChar(PWideChar(UTF8ToUTF16(AColumn.Caption)));
+  SendMessage(ALV.Handle, LVM_SETCOLUMNW, WPARAM(AIndex), LPARAM(@lvc));
 end;
 
 class procedure TWin32WSCustomListView.ColumnSetImage(const ALV: TCustomListView; const AIndex: Integer; const AColumn: TListColumn; const AImageIndex: Integer);
@@ -633,21 +616,8 @@ begin
   lvi.iSubItem := 0;
   lvi.lParam := LPARAM(AItem);
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      lvi.pszText := PChar(PWideChar(UTF8ToUTF16(AItem.Caption)));
-      SendMessage(ALV.Handle, LVM_INSERTITEMW, 0, LPARAM(@lvi));
-    end
-    else
-    begin
-      lvi.pszText := PChar(Utf8ToAnsi(AItem.Caption));
-      ListView_InsertItem(ALV.Handle, lvi);
-    end;
-  {$else}
-    lvi.pszText := PChar(AItem.Caption);
-    ListView_InsertItem(ALV.Handle, lvi);
-  {$endif}
+  lvi.pszText := PChar(PWideChar(UTF8ToUTF16(AItem.Caption)));
+  SendMessage(ALV.Handle, LVM_INSERTITEMW, 0, LPARAM(@lvi));
 end;
 
 class procedure TWin32WSCustomListView.ItemSetChecked(const ALV: TCustomListView; const AIndex: Integer; const AItem: TListItem; const AChecked: Boolean);
@@ -709,28 +679,17 @@ begin
 end;
 
 class procedure TWin32WSCustomListView.ItemSetText(const ALV: TCustomListView; const AIndex: Integer; const AItem: TListItem; const ASubIndex: Integer; const AText: String);
-{$ifdef WindowsUnicodeSupport}
 var
   _gnu_lvi : LV_ITEM;
-{$endif}
 begin
   if not WSCheckHandleAllocated(ALV, 'ItemSetText')
   then Exit;
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      _gnu_lvi.iSubItem := ASubIndex;
-      _gnu_lvi.pszText := PChar(PWideChar(UTF8ToUTF16(AText)));
+  _gnu_lvi.iSubItem := ASubIndex;
+  _gnu_lvi.pszText := PChar(PWideChar(UTF8ToUTF16(AText)));
 
-      SendMessage(ALV.Handle, LVM_SETITEMTEXTW, WPARAM(AIndex), LPARAM(@_gnu_lvi));
-    end
-    else
-      ListView_SetItemText(ALV.Handle, AIndex, ASubIndex, PChar(Utf8ToAnsi(AText)));
-  {$else}
-    ListView_SetItemText(ALV.Handle, AIndex, ASubIndex, PChar(AText));
-  {$endif}
-  // autosize is an *exteme* performance bottleneck, even if WM_SETREDRAW
+  SendMessage(ALV.Handle, LVM_SETITEMTEXTW, WPARAM(AIndex), LPARAM(@_gnu_lvi));
+  // autosize is an *extreme* performance bottleneck, even if WM_SETREDRAW
   // was set to false it will ignore this and still redraw all columns.
   // We will therefore postpone all autosizing until EndUpdate where we do
   // it only once per column.
@@ -751,6 +710,16 @@ end;
 // LV code
 ////////////////////////////////////////////////////////////////////////////////
 
+procedure ListViewDrawItem(const AWinControl: TWinControl; Window: HWnd;
+  Msg: UInt; WParam: Windows.WParam; const DrawIS: TDrawItemStruct;
+  var ItemMsg: Integer; var DrawListItem: Boolean);
+begin
+  DrawListItem := (AWinControl <> nil) and (AWinControl is TListView) and
+      (TListView(AWinControl).ViewStyle = vsReport) and
+      (DrawIS.ctlType = ODT_LISTVIEW) and
+      (TListView(AWinControl).OwnerDraw);
+  ItemMsg := CN_DRAWITEM;
+end;
 
 class function TWin32WSCustomListView.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): HWND;
@@ -781,6 +750,7 @@ begin
   FinishCreateWindow(AWinControl, Params, false);
   Params.WindowInfo^.ParentMsgHandler := @ListViewParentMsgHandler;
   Params.WindowInfo^.needParentPaint := false;
+  Params.WindowInfo^.DrawItemHandler := @ListViewDrawItem;
   Result := Params.Window;
   if TCustomListView(AWinControl).checkboxes
     then UpdateExStyle(result,lvs_ex_SubitemImages or lvs_Ex_Checkboxes,lvs_ex_SubitemImages or lvs_Ex_Checkboxes) else

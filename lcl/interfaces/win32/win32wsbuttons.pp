@@ -133,10 +133,7 @@ var
   BitmapRect: Windows.RECT;
   ButtonImageList: BUTTON_IMAGELIST;
   I: integer;
-  {$IFDEF WindowsUnicodeSupport}
-  ButtonCaptionA: string;
   ButtonCaptionW: widestring;
-  {$ENDIF}
 
   procedure DrawBitmap(AState: TButtonState; UseThemes, AlphaDraw: Boolean);
   const
@@ -253,19 +250,8 @@ var
       SetBkMode(TmpDC, TRANSPARENT);
       if BitBtn.UseRightToLeftReading then
         SetTextAlign(TmpDC, OldTextAlign or TA_RTLREADING);
-      {$IFDEF WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        ButtonCaptionW := UTF8ToUTF16(ButtonCaption);
-        DrawStateW(TmpDC, 0, nil, LPARAM(ButtonCaptionW), 0, XDestText, YDestText, 0, 0, TextFlags);
-      end
-      else begin
-        ButtonCaptionA := Utf8ToAnsi(ButtonCaption);
-        DrawState(TmpDC, 0, nil, LPARAM(ButtonCaptionA), 0, XDestText, YDestText, 0, 0, TextFlags);
-      end;
-      {$ELSE}
-      DrawState(TmpDC, 0, nil, LPARAM(ButtonCaption), 0, XDestText, YDestText, 0, 0, TextFlags);
-      {$ENDIF}
+      ButtonCaptionW := UTF8ToUTF16(ButtonCaption);
+      DrawStateW(TmpDC, 0, nil, LPARAM(ButtonCaptionW), 0, XDestText, YDestText, 0, 0, TextFlags);
     end
     else
     begin
@@ -433,8 +419,8 @@ begin
       ButtonImageList.margin.top := 5;
       ButtonImageList.margin.bottom := 5;
       ButtonImageList.uAlign := BUTTON_IMAGELIST_ALIGN_CENTER;
-      // if themes are not enabled then we need to fill only one state bitmap, else
-      // fill all bitmas
+      // if themes are enabled then we need to fill all state bitmaps,
+      // else fill only current state bitmap
       if ThemeServices.ThemesEnabled then
       begin
         for I := 1 to 6 do

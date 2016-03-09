@@ -715,6 +715,7 @@ type
     FSavedFontColor: TColor;
     FSavedFontStyle: TFontStyles;
     FSavedParentFont: Boolean;
+    FSavedPasswordChar: Char;
     procedure SetTextHint(AValue: TTranslateString);
     procedure ShowTextHint;
     procedure HideTextHint;
@@ -725,6 +726,7 @@ type
     procedure SetHideSelection(const AValue: Boolean);
     procedure SetMaxLength(Value: Integer);
     procedure SetModified(Value: Boolean);
+    function GetPasswordChar: Char;
     procedure SetPasswordChar(const AValue: Char);
   protected
     class procedure WSRegisterClass; override;
@@ -785,7 +787,7 @@ type
     property Modified: Boolean read GetModified write SetModified;
     property NumbersOnly: Boolean read GetNumbersOnly write SetNumbersOnly default false;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
-    property PasswordChar: Char read FPasswordChar write SetPasswordChar default #0;
+    property PasswordChar: Char read GetPasswordChar write SetPasswordChar default #0;
     property PopupMenu;
     property ReadOnly: Boolean read GetReadOnly write SetReadOnly default false;
     property SelLength: integer read GetSelLength write SetSelLength;
@@ -856,6 +858,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Append(const Value: String);
+    procedure ScrollBy(DeltaX, DeltaY: Integer); override;
   public
     property Lines: TStrings read FLines write SetLines;
     property HorzScrollBar: TMemoScrollBar read FHorzScrollBar write SetHorzScrollBar;
@@ -1399,6 +1402,7 @@ type
     constructor Create(TheOwner: TComponent); override;
   published
     property Align;
+    property Alignment;
     property Anchors;
     property AutoSize default True;
     property BidiMode;

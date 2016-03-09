@@ -54,7 +54,7 @@ uses
   FindDeclarationTool, IdentCompletionTool, PascalReaderTool, PascalParserTool,
   ExprEval, KeywordFuncLists, BasicCodeTools, LinkScanner,
   CodeCache, AVL_Tree, LFMTrees, SourceChanger,
-  CustomCodeTool, CodeToolsStructs, LazFileUtils;
+  CustomCodeTool, CodeToolsStructs, LazFileUtils, LazFileCache;
 
 type
   TStandardCodeTool = class;
@@ -280,6 +280,8 @@ type
     function AddIncludeDirectiveForInit(const Filename: string;
           SourceChangeCache: TSourceChangeCache; const NewSrc: string = ''
           ): boolean;
+    function AddUnitWarnDirective(WarnID, Comment: string; TurnOn: boolean;
+          SourceChangeCache: TSourceChangeCache): boolean;
     function FixIncludeFilenames(Code: TCodeBuffer;
           SourceChangeCache: TSourceChangeCache;
           out FoundIncludeFiles: TStrings;
@@ -1734,7 +1736,7 @@ var
     Node:=Tree.Root;
     while Node<>nil do begin
       case Node.Desc of
-      ctnUseUnit,ctnUsesSection,
+      ctnUseUnit,ctnUsesSection,ctnUseUnitNamespace,ctnUseUnitClearName,
       ctnProgram,ctnUnit,ctnPackage,ctnLibrary,ctnEndPoint:
         begin
           // skip node
@@ -6479,6 +6481,89 @@ begin
   if not SourceChangeCache.Apply then exit;
 
   Result:=true;
+end;
+
+function TStandardCodeTool.AddUnitWarnDirective(WarnID, Comment: string;
+  TurnOn: boolean; SourceChangeCache: TSourceChangeCache): boolean;
+const
+  DirectiveFlagValue: array[boolean] of string = ('on','off');
+var
+  ACleanPos, DirEndPos, InsertStartPos, MaxPos: Integer;
+  Node: TCodeTreeNode;
+  p, IDStartPos, IDEndPos, ParamPos: PChar;
+  NewCode: String;
+begin
+  Result:=false;
+  if WarnID='' then
+    raise Exception.Create('TStandardCodeTool.AddUnitWarnDirective missing WarnID');
+  InsertStartPos:=0;
+  BuildTree(lsrMainUsesSectionStart);
+  SourceChangeCache.MainScanner:=Scanner;
+
+  // fix comment
+  if Comment<>'' then begin
+    for ACleanPos:=1 to length(Comment) do
+      if Comment[ACleanPos] in [#0..#8,#11,#12,#14..#31,'{','}'] then
+        Comment[ACleanPos]:='?';
+    if not (Comment[1] in [' ',#9,#10,#13]) then Comment:=' '+Comment;
+  end;
+
+  MaxPos:=0;
+  Node:=Tree.Root.NextBrother;
+  if Node<>nil then
+    MaxPos:=Node.StartPos
+  else
+    MaxPos:=SrcLen;
+
+  // find existing directive for replacement
+  ACleanPos:=1;
+  repeat
+    ACleanPos:=FindNextCompilerDirective(Src,ACleanPos,Scanner.NestedComments);
+    if (ACleanPos<1) or (ACleanPos>MaxPos) then
+      break;
+    DirEndPos:=FindCommentEnd(Src,ACleanPos,Scanner.NestedComments)+1;
+    p:=@Src[ACleanPos+2];
+    if CompareIdentifiers(p,'warn')=0 then begin
+      IDStartPos:=p+4;
+      while IDStartPos^ in [' ',#9,#10,#13] do
+        inc(IDStartPos);
+      IDEndPos:=IDStartPos;
+      while IDEndPos^ in ['0'..'9','A'..'Z','a'..'z','_'] do
+        inc(IDEndPos);
+      if CompareText(PChar(Pointer(WarnID)),length(WarnID),
+                     IDStartPos,IDEndPos-IDStartPos,false)=0
+      then begin
+        // warn directive found
+        p:=IDEndPos;
+        while p^ in [' ',#9,#10,#13] do
+          inc(p);
+        ParamPos:=p;
+        while p^ in ['+','-','a'..'z','A'..'Z'] do
+          inc(p);
+        if not SourceChangeCache.Replace(gtSpace,gtNone,
+          ParamPos-PChar(Src)+1,p-PChar(Src)+1,DirectiveFlagValue[TurnOn])
+        then
+          exit;
+        Result:=SourceChangeCache.Apply;
+        exit;
+      end;
+    end else if (CompareIdentifiers(p,'i')=0) or (CompareIdentifiers(p,'include')=0)
+    then begin
+      // insert before include file
+      if MaxPos>ACleanPos then MaxPos:=ACleanPos;
+      break;
+    end;
+    ACleanPos:=DirEndPos;
+  until ACleanPos>MaxPos;
+
+  // there was no such directive yet -> find nice insert pos
+  InsertStartPos:=FindLineEndOrCodeInFrontOfPosition(MaxPos,true,true);
+  NewCode:='{$WARN '+WarnID+' '+DirectiveFlagValue[TurnOn]+Comment+'}';
+  if not SourceChangeCache.Replace(gtNewLine,gtNewLine,
+    InsertStartPos,InsertStartPos,NewCode)
+  then
+    exit;
+  Result:=SourceChangeCache.Apply;
 end;
 
 function TStandardCodeTool.FixIncludeFilenames(Code: TCodeBuffer;

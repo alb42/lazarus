@@ -1294,7 +1294,7 @@ type
 
   { TEditorOptions - Editor Options object used to hold the editor options }
 
-  TEditorOptions = class(TAbstractIDEEnvironmentOptions)
+  TEditorOptions = class(TIDEEditorOptions)
   private
     FBlockTabIndent: Integer;
     FCompletionLongLineHintInMSec: Integer;
@@ -1416,6 +1416,8 @@ type
 
     FDefaultValues: TEditorOptions;
 
+  protected
+    function GetTabPosition: TTabPosition; override;
   public
     class function GetGroupCaption:string; override;
     class function GetInstance: TAbstractIDEOptions; override;
@@ -2399,7 +2401,7 @@ end;
 
 function UserSchemeDirectory(CreateIfNotExists: Boolean): String;
 begin
-  Result := GetPrimaryConfigPath + DirectorySeparator + 'userschemes';
+  Result := AppendPathDelim(GetPrimaryConfigPath) + 'userschemes';
   If CreateIfNotExists and (not DirectoryExistsUTF8(Result)) then
     CreateDirUTF8(Result);
 end;
@@ -2914,7 +2916,7 @@ begin
     TheType := lshPython;
     DefaultCommentType := DefaultCommentTypes[TheType];
     SynClass := LazSyntaxHighlighterClasses[TheType];
-    SetBothFilextensions('py');
+    SetBothFilextensions('py;pyw');
     SampleSource :=
       '# Python syntax highlighting'#13#10 +
       'import math'#13#10 + #13#10 +
@@ -3935,7 +3937,7 @@ var
   TextDoubleSelLine: Boolean;
 begin
   Reset;
-  if (FileVersion > 0) and (FileVersion < 11) then
+  if FileVersion < 11 then
     FGutterLeft := moGLDownClick;
   AltColumnMode := False;
   TextDoubleSelLine := False;
@@ -4410,8 +4412,7 @@ begin
   inherited Create;
   InitLocale;
 
-  ConfFileName := SetDirSeparators(GetPrimaryConfigPath + '/' +
-    EditOptsConfFileName);
+  ConfFileName := AppendPathDelim(GetPrimaryConfigPath) + EditOptsConfFileName;
   CopySecondaryConfigFile(EditOptsConfFileName);
   try
     if (not FileExistsUTF8(ConfFileName)) then
@@ -4434,7 +4435,7 @@ begin
 
   // code templates (dci file)
   fCodeTemplateFileName :=
-    TrimFilename(GetPrimaryConfigPath+PathDelim+DefaultCodeTemplatesFilename);
+    TrimFilename(AppendPathDelim(GetPrimaryConfigPath)+DefaultCodeTemplatesFilename);
   CopySecondaryConfigFile(DefaultCodeTemplatesFilename);
   if not FileExistsUTF8(CodeTemplateFileName) then
   begin
@@ -4598,14 +4599,13 @@ var
   DefOpts: TSynEditorOptions;
 begin
   try
-    FileVersion:=XMLConfig.GetValue('EditorOptions/Version', 0);
+    FileVersion:=XMLConfig.GetValue('EditorOptions/Version', EditorOptsFormatVersion);
 
     XMLConfig.ReadObject('EditorOptions/Misc/', Self, FDefaultValues);
 
     // general options
     DefOpts := SynEditDefaultOptions;
-    // FileVersion=0: load an empty (none existing) file
-    if (FileVersion > 0) and (FileVersion < 10) then DefOpts := DefOpts - [eoTabIndent];
+    if (FileVersion < 10) then DefOpts := DefOpts - [eoTabIndent];
     for SynEditOpt := Low(TSynEditorOption) to High(TSynEditorOption) do
     begin
       SynEditOptName := GetSynEditOptionName(SynEditOpt);
@@ -4688,7 +4688,7 @@ begin
       XMLConfig.GetValue('EditorOptions/Display/VisibleRightMargin', True);
     fVisibleGutter :=
       XMLConfig.GetValue('EditorOptions/Display/VisibleGutter', True);
-    if (FileVersion>0) and (FileVersion<4) then begin
+    if FileVersion<4 then begin
       fShowLineNumbers :=
         XMLConfig.GetValue('EditorOptions/Display/ShowLineNumbers', False);
       fShowOnlyLineNumbersMultiplesOf :=
@@ -4724,7 +4724,7 @@ begin
       XMLConfig.GetValue('EditorOptions/Display/ExtraLineSpacing', 1);
     fDisableAntialiasing :=
       XMLConfig.GetValue('EditorOptions/Display/DisableAntialiasing',
-                         (FileVersion>0) and (FileVersion<7));
+                         FileVersion<7);
     FDoNotWarnForFont :=
       XMLConfig.GetValue('EditorOptions/Display/DoNotWarnForFont', '');
 
@@ -4783,7 +4783,7 @@ begin
       XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayInMSec', 1000);
     fCodeTemplateFileName :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CodeTemplateFileName'
-      , TrimFilename(GetPrimaryConfigPath + PathDelim + DefaultCodeTemplatesFilename));
+      , TrimFilename(AppendPathDelim(GetPrimaryConfigPath) + DefaultCodeTemplatesFilename));
     fCTemplIndentToTokenStart :=
       XMLConfig.GetValue(
       'EditorOptions/CodeTools/CodeTemplateIndentToTokenStart/Value', False);
@@ -5216,7 +5216,7 @@ function TEditorOptions.ReadPascalColorScheme: String;
 var
   FormatVersion: Integer;
 begin
-  FormatVersion := XMLConfig.GetValue('EditorOptions/Color/Version', 0);
+  FormatVersion := XMLConfig.GetValue('EditorOptions/Color/Version', EditorOptsFormatVersion);
   if FormatVersion > 1 then
     Result := XMLConfig.GetValue(
       'EditorOptions/Color/Lang' + StrToValidXMLName(
@@ -5737,6 +5737,11 @@ begin
   finally
     ASynEdit.EndUpdate;
   end;
+end;
+
+function TEditorOptions.GetTabPosition: TTabPosition;
+begin
+  Result := fTabPosition;
 end;
 
 procedure TEditorOptions.GetSynEditPreviewSettings(APreviewEditor: TObject);

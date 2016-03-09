@@ -30,7 +30,7 @@ interface
 uses
   Windows, // keep as first
   ActiveX, Classes,
-  Translations, ComCtrls, Controls, Buttons,
+  Translations, Controls, Buttons,
   LCLIntf, LclProc, LazUTF8, LCLType, LMessages,
   Forms, Dialogs, GraphMath, GraphType, InterfaceBase,
   StdCtrls, SysUtils, Win32Def, Graphics, Menus, CommCtrl,
@@ -117,6 +117,7 @@ type
     // Assoc. windowproc also acts as handler for popup menus
     FAppHandle,
     FDockWndHandle: HWND;
+    FAppMinimizing: Boolean;
     FCommonControlsVersion: DWord;
 
     FMetrics: TNonClientMetrics;
@@ -147,6 +148,8 @@ type
     function CreateThemeServices: TThemeServices; override;
     function GetAppHandle: THandle; override;
     procedure SetAppHandle(const AValue: THandle); override;
+
+    property AppMinimizing: Boolean read FAppMinimizing; // true if application is minimizing itself
   public
     { Creates a callback of Lazarus message Msg for Sender }
     procedure SetCallback(Msg: LongInt; Sender: TObject); virtual;
@@ -265,10 +268,7 @@ type
   end;
 
 var
-  MouseDownCount: Integer;
-  MouseDownTime: QWord;
-  MouseDownPos: TPoint;
-  MouseDownWindow: HWND = 0;
+  LastMouse: TLastMouseInfo;
   ComboBoxHandleSizeWindow: HWND = 0;
   IgnoreNextCharWindow: HWND = 0;  // ignore next WM_(SYS)CHAR message
   // set to true, if we are redirecting a WM_MOUSEWHEEL message, to prevent recursion
@@ -287,24 +287,11 @@ var
 {$I win32winapi.inc}
 {$I win32lclintf.inc}
 
-const
-  W95_MENUITEMINFO_SIZE = 44;
-  
-initialization
-  { initialize mousedownclick to far before double click time }
-  if GetTickCount > 5000 then
-    MouseDownTime := GetTickCount - 5000
-  else
-    MouseDownTime := 0;
-  {$IFDEF WindowsUnicodeSupport}
-  SystemCharSetIsUTF8:=true;
-  {$ELSE}
-  SystemCharSetIsUTF8:=false;
-  {$ENDIF}
 
-  if (Win32MajorVersion = 4) and (Win32MinorVersion = 0)
-  then MMenuItemInfoSize := W95_MENUITEMINFO_SIZE
-  else MMenuItemInfoSize := sizeof(MENUITEMINFO);
+initialization
+  SystemCharSetIsUTF8:=true;
+
+  MMenuItemInfoSize := sizeof(MENUITEMINFO);
   
   // Vista with classic theme is buggy with Windows.SetPixel() 
   // http://bugs.freepascal.org/view.php?id=15822

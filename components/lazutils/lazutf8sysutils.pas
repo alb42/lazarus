@@ -32,7 +32,7 @@ function NowUTC: TDateTime;
 var
   SystemTime: TSystemTime;
 begin
-  windows.GetSystemTime(SystemTime);
+  windows.GetSystemTime(SystemTime{%H-});
   result := systemTimeToDateTime(SystemTime);
 end;
 

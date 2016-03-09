@@ -32,7 +32,7 @@ uses
   Windows, shlobj, ShellApi, ActiveX, SysUtils, Classes,
   CommDlg,
 // lcl
-  LCLProc, LCLType, LazUTF8, Dialogs, Controls, Graphics, Forms, FileUtil, Themes, Masks,
+  LCLProc, LCLType, LazUTF8, Dialogs, Controls, Graphics, Forms, LazFileUtils, Masks,
 // ws
   WSDialogs, WSLCLClasses, Win32Extra, Win32Int, InterfaceBase,
   Win32Proc;
@@ -71,13 +71,13 @@ type
 
   TWin32WSOpenDialog = class(TWSOpenDialog)
   public
-    {$ifdef UseVistaDialogs}
+    class function GetVistaOptions(Options: TOpenOptions; SelectFolder: Boolean): FileOpenDialogOptions;
+
     class procedure SetupVistaFileDialog(ADialog: IFileDialog; const AOpenDialog: TOpenDialog);
     class function ProcessVistaDialogResult(ADialog: IFileDialog; const AOpenDialog: TOpenDialog): HResult;
     class procedure VistaDialogShowModal(ADialog: IFileDialog; const AOpenDialog: TOpenDialog);
     class function GetFileName(ShellItem: IShellItem): String;
     class function GetParentWnd: HWND;
-    {$endif}
   published
     class function CreateHandle(const ACommonDialog: TCommonDialog): THandle; override;
     class procedure DestroyHandle(const ACommonDialog: TCommonDialog); override;
@@ -96,6 +96,8 @@ type
   { TWin32WSSelectDirectoryDialog }
 
   TWin32WSSelectDirectoryDialog = class(TWSSelectDirectoryDialog)
+  public
+    class function CreateOldHandle(const ACommonDialog: TCommonDialog): THandle;
   published
     class function CreateHandle(const ACommonDialog: TCommonDialog): THandle; override;
   end;
@@ -122,7 +124,6 @@ type
     class function CreateHandle(const ACommonDialog: TCommonDialog): THandle; override;
   end;
 
-{$ifdef UseVistaDialogs}
 
   { TFileDialogEvents }
 
@@ -146,7 +147,6 @@ type
   public
     constructor Create(ADialog: TOpenDialog);
   end;
-{$endif}
 
 function OpenFileDialogCallBack(Wnd: HWND; uMsg: UINT; wParam: WPARAM;
   lParam: LPARAM): UINT_PTR; stdcall;
@@ -156,9 +156,7 @@ procedure RestoreApplicationState(AState: TApplicationState);
 function UTF8StringToPWideChar(const s: string) : PWideChar;
 function UTF8StringToPAnsiChar(const s: string) : PAnsiChar;
 
-{$ifdef UseVistaDialogs}
 function CanUseVistaDialogs(const AOpenDialog: TOpenDialog): Boolean;
-{$endif}
 
 var
   cOpenDialogAllFiles: string = 'All files';
@@ -224,39 +222,26 @@ var
     FolderName: string;
     FileNames: string;
   begin
-    {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
+    FolderName := UTF16ToUTF8(DialogRec^.UnicodeFolderName);
+    FileNames := UTF16ToUTF8(DialogRec^.UnicodeFileNames);
+    if FolderName='' then
     begin
-      FolderName := UTF16ToUTF8(DialogRec^.UnicodeFolderName);
-      FileNames := UTF16ToUTF8(DialogRec^.UnicodeFileNames);
-      if FolderName='' then
-      begin
-        // On Windows 7, the SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, 0, LPARAM(nil))
-        // at UpdateStorage might fail (see #16797)
-        // However, the valid directory is returned in OpenFile^.lpstrFile
-        //
-        // What was the reason not to use OpenFile^.lpstrFile, since it's list
-        // of the selected files, without need of writting any callbacks!
-        FolderName:=UTF16ToUTF8(PWidechar(OpenFile^.lpstrFile));
-        // Check for DirectoryExistsUTF8(FolderName) is required, because Win 7
-        // sometimes returns a single file name in OpenFile^.lpstrFile, while
-        // OFN_ALLOWMULTISELECT is set
-        // to reproduce.
-        //   1. Allow mulitple files in OpenDialog options. Run the project.
-        //   2. OpenDialog.Execute -> Library -> Documens. Select a single file!
-        if (OpenFile^.Flags and OFN_ALLOWMULTISELECT=0) or not DirectoryExistsUTF8(FolderName) then
-          FolderName:=ExtractFileDir(FolderName);
-      end;
-    end
-    else
-    begin
-      FolderName := AnsiToUtf8(DialogRec^.AnsiFolderName);
-      FileNames := AnsiToUtf8(DialogRec^.AnsiFileNames);
+      // On Windows 7, the SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, 0, LPARAM(nil))
+      // at UpdateStorage might fail (see #16797)
+      // However, the valid directory is returned in OpenFile^.lpstrFile
+      //
+      // What was the reason not to use OpenFile^.lpstrFile, since it's list
+      // of the selected files, without need of writting any callbacks!
+      FolderName:=UTF16ToUTF8(PWidechar(OpenFile^.lpstrFile));
+      // Check for DirectoryExistsUTF8(FolderName) is required, because Win 7
+      // sometimes returns a single file name in OpenFile^.lpstrFile, while
+      // OFN_ALLOWMULTISELECT is set
+      // to reproduce.
+      //   1. Allow mulitple files in OpenDialog options. Run the project.
+      //   2. OpenDialog.Execute -> Library -> Documens. Select a single file!
+      if (OpenFile^.Flags and OFN_ALLOWMULTISELECT=0) or not DirectoryExistsUTF8(FolderName) then
+        FolderName:=ExtractFileDir(FolderName);
     end;
-    {$else}
-    FolderName:= DialogRec^.AnsiFolderName;
-    FileNames := DialogRec^.AnsiFileNames;
-    {$endif}
     FolderName := AppendPathDelim(FolderName);
     len := Length(FileNames);
     if (len > 0) and (FileNames[1] = '"') then
@@ -283,14 +268,7 @@ var
     FolderName: string;
     I,Start: integer;
   begin
-    {$ifdef WindowsUnicodeSupport}
-       if UnicodeEnabledOS then
-         SelectedStr:=UTF16ToUTF8(widestring(PWideChar(OpenFile^.lpStrFile)))
-       else
-         SelectedStr:=AnsiToUtf8(OpenFile^.lpStrFile);
-    {$else}
-    SelectedStr:=OpenFile^.lpStrFile;
-    {$endif}
+    SelectedStr:=UTF16ToUTF8(widestring(PWideChar(OpenFile^.lpStrFile)));
     if not (ofAllowMultiSelect in AOpenDialog.Options) then
       AFiles.Add(SelectedStr)
     else begin
@@ -329,13 +307,10 @@ end;
  ------------------------------------------------------------------------------}
 function GetOwnerHandle(ADialog : TCommonDialog): HWND;
 begin
-  with ADialog do
-  begin
-    if Owner is TWinControl then
-      Result := TWinControl(Owner).Handle
-    else
-      Result := TWin32WidgetSet(WidgetSet).AppHandle;
-  end;
+  if (Screen.ActiveForm<>nil) and Screen.ActiveForm.HandleAllocated then
+    Result := Screen.ActiveForm.Handle
+  else
+    Result := Application.MainFormHandle;
 end;
 
 procedure SetDialogResult(const ACommonDialog: TCommonDialog; Ret: WINBOOL);
@@ -346,12 +321,10 @@ begin
     ACommonDialog.UserChoice := mrCancel;
 end;
 
-{$ifdef UseVistaDialogs}
 function CanUseVistaDialogs(const AOpenDialog: TOpenDialog): Boolean;
 begin
   Result := (WindowsVersion >= wvVista) and not (ofOldStyleDialog in AOpenDialog.Options);
 end;
-{$endif}
 
 { TWin32WSColorDialog }
 
@@ -437,33 +410,15 @@ var
   DialogRec: POpenFileDialogRec;
 begin
   DialogRec := POpenFileDialogRec(OpenFile^.lCustData);
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-  begin
-    FolderSize := SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, 0, LPARAM(nil));
-    FilesSize := SendMessageW(GetParent(Wnd), CDM_GETSPEC, 0, LPARAM(nil));
-    SetLength(DialogRec^.UnicodeFolderName, FolderSize - 1);
-    SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, FolderSize,
-                 LPARAM(PWideChar(DialogRec^.UnicodeFolderName)));
+  FolderSize := SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, 0, LPARAM(nil));
+  FilesSize := SendMessageW(GetParent(Wnd), CDM_GETSPEC, 0, LPARAM(nil));
+  SetLength(DialogRec^.UnicodeFolderName, FolderSize - 1);
+  SendMessageW(GetParent(Wnd), CDM_GETFOLDERPATH, FolderSize,
+               LPARAM(PWideChar(DialogRec^.UnicodeFolderName)));
 
-    SetLength(DialogRec^.UnicodeFileNames, FilesSize - 1);
-    SendMessageW(GetParent(Wnd), CDM_GETSPEC, FilesSize,
-                 LPARAM(PWideChar(DialogRec^.UnicodeFileNames)));
-  end else
-  {$endif}
-  begin
-    FolderSize := CommDlg_OpenSave_GetFolderPath(GetParent(Wnd), nil, 0);
-    FilesSize := CommDlg_OpenSave_GetSpec(GetParent(Wnd), nil, 0);
-    SetLength(DialogRec^.AnsiFolderName, FolderSize - 1);
-    CommDlg_OpenSave_GetFolderPath(GetParent(Wnd),
-                        PChar(DialogRec^.AnsiFolderName),
-                        FolderSize);
-
-    SetLength(DialogRec^.AnsiFileNames, FilesSize - 1);
-    CommDlg_OpenSave_GetSpec(GetParent(Wnd),
-      PChar(DialogRec^.AnsiFileNames),
-      FilesSize);
-  end;
+  SetLength(DialogRec^.UnicodeFileNames, FilesSize - 1);
+  SendMessageW(GetParent(Wnd), CDM_GETSPEC, FilesSize,
+               LPARAM(PWideChar(DialogRec^.UnicodeFileNames)));
 end;
 
 {Common code for OpenDialog and SaveDialog}
@@ -629,12 +584,9 @@ var
   DialogRec: POpenFileDialogRec;
   OpenFile: LPOPENFILENAME;
   Filter, FileName, InitialDir, DefaultExt: String;
-  FileNameBuffer: PChar;
-{$ifdef WindowsUnicodeSupport}
   FileNameWide: WideString;
   FileNameWideBuffer: PWideChar;
   FileNameBufferSize: Integer;
-{$endif WindowsUnicodeSupport}
 begin
   FileName := AOpenDialog.FileName;
   InitialDir := AOpenDialog.InitialDir;
@@ -648,27 +600,15 @@ begin
 
   DefaultExt := GetDefaultExt;
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      FileNameWideBuffer := AllocMem(FileNameBufferLen * 2 + 2);
-      FileNameWide := UTF8ToUTF16(FileName);
+  FileNameWideBuffer := AllocMem(FileNameBufferLen * 2 + 2);
+  FileNameWide := UTF8ToUTF16(FileName);
 
-      if Length(FileNameWide) > FileNameBufferLen then
-        FileNameBufferSize := FileNameBufferLen
-      else
-        FileNameBufferSize := Length(FileNameWide);
+  if Length(FileNameWide) > FileNameBufferLen then
+    FileNameBufferSize := FileNameBufferLen
+  else
+    FileNameBufferSize := Length(FileNameWide);
 
-      Move(PWideChar(FileNameWide)^, FileNameWideBuffer^, FileNameBufferSize * 2);
-    end
-    else begin
-      FileNameBuffer := AllocMem(FileNameBufferLen + 1);
-      StrLCopy(FileNameBuffer, PChar(UTF8ToAnsi(FileName)), FileNameBufferLen);
-    end;
-  {$else}
-    FileNameBuffer := AllocMem(FileNameBufferLen + 1);
-    StrLCopy(FileNameBuffer, PChar(FileName), FileNameBufferLen);
-  {$endif}
+  Move(PWideChar(FileNameWide)^, FileNameWideBuffer^, FileNameBufferSize * 2);
 
   if AOpenDialog.Filter <> '' then
   begin
@@ -687,38 +627,11 @@ begin
 
     nFilterIndex := AOpenDialog.FilterIndex;
 
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-    begin
-      lpStrFile := PChar(FileNameWideBuffer);
-      lpstrFilter := PChar(UTF8StringToPWideChar(Filter));
-      lpstrTitle := PChar(UTF8StringToPWideChar(AOpenDialog.Title));
-      lpstrInitialDir := PChar(UTF8StringToPWideChar(InitialDir));
-      lpstrDefExt := PChar(UTF8StringToPWideChar(DefaultExt))
-    end
-    else
-    begin
-      lpStrFile := FileNameBuffer;
-      lpstrFilter := UTF8StringToPAnsiChar(Filter);
-      lpstrTitle := UTF8StringToPAnsiChar(AOpenDialog.Title);
-      lpstrInitialDir := UTF8StringToPAnsiChar(InitialDir);
-      lpstrDefExt := UTF8StringToPAnsiChar(DefaultExt);
-    end;
-  {$else}
-    lpStrFile := FileNameBuffer;
-
-    lpStrFilter := GetMem(Length(Filter)+1);
-    StrPCopy(lpStrFilter, Filter);
-
-    lpStrTitle := GetMem(Length(AOpenDialog.Title)+1);
-    StrPCopy(lpStrTitle, AOpenDialog.Title);
-
-    lpStrInitialDir := GetMem(Length(InitialDir)+1);
-    StrPCopy(lpstrInitialDir, InitialDir);
-
-    lpstrDefExt := GetMem(Length(DefaultExt)+1);
-    StrPCopy(lpstrDefExt, DefaultExt);
-  {$endif}
+    lpStrFile := PChar(FileNameWideBuffer);
+    lpstrFilter := PChar(UTF8StringToPWideChar(Filter));
+    lpstrTitle := PChar(UTF8StringToPWideChar(AOpenDialog.Title));
+    lpstrInitialDir := PChar(UTF8StringToPWideChar(InitialDir));
+    lpstrDefExt := PChar(UTF8StringToPWideChar(DefaultExt));
 
     nMaxFile := FileNameBufferLen + 1; // Size in TCHARs
     lpfnHook := Windows.LPOFNHOOKPROC(@OpenFileDialogCallBack);
@@ -771,45 +684,9 @@ begin
 end;
 
 { TWin32WSOpenDialog }
-{$ifdef UseVistaDialogs}
 
 
 class procedure TWin32WSOpenDialog.SetupVistaFileDialog(ADialog: IFileDialog; const AOpenDialog: TOpenDialog);
-{ non-used flags
-FOS_PICKFOLDERS
-FOS_FORCEFILESYSTEM
-FOS_ALLNONSTORAGEITEMS
-FOS_HIDEMRUPLACES
-FOS_HIDEPINNEDPLACES
-FOS_DONTADDTORECENT
-FOS_DEFAULTNOMINIMODE
-FOS_FORCEPREVIEWPANEON}
-
-  function GetOptions(Options: TOpenOptions): FileOpenDialogOptions;
-  begin
-    Result := 0;
-    if ofAllowMultiSelect in Options then Result := Result or FOS_ALLOWMULTISELECT;
-    if ofCreatePrompt in Options then Result := Result or FOS_CREATEPROMPT;
-    if ofExtensionDifferent in Options then Result := Result or FOS_STRICTFILETYPES;
-    if ofFileMustExist in Options then Result := Result or FOS_FILEMUSTEXIST;
-    if ofNoChangeDir in Options then Result := Result or FOS_NOCHANGEDIR;
-    if ofNoDereferenceLinks in Options then Result := Result or FOS_NODEREFERENCELINKS;
-    if ofNoReadOnlyReturn in  Options then Result := Result or FOS_NOREADONLYRETURN;
-    if ofNoTestFileCreate in Options then Result := Result or FOS_NOTESTFILECREATE;
-    if ofNoValidate in Options then Result := Result or FOS_NOVALIDATE;
-    if ofOverwritePrompt in Options then Result := Result or FOS_OVERWRITEPROMPT;
-    if ofPathMustExist in Options then Result := Result or FOS_PATHMUSTEXIST;
-    if ofShareAware in Options then Result := Result or FOS_SHAREAWARE;
-    if ofDontAddToRecent in Options then Result := Result or FOS_DONTADDTORECENT;
-    { unavailable options:
-      ofHideReadOnly
-      ofEnableSizing
-      ofNoLongNames
-      ofNoNetworkButton
-      ofReadOnly
-      ofShowHelp
-    }
-  end;
 
   function GetDefaultExt: String;
   begin
@@ -869,7 +746,7 @@ begin
     ParsedFilter.Free;
   end;
 
-  ADialog.SetOptions(GetOptions(AOpenDialog.Options));
+  ADialog.SetOptions(GetVistaOptions(AOpenDialog.Options, AOpenDialog is TSelectDirectoryDialog));
 end;
 
 class function TWin32WSOpenDialog.GetFileName(ShellItem: IShellItem): String;
@@ -883,6 +760,43 @@ begin
   end
   else
     Result := '';
+end;
+
+class function TWin32WSOpenDialog.GetVistaOptions(Options: TOpenOptions;
+  SelectFolder: Boolean): FileOpenDialogOptions;
+{ non-used flags
+FOS_FORCEFILESYSTEM
+FOS_ALLNONSTORAGEITEMS
+FOS_HIDEMRUPLACES
+FOS_HIDEPINNEDPLACES
+FOS_DONTADDTORECENT
+FOS_DEFAULTNOMINIMODE
+FOS_FORCEPREVIEWPANEON}
+
+begin
+  Result := 0;
+  if ofAllowMultiSelect in Options then Result := Result or FOS_ALLOWMULTISELECT;
+  if ofCreatePrompt in Options then Result := Result or FOS_CREATEPROMPT;
+  if ofExtensionDifferent in Options then Result := Result or FOS_STRICTFILETYPES;
+  if ofFileMustExist in Options then Result := Result or FOS_FILEMUSTEXIST;
+  if ofNoChangeDir in Options then Result := Result or FOS_NOCHANGEDIR;
+  if ofNoDereferenceLinks in Options then Result := Result or FOS_NODEREFERENCELINKS;
+  if ofNoReadOnlyReturn in  Options then Result := Result or FOS_NOREADONLYRETURN;
+  if ofNoTestFileCreate in Options then Result := Result or FOS_NOTESTFILECREATE;
+  if ofNoValidate in Options then Result := Result or FOS_NOVALIDATE;
+  if ofOverwritePrompt in Options then Result := Result or FOS_OVERWRITEPROMPT;
+  if ofPathMustExist in Options then Result := Result or FOS_PATHMUSTEXIST;
+  if ofShareAware in Options then Result := Result or FOS_SHAREAWARE;
+  if ofDontAddToRecent in Options then Result := Result or FOS_DONTADDTORECENT;
+  if SelectFolder then Result := Result or FOS_PICKFOLDERS;
+  { unavailable options:
+    ofHideReadOnly
+    ofEnableSizing
+    ofNoLongNames
+    ofNoNetworkButton
+    ofReadOnly
+    ofShowHelp
+  }
 end;
 
 class function TWin32WSOpenDialog.ProcessVistaDialogResult(ADialog: IFileDialog; const AOpenDialog: TOpenDialog): HResult;
@@ -965,17 +879,12 @@ begin
   else
     Result := WidgetSet.AppHandle;
 end;
-{$endif}
 
 class function TWin32WSOpenDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileOpenDialog;
-{$endif}
 begin
-  {$ifdef UseVistaDialogs}
   if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-  //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
   begin
     if Succeeded(CoCreateInstance(CLSID_FileOpenDialog, nil, CLSCTX_INPROC_SERVER, IFileOpenDialog, Dialog)) and Assigned(Dialog) then
     begin
@@ -987,27 +896,21 @@ begin
       Result := INVALID_HANDLE_VALUE;
   end
   else
-  {$endif}
     Result := CreateFileDialogHandle(TOpenDialog(ACommonDialog));
 end;
 
 class procedure TWin32WSOpenDialog.DestroyHandle(const ACommonDialog: TCommonDialog);
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileDialog;
-{$endif}
 begin
   if ACommonDialog.Handle <> 0 then
-  {$ifdef UseVistaDialogs}
     if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-    //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
     begin
       Dialog := IFileDialog(ACommonDialog.Handle);
       Dialog._Release;
       Dialog := nil;
     end
     else
-  {$endif}
       DestroyFileDialogHandle(ACommonDialog.Handle)
 end;
 
@@ -1015,9 +918,7 @@ class procedure TWin32WSOpenDialog.ShowModal(const ACommonDialog: TCommonDialog)
 var
   State: TApplicationState;
   lOldWorkingDir, lInitialDir: string;
-  {$ifdef UseVistaDialogs}
   Dialog: IFileOpenDialog;
-  {$endif}
 begin
   if ACommonDialog.Handle <> 0 then
   begin
@@ -1025,28 +926,17 @@ begin
     lOldWorkingDir := GetCurrentDirUTF8;
     try
       lInitialDir := TOpenDialog(ACommonDialog).InitialDir;
-      if lInitialDir <> '' then SetCurrentDirUTF8(lInitialDir);
-      {$ifdef UseVistaDialogs}
+      if lInitialDir <> '' then
+        SetCurrentDirUTF8(lInitialDir);
       if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-      //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
       begin
         Dialog := IFileOpenDialog(ACommonDialog.Handle);
         VistaDialogShowModal(Dialog, TOpenDialog(ACommonDialog));
       end
       else
-      {$endif}
       begin
-        {$ifdef WindowsUnicodeSupport}
-          if UnicodeEnabledOS then
-            ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-              GetOpenFileNameW(LPOPENFILENAME(ACommonDialog.Handle)))
-          else
-            ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-              GetOpenFileName(LPOPENFILENAME(ACommonDialog.Handle)));
-        {$else}
-          ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-            GetOpenFileName(LPOPENFILENAME(ACommonDialog.Handle)));
-        {$endif}
+        ProcessFileDialogResult(TOpenDialog(ACommonDialog),
+          GetOpenFileNameW(LPOPENFILENAME(ACommonDialog.Handle)));
       end;
     finally
       SetCurrentDirUTF8(lOldWorkingDir);
@@ -1058,14 +948,10 @@ end;
 { TWin32WSSaveDialog }
 
 class function TWin32WSSaveDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileSaveDialog;
-{$endif}
 begin
-  {$ifdef UseVistaDialogs}
   if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-  //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
   begin
     if Succeeded(CoCreateInstance(CLSID_FileSaveDialog, nil, CLSCTX_INPROC_SERVER, IFileSaveDialog, Dialog))
     and Assigned(Dialog) then
@@ -1078,27 +964,21 @@ begin
       Result := INVALID_HANDLE_VALUE;
   end
   else
-  {$endif}
     Result := CreateFileDialogHandle(TOpenDialog(ACommonDialog));
 end;
 
 class procedure TWin32WSSaveDialog.DestroyHandle(const ACommonDialog: TCommonDialog);
-{$ifdef UseVistaDialogs}
 var
   Dialog: IFileDialog;
-{$endif}
 begin
   if ACommonDialog.Handle <> 0 then
-  {$ifdef UseVistaDialogs}
     if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-    //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
     begin
       Dialog := IFileDialog(ACommonDialog.Handle);
       Dialog._Release;
       Dialog := nil;
     end
     else
-  {$endif}
       DestroyFileDialogHandle(ACommonDialog.Handle)
 end;
 
@@ -1106,9 +986,7 @@ class procedure TWin32WSSaveDialog.ShowModal(const ACommonDialog: TCommonDialog)
 var
   State: TApplicationState;
   lOldWorkingDir, lInitialDir: string;
-  {$ifdef UseVistaDialogs}
   Dialog: IFileSaveDialog;
-  {$endif}
 begin
   if ACommonDialog.Handle <> 0 then
   begin
@@ -1116,28 +994,17 @@ begin
     lOldWorkingDir := GetCurrentDirUTF8;
     try
       lInitialDir := TSaveDialog(ACommonDialog).InitialDir;
-      if lInitialDir <> '' then SetCurrentDirUTF8(lInitialDir);
-      {$ifdef UseVistaDialogs}
+      if lInitialDir <> '' then
+        SetCurrentDirUTF8(lInitialDir);
       if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
-      //if (WindowsVersion >= wvVista) and ThemeServices.ThemesEnabled then
       begin
         Dialog := IFileSaveDialog(ACommonDialog.Handle);
         TWin32WSOpenDialog.VistaDialogShowModal(Dialog, TOpenDialog(ACommonDialog));
       end
       else
-      {$endif}
       begin
-        {$ifdef WindowsUnicodeSupport}
-          if UnicodeEnabledOS then
-            ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-              GetSaveFileNameW(LPOPENFILENAME(ACommonDialog.Handle)))
-          else
-            ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-              GetSaveFileName(LPOPENFILENAME(ACommonDialog.Handle)));
-        {$else}
-          ProcessFileDialogResult(TOpenDialog(ACommonDialog),
-            GetSaveFileName(LPOPENFILENAME(ACommonDialog.Handle)));
-        {$endif}
+        ProcessFileDialogResult(TOpenDialog(ACommonDialog),
+          GetSaveFileNameW(LPOPENFILENAME(ACommonDialog.Handle)));
       end;
     finally
       SetCurrentDirUTF8(lOldWorkingDir);
@@ -1172,94 +1039,38 @@ class function TWin32WSFontDialog.CreateHandle(const ACommonDialog: TCommonDialo
   end;
 
 var
-{$ifdef WindowsUnicodeSupport}
   CFW: TChooseFontW;
   LFW: LogFontW;
   CF: TChooseFontA absolute CFW;
   LF: LogFontA absolute LFW;
-{$else}
-  CF: TChooseFont;
-  LF: LogFont;
-{$endif}
   UserResult: WINBOOL;
 begin
   with TFontDialog(ACommonDialog) do
   begin
-  {$ifdef WindowsUnicodeSupport}
     ZeroMemory(@CFW, sizeof(TChooseFontW));
     ZeroMemory(@LFW, sizeof(LogFontW));
-    if UnicodeEnabledOS then
-    begin
-      with LFW do
-      begin
-        LFHeight := Font.Height;
-        LFFaceName := UTF8ToUTF16(Font.Name);
-        if (fsBold in Font.Style) then LFWeight:= FW_BOLD;
-        LFItalic := byte(fsItalic in Font.Style);
-        LFStrikeOut := byte(fsStrikeOut in Font.Style);
-        LFUnderline := byte(fsUnderline in Font.Style);
-        LFCharSet := Font.CharSet;
-      end;
-      with CFW do
-      begin
-        LStructSize := sizeof(TChooseFont);
-        HWndOwner := GetOwnerHandle(ACommonDialog);
-        LPLogFont := commdlg.PLOGFONTW(@LFW);
-        Flags := GetFlagsFromOptions(Options);
-        Flags := Flags or CF_INITTOLOGFONTSTRUCT or CF_BOTH;
-        RGBColors := DWORD(Font.Color);
-      end;
-      UserResult := ChooseFontW(@CFW);
-      // we need to update LF now
-      LF.lfFaceName := UTF16ToUTF8(LFW.lfFaceName);
-    end
-    else
-    begin
-      with LF do
-      begin
-        LFHeight := Font.Height;
-        LFFaceName := Utf8ToAnsi(Font.Name);
-        if (fsBold in Font.Style) then LFWeight:= FW_BOLD;
-        LFItalic := byte(fsItalic in Font.Style);
-        LFStrikeOut := byte(fsStrikeOut in Font.Style);
-        LFUnderline := byte(fsUnderline in Font.Style);
-        LFCharSet := Font.CharSet;
-      end;
-      with CF do
-      begin
-        LStructSize := sizeof(TChooseFont);
-        HWndOwner := GetOwnerHandle(ACommonDialog);
-        LPLogFont := commdlg.PLOGFONTA(@LF);
-        Flags := GetFlagsFromOptions(Options);
-        Flags := Flags or CF_INITTOLOGFONTSTRUCT or CF_BOTH;
-        RGBColors := DWORD(Font.Color);
-      end;
-      UserResult := ChooseFontA(@CF);
-    end
-  {$else}
-    ZeroMemory(@CF, sizeof(TChooseFont));
-    ZeroMemory(@LF, sizeof(LogFont));
-    with LF do
+    with LFW do
     begin
       LFHeight := Font.Height;
-      LFFaceName := TFontDataName(Font.Name);
+      LFFaceName := UTF8ToUTF16(Font.Name);
       if (fsBold in Font.Style) then LFWeight:= FW_BOLD;
       LFItalic := byte(fsItalic in Font.Style);
       LFStrikeOut := byte(fsStrikeOut in Font.Style);
       LFUnderline := byte(fsUnderline in Font.Style);
       LFCharSet := Font.CharSet;
     end;
-    with CF do
+    with CFW do
     begin
       LStructSize := sizeof(TChooseFont);
       HWndOwner := GetOwnerHandle(ACommonDialog);
-      LPLogFont := commdlg.PLOGFONT(@LF);
+      LPLogFont := commdlg.PLOGFONTW(@LFW);
       Flags := GetFlagsFromOptions(Options);
       Flags := Flags or CF_INITTOLOGFONTSTRUCT or CF_BOTH;
       RGBColors := DWORD(Font.Color);
     end;
-    UserResult := ChooseFont(@CF);
-  {$endif}
+    UserResult := ChooseFontW(@CFW);
+    // we need to update LF now
+    LF.lfFaceName := UTF16ToUTF8(LFW.lfFaceName);
   end;
 
   SetDialogResult(ACommonDialog, UserResult);
@@ -1279,7 +1090,6 @@ end;
 
 class function TWin32WSCommonDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
 begin
-  DebugLn('TWin32WSCommonDialog.CreateHandle: unhandled dialog!');
   Result := 0;
 end;
 
@@ -1306,12 +1116,7 @@ begin
   case uMsg of
     BFFM_INITIALIZED:
         // Setting root dir
-        {$ifdef WindowsUnicodeSupport}
-        if UnicodeEnabledOS then
-          SendMessageW(hwnd, BFFM_SETSELECTIONW, WPARAM(True), lpData)
-        else
-        {$endif}
-          SendMessage(hwnd, BFFM_SETSELECTION, WPARAM(True), lpData);
+        SendMessageW(hwnd, BFFM_SETSELECTIONW, WPARAM(True), lpData);
     //BFFM_SELCHANGED
     //  : begin
     //    if Assigned(FOnSelectionChange) then .....
@@ -1322,17 +1127,34 @@ end;
 
 class function TWin32WSSelectDirectoryDialog.CreateHandle(const ACommonDialog: TCommonDialog): THandle;
 var
+  Dialog: IFileOpenDialog;
+begin
+  if CanUseVistaDialogs(TOpenDialog(ACommonDialog)) then
+  begin
+    if Succeeded(CoCreateInstance(CLSID_FileOpenDialog, nil, CLSCTX_INPROC_SERVER, IFileOpenDialog, Dialog)) and Assigned(Dialog) then
+    begin
+      Dialog._AddRef;
+      TWin32WSOpenDialog.SetupVistaFileDialog(Dialog, TOpenDialog(ACommonDialog));
+      Result := THandle(Dialog);
+    end
+    else
+      Result := INVALID_HANDLE_VALUE;
+  end
+  else
+    Result := CreateOldHandle(ACommonDialog);
+end;
+
+class function TWin32WSSelectDirectoryDialog.CreateOldHandle(
+  const ACommonDialog: TCommonDialog): THandle;
+var
   Options : TOpenOptions;
   InitialDir : string;
   Buffer : PChar;
-  bi : TBrowseInfo;
   iidl : PItemIDList;
-  {$ifdef WindowsUnicodeSupport}
   biw : TBROWSEINFOW;
   Bufferw : PWideChar absolute Buffer;
   InitialDirW: widestring;
   Title: widestring;
-  {$endif}
   DirName: string;
 begin
   DirName := '';
@@ -1349,86 +1171,34 @@ begin
     if Copy(InitialDir,length(InitialDir),1)=DriveDelim then
       InitialDir := InitialDir + PathDelim;
   end;
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-  begin
-    Buffer := CoTaskMemAlloc(MAX_PATH*2);
-    InitialDirW:=UTF8ToUTF16(InitialDir);
-    with biw do
-    begin
-      hwndOwner := GetOwnerHandle(ACommonDialog);
-      pidlRoot := nil;
-      pszDisplayName := BufferW;
-      Title :=  UTF8ToUTF16(ACommonDialog.Title);
-      lpszTitle := PWideChar(Title);
-      ulFlags := BIF_RETURNONLYFSDIRS;
-      if not (ofOldStyleDialog in Options) then
-         ulFlags := ulFlags + BIF_USENEWUI;
-      lpfn := @BrowseForFolderCallback;
-      // this value will be passed to callback proc as lpData
-      lParam := Windows.LParam(PWideChar(InitialDirW));
-    end;
-
-    iidl := SHBrowseForFolderW(@biw);
-
-    if Assigned(iidl) then
-    begin
-      SHGetPathFromIDListW(iidl, BufferW);
-      CoTaskMemFree(iidl);
-      DirName := UTF16ToUTF8(widestring(BufferW));
-    end;
-  end
-  else begin
-    Buffer := CoTaskMemAlloc(MAX_PATH);
-    InitialDir := Utf8ToAnsi(InitialDir);
-    with bi do
-    begin
-      hwndOwner := GetOwnerHandle(ACommonDialog);
-      pidlRoot := nil;
-      pszDisplayName := Buffer;
-      lpszTitle := PChar(ACommonDialog.Title);
-      ulFlags := BIF_RETURNONLYFSDIRS;
-      if not (ofOldStyleDialog in Options) then
-         ulFlags := ulFlags + BIF_NEWDIALOGSTYLE;
-      lpfn := @BrowseForFolderCallback;
-      // this value will be passed to callback proc as lpData
-      lParam := Windows.LParam(PChar(InitialDir));
-    end;
-
-    iidl := SHBrowseForFolder(@bi);
-
-    if Assigned(iidl) then
-    begin
-      SHGetPathFromIDList(iidl, Buffer);
-      CoTaskMemFree(iidl);
-      DirName := AnsiToUtf8(Buffer);
-    end;
-  end;
-  {$else}
-  Buffer := CoTaskMemAlloc(MAX_PATH);
-  with bi do
+  Buffer := CoTaskMemAlloc(MAX_PATH*2);
+  InitialDirW:=UTF8ToUTF16(InitialDir);
+  with biw do
   begin
     hwndOwner := GetOwnerHandle(ACommonDialog);
     pidlRoot := nil;
-    pszDisplayName := Buffer;
-    lpszTitle := PChar(ACommonDialog.Title);
+    pszDisplayName := BufferW;
+    Title :=  UTF8ToUTF16(ACommonDialog.Title);
+    lpszTitle := PWideChar(Title);
     ulFlags := BIF_RETURNONLYFSDIRS;
+    if not (ofCreatePrompt in Options) then
+      ulFlags := ulFlags + BIF_NONEWFOLDERBUTTON;
     if not (ofOldStyleDialog in Options) then
-       ulFlags := ulFlags + BIF_NEWDIALOGSTYLE;
+      // better than flag BIF_USENEWUI, to hide editbox, it's not handy
+      ulFlags := ulFlags + BIF_NEWDIALOGSTYLE;
     lpfn := @BrowseForFolderCallback;
     // this value will be passed to callback proc as lpData
-    lParam := LclType.LParam(PChar(InitialDir));
+    lParam := Windows.LParam(PWideChar(InitialDirW));
   end;
 
-  iidl := SHBrowseForFolder(@bi);
+  iidl := SHBrowseForFolderW(@biw);
 
   if Assigned(iidl) then
   begin
-    SHGetPathFromIDList(iidl, Buffer);
+    SHGetPathFromIDListW(iidl, BufferW);
     CoTaskMemFree(iidl);
-    DirName := Buffer;
+    DirName := UTF16ToUTF8(widestring(BufferW));
   end;
-  {$endif}
 
   if Assigned(iidl) then
   begin
@@ -1442,7 +1212,6 @@ begin
   Result := 0;
 end;
 
-{$ifdef UseVistaDialogs}
 { TFileDialogEvents }
 
 function TFileDialogEvents.OnFileOk(pfd: IFileDialog): HResult; stdcall;
@@ -1543,7 +1312,6 @@ begin
   inherited Create;
   FDialog := ADialog;
 end;
-{$endif}
 
 initialization
   if (Win32MajorVersion = 4) then

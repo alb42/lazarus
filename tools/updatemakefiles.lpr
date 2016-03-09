@@ -33,8 +33,7 @@ program updatemakefiles;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, sysutils, LazFileUtils, Laz2_XMLCfg, FileProcs, DefineTemplates,
-  UTF8Process;
+  Classes, sysutils, FileProcs, DefineTemplates, LazFileUtils, Laz2_XMLCfg;
 
 var
   LazarusDir: String;
@@ -157,7 +156,7 @@ begin
   writeln(LPKFiles.Text);
   LPKFiles.StrictDelimiter:=true;
   LPKFiles.Delimiter:=' ';
-  LazbuildOut:=RunTool(SetDirSeparators('./lazbuild'+ExeExt),'--lazarusdir="'+LazarusDir+'" --create-makefile '+LPKFiles.DelimitedText,LazarusDir);
+  LazbuildOut:=RunTool(SetDirSeparators(LazarusDir+'/lazbuild'+ExeExt),'--lazarusdir="'+LazarusDir+'" --create-makefile '+LPKFiles.DelimitedText,LazarusDir);
   writeln(LazbuildOut.Text);
   LPKFiles.Free;
 end.

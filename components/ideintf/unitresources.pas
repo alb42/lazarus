@@ -58,6 +58,7 @@ type
     class function GetClassNameFromStream(s: TStream; out IsInherited: Boolean): shortstring; override;
     class function CreateReader(s: TStream; var DestroyDriver: boolean): TReader; override;
     class function CreateWriter(s: TStream; var DestroyDriver: boolean): TWriter; override;
+    class function DefaultComponentClass: TComponentClass; override;
     class function FindComponentClass(aClassName: string): TComponentClass; override;
   end;
 
@@ -68,6 +69,9 @@ procedure RegisterUnitResourcefileFormat(AResourceFileFormat: TUnitResourcefileF
 function GetUnitResourcefileFormats: TUnitResourcefileFormatArr;
 
 implementation
+
+uses
+  FormEditingIntf;
 
 var
   GUnitResourcefileFormats: TUnitResourcefileFormatArr;
@@ -142,15 +146,20 @@ begin
   Result := CreateLRSWriter(s, DestroyDriver);
 end;
 
+class function TCustomLFMUnitResourceFileFormat.DefaultComponentClass: TComponentClass;
+begin
+  Result := FormEditingHook.StandardDesignerBaseClasses[DesignerBaseClassId_TForm];
+end;
+
 class function TCustomLFMUnitResourceFileFormat.FindComponentClass(
   aClassName: string): TComponentClass;
 begin
   if CompareText(aClassName,'TForm')=0 then
-    Result:=TForm
+    Result:=FormEditingHook.StandardDesignerBaseClasses[DesignerBaseClassId_TForm]
   else if CompareText(aClassName,'TFrame')=0 then
-    Result:=TFrame
+    Result:=FormEditingHook.StandardDesignerBaseClasses[DesignerBaseClassId_TFrame]
   else if CompareText(aClassName,'TDataModule')=0 then
-    Result:=TDataModule
+    Result:=FormEditingHook.StandardDesignerBaseClasses[DesignerBaseClassId_TDataModule]
   else
     Result:=nil;
 end;
@@ -167,8 +176,7 @@ begin
   Result:=TForm;
 end;
 
-class function TUnitResourcefileFormat.FindComponentClass(aClassName: string
-  ): TComponentClass;
+class function TUnitResourcefileFormat.FindComponentClass(aClassName: string): TComponentClass;
 begin
   Result:=nil;
 end;

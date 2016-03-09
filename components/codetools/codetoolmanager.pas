@@ -40,16 +40,15 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, contnrs, LazMethodList, TypInfo, types, FileProcs, BasicCodeTools,
-  CodeToolsStrConsts,
-  LazFileCache,
+  Classes, SysUtils, contnrs, TypInfo, types, FileProcs, LazFileUtils,
+  BasicCodeTools, CodeToolsStrConsts, LazFileCache, LazMethodList,
   EventCodeTool, CodeTree, CodeAtom, SourceChanger, DefineTemplates, CodeCache,
   ExprEval, LinkScanner, KeywordFuncLists, FindOverloads, CodeBeautifier,
   FindDeclarationCache, DirectoryCacher, AVL_Tree,
   PPUCodeTools, LFMTrees, DirectivesTree, CodeCompletionTemplater,
   PascalParserTool, CodeToolsConfig, CustomCodeTool, FindDeclarationTool,
   IdentCompletionTool, StdCodeTools, ResourceCodeTool, CodeToolsStructs,
-  CTUnitGraph, ExtractProcTool;
+  CTUnitGraph, ExtractProcTool, LazDbgLog, CodeCompletionTool;
 
 type
   TCodeToolManager = class;
@@ -119,6 +118,8 @@ type
     FOnSearchUsedUnit: TOnSearchUsedUnit;
     FResourceTool: TResourceCodeTool;
     FSetPropertyVariablename: string;
+    FSetPropertyVariableIsPrefix: Boolean;
+    FSetPropertyVariableUseConst: Boolean;
     FSourceExtensions: string; // default is '.pp;.pas;.lpr;.dpr;.dpk'
     FPascalTools: TAVLTree; // tree of TCustomCodeTool sorted TCustomCodeTool(Data).Scanner.MainCode
     FTabWidth: integer;
@@ -148,7 +149,9 @@ type
     procedure SetCodeCompletionTemplateFileName(AValue: String);
     procedure SetCompleteProperties(const AValue: boolean);
     procedure SetIndentSize(NewValue: integer);
+    procedure SetSetPropertyVariableIsPrefix(aValue: Boolean);
     procedure SetSetPropertyVariablename(AValue: string);
+    procedure SetSetPropertyVariableUseConst(aValue: Boolean);
     procedure SetTabWidth(const AValue: integer);
     procedure SetUseTabs(AValue: boolean);
     procedure SetVisibleEditorLines(NewValue: integer);
@@ -286,6 +289,10 @@ type
     property JumpCentered: boolean read FJumpCentered write SetJumpCentered;
     property SetPropertyVariablename: string
                    read FSetPropertyVariablename write SetSetPropertyVariablename;
+    property SetPropertyVariableIsPrefix: Boolean
+                   read FSetPropertyVariableIsPrefix write SetSetPropertyVariableIsPrefix;
+    property SetPropertyVariableUseConst: Boolean
+                   read FSetPropertyVariableUseConst write SetSetPropertyVariableUseConst;
     property VisibleEditorLines: integer
                            read FVisibleEditorLines write SetVisibleEditorLines;
     property TabWidth: integer read FTabWidth write SetTabWidth;
@@ -387,6 +394,8 @@ type
           const NewSrc: string = ''): boolean; deprecated;
     function AddIncludeDirectiveForInit(Code: TCodeBuffer; const Filename: string;
           const NewSrc: string = ''): boolean;
+    function AddUnitWarnDirective(Code: TCodeBuffer; WarnID, Comment: string;
+          TurnOn: boolean): boolean;
     function RemoveDirective(Code: TCodeBuffer; NewX, NewY: integer;
           RemoveEmptyIFs: boolean): boolean;
     function FixIncludeFilenames(Code: TCodeBuffer; Recursive: boolean;
@@ -398,9 +407,10 @@ type
 
     // keywords and comments
     function IsKeyword(Code: TCodeBuffer; const KeyWord: string): boolean;
-    function ExtractCodeWithoutComments(Code: TCodeBuffer): string;
+    function ExtractCodeWithoutComments(Code: TCodeBuffer;
+          KeepDirectives: boolean = false): string;
     function GetPasDocComments(Code: TCodeBuffer; X, Y: integer;
-                               out ListOfPCodeXYPosition: TFPList): boolean;
+          out ListOfPCodeXYPosition: TFPList): boolean;
 
     // blocks (e.g. begin..end, case..end, try..finally..end, repeat..until)
     function FindBlockCounterPart(Code: TCodeBuffer; X,Y: integer;
@@ -543,13 +553,13 @@ type
           out Operand: string; ResolveProperty: Boolean): Boolean;
 
     // code completion = auto class completion, auto forward proc completion,
-    //             local var assignment completion, event assignment completion
+    //             (local) var assignment completion, event assignment completion
     function CompleteCode(Code: TCodeBuffer; X,Y,TopLine: integer;
           out NewCode: TCodeBuffer;
-          out NewX, NewY, NewTopLine: integer): boolean;
+          out NewX, NewY, NewTopLine: integer;Interactive: Boolean): boolean;
     function CreateVariableForIdentifier(Code: TCodeBuffer; X,Y,TopLine: integer;
           out NewCode: TCodeBuffer;
-          out NewX, NewY, NewTopLine: integer): boolean;
+          out NewX, NewY, NewTopLine: integer; Interactive: Boolean): boolean;
     function AddMethods(Code: TCodeBuffer; X,Y, TopLine: integer;
           ListOfPCodeXYPosition: TFPList;
           const VirtualToOverride: boolean;
@@ -3273,6 +3283,21 @@ begin
   end;
 end;
 
+function TCodeToolManager.AddUnitWarnDirective(Code: TCodeBuffer; WarnID,
+  Comment: string; TurnOn: boolean): boolean;
+begin
+  Result:=false;
+  {$IFDEF CTDEBUG}
+  DebugLn(['TCodeToolManager.AddUnitWarnDirective A ',Code.Filename,' aParam="',aParam,'" TurnOn=',TurnOn]);
+  {$ENDIF}
+  if not InitCurCodeTool(Code) then exit;
+  try
+    Result:=FCurCodeTool.AddUnitWarnDirective(WarnID,Comment,TurnOn,SourceChangeCache);
+  except
+    on e: Exception do Result:=HandleException(e);
+  end;
+end;
+
 function TCodeToolManager.RemoveDirective(Code: TCodeBuffer; NewX,
   NewY: integer; RemoveEmptyIFs: boolean): boolean;
 var
@@ -3440,10 +3465,11 @@ begin
   end;
 end;
 
-function TCodeToolManager.ExtractCodeWithoutComments(Code: TCodeBuffer): string;
+function TCodeToolManager.ExtractCodeWithoutComments(Code: TCodeBuffer;
+  KeepDirectives: boolean): string;
 begin
   Result:=CleanCodeFromComments(Code.Source,
-                                GetNestedCommentsFlagForFile(Code.Filename));
+                    GetNestedCommentsFlagForFile(Code.Filename),KeepDirectives);
 end;
 
 function TCodeToolManager.GetPasDocComments(Code: TCodeBuffer; X, Y: integer;
@@ -4066,8 +4092,9 @@ begin
   aMessage:='unknown identifier "'+GDBIdentifier+'"';
 end;
 
-function TCodeToolManager.CompleteCode(Code: TCodeBuffer; X,Y,TopLine: integer;
-  out NewCode: TCodeBuffer; out NewX, NewY, NewTopLine: integer): boolean;
+function TCodeToolManager.CompleteCode(Code: TCodeBuffer; X, Y,
+  TopLine: integer; out NewCode: TCodeBuffer; out NewX, NewY,
+  NewTopLine: integer; Interactive: Boolean): boolean;
 var
   CursorPos: TCodeXYPosition;
   NewPos: TCodeXYPosition;
@@ -4086,7 +4113,7 @@ begin
   CursorPos.Code:=Code;
   try
     Result:=FCurCodeTool.CompleteCode(CursorPos,TopLine,
-                                           NewPos,NewTopLine,SourceChangeCache);
+      NewPos,NewTopLine,SourceChangeCache,Interactive);
     if Result then begin
       NewX:=NewPos.X;
       NewY:=NewPos.Y;
@@ -4099,7 +4126,7 @@ end;
 
 function TCodeToolManager.CreateVariableForIdentifier(Code: TCodeBuffer; X, Y,
   TopLine: integer; out NewCode: TCodeBuffer; out NewX, NewY,
-  NewTopLine: integer): boolean;
+  NewTopLine: integer; Interactive: Boolean): boolean;
 var
   CursorPos: TCodeXYPosition;
   NewPos: TCodeXYPosition;
@@ -4114,7 +4141,7 @@ begin
   CursorPos.Code:=Code;
   try
     Result:=FCurCodeTool.CreateVariableForIdentifier(CursorPos,TopLine,
-                                             NewPos,NewTopLine,SourceChangeCache);
+      NewPos,NewTopLine,SourceChangeCache,Interactive);
     if Result then begin
       NewX:=NewPos.X;
       NewY:=NewPos.Y;
@@ -5778,10 +5805,22 @@ begin
     FCurCodeTool.JumpCentered:=NewValue;
 end;
 
+procedure TCodeToolManager.SetSetPropertyVariableIsPrefix(aValue: Boolean);
+begin
+  if FSetPropertyVariableIsPrefix = aValue then Exit;
+  FSetPropertyVariableIsPrefix := aValue;
+end;
+
 procedure TCodeToolManager.SetSetPropertyVariablename(AValue: string);
 begin
   if FSetPropertyVariablename=aValue then Exit;
   FSetPropertyVariablename:=aValue;
+end;
+
+procedure TCodeToolManager.SetSetPropertyVariableUseConst(aValue: Boolean);
+begin
+  if FSetPropertyVariableUseConst = aValue then Exit;
+  FSetPropertyVariableUseConst := aValue;
 end;
 
 procedure TCodeToolManager.SetCursorBeyondEOL(NewValue: boolean);
@@ -5886,6 +5925,8 @@ begin
     AddInheritedCodeToOverrideMethod:=Self.AddInheritedCodeToOverrideMethod;
     CompleteProperties:=Self.CompleteProperties;
     SetPropertyVariablename:=Self.SetPropertyVariablename;
+    SetPropertyVariableIsPrefix:=Self.SetPropertyVariableIsPrefix;
+    SetPropertyVariableUseConst:=Self.SetPropertyVariableUseConst;
   end;
   Result.CheckFilesOnDisk:=FCheckFilesOnDisk;
   Result.IndentSize:=FIndentSize;
@@ -6231,8 +6272,11 @@ procedure TCodeToolManager.WriteDebugReport(WriteTool,
 begin
   DebugLn('[TCodeToolManager.WriteDebugReport]');
   if FCurCodeTool<>nil then begin
-    if WriteTool then
+    if WriteTool then begin
       FCurCodeTool.WriteDebugTreeReport;
+      if FCurCodeTool.Scanner<>nil then
+        FCurCodeTool.Scanner.WriteDebugReport;
+    end;
   end;
   if WriteDefPool then
     DefinePool.WriteDebugReport
@@ -6268,6 +6312,8 @@ begin
     PtrUInt(InstanceSize)
     +MemSizeString(FErrorMsg)
     +MemSizeString(FSetPropertyVariablename)
+    +PtrUInt(SizeOf(FSetPropertyVariableIsPrefix))
+    +PtrUInt(SizeOf(FSetPropertyVariableUseConst))
     +MemSizeString(FSourceExtensions)
     );
   if DefinePool<>nil then

@@ -4,6 +4,7 @@
 
 unit fpvectorialpkg;
 
+{$warn 5023 off : no warning about unused units}
 interface
 
 uses
@@ -13,14 +14,8 @@ uses
   lazvectorialreader, mathmlvectorialreader, odgvectorialreader, 
   rawvectorialreadwrite, svgvectorialreader, svgvectorialwriter, 
   svgzvectorialreader, odtvectorialwriter, docxvectorialwriter, 
-  htmlvectorialreader, LazarusPackageIntf;
+  htmlvectorialreader;
 
 implementation
 
-procedure Register;
-begin
-end;
-
-initialization
-  RegisterPackage('fpvectorialpkg', @Register);
 end.

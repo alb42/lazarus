@@ -43,7 +43,7 @@ interface
 
 uses
   Classes, SysUtils, FileProcs, CodeToolsStrConsts, CodeCache, BasicCodeTools,
-  typinfo, LinkScanner, AVL_Tree, KeywordFuncLists;
+  typinfo, LinkScanner, AVL_Tree, KeywordFuncLists, LazDbgLog;
   
 type
   // Insert policy types for class parts (properties, variables, method defs)
@@ -59,6 +59,15 @@ type
     mipClassOrder      // try to copy the order of the class
     );
     
+  TCreateCodeLocation = (cclLocal, cclClass);
+
+  TInsertClassSection = (
+    icsPrivate,
+    icsProtected,
+    icsPublic,
+    icsPublished
+  );
+
   TForwardProcBodyInsertPolicy = (
     fpipLast,
     fpipInFrontOfMethods,
@@ -150,6 +159,7 @@ type
     KeepForwardProcOrder: boolean;
     UpdateMultiProcSignatures: boolean;
     UpdateOtherProcSignaturesCase: boolean; // when updating proc signatures not under cursor, fix case
+    GroupLocalVariables: boolean;
     // classes, methods, properties
     ClassHeaderComments: boolean;
     ClassImplementationComments: boolean;
@@ -163,6 +173,7 @@ type
     UpdateAllMethodSignatures: boolean;
     // uses section
     UsesInsertPolicy: TUsesInsertPolicy;
+    UsesSectionPreferInterface: boolean;
 
     CurFlags: TBeautifyCodeFlags;
     
@@ -270,8 +281,7 @@ type
     function Apply: boolean;
     function FindEntryInRange(FromPos, ToPos: integer): TSourceChangeCacheEntry;
     function FindEntryAtPos(APos: integer): TSourceChangeCacheEntry;
-    property BuffersToModify[Index: integer]: TCodeBuffer
-                                                        read GetBuffersToModify;
+    property BuffersToModify[Index: integer]: TCodeBuffer read GetBuffersToModify;
     function BuffersToModifyCount: integer;
     function BufferIsModified(ACode: TCodeBuffer): boolean;
     property OnBeforeApplyChanges: TOnBeforeApplyChanges
@@ -327,7 +337,21 @@ const
   MethodInsertPolicyNames: array[TMethodInsertPolicy] of shortstring = (
       'Alphabetically', 'Last', 'ClassOrder'
     );
-    
+
+  InsertClassSectionNames: array[TInsertClassSection] of ShortString = (
+    'Private', 'Protected', 'Public', 'Published'
+    );
+  InsertClassSectionAmpNames: array[TInsertClassSection] of ShortString = (
+    '&Private', 'P&rotected', 'P&ublic', 'Publi&shed'
+    );
+
+  CreateCodeLocationNames: array[TCreateCodeLocation] of ShortString = (
+    'Local', 'Class'
+    );
+  CreateCodeLocationAmpNames: array[TCreateCodeLocation] of ShortString = (
+    '&Local', '&Class'
+    );
+
   ForwardProcBodyInsertPolicyNames: array[TForwardProcBodyInsertPolicy] of
     shortstring = (
       'Last',
@@ -356,6 +380,8 @@ function AtomTypesToStr(const AtomTypes: TAtomTypes): string;
 function WordPolicyNameToPolicy(const s: string): TWordPolicy;
 function ClassPartPolicyNameToPolicy(const s: string): TClassPartInsertPolicy;
 function MethodInsertPolicyNameToPolicy(const s: string): TMethodInsertPolicy;
+function InsertClassSectionNameToSection(const s: string): TInsertClassSection;
+function CreateCodeLocationNameToLocation(const s: string): TCreateCodeLocation;
 function ForwardProcBodyInsertPolicyNameToPolicy(
   const s: string): TForwardProcBodyInsertPolicy;
 function UsesInsertPolicyNameToPolicy(const s: string): TUsesInsertPolicy;
@@ -406,6 +432,21 @@ begin
   for Result:=Low(TMethodInsertPolicy) to High(TMethodInsertPolicy) do
     if SysUtils.CompareText(MethodInsertPolicyNames[Result],s)=0 then exit;
   Result:=mipLast;
+end;
+
+function InsertClassSectionNameToSection(const s: string): TInsertClassSection;
+begin
+  for Result:=Low(TInsertClassSection) to High(TInsertClassSection) do
+    if SysUtils.CompareText(InsertClassSectionNames[Result],s)=0 then exit;
+  Result:=icsPrivate;
+end;
+
+function CreateCodeLocationNameToLocation(const s: string): TCreateCodeLocation;
+begin
+  if (s<>'') and (s[1] in ['c', 'C']) then
+    Result := cclClass
+  else
+    Result := cclLocal;
 end;
 
 function ForwardProcBodyInsertPolicyNameToPolicy(
@@ -585,7 +626,8 @@ end;
 
 function TSourceChangeCache.FindEntryInRange(
   FromPos, ToPos: integer): TSourceChangeCacheEntry;
-var ANode: TAVLTreeNode;
+var
+  ANode: TAVLTreeNode;
   NextNode: TAVLTreeNode;
 begin
   ANode:=FEntries.Root;
@@ -1256,6 +1298,7 @@ begin
   UpdateAllMethodSignatures:=true;
   UpdateMultiProcSignatures:=true;
   UpdateOtherProcSignaturesCase:=true;
+  GroupLocalVariables:=true;
   MethodInsertPolicy:=mipClassOrder;
   ForwardProcBodyInsertPolicy:=fpipBehindMethods;
   KeepForwardProcOrder:=true;

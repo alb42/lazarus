@@ -2231,13 +2231,10 @@ begin
     
     Origin := DevCtx.Offset;
     try
-      with R do
-      begin
-        DrawHorzLine(Left, Top, Right-1);
-        DrawVertLine(Right-1, Top, Bottom-1);
-        DrawHorzLine(Right-1, Bottom-1, Left);
-        DrawVertLine(Left, Bottom-1, Top);
-      end;
+      DrawHorzLine(R.Left, R.Top, R.Right-1);
+      DrawVertLine(R.Right-1, R.Top, R.Bottom-1);
+      DrawHorzLine(R.Right-1, R.Bottom-1, R.Left);
+      DrawVertLine(R.Left, R.Bottom-1, R.Top);
 
       Result := True;
     finally
@@ -4456,7 +4453,7 @@ end;
  ------------------------------------------------------------------------------}
 function TGtk2WidgetSet.GetRgnBox(RGN : HRGN; lpRect : PRect) : Longint;
 var
-  CRect : TGDKRectangle;
+  ClipR : TGDKRectangle;
 begin
   Result := SIMPLEREGION;
   If lpRect <> nil then
@@ -4467,12 +4464,12 @@ begin
     Result := RegionType({%H-}PGDIObject(RGN)^.GDIRegionObject);
     If lpRect <> nil then begin
       gdk_region_get_clipbox({%H-}PGDIObject(RGN)^.GDIRegionObject,
-        @CRect);
-      With lpRect^,CRect do begin
-        Left   := X;
-        Top    := Y;
-        Right  := X + Width;
-        Bottom := Y + Height;
+        @ClipR);
+      With lpRect^ do begin
+        Left   := ClipR.X;
+        Top    := ClipR.Y;
+        Right  := ClipR.X + ClipR.Width;
+        Bottom := ClipR.Y + ClipR.Height;
       end;
     end;
   end;
@@ -5914,6 +5911,10 @@ begin
         Result := GetSystemMetrics(SM_CYMAXIMIZED) - 1 -
           (GetSystemMetrics(SM_CYCAPTION) - (GetSystemMetrics(SM_CYSIZEFRAME) * 2));
       end;
+    SM_LCLHasFormAlphaBlend:
+      begin
+        Result:=1;
+      end;
   end;
 end;
 
@@ -6140,29 +6141,34 @@ function TGtk2WidgetSet.GetWindowRect(Handle: hwnd; var ARect: TRect): Integer;
 var
   Widget: PGTKWidget;
   GRect: TGdkRectangle;
-  R: TRect;
   P: TPoint;
 begin
-  Result := 0; //default
-  if Handle <> 0 then
+  Result := 0; // error
+  if Handle = 0 then
+    Exit;
+
+  Widget := {%H-}PGtkWidget(Handle);
+
+  if GTK_IS_WINDOW(Widget) and Assigned(Widget^.window)
+  and GTK_WIDGET_VISIBLE(Widget) // Gtk2 returns invalid origin/frame for invisible widgets
+  then
   begin
-    Widget := {%H-}PGtkWidget(Handle);
-
-    if GTK_IS_WINDOW(Widget) and Assigned(Widget^.window) then
-    begin
-      gdk_window_get_origin(Widget^.window, @ARect.Left, @ARect.Top);
-      gdk_window_get_size(Widget^.window, @ARect.Right, @ARect.Bottom);
-      P := GetWidgetOrigin(Widget);
-      gdk_window_get_frame_extents(Widget^.window, @GRect);
-      R := RectFromGdkRect(GRect);
-      ARect := Bounds(P.X,P.Y,R.Right-R.Left,R.Bottom-R.Top);
-      // writeln('Frame extents are: ',dbgs(R),' ARECT=',dbgs(AREct));
-      exit;
-    end;
-
+    P := GetWidgetOrigin(Widget);
+    gdk_window_get_frame_extents(Widget^.window, @GRect);
+    ARect := Bounds(P.X,P.Y,GRect.width,GRect.height);
+    // writeln('Frame extents are: ',dbgs(R),' ARECT=',dbgs(ARect));
+    Result := 1; // success
+  end else
+  begin
     ARect.TopLeft := GetWidgetOrigin(Widget);
-    ARect.BottomRight := Point(ARect.Left + Widget^.allocation.width,
-                    ARect.Top + Widget^.allocation.height);
+    if (ARect.Top <> -1) or (ARect.Left <> -1)
+    or (Widget^.allocation.width <> 1) or (Widget^.allocation.height <> 1) then
+    begin
+      ARect.BottomRight := Point(
+        ARect.Left + Widget^.allocation.width,
+        ARect.Top + Widget^.allocation.height);
+      Result := 1; // success
+    end;
   end;
 end;
 {------------------------------------------------------------------------------

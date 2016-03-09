@@ -4,11 +4,12 @@
 
 unit TurboPowerIPro;
 
+{$warn 5023 off : no warning about unused units}
 interface
 
 uses
-  IpAnim, IpConst, Ipfilebroker, IpHtml, {$IFDEF Html_Print}IpHtmlPv,{$ENDIF} IpMsg, IpStrms, IpUtils,
-  IpHtmlTabList, iphtmlprop, ipHtmlBlockLayout, ipHtmlTableLayout, 
+  IpAnim, IpConst, Ipfilebroker, Iphttpbroker, IpHtml, IpMsg, IpStrms, 
+  IpUtils, IpHtmlTabList, iphtmlprop, ipHtmlBlockLayout, ipHtmlTableLayout, 
   LazarusPackageIntf;
 
 implementation
@@ -16,9 +17,11 @@ implementation
 procedure Register;
 begin
   RegisterUnit('Ipfilebroker', @Ipfilebroker.Register);
+  RegisterUnit('Iphttpbroker', @Iphttpbroker.Register);
   RegisterUnit('IpHtml', @IpHtml.Register);
 end;
 
 initialization
   RegisterPackage('TurboPowerIPro', @Register);
 end.
+

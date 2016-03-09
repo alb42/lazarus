@@ -55,6 +55,7 @@ David Pethes
 David Zimmer
 Dean Zobec
 Denis Golovan
+Denis Kozlov
 Denis Volodarsky
 Derit Agustin
 Diogo Picarra
@@ -149,6 +150,7 @@ Maxim Ganetsky
 Mazen Neifer
 Micha Nelissen
 Michael A. Hess
+Michael Fuchs
 Michal Bukovjan
 Michalis Kamburelis
 Mike Sapsard
@@ -185,6 +187,7 @@ Sergio Marcelo
 Shane Miller
 Sileno Goedicke
 Silvio Clecio
+Simon Ameis
 Slavko Fedorik
 Stefan Hille
 Takeda Matsuki

@@ -414,7 +414,8 @@ type
 
   TThemeOption = (
     toShowButtonImages, // show images on buttons
-    toShowMenuImages    // show images on menus
+    toShowMenuImages,   // show images on menus
+    toUseGlyphEffects   // use hot/down effects on (button) glyphs
   );
 
   // TThemeServices is a small foot print class to provide the user with pure
@@ -1887,7 +1888,7 @@ begin
       if Details.Part = RP_GRIPPERVERT then
         Result.cx := 30;
     teToolBar:
-      if Details.Part = TP_SPLITBUTTONDROPDOWN then
+      if Details.Part in [TP_SPLITBUTTONDROPDOWN, TP_DROPDOWNBUTTON] then
         Result.cx := 12;
     teTreeView:
       if Details.Part in [TVP_GLYPH, TVP_HOTGLYPH] then
@@ -1914,6 +1915,17 @@ begin
   case AOption of
     toShowButtonImages: Result := 1;
     toShowMenuImages: Result := 1;
+    toUseGlyphEffects:
+    begin
+      // toUseGlyphEffects seems to be OS-dependent.
+      //   Linux: yes
+      //   Win, OSX: no
+      {$IFDEF LINUX}
+      Result := 1;
+      {$ELSE}
+      Result := 0;
+      {$ENDIF}
+    end;
   else
     Result := 0;
   end;
@@ -1972,14 +1984,18 @@ end;
 procedure TThemeServices.DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil);
 
   procedure DrawDropDownArrow(const DropDownButtonRect: TRect);
+  const
+    cArrowWidth = 10;
   var
     ArrowRect: TRect;
     Points: array[1..3] of TPoint;
     OldBrush, Brush: HBrush;
   begin
     ArrowRect := DropDownButtonRect;
-    ArrowRect.Left := DropDownButtonRect.Left + 3;
-    ArrowRect.Right := Max(DropDownButtonRect.Right - 3, ArrowRect.Left);
+    ArrowRect.Left := (DropDownButtonRect.Left+DropDownButtonRect.Right-cArrowWidth-1) div 2;
+    ArrowRect.Right := ArrowRect.Left+cArrowWidth;
+    ArrowRect.Left := ArrowRect.Left + 3;
+    ArrowRect.Right := Max(ArrowRect.Right - 3, ArrowRect.Left);
     ArrowRect.Top := (DropDownButtonRect.Top + DropDownButtonRect.Bottom +
                       ArrowRect.Left - ArrowRect.Right) div 2;
     ArrowRect.Bottom := ArrowRect.Top + Min(2, ArrowRect.Right - ArrowRect.Left);
@@ -2383,15 +2399,6 @@ begin
     Canvas.TextRect(R, R.Left, R.Top, S, TXTStyle);
     Canvas.Font.Color := clBtnShadow;
     OffsetRect(R, -1, -1);
-  end
-  else
-  begin
-    // if pushed, move text 1 pixel right and down
-    if IsPushed(Details) then
-    begin
-      Inc(R.Left, 1);
-      Inc(R.Top, 1);
-    end;
   end;
   if (Details.Element = teTreeview) and (Details.Part = TVP_TREEITEM) then
   begin

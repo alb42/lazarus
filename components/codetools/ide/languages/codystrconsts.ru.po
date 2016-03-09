@@ -8,19 +8,18 @@ msgstr ""
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: ru\n"
+"X-Generator: Poedit 1.7.7\n"
 
 #: codystrconsts.crsaddassignmethod
-#| msgid "Add Assign method"
 msgid "Add Assign Method"
 msgstr "Добавить метод Assign"
 
 #: codystrconsts.crsaddassignmethod2
-#| msgid "Add Assign method ..."
 msgid "Add Assign Method ..."
 msgstr "Добавить метод Assign ..."
 
 #: codystrconsts.crsaddawithblock
-#| msgid "Add a \"With\" block"
 msgid "Add a \"With\" Block"
 msgstr "Добавить блок \"With\""
 
@@ -44,6 +43,10 @@ msgstr "Уже объявлена (%s)"
 #: codystrconsts.crsandmoreidentifiers
 msgid "... and %s more identifiers"
 msgstr "... дополнительно идентификаторов: %s"
+
+#: codystrconsts.crsany
+msgid "Any"
+msgstr "Любые"
 
 #: codystrconsts.crsawindowforthelazarusideitcanbedockedlikethecodeexp
 msgid "A window for the Lazarus IDE. It can be docked like the Code Explorer or the FPDoc Editor. This also creates a menu item in the View menu and a short cut."
@@ -177,8 +180,11 @@ msgstr "Буферы кода"
 msgid "Code Node Information"
 msgstr "Сведения об элементе кода"
 
+#: codystrconsts.crscodyfindoverloads
+msgid "Cody - Find Overloads"
+msgstr "Найти перегруженные"
+
 #: codystrconsts.crscodyidentifierdictionary
-#| msgid "Cody Identifier Dictionary"
 msgid "Identifier Dictionary"
 msgstr "Словарь идентификаторов"
 
@@ -186,6 +192,14 @@ msgstr "Словарь идентификаторов"
 msgctxt "codystrconsts.crscogeneral"
 msgid "General"
 msgstr "Общие"
+
+#: codystrconsts.crscompatibility
+msgid "Compatibility"
+msgstr "Совместимость"
+
+#: codystrconsts.crscompatible
+msgid "compatible"
+msgstr "совместим"
 
 #: codystrconsts.crsconfigurenewidewindow
 msgid "Configure new IDE window"
@@ -200,7 +214,6 @@ msgid "Continue"
 msgstr "Продолжить"
 
 #: codystrconsts.crscopydeclarationtoclipboard
-#| msgid "Copy declaration to clipboard"
 msgid "Copy declaration to Clipboard"
 msgstr "Копировать объявление в буфер обмена"
 
@@ -230,7 +243,6 @@ msgid "Select file to insert at cursor"
 msgstr "Выбор файла для вставки в месте расположения курсора"
 
 #: codystrconsts.crscutdeclarationtoclipboard
-#| msgid "Cut declaration to clipboard"
 msgid "Cut declaration to Clipboard"
 msgstr "Вырезать объявление в буфер обмена"
 
@@ -274,6 +286,10 @@ msgstr "Удалить пакет?"
 msgid "Delete unit?"
 msgstr "Удалить модуль?"
 
+#: codystrconsts.crsdistance
+msgid "Distance"
+msgstr "Расстояние"
+
 #: codystrconsts.crsdvisakeyword
 msgid "\"%s\" is a keyword."
 msgstr "\"%s\" является ключевым словом."
@@ -282,8 +298,19 @@ msgstr "\"%s\" является ключевым словом."
 msgid "Error: %s"
 msgstr "Ошибка: %s"
 
+#: codystrconsts.crserrorcursorisnotinaprojectunit
+msgid "Error: cursor is not in a project unit"
+msgstr "Ошибка: курсор не находится в модуле проекта"
+
+#: codystrconsts.crserrorneedsourceeditoratprocedurecallordeclaration
+msgid "Error: Need source editor at procedure call or declaration"
+msgstr "Ошибка: курсор в редакторе следует установить на вызове или объявлении процедуры"
+
+#: codystrconsts.crsexact
+msgid "exact"
+msgstr "точное соответствие"
+
 #: codystrconsts.crsexplodeawithblock
-#| msgid "Explode a \"With\" block"
 msgid "Explode a \"With\" Block"
 msgstr "Раскрыть блок \"With\""
 
@@ -315,9 +342,17 @@ msgstr "Ошибка чтения файла"
 msgid "(Filter)"
 msgstr "(Фильтр)"
 
+#: codystrconsts.crsfilter2
+msgid "Filter"
+msgstr "Фильтр"
+
 #: codystrconsts.crsfindgdbbacktraceline
 msgid "Find GDB backtrace line"
 msgstr "Найти строку кода для стека вызовов GDB"
+
+#: codystrconsts.crsfindproceduremethodoverloads
+msgid "Find Procedure/Method Overloads"
+msgstr "Найти перегруженные процедуры/методы"
 
 #: codystrconsts.crsfindsourceofgdbbacktrace
 msgid "Find source of GDB backtrace"
@@ -342,6 +377,10 @@ msgstr "ГБ"
 #: codystrconsts.crshelp
 msgid "&Help"
 msgstr "&Справка"
+
+#: codystrconsts.crshideabstractmethodsandmethodsofclassinterfaces
+msgid "Hide abstract methods and methods of class interfaces"
+msgstr "Скрывать абстрактные методы и методы интерфейсов классов"
 
 #: codystrconsts.crshideunitsofotherprojects
 msgid "Hide units of other projects"
@@ -368,6 +407,10 @@ msgctxt "codystrconsts.crsifidentifierisaddedtotheimplementationsectionandne"
 msgid "If identifier is added to the implementation section and needed unit needs to be added, add to the uses section of the implementation"
 msgstr "Если при добавлении идентификатора в секцию Implementation требуется подключить необходимый модуль, подключать его в выражении Uses секции Implementation"
 
+#: codystrconsts.crsifuncheckedlistalsoprocedureswithsamenameandincomp
+msgid "If unchecked list also procedures with same name and incompatible parameter lists."
+msgstr "При отключении будут также выводиться процедуры с такими же именами, но несовместимыми наборами параметров."
+
 #: codystrconsts.crsimpossibledependency
 msgid "Impossible dependency"
 msgstr "Недопустимая зависимость"
@@ -375,6 +418,10 @@ msgstr "Недопустимая зависимость"
 #: codystrconsts.crsin
 msgid "in \"%s\""
 msgstr "в \"%s\""
+
+#: codystrconsts.crsincompatible
+msgid "incompatible"
+msgstr "несовместим"
 
 #: codystrconsts.crsinimplementation
 msgid "In implementation"
@@ -385,12 +432,10 @@ msgid "In interface"
 msgstr "В секции Interface"
 
 #: codystrconsts.crsinsertcallinherited
-#| msgid "Insert call inherited"
 msgid "Insert Call Inherited"
 msgstr "Вставить вызов унаследованного"
 
 #: codystrconsts.crsinsertfileatcursor
-#| msgid "Insert File at Cursor ..."
 msgid "Insert File Contents at Cursor ..."
 msgstr "Вставить содержимое файла в месте расположения курсора ..."
 
@@ -399,9 +444,12 @@ msgid "Jump"
 msgstr "Перейти"
 
 #: codystrconsts.crsjumpto
-#| msgid "Jump to"
 msgid "&Jump to"
 msgstr "&Перейти"
+
+#: codystrconsts.crsjumpto2
+msgid "Jump to"
+msgstr "Перейти"
 
 #: codystrconsts.crskbytes
 msgid "kbytes"
@@ -447,9 +495,17 @@ msgstr "%s минут"
 msgid "missing ..."
 msgstr "отсутствует ..."
 
+#: codystrconsts.crsname
+msgid "Name"
+msgstr "Имя"
+
 #: codystrconsts.crsnoneselected
 msgid "none selected"
 msgstr "не выбран"
+
+#: codystrconsts.crsnooverloadsfoundinprojectunits
+msgid "no overloads found in project units"
+msgstr "перегруженных процедур в модулях проекта не найдено"
 
 #: codystrconsts.crsnoproject
 msgid "No project"
@@ -466,6 +522,22 @@ msgstr "Модуль не выбран"
 #: codystrconsts.crsonclipboard
 msgid "On clipboard"
 msgstr "В буфере обмена"
+
+#: codystrconsts.crsonlydescendantsof
+msgid "Only descendants of %s"
+msgstr "Только потомки %s"
+
+#: codystrconsts.crsonlymethods
+msgid "Only methods"
+msgstr "Только методы"
+
+#: codystrconsts.crsonlynonmethods
+msgid "Only non methods"
+msgstr "Только не являющиеся методами"
+
+#: codystrconsts.crsonlyprocedureswithcompatibleparameters
+msgid "Only procedures with compatible parameters"
+msgstr "Только процедуры с совместимыми параметрами"
 
 #: codystrconsts.crsoptions
 msgid "Options"
@@ -500,13 +572,16 @@ msgid "Package \"%s\" not found. It should be in \"%s\"."
 msgstr "Пакет \"%s\" не найден. Он должен быть в \"%s\"."
 
 #: codystrconsts.crspackagesunitsidentifiersfile
-#| msgid "Packages: %s, Units: %s, Identifiers: %s%sFile: %s"
 msgid "Packages: %s, Units: %s, Identifiers: %s%sDatabase: %s"
 msgstr "Пакетов: %s, Модулей: %s, Идентификаторов: %s%sБаза данных: %s"
 
 #: codystrconsts.crspackagewithsamename
 msgid "Package with same name"
 msgstr "Пакет с тем же именем"
+
+#: codystrconsts.crsparseerror
+msgid "Parse error"
+msgstr "Ошибка анализа"
 
 #: codystrconsts.crspastelinesofagdbbacktrace
 msgid "Paste lines of a gdb backtrace:"
@@ -517,7 +592,6 @@ msgid "Please open a project first."
 msgstr "Сначала необходимо открыть проект."
 
 #: codystrconsts.crspleaseplacethecursorofthesourceeditoratanidentifie
-#| msgid "Please place the cursor of the source editor at an identifier in a statement.%sFor example on the MyVar in%sMyVar:=3;"
 msgid "Please place the cursor of the source editor at an identifier in a statement.%sFor example:%sMyVar:=3;"
 msgstr "Расположите курсор редактора исходного кода на идентификаторе в операторе.%sНапример:%sMyVar:=3;"
 
@@ -558,7 +632,6 @@ msgid "Project has no main source file."
 msgstr "В проекте отсутствует главный файл исходного кода."
 
 #: codystrconsts.crsprojectoutput
-#| msgid "Project output"
 msgid "Project Output"
 msgstr "Вывод проекта"
 
@@ -586,6 +659,10 @@ msgstr "Действительно удалить модуль из базы д�
 msgid "Refresh"
 msgstr "Обновить"
 
+#: codystrconsts.crsrelations
+msgid "Relations:"
+msgstr "Отношения:"
+
 #: codystrconsts.crsreport
 msgid "Report"
 msgstr "Отчёт"
@@ -602,6 +679,14 @@ msgstr "Сохранить словарь сейчас"
 msgid "Save to file %s"
 msgstr "Сохранить в файл %s"
 
+#: codystrconsts.crsscanning
+msgid "Scanning ..."
+msgstr "Идёт поиск ..."
+
+#: codystrconsts.crsscanningsunits
+msgid "Scanning: %s units ..."
+msgstr "Идёт поиск: %s модулей ..."
+
 #: codystrconsts.crssearching
 msgid "searching ..."
 msgstr "поиск ..."
@@ -615,7 +700,6 @@ msgid "Select expression"
 msgstr "Выберите выражение"
 
 #: codystrconsts.crsshowcodetoolsnodeinfo
-#| msgid "Show CodeTools node info ..."
 msgid "Show CodeTools Node Info ..."
 msgstr "Показать сведения об элементе CodeTools ..."
 
@@ -636,7 +720,6 @@ msgid "Show Unit / Identifier Dictionary ..."
 msgstr "Показать словарь модулей/идентификаторов ..."
 
 #: codystrconsts.crsshowusedppufiles
-#| msgid "Show used .ppu files ..."
 msgid "Show Used .ppu Files ..."
 msgstr "Показать используемые файлы PPU ..."
 
@@ -732,6 +815,10 @@ msgstr "Модули"
 msgid "Unit shared libraries"
 msgstr "Динамические библиотеки модулей"
 
+#: codystrconsts.crsunitss
+msgid "Units: %s"
+msgstr "Модулей: %s"
+
 #: codystrconsts.crsunitstaticlibraries
 msgid "Unit static libraries"
 msgstr "Статические библиотеки модулей"
@@ -741,7 +828,6 @@ msgid "Used by"
 msgstr "Используется"
 
 #: codystrconsts.crsuseidentifier
-#| msgid "Use identifier"
 msgid "&Use identifier"
 msgstr "&Использовать идентификатор"
 
@@ -750,7 +836,6 @@ msgid "Uses"
 msgstr "Использует"
 
 #: codystrconsts.crsvirtualunit
-#| msgid "Virtual unit"
 msgid "Virtual Unit"
 msgstr "Виртуальный модуль"
 

@@ -46,16 +46,21 @@ unit DefineTemplates;
 
 { $Define VerboseDefineCache}
 { $Define VerboseFPCSrcScan}
+
 { $Define ShowTriedFiles}
 { $Define ShowTriedUnits}
 
 interface
 
 uses
-  Classes, SysUtils, LazUTF8, CodeToolsStrConsts, ExprEval, DirectoryCacher,
-  BasicCodeTools, Laz2_XMLCfg, lazutf8classes, LazFileUtils, AVL_Tree, process,
-  CodeToolsStructs, UTF8Process, LazFileCache, KeywordFuncLists, LinkScanner,
-  FileProcs;
+  // RTL + FCL
+  Classes, SysUtils, AVL_Tree, process,
+  // CodeTools
+  CodeToolsStrConsts, ExprEval, DirectoryCacher, BasicCodeTools,
+  CodeToolsStructs, KeywordFuncLists, LinkScanner, FileProcs,
+  // LazUtils
+  LazUtilities, LazUTF8, LazUTF8Classes, LazFileUtils, UTF8Process,
+  LazFileCache, LazDbgLog, Laz2_XMLCfg;
 
 const
   ExternalMacroStart = ExprEval.ExternalMacroStart;
@@ -130,7 +135,8 @@ const
      'solaris',
      'symbian',
      'watcom',
-     'wdosx'
+     'wdosx',
+     'wii'
     );
   FPCOperatingSystemCaptions: array[1..34] of shortstring =(
      'AIX',
@@ -166,7 +172,8 @@ const
      'wdosx',
      'Win32',
      'Win64',
-     'WinCE'
+     'WinCE',
+     'Wii'
     );
 
   FPCOperatingSystemAlternativeNames: array[1..2] of shortstring =(
@@ -175,9 +182,10 @@ const
   FPCOperatingSystemAlternative2Names: array[1..2] of shortstring =(
       'bsd', 'linux' // see GetDefaultSrcOS2ForTargetOS
     );
-  FPCProcessorNames: array[1..11] of shortstring =(
-      'a64',
+  FPCProcessorNames: array[1..12] of shortstring =(
+      'aarch64',
       'arm',
+      'avr',
       'i386',
       'i8086',
       'jvm',
@@ -1041,7 +1049,10 @@ function RunFPCVerbose(const CompilerFilename, TestFilename: string;
                        out Defines, Undefines: TStringToStringTree;
                        const Options: string = ''): boolean;
 function GatherUnitsInSearchPaths(SearchPaths: TStrings;
-                    const OnProgress: TDefinePoolProgress): TStringToStringTree; // unit names to full file name
+                    const OnProgress: TDefinePoolProgress;
+                    CheckFPMkInst: boolean = false): TStringToStringTree; // unit names to full file name
+function GatherUnitSourcesInDirectory(Directory: string;
+                    MaxLevel: integer = 1): TStringToStringTree; // unit names to full file name
 procedure AdjustFPCSrcRulesForPPUPaths(Units: TStringToStringTree;
                                        Rules: TFPCSourceRules);
 function GatherUnitsInFPCSources(Files: TStringList;
@@ -1239,10 +1250,11 @@ begin
         break;
       BaseDir:=ChompPathDelim(ExtractFilePath(copy(BaseDir,1,BaseDirLen-1)));
       BaseDirLen:=length(BaseDir);
+      if (BaseDir='') or (BaseDir[length(BaseDir)]=PathDelim) then break;
     end;
   end;
   // create relative paths
-  if BaseDir<>'' then
+  if (BaseDir<>'') then
     for i:=0 to Result.Count-1 do begin
       Filename:=Result[i];
       Filename:=copy(Filename,BaseDirLen+1,length(Filename));
@@ -1318,7 +1330,7 @@ begin
   try
     buf:='';
     if (MainThreadID=GetCurrentThreadId) and not Quiet then begin
-      DbgOut(['RunTool ',Filename]);
+      DbgOut(['Hint: (lazarus) [RunTool] ',Filename]);
       for i:=0 to Params.Count-1 do
         dbgout(' "',Params[i],'"');
       Debugln;
@@ -1734,24 +1746,46 @@ begin
 end;
 
 function GatherUnitsInSearchPaths(SearchPaths: TStrings;
-  const OnProgress: TDefinePoolProgress): TStringToStringTree;
+  const OnProgress: TDefinePoolProgress; CheckFPMkInst: boolean
+  ): TStringToStringTree;
 { returns a stringtree,
   where name is unitname and value is the full file name
 
   SearchPaths are searched from last to start
   first found wins
-  pas, pp, p wins vs ppu
+  pas, pp, p replaces ppu
+
+  check for each UnitPath of the form
+    lib/fpc/<FPCVer>/units/<FPCTarget>/<name>/
+  if there is lib/fpc/<FPCVer>/fpmkinst/><FPCTarget>/<name>.fpm
+  and search line SourcePath=<directory>
+  and search source files in this directory including subdirectories
 }
+
+  function SearchPriorPathDelim(var p: integer; const Filename: string): boolean; inline;
+  begin
+    repeat
+      dec(p);
+      if p<1 then exit(false)
+    until Filename[p]=PathDelim;
+    Result:=true;
+  end;
+
 var
   i: Integer;
   Directory: String;
-  FileCount: Integer;
+  FileCount, p, EndPos, FPCTargetEndPos: Integer;
   Abort: boolean;
   FileInfo: TSearchRec;
   ShortFilename: String;
   Filename: String;
   Ext: String;
-  Unit_Name: String;
+  Unit_Name, PkgName, FPMFilename, FPMSourcePath, Line, SrcFilename: String;
+  AVLNode: TAVLTreeNode;
+  S2SItem: PStringToStringTreeItem;
+  FPMToUnitTree: TStringToPointerTree;// pkgname to TStringToStringTree (unitname to source filename)
+  sl: TStringListUTF8;
+  PkgUnitToFilename: TStringToStringTree;
 begin
   Result:=TStringToStringTree.Create(false);
   FileCount:=0;
@@ -1784,6 +1818,122 @@ begin
     end;
     FindCloseUTF8(FileInfo);
   end;
+
+  if CheckFPMkInst then begin
+    // try to resolve .ppu files via fpmkinst .fpm files
+    FPMToUnitTree:=nil;
+    try
+      AVLNode:=Result.Tree.FindLowest;
+      while AVLNode<>nil do begin
+        S2SItem:=PStringToStringTreeItem(AVLNode.Data);
+        Unit_Name:=S2SItem^.Name;
+        Filename:=S2SItem^.Value; // trimmed and expanded filename
+        //if Pos('lazmkunit',Filename)>0 then
+        //  debugln(['GatherUnitsInSearchPaths ===== ',Filename]);
+        AVLNode:=Result.Tree.FindSuccessor(AVLNode);
+        if CompareFileExt(Filename,'ppu',false)<>0 then continue;
+        // check if filename has the form
+        //                  /something/lib/fpc/<FPCVer>/units/<FPCTarget>/<pkgname>/
+        // and if there is  /something/lib/fpc/<FPCVer>/fpmkinst/><FPCTarget>/<pkgname>.fpm
+        p:=length(Filename);
+        if not SearchPriorPathDelim(p,Filename) then exit;
+        // <pkgname>
+        EndPos:=p;
+        if not SearchPriorPathDelim(p,Filename) then exit;
+        PkgName:=copy(Filename,p+1,EndPos-p-1);
+        if PkgName='' then continue;
+        FPCTargetEndPos:=p;
+        if not SearchPriorPathDelim(p,Filename) then exit;
+        // <fpctarget>
+        EndPos:=p;
+        if not SearchPriorPathDelim(p,Filename) then exit;
+        // 'units'
+        if (EndPos-p<>6) or (CompareIdentifiers(@Filename[p+1],'units')<>0) then
+          continue;
+        FPMFilename:=copy(Filename,1,p)+'fpmkinst'
+                    +copy(Filename,EndPos,FPCTargetEndPos-EndPos+1)+PkgName+'.fpm';
+        if FPMToUnitTree=nil then begin
+          FPMToUnitTree:=TStringToPointerTree.Create(false);
+          FPMToUnitTree.FreeValues:=true;
+        end;
+        if not FPMToUnitTree.Contains(PkgName) then begin
+          FPMSourcePath:='';
+          if FileExistsCached(FPMFilename) then begin
+            //debugln(['GatherUnitsInSearchPaths Found .fpm: ',FPMFilename]);
+            sl:=TStringListUTF8.Create;
+            try
+              try
+                sl.LoadFromFile(FPMFilename);
+                for i:=0 to sl.Count-1 do begin
+                  Line:=sl[i];
+                  if LeftStr(Line,length('SourcePath='))='SourcePath=' then
+                  begin
+                    FPMSourcePath:=TrimAndExpandDirectory(copy(Line,length('SourcePath=')+1,length(Line)));
+                    break;
+                  end;
+                end;
+              except
+                on E: Exception do
+                  debugln(['Warning: (lazarus) [GatherUnitsInSearchPaths] ',E.Message]);
+              end;
+            finally
+              sl.Free;
+            end;
+          end;
+          if FPMSourcePath<>'' then begin
+            PkgUnitToFilename:=GatherUnitSourcesInDirectory(FPMSourcePath,5);
+            FPMToUnitTree[PkgName]:=PkgUnitToFilename;
+            //debugln(['GatherUnitsInSearchPaths Pkg=',PkgName,' UnitsFound=',PkgUnitToFilename.Count]);
+          end else
+            FPMToUnitTree[PkgName]:=nil; // mark as not found
+        end;
+
+        PkgUnitToFilename:=TStringToStringTree(FPMToUnitTree[PkgName]);
+        if PkgUnitToFilename=nil then continue;
+        SrcFilename:=PkgUnitToFilename[Unit_Name];
+        if SrcFilename<>'' then begin
+          // unit source found in fppkg -> replace ppu with src file
+          //debugln(['GatherUnitsInSearchPaths ppu=',Filename,' -> fppkg src=',SrcFilename]);
+          Result[Unit_Name]:=SrcFilename;
+        end;
+      end;
+    finally
+      FPMToUnitTree.Free;
+    end;
+  end;
+end;
+
+function GatherUnitSourcesInDirectory(Directory: string; MaxLevel: integer
+  ): TStringToStringTree;
+
+  procedure Traverse(Dir: string; Tree: TStringToStringTree; Lvl: integer);
+  var
+    Info: TSearchRec;
+    Filename: String;
+    AnUnitName: String;
+  begin
+    if FindFirstUTF8(Dir+AllFilesMask,faAnyFile,Info)=0 then begin
+      repeat
+        Filename:=Info.Name;
+        if (Filename='') or (Filename='.') or (Filename='..') then continue;
+        if faDirectory and Info.Attr>0 then begin
+          if Lvl<MaxLevel then
+            Traverse(Dir+Filename+PathDelim,Tree,Lvl+1);
+        end else if FilenameIsPascalUnit(Filename) then begin
+          AnUnitName:=ExtractFileNameOnly(Filename);
+          if not Tree.Contains(AnUnitName) then
+            Tree[AnUnitName]:=Dir+Filename;
+        end;
+      until FindNextUTF8(Info)<>0;
+    end;
+    FindCloseUTF8(Info);
+  end;
+
+begin
+  Result:=TStringToStringTree.Create(false);
+  if MaxLevel<1 then exit;
+  Directory:=AppendPathDelim(Directory);
+  Traverse(Directory,Result,1);
 end;
 
 procedure AdjustFPCSrcRulesForPPUPaths(Units: TStringToStringTree;
@@ -2850,14 +3000,16 @@ begin
     Result:=Result+'ppc64'
   else if SysUtils.CompareText(TargetCPU,'arm')=0 then
     Result:=Result+'arm'
+  else if SysUtils.CompareText(TargetCPU,'avr')=0 then
+    Result:=Result+'avr'
   else if SysUtils.CompareText(TargetCPU,'sparc')=0 then
     Result:=Result+'sparc'
   else if SysUtils.CompareText(TargetCPU,'x86_64')=0 then
     Result:=Result+'x64'
   else if SysUtils.CompareText(TargetCPU,'ia64')=0 then
     Result:=Result+'ia64'
-  else if SysUtils.CompareText(TargetCPU,'a64')=0 then
-    Result:=Result+'a64'
+  else if SysUtils.CompareText(TargetCPU,'aarch64')=0 then
+    Result:=Result+'aarch64'
   else
     Result:='fpc';
   Result:=Result+ExeExt;
@@ -2917,10 +3069,25 @@ procedure GetTargetProcessors(const TargetCPU: string; aList: TStrings);
     aList.Add('mips32');
     aList.Add('mips32r2');
   end;
+  
+  procedure AVR;
+  begin
+    aList.Add('AVR1');
+    aList.Add('AVR2');
+    aList.Add('AVR25');
+    aList.Add('AVR3');
+    aList.Add('AVR31');
+    aList.Add('AVR35');
+    aList.Add('AVR4');
+    aList.Add('AVR5');
+    aList.Add('AVR51');
+    aList.Add('AVR6');
+  end;
 
 begin
   case TargetCPU of
     'arm'    : Arm;
+    'avr'    : AVR;
     'i386'   : Intel_i386;
     'm68k'   : ;
     'powerpc': PowerPC;
@@ -2928,7 +3095,7 @@ begin
     'x86_64' : Intel_x86_64;
     'mipsel','mips' : Mips;
     'jvm'    : ;
-    'a64'    : ;
+    'aarch64': ;
   end;
 end;
 
@@ -6660,83 +6827,91 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       controllerunitstr: string[20];
     end;
   const
-    ControllerTypes: array[0..302] of TControllerType =
+    ControllerTypes: array[0..532] of TControllerType =
      ((controllertypestr:'';                  controllerunitstr:''),
       (controllertypestr:'LPC810M021FN8';     controllerunitstr:'LPC8xx'),
-      (controllertypestr:'LPC811M001FDH16';   controllerunitstr:'LPC8xx'),
-      (controllertypestr:'LPC812M101FDH16';   controllerunitstr:'LPC8xx'),
-      (controllertypestr:'LPC812M101FD20';    controllerunitstr:'LPC8xx'),
-      (controllertypestr:'LPC812M101FDH20';   controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC811M001JDH16';   controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC812M101JD20';    controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC812M101JDH16';   controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC812M101JDH20';   controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPCXPRESSO812MAX';  controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC812M101JTB16';   controllerunitstr:'LPC8xx'),
+      (controllertypestr:'LPC822M101JDH20';   controllerunitstr:'LPC82x'),
+      (controllertypestr:'LPC822M101JHI33';   controllerunitstr:'LPC82x'),
+      (controllertypestr:'LPC824M201JDH20';   controllerunitstr:'LPC82x'),
+      (controllertypestr:'LPC824M201JHI33';   controllerunitstr:'LPC82x'),
+      (controllertypestr:'LPCXPRESSO824MAX';  controllerunitstr:'LPC82x'),
+
       (controllertypestr:'LPC1110FD20';       controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FDH20/002';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/101';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/102';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/103';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/201';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1111FHN33/203';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FD20/102';   controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FDH20/102';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FDH28/102';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/101';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/102';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/103';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/201';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN24/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHN33/203';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHI33/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1112FHI33/203';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/201';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/203';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/301';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/302';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FHN33/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FBD48/301';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FBD48/302';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1113FBD48/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FDH28/102';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FN28/102';   controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/201';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/202';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/203';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/301';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/302';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHN33/333';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHI33/302';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FHI33/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FBD48/301';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FBD48/302';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FBD48/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FBD48/323';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1114FBD48/333';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1115FBD48/303';  controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC11C12FBD48/301'; controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC11C14FBD48/301'; controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC11C22FBD48/301'; controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC11C24FBD48/301'; controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC11D14FBD100/302';controllerunitstr:'LPC11XX'),
-      (controllertypestr:'LPC1224FBD48/101';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1224FBD48/121';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1224FBD64/101';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1224FBD64/121';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1225FBD48/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1225FBD48/321';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1225FBD64/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1225FBD64/321';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1226FBD48/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1226FBD64/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1227FBD48/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC1227FBD64/301';  controllerunitstr:'LPC122X'),
-      (controllertypestr:'LPC12D27FBD100/301';controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1111FDH20_002';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_101';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_102';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_103';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_201';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1111FHN33_203';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FD20_102';   controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FDH20_102';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FDH28_102';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_101';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_102';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_103';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_201';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN24_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHN33_203';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHI33_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1112FHI33_203';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_201';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_203';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_301';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_302';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FHN33_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FBD48_301';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FBD48_302';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1113FBD48_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FDH28_102';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FN28_102';   controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_201';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_202';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_203';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_301';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_302';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHN33_333';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHI33_302';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FHI33_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FBD48_301';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FBD48_302';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FBD48_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FBD48_323';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1114FBD48_333';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1115FBD48_303';  controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC11C12FBD48_301'; controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC11C14FBD48_301'; controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC11C22FBD48_301'; controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC11C24FBD48_301'; controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC11D14FBD100_302';controllerunitstr:'LPC11XX'),
+      (controllertypestr:'LPC1224FBD48_101';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1224FBD48_121';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1224FBD64_101';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1224FBD64_121';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1225FBD48_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1225FBD48_321';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1225FBD64_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1225FBD64_321';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1226FBD48_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1226FBD64_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1227FBD48_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC1227FBD64_301';  controllerunitstr:'LPC122X'),
+      (controllertypestr:'LPC12D27FBD100_301';controllerunitstr:'LPC122X'),
       (controllertypestr:'LPC1311FHN33';      controllerunitstr:'LPC13XX'),
-      (controllertypestr:'LPC1311FHN33/01';   controllerunitstr:'LPC13XX'),
+      (controllertypestr:'LPC1311FHN33_01';   controllerunitstr:'LPC13XX'),
       (controllertypestr:'LPC1313FHN33';      controllerunitstr:'LPC13XX'),
-      (controllertypestr:'LPC1313FHN33/01';   controllerunitstr:'LPC13XX'),
+      (controllertypestr:'LPC1313FHN33_01';   controllerunitstr:'LPC13XX'),
       (controllertypestr:'LPC1313FBD48';      controllerunitstr:'LPC13XX'),
-      (controllertypestr:'LPC1313FBD48/01';   controllerunitstr:'LPC13XX'),
+      (controllertypestr:'LPC1313FBD48_01';   controllerunitstr:'LPC13XX'),
       (controllertypestr:'LPC1315FHN33';      controllerunitstr:'LPC13XX'),
       (controllertypestr:'LPC1315FBD48';      controllerunitstr:'LPC13XX'),
       (controllertypestr:'LPC1316FHN33';      controllerunitstr:'LPC13XX'),
@@ -6768,6 +6943,28 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       (controllertypestr:'AT91SAM7SE256';     controllerunitstr:'AT91SAM7x256'),
       (controllertypestr:'AT91SAM7X256';      controllerunitstr:'AT91SAM7x256'),
       (controllertypestr:'AT91SAM7XC256';     controllerunitstr:'AT91SAM7x256'),
+      (controllertypestr:'STM32F030C6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F030C8';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F030F4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F030K6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F030R8';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050C4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050C6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050F4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050F6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050G4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050G6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050K4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F050K6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051C4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051C6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051C8';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051K4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051K6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051K8';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051R4';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051R6';       controllerunitstr:'STM32F0XX'),
+      (controllertypestr:'STM32F051R8';       controllerunitstr:'STM32F0XX'),
       (controllertypestr:'STM32F100X4';       controllerunitstr:'STM32F10X_LD'),
       (controllertypestr:'STM32F100X6';       controllerunitstr:'STM32F10X_LD'),
       (controllertypestr:'STM32F100X8';       controllerunitstr:'STM32F10X_MD'),
@@ -6800,6 +6997,75 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       (controllertypestr:'STM32F107X8';       controllerunitstr:'STM32F10X_CONN'),
       (controllertypestr:'STM32F107XB';       controllerunitstr:'STM32F10X_CONN'),
       (controllertypestr:'STM32F107XC';       controllerunitstr:'STM32F10X_CONN'),
+      (controllertypestr:'STM32F105R8';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F105RB';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F105RC';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F105V8';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F105VB';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F105VC';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F107RB';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F107RC';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F107VB';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F107VC';       controllerunitstr:'STM32F10X_CL'),
+      (controllertypestr:'STM32F401RB';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401VB';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401CC';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401RC';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401VC';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'DISCOVERYF401VC';   controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401CD';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401RD';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401VD';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401CE';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401RE';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'NUCLEOF401RE';      controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F401VE';       controllerunitstr:'STM32F401XX'),
+      (controllertypestr:'STM32F407VG';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'DISCOVERYF407VG';   controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F407IG';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F407ZG';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F407VE';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F407ZE';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F407IE';       controllerunitstr:'STM32F407XX'),
+      (controllertypestr:'STM32F411CC';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F411RC';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F411VC';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F411CE';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F411RE';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'NUCLEOF411RE';      controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F411VE';       controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'DISCOVERYF411VE';   controllerunitstr:'STM32F411XE'),
+      (controllertypestr:'STM32F429VG';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429ZG';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429IG';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429VI';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429ZI';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'DISCOVERYF429ZI';   controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429II';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429VE';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429ZE';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429IE';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429BG';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429BI';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429BE';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429NG';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429NI';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F429NE';       controllerunitstr:'STM32F429XX'),
+      (controllertypestr:'STM32F446MC';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446RC';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446VC';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446ZC';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446ME';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446RE';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'NUCLEOF446RE';      controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446VE';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F446ZE';       controllerunitstr:'STM32F446XX'),
+      (controllertypestr:'STM32F745XE';       controllerunitstr:'STM32F745'),
+      (controllertypestr:'STM32F745XG';       controllerunitstr:'STM32F745'),
+      (controllertypestr:'STM32F746XE';       controllerunitstr:'STM32F746'),
+      (controllertypestr:'STM32F746XG';       controllerunitstr:'STM32F746'),
+      (controllertypestr:'STM32F756XE';       controllerunitstr:'STM32F756'),
+      (controllertypestr:'STM32F756XG';       controllerunitstr:'STM32F756'),
       (controllertypestr:'LM3S1110';          controllerunitstr:'LM3FURY'),
       (controllertypestr:'LM3S1133';          controllerunitstr:'LM3FURY'),
       (controllertypestr:'LM3S1138';          controllerunitstr:'LM3FURY'),
@@ -6872,98 +7138,230 @@ function TDefinePool.CreateFPCCommandLineDefines(const Name, CmdLine: string;
       (controllertypestr:'XMC4500X768';       controllerunitstr:'XMC4500'),
       (controllertypestr:'XMC4502X768';       controllerunitstr:'XMC4502'),
       (controllertypestr:'XMC4504X512';       controllerunitstr:'XMC4504'),
+      (controllertypestr:'ALLWINNER_A20';     controllerunitstr:'ALLWINNER_A20'),
+      (controllertypestr:'MK20DX128VFM5';     controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX128VFT5';     controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX128VLF5';     controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX128VLH5';     controllerunitstr:'MK20D5'),
+      (controllertypestr:'TEENSY30'     ;     controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX128VMP5';     controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX32VFM5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX32VFT5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX32VLF5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX32VLH5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX32VMP5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX64VFM5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX64VFT5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX64VLF5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX64VLH5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX64VMP5';      controllerunitstr:'MK20D5'),
+      (controllertypestr:'MK20DX128VLH7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX128VLK7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX128VLL7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX128VMC7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX256VLH7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX256VLK7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX256VLL7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX256VMC7';     controllerunitstr:'MK20D7'),
+      (controllertypestr:'TEENSY31';          controllerunitstr:'MK20D7'),
+      (controllertypestr:'TEENSY32';          controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX64VLH7';      controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX64VLK7';      controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK20DX64VMC7';      controllerunitstr:'MK20D7'),
+      (controllertypestr:'MK22FN512CAP12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK22FN512CBP12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK22FN512VDC12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK22FN512VLH12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK22FN512VLL12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK22FN512VMP12';    controllerunitstr:'MK22F51212'),
+      (controllertypestr:'FREEDOM_K22F';      controllerunitstr:'MK22F51212'),
+      (controllertypestr:'MK64FN1M0VDC12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FN1M0VLL12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'FREEDOM_K64F';      controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FN1M0VLQ12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FN1M0VMD12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FX512VDC12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FX512VLL12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FX512VLQ12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'MK64FX512VMD12';    controllerunitstr:'MK64F12'),
+      (controllertypestr:'ATSAM3X8E';         controllerunitstr:'SAM3X8E'),
+      (controllertypestr:'ARDUINO_DUE';       controllerunitstr:'SAM3X8E'),
+      (controllertypestr:'FLIP_N_CLICK';      controllerunitstr:'SAM3X8E'),
       (controllertypestr:'THUMB2_BARE';       controllerunitstr:'THUMB2_BARE'),
-      (controllertypestr:'PIC32MX110F016B';	controllerunitstr:'PIC32MX110F016B'),
-      (controllertypestr:'PIC32MX110F016C';	controllerunitstr:'PIC32MX110F016C'),
-      (controllertypestr:'PIC32MX110F016D';	controllerunitstr:'PIC32MX110F016D'),
-      (controllertypestr:'PIC32MX120F032B';	controllerunitstr:'PIC32MX120F032B'),
-      (controllertypestr:'PIC32MX120F032C';	controllerunitstr:'PIC32MX120F032C'),
-      (controllertypestr:'PIC32MX120F032D';	controllerunitstr:'PIC32MX120F032D'),
-      (controllertypestr:'PIC32MX130F064B';	controllerunitstr:'PIC32MX130F064B'),
-      (controllertypestr:'PIC32MX130F064C';	controllerunitstr:'PIC32MX130F064C'),
-      (controllertypestr:'PIC32MX130F064D';	controllerunitstr:'PIC32MX130F064D'),
-      (controllertypestr:'PIC32MX150F128B';	controllerunitstr:'PIC32MX150F128B'),
-      (controllertypestr:'PIC32MX150F128C';	controllerunitstr:'PIC32MX150F128C'),
-      (controllertypestr:'PIC32MX150F128D';	controllerunitstr:'PIC32MX150F128D'),
-      (controllertypestr:'PIC32MX170F256B';	controllerunitstr:'PIC32MX170F256B'),
-      (controllertypestr:'PIC32MX170F256C';	controllerunitstr:'PIC32MX170F256C'),
-      (controllertypestr:'PIC32MX170F256D';	controllerunitstr:'PIC32MX170F256D'),
-      (controllertypestr:'PIC32MX210F016B';	controllerunitstr:'PIC32MX210F016B'),
-      (controllertypestr:'PIC32MX210F016C';	controllerunitstr:'PIC32MX210F016C'),
-      (controllertypestr:'PIC32MX210F016D';	controllerunitstr:'PIC32MX210F016D'),
-      (controllertypestr:'PIC32MX220F032B';	controllerunitstr:'PIC32MX220F032B'),
-      (controllertypestr:'PIC32MX220F032C';	controllerunitstr:'PIC32MX220F032C'),
-      (controllertypestr:'PIC32MX220F032D';	controllerunitstr:'PIC32MX220F032D'),
-      (controllertypestr:'PIC32MX230F064B';	controllerunitstr:'PIC32MX230F064B'),
-      (controllertypestr:'PIC32MX230F064C';	controllerunitstr:'PIC32MX230F064C'),
-      (controllertypestr:'PIC32MX230F064D';	controllerunitstr:'PIC32MX230F064D'),
-      (controllertypestr:'PIC32MX250F128B';	controllerunitstr:'PIC32MX250F128B'),
-      (controllertypestr:'PIC32MX250F128C';	controllerunitstr:'PIC32MX250F128C'),
-      (controllertypestr:'PIC32MX250F128D';	controllerunitstr:'PIC32MX250F128D'),
-      (controllertypestr:'PIC32MX270F256B';	controllerunitstr:'PIC32MX270F256B'),
-      (controllertypestr:'PIC32MX270F256C';	controllerunitstr:'PIC32MX270F256C'),
-      (controllertypestr:'PIC32MX270F256D';	controllerunitstr:'PIC32MX270F256D'),
-      (controllertypestr:'PIC32MX320F032H';	controllerunitstr:'PIC32MX320F032H'),
-      (controllertypestr:'PIC32MX320F064H';	controllerunitstr:'PIC32MX320F064H'),
-      (controllertypestr:'PIC32MX320F128H';	controllerunitstr:'PIC32MX320F128H'),
-      (controllertypestr:'PIC32MX320F128L';	controllerunitstr:'PIC32MX320F128L'),
-      (controllertypestr:'PIC32MX330F064H';	controllerunitstr:'PIC32MX330F064H'),
-      (controllertypestr:'PIC32MX330F064L';	controllerunitstr:'PIC32MX330F064L'),
-      (controllertypestr:'PIC32MX340F128H';	controllerunitstr:'PIC32MX340F128H'),
-      (controllertypestr:'PIC32MX340F128L';	controllerunitstr:'PIC32MX340F128L'),
-      (controllertypestr:'PIC32MX340F256H';	controllerunitstr:'PIC32MX340F256H'),
-      (controllertypestr:'PIC32MX340F512H';	controllerunitstr:'PIC32MX340F512H'),
-      (controllertypestr:'PIC32MX350F128H';	controllerunitstr:'PIC32MX350F128H'),
-      (controllertypestr:'PIC32MX350F128L';	controllerunitstr:'PIC32MX350F128L'),
-      (controllertypestr:'PIC32MX350F256H';	controllerunitstr:'PIC32MX350F256H'),
-      (controllertypestr:'PIC32MX350F256L';	controllerunitstr:'PIC32MX350F256L'),
-      (controllertypestr:'PIC32MX360F256L';	controllerunitstr:'PIC32MX360F256L'),
-      (controllertypestr:'PIC32MX360F512L';	controllerunitstr:'PIC32MX360F512L'),
-      (controllertypestr:'PIC32MX370F512H';	controllerunitstr:'PIC32MX370F512H'),
-      (controllertypestr:'PIC32MX370F512L';	controllerunitstr:'PIC32MX370F512L'),
-      (controllertypestr:'PIC32MX420F032H';	controllerunitstr:'PIC32MX420F032H'),
-      (controllertypestr:'PIC32MX430F064H';	controllerunitstr:'PIC32MX430F064H'),
-      (controllertypestr:'PIC32MX430F064L';	controllerunitstr:'PIC32MX430F064L'),
-      (controllertypestr:'PIC32MX440F128H';	controllerunitstr:'PIC32MX440F128H'),
-      (controllertypestr:'PIC32MX440F128L';	controllerunitstr:'PIC32MX440F128L'),
-      (controllertypestr:'PIC32MX440F256H';	controllerunitstr:'PIC32MX440F256H'),
-      (controllertypestr:'PIC32MX440F512H';	controllerunitstr:'PIC32MX440F512H'),
-      (controllertypestr:'PIC32MX450F128H';	controllerunitstr:'PIC32MX450F128H'),
-      (controllertypestr:'PIC32MX450F128L';	controllerunitstr:'PIC32MX450F128L'),
-      (controllertypestr:'PIC32MX450F256H';	controllerunitstr:'PIC32MX450F256H'),
-      (controllertypestr:'PIC32MX450F256L';	controllerunitstr:'PIC32MX450F256L'),
-      (controllertypestr:'PIC32MX460F256L';	controllerunitstr:'PIC32MX460F256L'),
-      (controllertypestr:'PIC32MX460F512L';	controllerunitstr:'PIC32MX460F512L'),
-      (controllertypestr:'PIC32MX460F512H';	controllerunitstr:'PIC32MX460F512H'),
-      (controllertypestr:'PIC32MX460F512L';	controllerunitstr:'PIC32MX460F512L'),
-      (controllertypestr:'PIC32MX534F064H';	controllerunitstr:'PIC32MX534F064H'),
-      (controllertypestr:'PIC32MX534F064L';	controllerunitstr:'PIC32MX534F064L'),
-      (controllertypestr:'PIC32MX564F064H';	controllerunitstr:'PIC32MX564F064H'),
-      (controllertypestr:'PIC32MX564F064L';	controllerunitstr:'PIC32MX564F064L'),
-      (controllertypestr:'PIC32MX564F128H';	controllerunitstr:'PIC32MX564F128H'),
-      (controllertypestr:'PIC32MX564F128L';	controllerunitstr:'PIC32MX564F128L'),
-      (controllertypestr:'PIC32MX575F256H';	controllerunitstr:'PIC32MX575F256H'),
-      (controllertypestr:'PIC32MX575F256L';	controllerunitstr:'PIC32MX575F256L'),
-      (controllertypestr:'PIC32MX575F512H';	controllerunitstr:'PIC32MX575F512H'),
-      (controllertypestr:'PIC32MX575F512L';	controllerunitstr:'PIC32MX575F512L'),
-      (controllertypestr:'PIC32MX664F064H';	controllerunitstr:'PIC32MX664F064H'),
-      (controllertypestr:'PIC32MX664F064L';	controllerunitstr:'PIC32MX664F064L'),
-      (controllertypestr:'PIC32MX664F128H';	controllerunitstr:'PIC32MX664F128H'),
-      (controllertypestr:'PIC32MX664F128L';	controllerunitstr:'PIC32MX664F128L'),
-      (controllertypestr:'PIC32MX675F256H';	controllerunitstr:'PIC32MX675F256H'),
-      (controllertypestr:'PIC32MX675F256L';	controllerunitstr:'PIC32MX675F256L'),
-      (controllertypestr:'PIC32MX675F512H';	controllerunitstr:'PIC32MX675F512H'),
-      (controllertypestr:'PIC32MX675F512L';	controllerunitstr:'PIC32MX675F512L'),
-      (controllertypestr:'PIC32MX695F512H';	controllerunitstr:'PIC32MX695F512H'),
-      (controllertypestr:'PIC32MX695F512L';	controllerunitstr:'PIC32MX695F512L'),
-      (controllertypestr:'PIC32MX764F128H';	controllerunitstr:'PIC32MX764F128H'),
-      (controllertypestr:'PIC32MX764F128L';	controllerunitstr:'PIC32MX764F128L'),
-      (controllertypestr:'PIC32MX775F256H';	controllerunitstr:'PIC32MX775F256H'),
-      (controllertypestr:'PIC32MX775F256L';	controllerunitstr:'PIC32MX775F256L'),
-      (controllertypestr:'PIC32MX775F512H';	controllerunitstr:'PIC32MX775F512H'),
-      (controllertypestr:'PIC32MX775F512L';	controllerunitstr:'PIC32MX775F512L'),
-      (controllertypestr:'PIC32MX795F512H';	controllerunitstr:'PIC32MX795F512H'),
-      (controllertypestr:'PIC32MX795F512L';	controllerunitstr:'PIC32MX795F512L'));
+      (controllertypestr:'PIC32MX110F016B';   controllerunitstr:'PIC32MX1xxFxxxB'),
+      (controllertypestr:'PIC32MX110F016C';   controllerunitstr:'PIC32MX1xxFxxxC'),
+      (controllertypestr:'PIC32MX110F016D';   controllerunitstr:'PIC32MX1xxFxxxD'),
+      (controllertypestr:'PIC32MX120F032B';   controllerunitstr:'PIC32MX1xxFxxxB'),
+      (controllertypestr:'PIC32MX120F032C';   controllerunitstr:'PIC32MX1xxFxxxC'),
+      (controllertypestr:'PIC32MX120F032D';   controllerunitstr:'PIC32MX1xxFxxxD'),
+      (controllertypestr:'PIC32MX130F064B';   controllerunitstr:'PIC32MX1xxFxxxB'),
+      (controllertypestr:'PIC32MX130F064C';   controllerunitstr:'PIC32MX1xxFxxxC'),
+      (controllertypestr:'PIC32MX130F064D';   controllerunitstr:'PIC32MX1xxFxxxD'),
+      (controllertypestr:'PIC32MX150F128B';   controllerunitstr:'PIC32MX1xxFxxxB'),
+      (controllertypestr:'PIC32MX150F128C';   controllerunitstr:'PIC32MX1xxFxxxC'),
+      (controllertypestr:'PIC32MX150F128D';   controllerunitstr:'PIC32MX1xxFxxxD'),
+      (controllertypestr:'PIC32MX210F016B';   controllerunitstr:'PIC32MX2xxFxxxB'),
+      (controllertypestr:'PIC32MX210F016C';   controllerunitstr:'PIC32MX2xxFxxxC'),
+      (controllertypestr:'PIC32MX210F016D';   controllerunitstr:'PIC32MX2xxFxxxD'),
+      (controllertypestr:'PIC32MX220F032B';   controllerunitstr:'PIC32MX2xxFxxxB'),
+      (controllertypestr:'PIC32MX220F032C';   controllerunitstr:'PIC32MX2xxFxxxC'),
+      (controllertypestr:'PIC32MX220F032D';   controllerunitstr:'PIC32MX2xxFxxxD'),
+      (controllertypestr:'PIC32MX230F064B';   controllerunitstr:'PIC32MX2xxFxxxB'),
+      (controllertypestr:'PIC32MX230F064C';   controllerunitstr:'PIC32MX2xxFxxxC'),
+      (controllertypestr:'PIC32MX230F064D';   controllerunitstr:'PIC32MX2xxFxxxD'),
+      (controllertypestr:'PIC32MX250F128B';   controllerunitstr:'PIC32MX2xxFxxxB'),
+      (controllertypestr:'PIC32MX250F128C';   controllerunitstr:'PIC32MX2xxFxxxC'),
+      (controllertypestr:'PIC32MX250F128D';   controllerunitstr:'PIC32MX2xxFxxxD'),
+      (controllertypestr:'PIC32MX775F256H';   controllerunitstr:'PIC32MX7x5FxxxH'),
+      (controllertypestr:'PIC32MX775F256L';   controllerunitstr:'PIC32MX7x5FxxxL'),
+      (controllertypestr:'PIC32MX775F512H';   controllerunitstr:'PIC32MX7x5FxxxH'),
+      (controllertypestr:'PIC32MX775F512L';   controllerunitstr:'PIC32MX7x5FxxxL'),
+      (controllertypestr:'PIC32MX795F512H';   controllerunitstr:'PIC32MX7x5FxxxH'),
+      (controllertypestr:'PIC32MX795F512L';   controllerunitstr:'PIC32MX7x5FxxxL'),
+      (controllertypestr:'ATMEGA645';         controllerunitstr:'ATMEGA645'),
+      (controllertypestr:'ATMEGA165A';        controllerunitstr:'ATMEGA165A'),
+      (controllertypestr:'ATTINY44A';         controllerunitstr:'ATTINY44A'),
+      (controllertypestr:'ATMEGA649A';        controllerunitstr:'ATMEGA649A'),
+      (controllertypestr:'ATMEGA32U4';        controllerunitstr:'ATMEGA32U4'),
+      (controllertypestr:'ATTINY26';          controllerunitstr:'ATTINY26'),
+      (controllertypestr:'AT90USB1287';       controllerunitstr:'AT90USB1287'),
+      (controllertypestr:'AT90PWM161';        controllerunitstr:'AT90PWM161'),
+      (controllertypestr:'ATTINY48';          controllerunitstr:'ATTINY48'),
+      (controllertypestr:'ATMEGA168P';        controllerunitstr:'ATMEGA168P'),
+      (controllertypestr:'ATTINY10';          controllerunitstr:'ATTINY10'),
+      (controllertypestr:'ATTINY84A';         controllerunitstr:'ATTINY84A'),
+      (controllertypestr:'AT90USB82';         controllerunitstr:'AT90USB82'),
+      (controllertypestr:'ATTINY2313';        controllerunitstr:'ATTINY2313'),
+      (controllertypestr:'ATTINY461';         controllerunitstr:'ATTINY461'),
+      (controllertypestr:'ATMEGA3250PA';      controllerunitstr:'ATMEGA3250PA'),
+      (controllertypestr:'ATMEGA3290A';       controllerunitstr:'ATMEGA3290A'),
+      (controllertypestr:'ATMEGA165P';        controllerunitstr:'ATMEGA165P'),
+      (controllertypestr:'ATTINY43U';         controllerunitstr:'ATTINY43U'),
+      (controllertypestr:'AT90USB162';        controllerunitstr:'AT90USB162'),
+      (controllertypestr:'ATMEGA16U4';        controllerunitstr:'ATMEGA16U4'),
+      (controllertypestr:'ATTINY24A';         controllerunitstr:'ATTINY24A'),
+      (controllertypestr:'ATMEGA88P';         controllerunitstr:'ATMEGA88P'),
+      (controllertypestr:'ATTINY88';          controllerunitstr:'ATTINY88'),
+      (controllertypestr:'ATMEGA6490P';       controllerunitstr:'ATMEGA6490P'),
+      (controllertypestr:'ATTINY40';          controllerunitstr:'ATTINY40'),
+      (controllertypestr:'ATMEGA324P';        controllerunitstr:'ATMEGA324P'),
+      (controllertypestr:'ATTINY167';         controllerunitstr:'ATTINY167'),
+      (controllertypestr:'ATMEGA328';         controllerunitstr:'ATMEGA328'),
+      (controllertypestr:'ATTINY861';         controllerunitstr:'ATTINY861'),
+      (controllertypestr:'ATTINY85';          controllerunitstr:'ATTINY85'),
+      (controllertypestr:'ATMEGA64M1';        controllerunitstr:'ATMEGA64M1'),
+      (controllertypestr:'ATMEGA645P';        controllerunitstr:'ATMEGA645P'),
+      (controllertypestr:'ATMEGA8U2';         controllerunitstr:'ATMEGA8U2'),
+      (controllertypestr:'ATMEGA329A';        controllerunitstr:'ATMEGA329A'),
+      (controllertypestr:'ATMEGA8A';          controllerunitstr:'ATMEGA8A'),
+      (controllertypestr:'ATMEGA324PA';       controllerunitstr:'ATMEGA324PA'),
+      (controllertypestr:'ATMEGA32HVB';       controllerunitstr:'ATMEGA32HVB'),
+      (controllertypestr:'AT90PWM316';        controllerunitstr:'AT90PWM316'),
+      (controllertypestr:'AT90PWM3B';         controllerunitstr:'AT90PWM3B'),
+      (controllertypestr:'AT90USB646';        controllerunitstr:'AT90USB646'),
+      (controllertypestr:'ATTINY20';          controllerunitstr:'ATTINY20'),
+      (controllertypestr:'ATMEGA16';          controllerunitstr:'ATMEGA16'),
+      (controllertypestr:'ATMEGA48A';         controllerunitstr:'ATMEGA48A'),
+      (controllertypestr:'ATTINY24';          controllerunitstr:'ATTINY24'),
+      (controllertypestr:'ATMEGA644';         controllerunitstr:'ATMEGA644'),
+      (controllertypestr:'ATMEGA1284';        controllerunitstr:'ATMEGA1284'),
+      (controllertypestr:'ATA6285';           controllerunitstr:'ATA6285'),
+      (controllertypestr:'AT90CAN64';         controllerunitstr:'AT90CAN64'),
+      (controllertypestr:'ATMEGA48';          controllerunitstr:'ATMEGA48'),
+      (controllertypestr:'AT90CAN32';         controllerunitstr:'AT90CAN32'),
+      (controllertypestr:'ATTINY9';           controllerunitstr:'ATTINY9'),
+      (controllertypestr:'ATTINY87';          controllerunitstr:'ATTINY87'),
+      (controllertypestr:'ATMEGA1281';        controllerunitstr:'ATMEGA1281'),
+      (controllertypestr:'AT90PWM216';        controllerunitstr:'AT90PWM216'),
+      (controllertypestr:'ATMEGA3250A';       controllerunitstr:'ATMEGA3250A'),
+      (controllertypestr:'ATMEGA88A';         controllerunitstr:'ATMEGA88A'),
+      (controllertypestr:'ATMEGA128RFA1';     controllerunitstr:'ATMEGA128RFA1'),
+      (controllertypestr:'ATMEGA3290PA';      controllerunitstr:'ATMEGA3290PA'),
+      (controllertypestr:'AT90PWM81';         controllerunitstr:'AT90PWM81'),
+      (controllertypestr:'ATMEGA325P';        controllerunitstr:'ATMEGA325P'),
+      (controllertypestr:'ATTINY84';          controllerunitstr:'ATTINY84'),
+      (controllertypestr:'ATMEGA328P';        controllerunitstr:'ATMEGA328P'),
+      (controllertypestr:'ATTINY13A';         controllerunitstr:'ATTINY13A'),
+      (controllertypestr:'ATMEGA8';           controllerunitstr:'ATMEGA8'),
+      (controllertypestr:'ATMEGA1284P';       controllerunitstr:'ATMEGA1284P'),
+      (controllertypestr:'ATMEGA16U2';        controllerunitstr:'ATMEGA16U2'),
+      (controllertypestr:'ATTINY45';          controllerunitstr:'ATTINY45'),
+      (controllertypestr:'ATMEGA3250';        controllerunitstr:'ATMEGA3250'),
+      (controllertypestr:'ATMEGA329';         controllerunitstr:'ATMEGA329'),
+      (controllertypestr:'ATMEGA32A';         controllerunitstr:'ATMEGA32A'),
+      (controllertypestr:'ATTINY5';           controllerunitstr:'ATTINY5'),
+      (controllertypestr:'AT90CAN128';        controllerunitstr:'AT90CAN128'),
+      (controllertypestr:'ATMEGA6490';        controllerunitstr:'ATMEGA6490'),
+      (controllertypestr:'ATMEGA8515';        controllerunitstr:'ATMEGA8515'),
+      (controllertypestr:'ATMEGA88PA';        controllerunitstr:'ATMEGA88PA'),
+      (controllertypestr:'ATMEGA168A';        controllerunitstr:'ATMEGA168A'),
+      (controllertypestr:'ATMEGA128';         controllerunitstr:'ATMEGA128'),
+      (controllertypestr:'AT90USB1286';       controllerunitstr:'AT90USB1286'),
+      (controllertypestr:'ATMEGA164PA';       controllerunitstr:'ATMEGA164PA'),
+      (controllertypestr:'ATTINY828';         controllerunitstr:'ATTINY828'),
+      (controllertypestr:'ATMEGA88';          controllerunitstr:'ATMEGA88'),
+      (controllertypestr:'ATMEGA645A';        controllerunitstr:'ATMEGA645A'),
+      (controllertypestr:'ATMEGA3290P';       controllerunitstr:'ATMEGA3290P'),
+      (controllertypestr:'ATMEGA644P';        controllerunitstr:'ATMEGA644P'),
+      (controllertypestr:'ATMEGA164A';        controllerunitstr:'ATMEGA164A'),
+      (controllertypestr:'ATTINY4313';        controllerunitstr:'ATTINY4313'),
+      (controllertypestr:'ATMEGA162';         controllerunitstr:'ATMEGA162'),
+      (controllertypestr:'ATMEGA32C1';        controllerunitstr:'ATMEGA32C1'),
+      (controllertypestr:'ATMEGA128A';        controllerunitstr:'ATMEGA128A'),
+      (controllertypestr:'ATMEGA324A';        controllerunitstr:'ATMEGA324A'),
+      (controllertypestr:'ATTINY13';          controllerunitstr:'ATTINY13'),
+      (controllertypestr:'ATMEGA2561';        controllerunitstr:'ATMEGA2561'),
+      (controllertypestr:'ATMEGA169A';        controllerunitstr:'ATMEGA169A'),
+      (controllertypestr:'ATTINY261';         controllerunitstr:'ATTINY261'),
+      (controllertypestr:'ATMEGA644A';        controllerunitstr:'ATMEGA644A'),
+      (controllertypestr:'ATMEGA3290';        controllerunitstr:'ATMEGA3290'),
+      (controllertypestr:'ATMEGA64A';         controllerunitstr:'ATMEGA64A'),
+      (controllertypestr:'ATMEGA169P';        controllerunitstr:'ATMEGA169P'),
+      (controllertypestr:'ATMEGA2560';        controllerunitstr:'ATMEGA2560'),
+      (controllertypestr:'ATMEGA32';          controllerunitstr:'ATMEGA32'),
+      (controllertypestr:'ATTINY861A';        controllerunitstr:'ATTINY861A'),
+      (controllertypestr:'ATTINY28';          controllerunitstr:'ATTINY28'),
+      (controllertypestr:'ATMEGA48P';         controllerunitstr:'ATMEGA48P'),
+      (controllertypestr:'ATMEGA8535';        controllerunitstr:'ATMEGA8535'),
+      (controllertypestr:'ATMEGA168PA';       controllerunitstr:'ATMEGA168PA'),
+      (controllertypestr:'ATMEGA16M1';        controllerunitstr:'ATMEGA16M1'),
+      (controllertypestr:'ATMEGA16HVB';       controllerunitstr:'ATMEGA16HVB'),
+      (controllertypestr:'ATMEGA164P';        controllerunitstr:'ATMEGA164P'),
+      (controllertypestr:'ATMEGA325A';        controllerunitstr:'ATMEGA325A'),
+      (controllertypestr:'ATMEGA640';         controllerunitstr:'ATMEGA640'),
+      (controllertypestr:'ATMEGA6450';        controllerunitstr:'ATMEGA6450'),
+      (controllertypestr:'ATMEGA329P';        controllerunitstr:'ATMEGA329P'),
+      (controllertypestr:'ATA6286';           controllerunitstr:'ATA6286'),
+      (controllertypestr:'AT90USB647';        controllerunitstr:'AT90USB647'),
+      (controllertypestr:'ATMEGA168';         controllerunitstr:'ATMEGA168'),
+      (controllertypestr:'ATMEGA6490A';       controllerunitstr:'ATMEGA6490A'),
+      (controllertypestr:'ATMEGA32M1';        controllerunitstr:'ATMEGA32M1'),
+      (controllertypestr:'ATMEGA64C1';        controllerunitstr:'ATMEGA64C1'),
+      (controllertypestr:'ATMEGA32U2';        controllerunitstr:'ATMEGA32U2'),
+      (controllertypestr:'ATTINY4';           controllerunitstr:'ATTINY4'),
+      (controllertypestr:'ATMEGA644PA';       controllerunitstr:'ATMEGA644PA'),
+      (controllertypestr:'AT90PWM1';          controllerunitstr:'AT90PWM1'),
+      (controllertypestr:'ATTINY44';          controllerunitstr:'ATTINY44'),
+      (controllertypestr:'ATMEGA325PA';       controllerunitstr:'ATMEGA325PA'),
+      (controllertypestr:'ATMEGA6450A';       controllerunitstr:'ATMEGA6450A'),
+      (controllertypestr:'ATTINY2313A';       controllerunitstr:'ATTINY2313A'),
+      (controllertypestr:'ATMEGA329PA';       controllerunitstr:'ATMEGA329PA'),
+      (controllertypestr:'ATTINY461A';        controllerunitstr:'ATTINY461A'),
+      (controllertypestr:'ATMEGA6450P';       controllerunitstr:'ATMEGA6450P'),
+      (controllertypestr:'ATMEGA64';          controllerunitstr:'ATMEGA64'),
+      (controllertypestr:'ATMEGA165PA';       controllerunitstr:'ATMEGA165PA'),
+      (controllertypestr:'ATMEGA16A';         controllerunitstr:'ATMEGA16A'),
+      (controllertypestr:'ATMEGA649';         controllerunitstr:'ATMEGA649'),
+      (controllertypestr:'ATMEGA1280';        controllerunitstr:'ATMEGA1280'),
+      (controllertypestr:'AT90PWM2B';         controllerunitstr:'AT90PWM2B'),
+      (controllertypestr:'ATMEGA649P';        controllerunitstr:'ATMEGA649P'),
+      (controllertypestr:'ATMEGA3250P';       controllerunitstr:'ATMEGA3250P'),
+      (controllertypestr:'ATMEGA48PA';        controllerunitstr:'ATMEGA48PA'),
+      (controllertypestr:'ATTINY1634';        controllerunitstr:'ATTINY1634'),
+      (controllertypestr:'ATMEGA325';         controllerunitstr:'ATMEGA325'),
+      (controllertypestr:'ATMEGA169PA';       controllerunitstr:'ATMEGA169PA'),
+      (controllertypestr:'ATTINY261A';        controllerunitstr:'ATTINY261A'),
+      (controllertypestr:'ATTINY25';          controllerunitstr:'ATTINY25'));
 
   var
     i: integer;
@@ -7904,8 +8302,9 @@ begin
           ConfigFiles.Add(Filename,CfgFileExists,CfgFileDate);
         end;
       // gather all units in all unit search paths
-      if (UnitPaths<>nil) and (UnitPaths.Count>0) then
-        Units:=GatherUnitsInSearchPaths(UnitPaths,OnProgress)
+      if (UnitPaths<>nil) and (UnitPaths.Count>0) then begin
+        Units:=GatherUnitsInSearchPaths(UnitPaths,OnProgress,true);
+      end
       else begin
         if CTConsoleVerbosity>=-1 then
           debugln(['Warning: [TFPCTargetConfigCache.Update] no unit paths: ',Compiler,' ',ExtraOptions]);
@@ -9171,12 +9570,13 @@ var
 begin
   Result:='';
   {$IFDEF ShowTriedUnits}
-  debugln(['TFPCUnitSetCache.GetUnitSrcFile Unit="',AnUnitName,'" MustHavePPU=',MustHavePPU,' SkipPPUCheckIfNoneExists=',SkipPPUCheckIfNoneExists]);
+  debugln(['TFPCUnitSetCache.GetUnitSrcFile Unit="',AnUnitName,'" SrcSearchRequiresPPU=',SrcSearchRequiresPPU,' SkipPPUCheckIfTargetIsSourceOnly=',SkipPPUCheckIfTargetIsSourceOnly]);
   {$ENDIF}
   Tree:=GetUnitToSourceTree(false);
   ConfigCache:=GetConfigCache(false);
   if (ConfigCache.Units<>nil) then begin
     UnitInFPCPath:=ConfigCache.Units[AnUnitName];
+    //if Pos('lazmkunit',AnUnitName)>0 then debugln(['TFPCUnitSetCache.GetUnitSrcFile UnitInFPCPath=',UnitInFPCPath]);
     if (CompareFileExt(UnitInFPCPath,'ppu',false)=0) then begin
       // there is a ppu
     end else if UnitInFPCPath<>'' then begin

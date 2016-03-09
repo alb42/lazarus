@@ -92,7 +92,8 @@ type
 implementation
 
 uses
-  IDEImagesIntf, Math, SysUtils, TAChartUtils;
+  IDEImagesIntf, Math, SysUtils,
+  TAChartStrConsts, TAChartUtils;
 
 {$R *.lfm}
 
@@ -229,16 +230,21 @@ begin
   tbDelete.ImageIndex := IDEImages.LoadImage(16, 'laz_delete');
   tbMoveDown.ImageIndex := IDEImages.LoadImage(16, 'arrow_down');
   tbMoveUp.ImageIndex := IDEImages.LoadImage(16, 'arrow_up');
+  tbAdd.Caption := rsAdd;
+  tbDelete.Caption := rsDelete;
+  tbMoveUp.Caption := rsMoveUp;
+  tbMoveDown.Caption := rsMoveDown;
 end;
 
 procedure TComponentListEditorForm.FormDestroy(Sender: TObject);
 begin
-  if (FComponentEditor <> nil) and (FParent <> nil) and Assigned(GlobalDesignHook)
-  and not (csDestroying in FParent.ComponentState) and (ChildrenListBox.SelCount > 0) then
-  begin
+  if GlobalDesignHook = Nil then
+    Exit;
+  if Assigned(FComponentEditor) and Assigned(FParent)
+  and not (csDestroying in FParent.ComponentState)
+  and (ChildrenListBox.SelCount > 0) then
     GlobalDesignHook.SelectOnlyThis(FParent);
-    GlobalDesignHook.RemoveAllHandlersForObject(Self);
-  end;
+  GlobalDesignHook.RemoveAllHandlersForObject(Self);
 end;
 
 procedure TComponentListEditorForm.miAddClick(Sender: TObject);

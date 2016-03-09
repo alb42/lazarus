@@ -145,7 +145,7 @@ type
     procedure MainIDEitmPkgOpenPackageOfCurUnitClicked(Sender: TObject);
     procedure MainIDEitmConfigCustomCompsClicked(Sender: TObject);
     procedure MainIDEitmOpenRecentPackageClicked(Sender: TObject);
-    procedure MainIDEitmPkgOpenPackageClicked(Sender: TObject);
+    procedure MainIDEitmPkgOpenLoadedPackageClicked(Sender: TObject);
     procedure MainIDEitmPkgNewPackageClick(Sender: TObject);
     procedure MainIDEitmPackageLinksClicked(Sender: TObject);
 
@@ -259,7 +259,7 @@ type
     function AddDependencyToUnitOwners(const OwnedFilename,
                               RequiredUnitname: string): TModalResult; override;
     function RedirectPackageDependency(APackage: TIDEPackage): TIDEPackage; override;
-    procedure GetPackagesChangedOnDisk(out ListOfPackages: TStringList); override;
+    procedure GetPackagesChangedOnDisk(out ListOfPackages: TStringList; IgnoreModifiedFlag: boolean = False); override;
     function RevertPackages(APackageList: TStringList): TModalResult; override;
 
     // project
@@ -294,7 +294,7 @@ type
     // package editors
     function DoOpenPkgFile(PkgFile: TPkgFile): TModalResult;
     function DoNewPackage: TModalResult; override;
-    function DoShowOpenInstalledPckDlg: TModalResult; override;
+    function DoShowLoadedPkgDlg: TModalResult; override;
     function DoOpenPackage(APackage: TLazPackage; Flags: TPkgOpenFlags;
                            ShowAbort: boolean): TModalResult; override;
     function DoOpenPackageWithName(const APackageName: string;
@@ -628,12 +628,12 @@ begin
     DoShowPackageGraph(false);
     AForm:=PackageGraphExplorer;
     if DoDisableAutoSizing then
-      AForm.DisableAutoSizing;
+      AForm.DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('TPkgManager.CreateIDEWindow'){$ENDIF};
   end else if SysUtils.CompareText(PackageEditorWindowPrefix,
     copy(aFormName,1,length(PackageEditorWindowPrefix)))=0
   then begin
     APackageName:=copy(aFormName,length(PackageEditorWindowPrefix)+1,length(aFormName));
-    if (APackageName='') or not IsValidUnitName(APackageName) then exit;
+    if not IsValidPkgName(APackageName) then exit;
     NewDependency:=TPkgDependency.Create;
     try
       NewDependency.PackageName:=APackageName;
@@ -644,7 +644,7 @@ begin
     end;
     APackage:=PackageGraph.FindPackageWithName(APackageName,nil);
     if APackage=nil then exit;
-    AForm:=PackageEditors.OpenEditor(APackage);
+    AForm:=PackageEditors.CreateEditor(APackage,DoDisableAutoSizing);
   end;
 end;
 
@@ -1045,9 +1045,9 @@ begin
   DoNewPackage;
 end;
 
-procedure TPkgManager.MainIDEitmPkgOpenPackageClicked(Sender: TObject);
+procedure TPkgManager.MainIDEitmPkgOpenLoadedPackageClicked(Sender: TObject);
 begin
-  DoShowOpenInstalledPckDlg;
+  DoShowLoadedPkgDlg;
 end;
 
 procedure TPkgManager.MainIDEitmPackageLinksClicked(Sender: TObject);
@@ -1155,6 +1155,15 @@ begin
         NewMainUnitFileName:=ChangeFileExt(NewFileName,'.pas')
       else
         NewMainUnitFileName:='';
+
+      if PackageEditors.FindEditor(NewPkgName) <> nil then
+      begin
+        Result:=IDEMessageDialog(lisPkgMangInvalidPackageName,
+          Format(lisPkgMangSaveAsAlreadyOpenedPackage, [NewPkgName]),
+          mtInformation,[mbRetry,mbAbort]);
+        if Result=mrAbort then exit;
+        continue; // try again
+      end;
       
       // check file extension
       if ExtractFileExt(NewFilename)='' then begin
@@ -1169,7 +1178,7 @@ begin
       end;
 
       // check filename
-      if (NewPkgName='') or (not IsValidUnitName(NewPkgName)) then begin
+      if not IsValidPkgName(NewPkgName) then begin
         Result:=IDEMessageDialog(lisPkgMangInvalidPackageName,
           Format(lisPkgMangThePackageNameIsNotAValidPackageNamePleaseChooseAn,
                  [NewPkgName, LineEnding]),
@@ -1251,11 +1260,11 @@ begin
       RenameDependencies:=false;
       try
         if BrokenDependencies.Count>0 then begin
-          Result:=ShowBrokenDependencies(BrokenDependencies,
-                                         DefaultBrokenDepButtons);
-          if Result=mrAbort then exit;
-          if Result=mrRetry then continue;
-          if Result=mrYes then RenameDependencies:=true;
+          Result:=ShowBrokenDependencies(BrokenDependencies);
+          if Result=mrOK then             // = Yes
+            RenameDependencies:=true
+          else if Result<>mrClose then    // <> Ignore
+            exit;
         end;
       finally
         BrokenDependencies.Free;
@@ -1291,12 +1300,19 @@ begin
   
   // set filename
   APackage.Filename:=NewFilename;
+  if Assigned(APackage.Editor) then
+    APackage.Editor.LazPackage := APackage;//force package editor name change!
   
   // rename package
   PackageGraph.ChangePackageID(APackage,NewPkgName,APackage.Version,
                                RenameDependencies,true);
   SaveAutoInstallDependencies;
   RenamePackageInProject;
+
+  //update LastOpenPackages list
+  EnvironmentOptions.LastOpenPackages.Remove(OldPkgFilename);
+  EnvironmentOptions.LastOpenPackages.Add(NewFileName);
+  MainIDE.SaveEnvironment;
 
   // clean up old package file to reduce ambiguousities
   if FileExistsUTF8(OldPkgFilename)
@@ -1542,7 +1558,7 @@ begin
     StaticPackage:=PRegisteredPackage(StaticPackages[i]);
 
     // check package name
-    if (StaticPackage^.Name='') or (not IsValidUnitName(StaticPackage^.Name))
+    if not IsValidPkgName(StaticPackage^.Name)
     then begin
       DebugLn('Warning: (lazarus) [TPkgManager.LoadStaticCustomPackages] Invalid Package Name: "',
         BinaryStrToText(StaticPackage^.Name),'"');
@@ -2071,8 +2087,8 @@ var
 
       if CompareFilenames(NewFilename,OldFilename)<>0 then begin
         // file be copied/moved to another directory
-        debugln(['CollectFiles Old="',OldFilename,'"']);
-        debugln(['             New="',NewFilename,'"']);
+        debugln(['Hint: (lazarus) CollectFiles Old="',OldFilename,'"']);
+        debugln(['Hint: (lazarus) New="',NewFilename,'"']);
         inc(MoveFileCount);
         ChangedFilenames[OldFilename]:=NewFilename;
         AllChangedFilenames[OldFilename]:=NewFilename;
@@ -2516,7 +2532,7 @@ var
         r:=CopyFileWithErrorDialogs(OldFilename,NewFilename,[mbAbort,mbIgnore]);
       end;
       if not (r in [mrIgnore,mrOK]) then begin
-        debugln(['Error: MoveOrCopyFile: rename/copy failed: "',OldFilename,'" to "',NewFilename,'"']);
+        debugln(['Error: (lazarus) MoveOrCopyFile: rename/copy failed: "',OldFilename,'" to "',NewFilename,'"']);
         exit;
       end;
     end else begin
@@ -2744,7 +2760,7 @@ begin
 
   // check TargetDirectory
   if CheckDirectoryIsWritable(TargetDirectory)<>mrOk then begin
-    debugln(['TPkgManager.MoveFiles not writable TargetDirectory=',TargetDirectory]);
+    debugln(['Warning: (lazarus) TPkgManager.MoveFiles not writable TargetDirectory=',TargetDirectory]);
     exit;
   end;
 
@@ -2877,7 +2893,7 @@ begin
   else if Sender is TProjectInspectorForm then
     FilesEdit:=TProjectInspectorForm(Sender)
   else begin
-    debugln(['TPkgManager.CopyMoveFiles wrong Sender: ',DbgSName(Sender)]);
+    debugln(['Error: (lazarus) TPkgManager.CopyMoveFiles wrong Sender: ',DbgSName(Sender)]);
     exit;
   end;
   SelDirDlg:=TSelectDirectoryDialog.Create(nil);
@@ -2906,6 +2922,7 @@ begin
 
   // package graph
   PackageGraph:=TLazPackageGraph.Create;
+  PackageGraphInterface:=PackageGraph;
   PackageGraph.OnAddPackage:=@PackageGraphAddPackage;
   PackageGraph.OnBeforeCompilePackages:=@DoBeforeCompilePackages;
   PackageGraph.OnBeginUpdate:=@PackageGraphBeginUpdate;
@@ -2956,6 +2973,8 @@ begin
     'PKGINCPATH',nil,@PackageGraph.MacroFunctionCTPkgIncPath);
   CodeToolBoss.DefineTree.MacroFunctions.AddExtended(
     'PKGNAME',nil,@PackageGraph.MacroFunctionCTPkgName);
+  CodeToolBoss.DefineTree.MacroFunctions.AddExtended(
+    'PKGOUTDIR',nil,@PackageGraph.MacroFunctionCTPkgOutDir);
 
   LazPackageDescriptors:=TLazPackageDescriptors.Create;
   LazPackageDescriptors.AddDefaultPackageDescriptors;
@@ -2980,7 +2999,7 @@ procedure TPkgManager.ConnectMainBarEvents;
 begin
   with MainIDEBar do begin
     itmPkgNewPackage.OnClick :=@MainIDEitmPkgNewPackageClick;
-    itmPkgOpenPackage.OnClick :=@MainIDEitmPkgOpenPackageClicked;
+    itmPkgOpenLoadedPackage.OnClick :=@MainIDEitmPkgOpenLoadedPackageClicked;
     itmPkgOpenPackageFile.OnClick:=@MainIDEitmPkgOpenPackageFileClick;
     itmPkgOpenPackageOfCurUnit.OnClick :=@MainIDEitmPkgOpenPackageOfCurUnitClicked;
     itmPkgAddCurFileToPkg.OnClick:=@MainIDEitmPkgAddCurFileToPkgClick;
@@ -3020,8 +3039,7 @@ end;
 
 procedure TPkgManager.AddToMenuRecentPackages(const Filename: string);
 begin
-  AddToRecentList(Filename,EnvironmentOptions.RecentPackageFiles,
-                  EnvironmentOptions.MaxRecentPackageFiles,rltFile);
+  EnvironmentOptions.AddToRecentPackageFiles(Filename);
   SetRecentPackagesMenu;
   MainIDE.SaveEnvironment;
 end;
@@ -3091,7 +3109,7 @@ procedure TPkgManager.ProcessCommand(Command: word; var Handled: boolean);
 begin
   Handled:=true;
   case Command of
-  ecOpenPackage: MainIDEitmPkgOpenPackageClicked(Self);
+  ecOpenPackage: MainIDEitmPkgOpenLoadedPackageClicked(Self);
   ecOpenPackageFile: MainIDEitmPkgOpenPackageFileClick(Self);
   ecOpenPackageOfCurUnit: MainIDEitmPkgOpenPackageOfCurUnitClicked(Self);
   ecAddCurFileToPkg: MainIDEitmPkgAddCurFileToPkgClick(Self);
@@ -3233,9 +3251,10 @@ end;
 function TPkgManager.AddPackageToGraph(APackage: TLazPackage): TModalResult;
 var
   ConflictPkg: TLazPackage;
+  Link: TPackageLink;
 begin
   // check Package Name
-  if (APackage.Name='') or (not IsValidUnitName(APackage.Name)) then begin
+  if not IsValidPkgName(APackage.Name) then begin
     Result:=IDEMessageDialog(lisPkgMangInvalidPackageName2,
       Format(lisPkgMangThePackageNameOfTheFileIsInvalid,
              [APackage.Name, LineEnding, APackage.Filename]),
@@ -3276,8 +3295,12 @@ begin
 
   // save package file links
   //DebugLn(['TPkgManager.AddPackageToGraph ',APackage.Name]);
-  PkgLinks.AddUserLink(APackage);
-  PkgLinks.SaveUserLinks;
+  Link:=PkgLinks.AddUserLink(APackage);
+  if Link<>nil then
+  begin
+    //debugln(['Hint: (lazarus) TPkgManager.AddPackageToGraph LinkLastUsed=',DateToCfgStr(Link.LastUsed,DateTimeAsCfgStrFormat),' ',dbgs(Link.Origin)]);
+    PkgLinks.SaveUserLinks;
+  end;
 
   Result:=mrOk;
 end;
@@ -3396,7 +3419,7 @@ begin
   try
     for i:=0 to RequiredPackages.Count-1 do begin
       PkgName:=Trim(RequiredPackages[i]);
-      if (PkgName='') or (not IsValidUnitName(PkgName)) then continue;
+      if not IsValidPkgName(PkgName) then continue;
       APackage:=PackageGraph.FindPackageWithName(PkgName,nil);
       if APackage=nil then begin
         DebugLn(['Error: (lazarus) [TPkgManager.AddProjectDependencies] package not found: ',PkgName]);
@@ -3469,7 +3492,6 @@ end;
 function TPkgManager.DoNewPackage: TModalResult;
 var
   NewPackage: TLazPackage;
-  CurEditor: TPackageEditorForm;
 begin
   Result:=mrCancel;
   // create a new package with standard dependencies
@@ -3479,13 +3501,12 @@ begin
   NewPackage.Modified:=false;
 
   // open a package editor
-  CurEditor:=PackageEditors.OpenEditor(NewPackage);
-  IDEWindowCreators.ShowForm(CurEditor,true);
+  PackageEditors.OpenEditor(NewPackage,true);
 
   Result:=DoSavePackage(NewPackage,[psfSaveAs]);
 end;
 
-function TPkgManager.DoShowOpenInstalledPckDlg: TModalResult;
+function TPkgManager.DoShowLoadedPkgDlg: TModalResult;
 var
   APackage: TLazPackage;
 begin
@@ -3497,7 +3518,6 @@ end;
 function TPkgManager.DoOpenPackage(APackage: TLazPackage;
   Flags: TPkgOpenFlags; ShowAbort: boolean): TModalResult;
 var
-  CurEditor: TPackageEditorForm;
   AFilename: String;
 begin
   AFilename:=APackage.Filename;
@@ -3510,8 +3530,7 @@ begin
   end;
 
   // open a package editor
-  CurEditor:=PackageEditors.OpenEditor(APackage);
-  IDEWindowCreators.ShowForm(CurEditor,true);
+  PackageEditors.OpenEditor(APackage,true);
 
   // add to recent packages
   if (pofAddToRecent in Flags) then begin
@@ -3532,7 +3551,7 @@ var
   LoadResult: TLoadPackageResult;
 begin
   Result:=mrCancel;
-  if (APackageName='') or not IsValidUnitName(APackageName) then exit;
+  if not IsValidPkgName(APackageName) then exit;
   NewDependency:=TPkgDependency.Create;
   try
     NewDependency.PackageName:=APackageName;
@@ -3585,7 +3604,7 @@ begin
   // check filename
   AlternativePkgName:=ExtractFileNameOnly(AFilename);
   if (not (pofRevert in Flags))
-  and ((AlternativePkgName='') or (not IsValidUnitName(AlternativePkgName)))
+  and (not IsValidPkgName(AlternativePkgName))
   then begin
     DoQuestionDlg(lisPkgMangInvalidPackageFilename,
       Format(lisPkgMangThePackageFileNameInIsNotAValidLazarusPackageName,
@@ -3682,14 +3701,12 @@ procedure TPkgManager.OpenHiddenModifiedPackages;
 var
   i: Integer;
   APackage: TLazPackage;
-  Editor: TPackageEditorForm;
 begin
   for i:=0 to PackageGraph.Count-1 do begin
     APackage:=PackageGraph.Packages[i];
     if (APackage.Editor=nil) and APackage.Modified
     and (APackage.UserIgnoreChangeStamp<>APackage.ChangeStamp) then begin
-      Editor:=PackageEditors.OpenEditor(APackage);
-      IDEWindowCreators.ShowForm(Editor,false);
+      PackageEditors.OpenEditor(APackage,false);
     end;
   end;
 end;
@@ -3735,7 +3752,7 @@ begin
   end;
   
   // backup old file
-  Result:=BuildBoss.BackupFile(APackage.Filename);
+  Result:=BuildBoss.BackupFileForWrite(APackage.Filename);
   if Result=mrAbort then exit;
 
   // delete ambiguous files
@@ -4906,7 +4923,6 @@ end;
 function TPkgManager.SearchFile(const AFilename: string;
   SearchFlags: TSearchIDEFileFlags; InObject: TObject): TPkgFile;
 var
-  i: Integer;
   APackage: TLazPackage;
   CurFilename: String;
 begin
@@ -4918,14 +4934,8 @@ begin
     if Result<>nil then exit;
   end;
   if not (siffDoNotCheckAllPackages in SearchFlags) then begin
-    for i:=0 to PackageGraph.Count-1 do begin
-      APackage:=PackageGraph[i];
-      CurFilename:=AFilename;
-      APackage.ShortenFilename(CurFilename,true);
-      Result:=APackage.SearchShortFilename(CurFilename,SearchFlags);
-      //debugln(['TPkgManager.SearchFile Pkg=',APackage.Filename,' CurFilename="',CurFilename,'" Resul=',Result<>nil,' HasDirectory=',APackage.HasDirectory,' ExpFile=',APackage.DirectoryExpanded]);
-      if Result<>nil then exit;
-    end;
+    Result := PackageGraph.FindFileInAllPackages(AFilename, True, True);
+    if Result<>nil then exit;
   end;
   Result:=nil;
 end;
@@ -4950,8 +4960,7 @@ begin
   Result:=nil;
 end;
 
-function TPkgManager.ShowFindInPackageFilesDlg(APackage: TLazPackage
-  ): TModalResult;
+function TPkgManager.ShowFindInPackageFilesDlg(APackage: TLazPackage): TModalResult;
 var
   Dlg: TLazFindInFilesDialog;
 begin
@@ -4994,10 +5003,11 @@ begin
   end;
 end;
 
-procedure TPkgManager.GetPackagesChangedOnDisk(out ListOfPackages: TStringList);
+procedure TPkgManager.GetPackagesChangedOnDisk(out ListOfPackages: TStringList;
+  IgnoreModifiedFlag: boolean);
 begin
   if PackageGraph=nil then exit;
-  PackageGraph.GetPackagesChangedOnDisk(ListOfPackages);
+  PackageGraph.GetPackagesChangedOnDisk(ListOfPackages, IgnoreModifiedFlag);
 end;
 
 function TPkgManager.RevertPackages(APackageList: TStringList): TModalResult;
@@ -5032,8 +5042,6 @@ var
   ActiveUnitInfo: TUnitInfo;
   PkgFile: TPkgFile;
   Filename: String;
-  TheUnitName: String;
-  HasRegisterProc: Boolean;
 begin
   MainIDE.GetCurrentUnitInfo(ActiveSourceEditor,ActiveUnitInfo);
   if ActiveSourceEditor=nil then exit(mrAbort);
@@ -5064,27 +5072,16 @@ begin
       mtWarning,[mbIgnore,mbCancel]);
     if Result<>mrIgnore then exit;
   end;
-  
-  TheUnitName:='';
-  HasRegisterProc:=false;
-  if FilenameIsPascalUnit(Filename) then begin
-    Result:=DoGetUnitRegisterInfo(Filename,TheUnitName,HasRegisterProc,false);
-    if Result<>mrOk then begin
-      debugln(['Error: (lazarus) [TPkgManager.DoAddActiveUnitToAPackage] DoGetUnitRegisterInfo failed']);
-      exit;
-    end;
-  end;
-  
-  Result:=ShowAddFileToAPackageDlg(Filename,TheUnitName,HasRegisterProc,
-                                   @MainIDE.GetIDEFileState);
+
+  Result:=ShowAddFileToAPackageDlg(Filename);
 end;
 
 function TPkgManager.DoNewPackageComponent: TModalResult;
 var
   APackage: TLazPackage;
-  CurEditor: TPackageEditorForm;
   SaveFlags: TPkgSaveFlags;
   Page: TAddToPkgType;
+  CurEditor: TPackageEditorForm;
 begin
   Result:=ShowNewPkgComponentDialog(APackage);
   if Result<>mrOk then exit;
@@ -5099,8 +5096,7 @@ begin
     Include(SaveFlags,psfSaveAs);
   end;
   // open a package editor
-  CurEditor:=PackageEditors.OpenEditor(APackage);
-  IDEWindowCreators.ShowForm(CurEditor,true);
+  CurEditor:=PackageEditors.OpenEditor(APackage,true);
   // save
   Result:=DoSavePackage(APackage,SaveFlags);
   if Result<>mrOk then exit;

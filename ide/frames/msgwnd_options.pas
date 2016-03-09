@@ -46,6 +46,7 @@ type
     MWAlwaysDrawFocusedCheckBox: TCheckBox;
     MWFocusCheckBox: TCheckBox;
     MWSetPastelColorsButton: TButton;
+    MWShowFPCMsgLinesCompiledCheckBox: TCheckBox;
     MWShowIconsCheckBox: TCheckBox;
     MWMaxProcsLabel: TLabel;
     MWMaxProcsSpinEdit: TSpinEdit;
@@ -247,9 +248,12 @@ begin
   MWShowIconsCheckBox.Hint:=dlgAnIconForErrorWarningHintIsShown;
   MWAlwaysDrawFocusedCheckBox.Caption:=lisAlwaysDrawSelectedItemsFocused;
   MWAlwaysDrawFocusedCheckBox.Hint:=lisDrawTheSelectionFocusedEvenIfTheMessagesWindowHasN;
-  MWFocusCheckBox.Caption:=dlgEOFocusMessagesAfterCompilation;
+  MWFocusCheckBox.Caption:=dlgEOFocusMessagesAtCompilation;
   MWMaxProcsLabel.Caption:=Format(lisMaximumParallelProcesses0MeansDefault, [
     IntToStr(DefaultMaxProcessCount)]);
+  MWShowFPCMsgLinesCompiledCheckBox.Caption:=lisShowFPCMessageLinesCompiled;
+  MWShowFPCMsgLinesCompiledCheckBox.Hint:=
+    lisElevateTheMessagePriorityToAlwaysShowItByDefaultIt;
   Notebook1.PageIndex := 0;
 end;
 
@@ -280,6 +284,7 @@ begin
   MWAlwaysDrawFocusedCheckBox.Checked := o.MsgViewAlwaysDrawFocused;
   MWFocusCheckBox.Checked := o.MsgViewFocus;
   MWMaxProcsSpinEdit.Value := o.MaxExtToolsInParallel;
+  MWShowFPCMsgLinesCompiledCheckBox.Checked := o.MsgViewShowFPCMsgLinesCompiled;
   fReady:=true;
 end;
 
@@ -298,6 +303,7 @@ begin
   o.MsgViewAlwaysDrawFocused := MWAlwaysDrawFocusedCheckBox.Checked;
   o.MsgViewFocus := MWFocusCheckBox.Checked;
   o.MaxExtToolsInParallel := MWMaxProcsSpinEdit.Value;
+  o.MsgViewShowFPCMsgLinesCompiled := MWShowFPCMsgLinesCompiledCheckBox.Checked;
 end;
 
 class function TMsgWndOptionsFrame.

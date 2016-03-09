@@ -82,18 +82,8 @@ begin
     {$endif}
     DestroyWindow(FAppHandle);
   end;
-
-  if UnicodeEnabledOS then
-  begin
-    Windows.UnregisterClassW(@ClsNameW, System.HInstance);
-    Windows.UnregisterClassW(@ClsHintNameW, System.HInstance);
-  end
-  else
-  begin
-    Windows.UnregisterClass(@ClsName, System.HInstance);
-    Windows.UnregisterClass(@ClsHintName, System.HInstance);
-  end;
-
+  Windows.UnregisterClassW(@ClsNameW, System.HInstance);
+  Windows.UnregisterClassW(@ClsHintNameW, System.HInstance);
   if FDefaultFont <> 0 then
     Windows.DeleteObject(FDefaultFont);
   inherited Destroy;
@@ -174,11 +164,33 @@ end;
   Minimizes the whole application to the taskbar
  ------------------------------------------------------------------------------}
 procedure TWin32WidgetSet.AppMinimize;
+var
+  AForm: TCustomForm;
+  i: Integer;
 begin
-  if Assigned(Application) and Application.MainFormOnTaskBar then
-    Windows.SendMessage(Application.MainFormHandle, WM_SYSCOMMAND, SC_MINIMIZE, 0)
+  FAppMinimizing := True;
+  // issue #26463
+  if Assigned(Application) and Application.MainFormOnTaskBar
+  and Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
+  begin
+    HidePopups(Application.MainFormHandle);
+    Application.MainForm.WindowState := wsMinimized;
+  end
   else
-    Windows.SendMessage(FAppHandle, WM_SYSCOMMAND, SC_MINIMIZE, 0)
+  if Assigned(Application) and (Application.ModalLevel > 0) then
+  begin
+    for i := Screen.CustomFormZOrderCount - 1 downto 0 do
+    begin
+      AForm := Screen.CustomFormsZOrdered[i];
+      if AForm.HandleAllocated and AForm.Visible and (fsModal in AForm.FormState) then
+        ShowWindow(AForm.Handle, SW_SHOWMINIMIZED);
+    end;
+    ShowWindow(Win32WidgetSet.AppHandle, SW_SHOWMINNOACTIVE);
+  end
+  else
+    Windows.SendMessage(FAppHandle, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+
+  FAppMinimizing := False;
 end;
 
 {------------------------------------------------------------------------------
@@ -189,9 +201,32 @@ end;
   Restore minimized whole application from taskbar
  ------------------------------------------------------------------------------}
 procedure TWin32WidgetSet.AppRestore;
+var
+  AForm: TCustomForm;
+  i: Integer;
 begin
-  if Assigned(Application) and Application.MainFormOnTaskBar then
-    Windows.SendMessage(Application.MainFormHandle, WM_SYSCOMMAND, SC_RESTORE, 0)
+  // issue #26463
+  if Assigned(Application) and Application.MainFormOnTaskBar
+  and Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
+  begin
+    ShowWindow(Application.MainForm.Handle, SW_RESTORE);
+    RestorePopups;
+    if (Screen.ActiveControl<>nil) and Screen.ActiveControl.HandleAllocated then
+      SetFocus(Screen.ActiveControl.Handle);
+  end
+  else
+  if Assigned(Application) and (Application.ModalLevel > 0) then
+  begin
+    for i := Screen.CustomFormZOrderCount - 1 downto 0 do
+    begin
+      AForm := Screen.CustomFormsZOrdered[i];
+      if AForm.HandleAllocated and AForm.Visible and (fsModal in AForm.FormState) then
+      begin
+        ShowWindow(AForm.Handle, SW_RESTORE);
+      end;
+    end;
+    ShowWindow(FAppHandle, SW_RESTORE);
+  end
   else
     Windows.SendMessage(FAppHandle, WM_SYSCOMMAND, SC_RESTORE, 0);
 end;
@@ -208,13 +243,20 @@ procedure TWin32WidgetSet.AppBringToFront;
 var
   Window: HWND;
 begin
-  if Assigned(Screen) and Assigned(Screen.ActiveCustomForm) and Screen.ActiveCustomForm.HandleAllocated then
-    Window := Screen.ActiveCustomForm.Handle
+  if Application.MainFormOnTaskBar and (Application.MainFormHandle<>0) then
+    Window := GetLastActivePopup(Application.MainFormHandle)
   else
-  if Assigned(Application) and Application.MainFormOnTaskBar then
-    Window := Application.MainFormHandle
-  else
-    Window := FAppHandle;
+    Window := GetLastActivePopup(AppHandle);
+  if not((Window <> 0) and IsWindowVisible(Window) and IsWindowEnabled(Window)) then
+  begin
+    if Assigned(Screen) and Assigned(Screen.ActiveCustomForm) and Screen.ActiveCustomForm.HandleAllocated then
+      Window := Screen.ActiveCustomForm.Handle
+    else
+    if Assigned(Application) and Application.MainFormOnTaskBar then
+      Window := Application.MainFormHandle
+    else
+      Window := FAppHandle;
+  end;
   if (Window <> 0) and IsWindowVisible(Window) and IsWindowEnabled(Window) then
     Windows.SetForegroundWindow(Window);
 end;
@@ -362,14 +404,7 @@ begin
           break;
         end;
         TranslateMessage(@AMessage);
-{$IFDEF WindowsUnicodeSupport}
-        if UnicodeEnabledOS then
-          DispatchMessageW(@AMessage)
-        else
-          DispatchMessage(@AMessage);
-{$ELSE}
-        DispatchMessage(@AMessage);
-{$ENDIF}
+        DispatchMessageW(@AMessage);
       end;
     end else
     if retVal = WAIT_TIMEOUT then
@@ -472,14 +507,7 @@ procedure TWin32WidgetSet.AppSetTitle(const ATitle: string);
 begin
   if FAppHandle <> 0 then
   begin
-    {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-      Windows.SetWindowTextW(FAppHandle, PWideChar(UTF8ToUTF16(ATitle)))
-    else
-      Windows.SetWindowText(FAppHandle, PChar(Utf8ToAnsi(ATitle)));
-    {$else}
-    Windows.SetWindowText(FAppHandle, PChar(ATitle));
-    {$endif}
+    Windows.SetWindowTextW(FAppHandle, PWideChar(UTF8ToUTF16(ATitle)));
   end;
 end;
 
@@ -534,12 +562,7 @@ begin
     lcApplicationWindow: Result := LCL_CAPABILITY_YES;
     lcLMHelpSupport: Result := LCL_CAPABILITY_YES;
     lcNeedMininimizeAppWithMainForm: Result := LCL_CAPABILITY_NO;
-    lcSendsUTF8KeyPress:
-      {$ifdef WindowsUnicodeSupport}
-      Result := LCL_CAPABILITY_YES;
-      {$else}
-      Result := LCL_CAPABILITY_NO;
-      {$endif}
+    lcSendsUTF8KeyPress: Result := LCL_CAPABILITY_YES;
   else
     Result := inherited;
   end;
@@ -614,71 +637,36 @@ end;
  ------------------------------------------------------------------------------}
 function TWin32WidgetSet.WinRegister: Boolean;
 var
-  WindowClass: WndClass;
   WindowClassW: WndClassW;
 begin
-  if UnicodeEnabledOS then
+  with WindowClassW do
+  begin
+    Style := CS_DBLCLKS;
+    LPFnWndProc := @WindowProc;
+    CbClsExtra := 0;
+    CbWndExtra := 0;
+    hInstance := System.HInstance;
+    hIcon := Windows.LoadIcon(MainInstance, 'MAINICON');
+    if hIcon = 0 then
+     hIcon := Windows.LoadIcon(0, IDI_APPLICATION);
+    hCursor := Windows.LoadCursor(0, IDC_ARROW);
+    hbrBackground := 0;
+    LPSzMenuName := nil;
+    LPSzClassName := @ClsNameW;
+  end;
+  Result := Windows.RegisterClassW(@WindowClassW) <> 0;
+  if Result then
   begin
     with WindowClassW do
     begin
-      Style := CS_DBLCLKS;
-      LPFnWndProc := @WindowProc;
-      CbClsExtra := 0;
-      CbWndExtra := 0;
-      hInstance := System.HInstance;
-      hIcon := Windows.LoadIcon(MainInstance, 'MAINICON');
-      if hIcon = 0 then
-       hIcon := Windows.LoadIcon(0, IDI_APPLICATION);
-      hCursor := Windows.LoadCursor(0, IDC_ARROW);
+      style := style or CS_SAVEBITS;
+      if WindowsVersion >= wvXP then
+        style := style or CS_DROPSHADOW;
+      hIcon := 0;
       hbrBackground := 0;
-      LPSzMenuName := nil;
-      LPSzClassName := @ClsNameW;
+      LPSzClassName := @ClsHintNameW;
     end;
     Result := Windows.RegisterClassW(@WindowClassW) <> 0;
-    if Result then
-    begin
-      with WindowClassW do
-      begin
-        style := style or CS_SAVEBITS;
-        if WindowsVersion >= wvXP then
-          style := style or CS_DROPSHADOW;
-        hIcon := 0;
-        hbrBackground := 0;
-        LPSzClassName := @ClsHintNameW;
-      end;
-      Result := Windows.RegisterClassW(@WindowClassW) <> 0;
-    end;
-  end
-  else begin
-    with WindowClass do
-    begin
-      Style := CS_DBLCLKS{CS_HRedraw or CS_VRedraw};
-      LPFnWndProc := @WindowProc;
-      CbClsExtra := 0;
-      CbWndExtra := 0;
-      hInstance := System.HInstance;
-      hIcon := Windows.LoadIcon(MainInstance, 'MAINICON');
-      if hIcon = 0 then
-       hIcon := Windows.LoadIcon(0, IDI_APPLICATION);
-      hCursor := Windows.LoadCursor(0, IDC_ARROW);
-      hbrBackground := 0;
-      LPSzMenuName := nil;
-      LPSzClassName := @ClsName; 
-    end;
-    Result := Windows.RegisterClass(@WindowClass) <> 0;
-    if Result then
-    begin
-      with WindowClass do
-      begin
-        style := style or CS_SAVEBITS;
-        if WindowsVersion >= wvXP then
-          style := style or CS_DROPSHADOW;
-        hIcon := 0;
-        hbrBackground := 0;
-        LPSzClassName := @ClsHintName;
-      end;
-      Result := Windows.RegisterClass(@WindowClass) <> 0;
-    end;
   end;
 end;
 
@@ -686,27 +674,12 @@ procedure TWin32WidgetSet.CreateAppHandle;
 var
   SysMenu: HMENU;
 begin
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-    FAppHandle := CreateWindowW(@ClsNameW,
-      PWideChar(UTF8ToUTF16(Application.Title)),
-      WS_POPUP or WS_CLIPSIBLINGS or WS_SYSMENU or WS_MINIMIZEBOX,
-      0, {Windows.GetSystemMetrics(SM_CXSCREEN) div 2,}
-      0, {Windows.GetSystemMetrics(SM_CYSCREEN) div 2,}
-      0, 0, HWND(nil), HMENU(nil), HInstance, nil)
-  else
-    FAppHandle := CreateWindow(@ClsName, PChar(Utf8ToAnsi(Application.Title)),
-      WS_POPUP or WS_CLIPSIBLINGS or WS_SYSMENU or WS_MINIMIZEBOX,
-      0, {Windows.GetSystemMetrics(SM_CXSCREEN) div 2,}
-      0, {Windows.GetSystemMetrics(SM_CYSCREEN) div 2,}
-      0, 0, HWND(nil), HMENU(nil), HInstance, nil);
-  {$else}
-  FAppHandle := CreateWindow(@ClsName, PChar(Application.Title), WS_POPUP or
-    WS_CLIPSIBLINGS or WS_SYSMENU or WS_MINIMIZEBOX,
+  FAppHandle := CreateWindowW(@ClsNameW,
+    PWideChar(UTF8ToUTF16(Application.Title)),
+    WS_POPUP or WS_CLIPSIBLINGS or WS_SYSMENU or WS_MINIMIZEBOX,
     0, {Windows.GetSystemMetrics(SM_CXSCREEN) div 2,}
     0, {Windows.GetSystemMetrics(SM_CYSCREEN) div 2,}
     0, 0, HWND(nil), HMENU(nil), HInstance, nil);
-  {$endif}
   AllocWindowInfo(FAppHandle);
   // remove useless menuitems from sysmenu
   SysMenu := Windows.GetSystemMenu(FAppHandle, False);

@@ -89,6 +89,7 @@ type
 
     class procedure ConstraintsChange(const AWinControl: TWinControl); override;
     class procedure PaintTo(const AWinControl: TWinControl; ADC: HDC; X, Y: Integer); override;
+    class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
   end;
 
   { TQtWSGraphicControl }
@@ -123,9 +124,10 @@ const
  { True  } QtRightToLeft
   );
 implementation
-{$IFDEF VerboseQtResize}
+{$IF DEFINED(VerboseQtResize) OR DEFINED(VerboseQt)}
 uses LCLProc;
 {$ENDIF}
+
 {------------------------------------------------------------------------------
   Method: TQtWSCustomControl.CreateHandle
   Params:  None
@@ -435,6 +437,59 @@ begin
   end;
 end;
 
+class procedure TQtWSWinControl.ScrollBy(const AWinControl: TWinControl;
+  DeltaX, DeltaY: integer);
+var
+  Widget: TQtCustomControl;
+  ABar: TQtScrollBar;
+  APosition: Integer;
+begin
+  if not WSCheckHandleAllocated(AWinControl, 'ScrollBy') then
+    Exit;
+  if TQtWidget(AWinControl.Handle) is TQtCustomControl then
+  begin
+    Widget := TQtCustomControl(AWinControl.Handle);
+    Widget.viewport.scroll(DeltaX, DeltaY);
+  end else
+  if TQtWidget(AWinControl.Handle) is TQtAbstractScrollArea then
+  begin
+    ABar := TQtAbstractScrollArea(AWinControl.Handle).horizontalScrollBar;
+    if ABar = nil then
+      exit;
+    if ABar.getTracking then
+      APosition := ABar.getSliderPosition
+    else
+      APosition := ABar.getValue;
+    if DeltaX <> 0 then
+    begin
+      APosition += -DeltaX;
+      if ABar.getTracking then
+        ABar.setSliderPosition(APosition)
+      else
+        ABar.setValue(APosition);
+    end;
+    ABar := TQtAbstractScrollArea(AWinControl.Handle).verticalScrollBar;
+    if ABar = nil then
+      exit;
+    if ABar.getTracking then
+      APosition := ABar.getSliderPosition
+    else
+      APosition := ABar.getValue;
+    if DeltaY <> 0 then
+    begin
+      APosition += -DeltaY;
+      if ABar.getTracking then
+        ABar.setSliderPosition(APosition)
+      else
+        ABar.setValue(APosition);
+    end;
+  end
+  {$IFDEF VerboseQt}
+  else
+    DebugLn(Format('WARNING: TQtWSWinControl.ScrollBy(): Qt widget handle %s is not TQtCustomControl',[DbgSName(TQtWidget(AWinControl.Handle))]));
+  {$ENDIF}
+end;
+
 {------------------------------------------------------------------------------
   Method: TQtWSWinControl.SetBounds
   Params:  AWinControl - the calling object
@@ -487,7 +542,20 @@ begin
   TQtWidget(AWinControl.Handle).BeginUpdate;
   with R do
   begin
+    {$IF DEFINED(QTUSEACCURATEFRAME) AND DEFINED(HASX11)}
+    // DO NOT TOUCH THIS UNTIL COMPLETE PROBLEM IS INVESTIGATED
+    // WITH OPENBOX WM. Qt most of time have wrong assumption about position.
+    if TQtWidget(AWinControl.Handle).IsFramedWidget and
+        GetX11WindowRealized(QWidget_winID(TQtWidget(AWinControl.Handle).Widget)) and
+      (GetWindowManager = 'Openbox') then
+    begin
+      SetX11WindowPos(QWidget_winID(TQtWidget(AWinControl.Handle).Widget), Left, Top);
+      // QApplication_syncX;
+    end else
+      TQtWidget(AWinControl.Handle).move(Left, Top);
+    {$ELSE}
     TQtWidget(AWinControl.Handle).move(Left, Top);
+    {$ENDIF}
     TQtWidget(AWinControl.Handle).resize(Right, Bottom);
   end;
   TQtWidget(AWinControl.Handle).EndUpdate;
@@ -551,6 +619,11 @@ begin
   Widget := TQtWidget(AWinControl.Handle);
 
   Widget.BeginUpdate;
+  // issue #28437
+  if AWinControl.HandleObjectShouldBeVisible and not AWinControl.IsParentFont and
+    (AWinControl.Font.Name = 'default') then
+      SetFont(AWinControl, AWinControl.Font);
+
   Widget.setVisible(AWinControl.HandleObjectShouldBeVisible);
   Widget.EndUpdate;
 end;

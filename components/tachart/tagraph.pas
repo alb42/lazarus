@@ -442,14 +442,16 @@ type
     property OnMouseDown;
     property OnMouseMove;
     property OnMouseUp;
+    property OnResize;
     property OnStartDrag;
   end;
 
 procedure Register;
-procedure RegisterSeriesClass(ASeriesClass: TSeriesClass; const ACaption: string);
+procedure RegisterSeriesClass(ASeriesClass: TSeriesClass; const ACaption: String); overload;
+procedure RegisterSeriesClass(ASeriesClass: TSeriesClass; ACaptionPtr: PStr); overload;
 
 var
-  SeriesClassRegistry: TStringList;
+  SeriesClassRegistry: TClassRegistry = nil;
   OnInitBuiltinTools: function(AChart: TChart): TBasicChartToolset;
 
 implementation
@@ -473,17 +475,22 @@ var
 begin
   RegisterComponents(CHART_COMPONENT_IDE_PAGE, [TChart]);
   for i := 0 to SeriesClassRegistry.Count - 1 do begin
-    sc := TSeriesClass(SeriesClassRegistry.Objects[i]);
+    sc := TSeriesClass(SeriesClassRegistry.GetClass(i));
     RegisterClass(sc);
     RegisterNoIcon([sc]);
   end;
 end;
 
-procedure RegisterSeriesClass(
-  ASeriesClass: TSeriesClass; const ACaption: String);
+procedure RegisterSeriesClass(ASeriesClass: TSeriesClass; const ACaption: String);
 begin
-  if SeriesClassRegistry.IndexOfObject(TObject(ASeriesClass)) < 0 then
-    SeriesClassRegistry.AddObject(ACaption, TObject(ASeriesClass));
+  if SeriesClassRegistry.IndexOfClass(ASeriesClass) < 0 then
+    SeriesClassRegistry.Add(TClassRegistryItem.Create(ASeriesClass, ACaption));
+end;
+
+procedure RegisterSeriesClass(ASeriesClass: TSeriesClass; ACaptionPtr: PStr);
+begin
+  if SeriesClassRegistry.IndexOfClass(ASeriesClass) < 0 then
+    SeriesClassRegistry.Add(TClassRegistryItem.CreateRes(ASeriesClass, ACaptionPtr));
 end;
 
 procedure WriteComponentToStream(AStream: TStream; AComponent: TComponent);
@@ -810,7 +817,6 @@ procedure TChart.Draw(ADrawer: IChartDrawer; const ARect: TRect);
 var
   ldd: TChartLegendDrawingData;
   s: TBasicChartSeries;
-  fnt: TFont;
 begin
   Prepare;
 
@@ -824,7 +830,7 @@ begin
     FClipRect.Bottom -= Bottom;
   end;
 
-  with ClipRect do begin;
+  with ClipRect do begin
     FTitle.Measure(ADrawer, 1, Left, Right, Top);
     FFoot.Measure(ADrawer, -1, Left, Right, Bottom);
   end;
@@ -835,6 +841,8 @@ begin
 
   try
     PrepareAxis(ADrawer);
+    if Legend.Visible and not Legend.UseSidebar then
+      Legend.Prepare(ldd, FClipRect);
     if (FPrevLogicalExtent <> FLogicalExtent) and Assigned(OnExtentChanging) then
       OnExtentChanging(Self);
     ADrawer.DrawingBegin(ARect);
@@ -873,14 +881,8 @@ begin
 
   // Undo changes made by the drawer (mainly for printing). The user may print
   // something else after the chart and, for example, would not expect the font
-  // to be rotated.
-  // (Workaround for issue #0027163)
-  fnt := TFont.Create;            // to effectively reset font orientation
-  try
-    ADrawer.Font := fnt;
-  finally
-    fnt.Free;
-  end;
+  // to be rotated (Fix for issue #0027163)
+  ADrawer.ResetFont;
   ADrawer.SetPenParams(psSolid, clDefault);
   ADrawer.SetBrushParams(bsSolid, clWhite);
   ADrawer.SetAntialiasingMode(amDontCare);
@@ -984,7 +986,7 @@ begin
     exit;
   end;
   for i := 0 to SeriesClassRegistry.Count - 1 do begin
-    AClass := TSeriesClass(SeriesClassRegistry.Objects[i]);
+    AClass := TSeriesClass(SeriesClassRegistry.GetClass(i));
     if AClass.ClassNameIs(AClassName) then exit;
   end;
   AClass := nil;
@@ -995,7 +997,7 @@ var
   s: TBasicChartSeries;
   mn, mx: Double;
 begin
-  Result.FStart := Infinity;
+  Result.FStart := SafeInfinity;
   Result.FEnd := NegInfinity;
   for s in Series do
     if s.Active and s.GetAxisBounds(AAxis, mn, mx) then begin
@@ -1893,7 +1895,7 @@ end;
 
 initialization
   SkipObsoleteChartProperties;
-  SeriesClassRegistry := TStringList.Create;
+  SeriesClassRegistry := TClassRegistry.Create;
   ShowMessageProc := @ShowMessage;
 
 finalization

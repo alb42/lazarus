@@ -360,10 +360,11 @@ begin
   if FPopupMode <> AValue then
   begin
     FPopupMode := AValue;
-    if FPopupMode = pmAuto then
-      PopupParent := nil;
+    if (FPopupMode in [pmAuto, pmNone]) and (PopupParent <> nil) then
+      PopupParent := nil
+    else
     if not (csDesigning in ComponentState) and HandleAllocated then
-      TWSCustomFormClass(WidgetSetClass).SetPopupParent(Self, PopupMode, PopupParent);
+      TWSCustomFormClass(WidgetSetClass).SetRealPopupParent(Self, GetRealPopupParent);
   end;
 end;
 
@@ -380,7 +381,7 @@ begin
       FPopupMode := pmExplicit;
     end;
     if not (csDesigning in ComponentState) and HandleAllocated then
-      TWSCustomFormClass(WidgetSetClass).SetPopupParent(Self, PopupMode, PopupParent);
+      TWSCustomFormClass(WidgetSetClass).SetRealPopupParent(Self, GetRealPopupParent);
   end;
 end;
 
@@ -709,23 +710,6 @@ begin
       // the window manager sets another size => disable autosize to prevent endless loop
       Include(FFormState, fsDisableAutoSize);
     end;
-  end;
-
-  //DebugLn('Trace:WMSIZE in TCustomForm');
-  if (Message.SizeType and SIZE_SourceIsInterface) <> 0 then
-  begin
-    NewState := FWindowState;
-    case (Message.SizeType xor SIZE_SourceIsInterface) of
-      SIZE_RESTORED:
-        NewState := wsNormal;
-      SIZE_MINIMIZED:
-        NewState := wsMinimized;
-      SIZE_MAXIMIZED:
-        NewState := wsMaximized;
-      SIZE_FULLSCREEN:
-        NewState := wsFullScreen;
-    end;
-    Resizing(NewState);
   end;
 
   inherited WMSize(Message);
@@ -1226,6 +1210,8 @@ begin
 end;
 
 procedure TCustomForm.MoveToDefaultPosition;
+var
+  RealWidth, RealHeight: Integer;
 
   procedure MoveToDefaultMonitor(var X, Y: Integer);
   var
@@ -1235,7 +1221,7 @@ procedure TCustomForm.MoveToDefaultPosition;
     // delphi compatibility: if no main form then DefaultMonitor has no effect
     if Application.MainForm = nil then Exit;
     // find the monitor of the center of the form (the boundaries might be on another monitor)
-    Source := Screen.MonitorFromRect(Rect(X,Y,X+Width,Y+Height));
+    Source := Screen.MonitorFromRect(Rect(X,Y,X+RealWidth,Y+RealHeight));
     case DefaultMonitor of
       dmDesktop:
         Target := Source; // no need to move
@@ -1259,24 +1245,24 @@ procedure TCustomForm.MoveToDefaultPosition;
       Y := (Y - Source.Top) + ABounds.Top;
 
       // check that we are still in the desired monitor
-      with Target.BoundsRect do
-      begin
-        if X + Width > ABounds.Right then
-          X := ABounds.Right - Width;
-        if X < ABounds.Left then
-          X := ABounds.Left;
+      if X + RealWidth > ABounds.Right then
+        X := ABounds.Right - RealWidth;
+      if X < ABounds.Left then
+        X := ABounds.Left;
 
-        if Y + Height > ABounds.Bottom then
-          Y := ABounds.Bottom - Height;
-        if Y < ABounds.Top then
-          Y := ABounds.Top;
-      end;
+      if Y + RealHeight > ABounds.Bottom then
+        Y := ABounds.Bottom - RealHeight;
+      if Y < ABounds.Top then
+        Y := ABounds.Top;
     end
-    else
+    else // poWorkAreaCenter, poScreenCenter
     begin
-      ABounds := Target.BoundsRect;
-      X := (ABounds.Left + ABounds.Right - Width) div 2;
-      Y := (ABounds.Top + ABounds.Bottom - Height) div 2;
+      if Position = poWorkAreaCenter then
+        ABounds := Target.WorkareaRect
+      else
+        ABounds := Target.BoundsRect;
+      X := (ABounds.Left + ABounds.Right - RealWidth) div 2;
+      Y := (ABounds.Top + ABounds.Bottom - RealHeight) div 2;
     end;
   end;
 
@@ -1284,6 +1270,7 @@ var
   X, Y: integer;
   p: TPosition;
   AForm: TCustomForm;
+  RealRect: TRect;
 begin
   if (Parent <> nil) or (ParentWindow <> 0) then exit;
 
@@ -1292,6 +1279,15 @@ begin
   // first make sure X and Y are assigned
   X := Left;
   Y := Top;
+  if HandleAllocated and (GetWindowRect(Handle, RealRect) <> 0) then
+  begin // success
+    RealWidth := RealRect.Right-RealRect.Left;
+    RealHeight := RealRect.Bottom-RealRect.Top;
+  end else
+  begin // error
+    RealWidth := Width;
+    RealHeight := Height;
+  end;
 
   p := Position;
   if (Position = poMainFormCenter) and (Application.Mainform=nil) then
@@ -1299,13 +1295,18 @@ begin
   case P of
     poDesktopCenter:
       begin
-        X := Screen.DesktopLeft + (Screen.DesktopWidth - Width) div 2;
-        Y := Screen.DesktopTop +(Screen.DesktopHeight - Height) div 2;
+        X := Screen.DesktopLeft + (Screen.DesktopWidth - RealWidth) div 2;
+        Y := Screen.DesktopTop +(Screen.DesktopHeight - RealHeight) div 2;
       end;
     poScreenCenter:
       begin
-        X := (Screen.Width - Width) div 2;
-        Y := (Screen.Height - Height) div 2;
+        X := (Screen.Width - RealWidth) div 2;
+        Y := (Screen.Height - RealHeight) div 2;
+      end;
+    poWorkAreaCenter:
+      begin
+        X := Screen.WorkAreaLeft + (Screen.WorkAreaWidth - RealWidth) div 2;
+        Y := Screen.WorkAreaTop + (Screen.WorkAreaHeight - RealHeight) div 2;
       end;
     poMainFormCenter,
     poOwnerFormCenter:
@@ -1318,12 +1319,12 @@ begin
         begin
           if FormStyle = fsMDIChild then
           begin
-            X := (AForm.ClientWidth - Width) div 2;
-            Y := (AForm.ClientHeight - Height) div 2;
+            X := (AForm.ClientWidth - RealWidth) div 2;
+            Y := (AForm.ClientHeight - RealHeight) div 2;
           end else
           begin
-            X := ((AForm.Width - Width) div 2) + AForm.Left;
-            Y := ((AForm.Height - Height) div 2) + AForm.Top;
+            X := ((AForm.Width - RealWidth) div 2) + AForm.Left;
+            Y := ((AForm.Height - RealHeight) div 2) + AForm.Top;
           end;
         end;
       end;
@@ -1331,7 +1332,7 @@ begin
   // get current widgetset position
   if (p in [poDefault, poDefaultPosOnly]) and HandleAllocated then
     GetWindowRelativePosition(Handle,X,Y);
-  if (Position in [poScreenCenter, poMainFormCenter, poOwnerFormCenter]) then
+  if (Position in [poScreenCenter, poMainFormCenter, poOwnerFormCenter, poWorkAreaCenter]) then
     MoveToDefaultMonitor(X, Y);
   SetBounds(X, Y, Width, Height);
 end;
@@ -1476,6 +1477,32 @@ begin
     inherited GetPreferredSize(PreferredWidth, PreferredHeight, Raw,
       WithThemeSpace);
   end;
+end;
+
+function TCustomForm.GetRealPopupParent: TCustomForm;
+begin
+  Result := nil;
+  if (fsModal in FormState) or // always set WndParent of modal windows
+     (PopupMode in [pmAuto, pmExplicit]) // set WndParent of non-modal windows only for pmAuto, pmExplicit
+  then
+  begin
+    if (PopupMode = pmAuto)
+    or ((PopupMode = pmNone) and (fsModal in FormState)) then
+    begin
+      Result := Screen.ActiveForm;
+      if (Result<>nil) and (Result.FormStyle = fsSplash) then // ignore fsSplash
+        Result := nil;
+    end else
+    if (PopupMode = pmExplicit) then
+      Result := PopupParent;
+
+    if (Result = nil) or not Result.HandleAllocated then
+      Result := Application.MainForm;
+  end;
+  if (Result <> nil) and not Result.HandleAllocated then
+    Result := nil;
+  if (Result = Self) then
+    Result := nil;
 end;
 
 procedure TCustomForm.DoAutoSize;
@@ -1720,6 +1747,13 @@ begin
   end;
 end;
 
+procedure TCustomForm.SetModalResult(Value: TModalResult);
+begin
+  if HandleAllocated and (Value <> FModalResult) then
+    TWSCustomFormClass(WidgetSetClass).SetModalResult(Self, Value);
+  FModalResult := Value;
+end;
+
 {------------------------------------------------------------------------------
        TCustomForm SetBorderIcons
 ------------------------------------------------------------------------------}
@@ -1962,12 +1996,7 @@ begin
     begin
       Include(FFormState, fsCreating);
       try
-        if not InitResourceComponent(Self, TForm) then
-          if RequireDerivedFormResource then
-            raise EResNotFound.CreateFmt(
-              rsFormResourceSNotFoundForResourcelessFormsCreateNew, [ClassName])
-          else
-            DebugLn(Format(rsFormResourceSNotFoundForResourcelessFormsCreateNew, [ClassName]));
+         ProcessResource;
       finally
         Exclude(FFormState, fsCreating);
       end;
@@ -1975,6 +2004,16 @@ begin
   finally
     GlobalNameSpace.EndWrite;
   end;
+end;
+
+procedure TCustomForm.ProcessResource;
+begin
+  if not InitResourceComponent(Self, TForm) then
+  if RequireDerivedFormResource then
+    raise EResNotFound.CreateFmt(
+      rsFormResourceSNotFoundForResourcelessFormsCreateNew, [ClassName])
+  else
+    DebugLn(Format(rsFormResourceSNotFoundForResourcelessFormsCreateNew, [ClassName]));
 end;
 
 {------------------------------------------------------------------------------
@@ -2035,6 +2074,8 @@ end;
   TCustomForm CreateParams
 ------------------------------------------------------------------------------}
 procedure TCustomForm.CreateParams(var Params : TCreateParams);
+var
+  APopupParent: TCustomForm;
 begin
   inherited CreateParams(Params);
   with Params do
@@ -2046,15 +2087,9 @@ begin
       begin
         if (Application.MainForm <> Self) then
         begin
-          case PopupMode of
-            pmNone:;
-            pmAuto:
-              if (Screen.ActiveForm <> nil) then
-                WndParent := Screen.ActiveForm.Handle;
-            pmExplicit:
-              if (PopupParent <> nil) then
-                WndParent := PopupParent.Handle;
-          end;
+          APopupParent := GetRealPopupParent;
+          if APopupParent <> nil then
+            WndParent := APopupParent.Handle;
         end;
         if (WndParent = 0) and
            (((Self = Application.MainForm) and Application.MainFormOnTaskBar) or (GetEffectiveShowInTaskBar = stAlways)) then
@@ -2217,8 +2252,6 @@ end;
 ------------------------------------------------------------------------------}
 function TCustomForm.AutoSizeDelayedHandle: Boolean;
 begin
-  if WindowState=wsMinimized then
-    exit(true);
   if (Parent<>nil) or (ParentWindow<>0) then
     // this form is inlined / embedded it works like a normal TWinControl
     Result:=inherited AutoSizeDelayedHandle
@@ -2300,7 +2333,7 @@ function TCustomForm.SetFocusedControl(Control: TWinControl): Boolean;
 
     function NextChildControl(CurParent, Target: TWinControl): TWinControl; inline;
     begin
-      while Target.Parent <> CurParent do
+      while (Target <> nil) and (Target.Parent <> CurParent) do
         Target := Target.Parent;
       Result := Target;
     end;
@@ -2868,6 +2901,8 @@ begin
   Application.ModalStarted;
   try
     Include(FFormState, fsModal);
+    if (PopupMode = pmNone) and HandleAllocated then
+      RecreateWnd(Self); // need to refresh handle for pmNone because ParentWindow changes if (fsModal in FFormState) - see GetRealPopupParent
     ActiveWindow := GetActiveWindow;
     SavedFocusState := SaveFocusState;
     SavedCursor := Screen.Cursor;
@@ -2936,6 +2971,8 @@ begin
       if LCLIntf.IsWindow(ActiveWindow) then
         SetActiveWindow(ActiveWindow);
       Exclude(FFormState, fsModal);
+      if ((PopupMode = pmNone) and HandleAllocated) and not (csDestroying in ComponentState) then
+        RecreateWnd(Self); // need to refresh handle for pmNone because ParentWindow changes if (fsModal in FFormState) - see GetRealPopupParent
     end;
   finally
     Application.ModalFinished;

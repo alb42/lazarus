@@ -205,6 +205,7 @@ type
     class procedure ApplyChanges(const AProgressBar: TCustomProgressBar); override;
     class procedure SetPosition(const AProgressBar: TCustomProgressBar; const NewPosition: integer); override;
     class procedure SetStyle(const AProgressBar: TCustomProgressBar; const NewStyle: TProgressBarStyle); override;
+    class function GetConstraints(const AControl: TControl; const AConstraints: TObject): Boolean; override;
   end;
 
   { TWin32WSCustomUpDown }
@@ -294,18 +295,9 @@ var
 begin
   Flags := WS_CHILD or WS_CLIPSIBLINGS or WS_CLIPCHILDREN;
   Parent := TWin32WidgetSet(WidgetSet).AppHandle;
-  {$ifdef WindowsUnicodeSupport}
-  if UnicodeEnabledOS then
-    PreferredSizeStatusBar := CreateWindowExW(0, STATUSCLASSNAMEW,
-      nil, Flags,
-      0, 0, 0, 0, Parent, 0, HInstance, nil)
-  else
-    PreferredSizeStatusBar := CreateWindowEx(0, STATUSCLASSNAME, nil,
-      Flags, 0, 0, 0, 0, Parent,0 , HInstance, nil);
-  {$else}
-    PreferredSizeStatusBar := CreateWindowEx(0, STATUSCLASSNAME, nil,
-      Flags, 0, 0, 0, 0, Parent, 0, HInstance, nil);
-  {$endif}
+  PreferredSizeStatusBar := CreateWindowExW(0, STATUSCLASSNAMEW,
+    nil, Flags,
+    0, 0, 0, 0, Parent, 0, HInstance, nil);
   GetWindowRect(PreferredSizeStatusBar, R);
   PreferredStatusBarHeight := R.Bottom - R.Top;
   DestroyWindow(PreferredSizeStatusBar);
@@ -348,14 +340,7 @@ begin
   else
     WParam := WParam or StatusPanel.Index;
   if StatusPanel.StatusBar.UseRightToLeftReading then WParam := WParam or SBT_RTLREADING;
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-      Windows.SendMessageW(StatusPanel.StatusBar.Handle, SB_SETTEXTW, WParam, LPARAM(PWideChar(UTF8ToUTF16(Text))))
-    else
-      Windows.SendMessage(StatusPanel.StatusBar.Handle, SB_SETTEXT, WParam, LPARAM(PChar(Utf8ToAnsi(Text))));
-  {$else}
-    Windows.SendMessage(StatusPanel.StatusBar.Handle, SB_SETTEXT, WParam, LPARAM(PChar(Text)));
-  {$endif}
+    Windows.SendMessageW(StatusPanel.StatusBar.Handle, SB_SETTEXTW, WParam, LPARAM(PWideChar(UTF8ToUTF16(Text))));
 end;
 
 procedure UpdateStatusBarPanelWidths(const StatusBar: TStatusBar);
@@ -558,14 +543,7 @@ begin
       WParam := SB_SIMPLEID or SBT_RTLREADING
     else
       WParam := SB_SIMPLEID;
-  {$ifdef WindowsUnicodeSupport}
-    if UnicodeEnabledOS then
-      Windows.SendMessageW(AStatusBar.Handle, SB_SETTEXTW, WParam, LPARAM(PWideChar(UTF8ToUTF16(AStatusBar.SimpleText))))
-    else
-      Windows.SendMessage(AStatusBar.Handle, SB_SETTEXT, WParam, LPARAM(PChar(Utf8ToAnsi(AStatusBar.SimpleText))))
-  {$else}
-    Windows.SendMessage(AStatusBar.Handle, SB_SETTEXT, WParam, LPARAM(PChar(AStatusBar.SimpleText)))
-  {$endif}
+    Windows.SendMessageW(AStatusBar.Handle, SB_SETTEXTW, WParam, LPARAM(PWideChar(UTF8ToUTF16(AStatusBar.SimpleText))));
   end
   else
     UpdateStatusBarPanel(AStatusBar.Panels[PanelIndex]);
@@ -729,6 +707,30 @@ begin
     SendMessage(AProgressBar.Handle, PBM_SETMARQUEE, Ord(NewStyle = pbstMarquee), DefMarqueeTime);
     if NewStyle = pbstNormal then
       SetPosition(AProgressBar, AProgressBar.Position);
+  end;
+end;
+
+class function TWin32WSProgressBar.GetConstraints(const AControl: TControl;
+  const AConstraints: TObject): Boolean;
+var
+  SizeConstraints: TSizeConstraints absolute AConstraints;
+  MinWidth, MinHeight, MaxWidth, MaxHeight: Integer;
+begin
+  Result := True;
+
+  if (AConstraints is TSizeConstraints) then
+  begin
+    MinWidth := 0;
+    MinHeight := 0;
+    MaxWidth := 0;
+    MaxHeight := 0;
+
+    // The ProgressBar needs a minimum Height of 10 when themed,
+    // as required by Windows, otherwise it's image is corrupted
+    if ThemeServices.ThemesEnabled then
+      MinHeight := 10;
+
+    SizeConstraints.SetInterfaceConstraints(MinWidth, MinHeight, MaxWidth, MaxHeight);
   end;
 end;
 
@@ -917,11 +919,8 @@ begin
                           SystemParametersInfo(SPI_GETFOCUSBORDERWIDTH, 0, @FocusBorderWidth, 0);
                           Inc(Offset, FocusBorderWidth);
                         end;
-                        with Control.ClientRect do
-                        begin
-                          R.Left := Left + Offset;
-                          R.Right := Right - Offset;
-                        end;
+                        R.Left := Control.ClientRect.Left + Offset;
+                        R.Right := Control.ClientRect.Right - Offset;
                       end
                       else
                       begin
@@ -931,14 +930,10 @@ begin
                           SystemParametersInfo(SPI_GETFOCUSBORDERHEIGHT, 0, @FocusBorderHeight, 0);
                           Inc(Offset, FocusBorderHeight);
                         end;
-                        with Control.ClientRect do
-                        begin
-                          R.Top := Top + Offset;
-                          R.Bottom := Bottom - Offset;
-                        end;
+                        R.Top := Control.ClientRect.Top + Offset;
+                        R.Bottom := Control.ClientRect.Bottom - Offset;
                       end;
-                      with R do
-                        Rgn := CreateRectRgn(Left, Top, Right, Bottom);
+                      Rgn := CreateRectRgn(R.Left, R.Top, R.Right, R.Bottom);
                       SelectClipRgn(PNMCustomDraw(LParam)^.hDC, Rgn);
                       Details := ThemeServices.GetElementDetails(ttbThumbTics);
                       ThemeServices.DrawParentBackground(AWinControl.Handle, PNMCustomDraw(LParam)^.hDC, @Details, False);

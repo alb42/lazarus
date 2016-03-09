@@ -50,6 +50,7 @@ const
   NoSplashScreenOptLong='--no-splash-screen';
   NoSplashScreenOptShort='--nsc';
   StartedByStartLazarusOpt='--started-by-startlazarus';
+  ForceNewInstanceOpt='--force-new-instance';
   SkipLastProjectOpt='--skip-last-project';
   DebugLogOpt='--debug-log=';
   DebugLogOptEnable='--debug-enable=';
@@ -314,7 +315,7 @@ var
   i      : integer;
   AValue : String;
 begin
-  for i:= 1 to ParamsAndCfgCount do
+  for i:=1 to ParamsAndCfgCount do
   begin
     //DebugLn(['ParseNoGuiCmdLineParams ',i,' "',ParamsAndCfgStr(i),'"']);
     if ParamIsOptionPlusValue(i, PrimaryConfPathOptLong, AValue) then

@@ -5,9 +5,9 @@ unit unit1;
 interface
 
 uses
-  Classes, SysUtils, LResources, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  Buttons, ComCtrls, chmsitemap, SynEdit, LazFileUtils, LazLogger, Menus,
-  ExtCtrls, EditBtn, LCLProc, chmfilewriter, types;
+  Classes, SysUtils, types, chmsitemap, chmfilewriter,
+  Forms, Controls, Graphics, Dialogs, StdCtrls, ComCtrls, Menus, ExtCtrls, EditBtn,
+  LazFileUtils, UTF8Process;
 
 type
 
@@ -245,7 +245,7 @@ procedure TCHMForm.CompileViewBtnClick(Sender: TObject);
 var
   LHelpName: String;
   LHelpConn: TLHelpConnection;
-  Proc: TProcess;
+  Proc: TProcessUTF8;
   ext: String;
 begin
   if ChmFileNameEdit.FileName = '' then
@@ -267,7 +267,7 @@ begin
         MessageDlg('lazbuild coul not be found.', mtError, [mbCancel], 0);
         Exit;
       end;
-      Proc := TProcess.Create(Self);
+      Proc := TProcessUTF8.Create(Self);
       Proc.CommandLine := '../../../lazbuild ./lhelp.lpi';
       SetCurrentDir('../../components/chmhelp/lhelp/');
       Proc.Options := [poWaitOnExit];

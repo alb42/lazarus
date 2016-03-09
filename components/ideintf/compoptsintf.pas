@@ -136,7 +136,6 @@ type
     procedure SetGenerateDwarf(const AValue: Boolean);
     procedure SetGenGProfCode(const AValue: Boolean);
     procedure SetHeapSize(const AValue: Integer);
-    procedure SetStackSize(const AValue: Integer);
     procedure SetIncludeAssertionCode(const AValue: Boolean);
     procedure SetInitConst(const AValue: Boolean);
     procedure SetIOChecks(const AValue: Boolean);
@@ -145,6 +144,7 @@ type
     procedure SetOverflowChecks(const AValue: Boolean);
     procedure SetPassLinkerOpt(const AValue: Boolean);
     procedure SetRangeChecks(const AValue: Boolean);
+    procedure SetRelocatableUnit(const AValue: Boolean);
     procedure SetShowAll(const AValue: Boolean);
     procedure SetShowCompProc(const AValue: Boolean);
     procedure SetShowCond(const AValue: Boolean);
@@ -161,23 +161,24 @@ type
     procedure SetShowTriedFiles(const AValue: Boolean);
     procedure SetShowUsedFiles(const AValue: Boolean);
     procedure SetShowWarn(const AValue: Boolean);
+    procedure SetSmallerCode(const AValue: boolean);
     procedure SetSmartLinkUnit(const AValue: Boolean);
-    procedure SetRelocatableUnit(const AValue: Boolean);
     procedure SetStackChecks(const AValue: Boolean);
+    procedure SetStackSize(const AValue: Integer);
     procedure SetStaticKeyword(const AValue: Boolean);
     procedure SetStopAfterErrCount(const AValue: integer);
     procedure SetStripSymbols(const AValue: Boolean);
     procedure SetSyntaxMode(const AValue: string);
     procedure SetTargetFilenameAppplyConventions(const AValue: boolean);
+    procedure SetTrashVariables(const AValue: Boolean);
+    procedure SetUncertainOpt(const AValue: Boolean);
     procedure SetUseAnsiStr(const AValue: Boolean);
+    procedure SetUseCommentsInCustomOptions(AValue: Boolean);
     procedure SetUseExternalDbgSyms(const AValue: Boolean);
     procedure SetUseHeaptrc(const AValue: Boolean);
-    procedure SetTrashVariables(const AValue: Boolean);
     procedure SetUseLineInfoUnit(const AValue: Boolean);
     procedure SetUseValgrind(const AValue: Boolean);
-    procedure SetUncertainOpt(const AValue: Boolean);
     procedure SetVarsInReg(const AValue: Boolean);
-    procedure SetSmallerCode(const AValue: boolean);
     procedure SetVerifyObjMethodCall(const AValue: boolean);
     procedure SetWin32GraphicApp(const AValue: boolean);
     procedure SetWriteFPCLogo(const AValue: Boolean);
@@ -434,7 +435,8 @@ type
     property CustomConfigFile: Boolean read fCustomConfigFile write SetCustomConfigFile;
     property ConfigFilePath: String read fConfigFilePath write SetConfigFilePath;
     property CustomOptions: string read GetCustomOptions write SetCustomOptions;
-    property UseCommentsInCustomOptions: Boolean read fUseCommentsInCustomOptions write fUseCommentsInCustomOptions;
+    property UseCommentsInCustomOptions: Boolean read fUseCommentsInCustomOptions
+                                                write SetUseCommentsInCustomOptions;
 
     // execute other
     procedure SetAlternativeCompile(const Command: string; ScanFPCMsgs: boolean); virtual; abstract; // disable normal compile and call this instead
@@ -812,6 +814,13 @@ procedure TLazCompilerOptions.SetUseAnsiStr(const AValue: Boolean);
 begin
   if fUseAnsiStr=AValue then exit;
   fUseAnsiStr:=AValue;
+  IncreaseChangeStamp;
+end;
+
+procedure TLazCompilerOptions.SetUseCommentsInCustomOptions(AValue: Boolean);
+begin
+  if fUseCommentsInCustomOptions=AValue then Exit;
+  fUseCommentsInCustomOptions:=AValue;
   IncreaseChangeStamp;
 end;
 

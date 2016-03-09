@@ -35,14 +35,19 @@ unit UnitDependencies;
 interface
 
 uses
-  Classes, SysUtils, types, math, AVL_Tree, LazLogger, LazFileUtils, LazUTF8,
-  Forms, Controls, ExtCtrls, ComCtrls, StdCtrls, Buttons, Dialogs, Menus,
-  Clipbrd, LvlGraphCtrl, LazIDEIntf, ProjectIntf, IDEWindowIntf, PackageIntf,
-  SrcEditorIntf, IDEImagesIntf, IDECommands, IDEDialogs, IDEMsgIntf,
-  IDEExternToolIntf, IDEOptionDefs,
-  CodeToolManager, DefineTemplates, CodeToolsStructs,
-  CTUnitGraph, CTUnitGroupGraph, FileProcs, CodeCache, LazarusIDEStrConsts,
-  UnusedUnitsDlg;
+  // RTL + FCL + LCL
+  Classes, SysUtils, types, math, AVL_Tree,
+  Forms, Controls, ExtCtrls, ComCtrls, StdCtrls, Buttons, Dialogs, Menus, Clipbrd,
+  // CodeTools
+  CodeToolManager, DefineTemplates, CodeToolsStructs, CTUnitGraph, CTUnitGroupGraph,
+  FileProcs, CodeCache,
+  // LazUtils
+  LazLogger, LazFileUtils, LazFileCache, LazUtilities, LazUTF8, LvlGraphCtrl,
+  // IDE interface
+  LazIDEIntf, ProjectIntf, IDEWindowIntf, PackageIntf, SrcEditorIntf, IDEImagesIntf,
+  IDEMsgIntf, IDEExternToolIntf, IDECommands, IDEDialogs,
+  // IDE
+  IDEOptionDefs, LazarusIDEStrConsts, UnusedUnitsDlg;
 
 const
   GroupPrefixProject = '-Project-';
@@ -319,6 +324,8 @@ function CompareUDBaseNodes(UDNode1, UDNode2: Pointer): integer;
 
 implementation
 
+{$R *.lfm}
+
 procedure ShowUnitDependenciesClicked(Sender: TObject);
 begin
   ShowUnitDependencies;
@@ -331,8 +338,8 @@ begin
        State=iwgfDisabled,LazarusIDE.OwningComponent)
   else if State=iwgfDisabled then
     UnitDependenciesWindow.DisableAlign;
- if State>=iwgfShow then
-   IDEWindowCreators.ShowForm(UnitDependenciesWindow,State=iwgfShowOnTop);
+  if State>=iwgfShow then
+    IDEWindowCreators.ShowForm(UnitDependenciesWindow,State=iwgfShowOnTop);
 end;
 
 procedure InitUnitDependenciesQuickFixItems;
@@ -2286,8 +2293,6 @@ begin
     RaiseCatchableException('');
   TheUsesGraph.UsesClass:=TUDUses;
 end;
-
-{$R *.lfm}
 
 end.
 

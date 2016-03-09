@@ -34,6 +34,9 @@ function UTF16Length(const s: widestring): PtrInt;
 function UTF16Length(p: PWideChar; WordCount: PtrInt): PtrInt;
 function UTF16CharacterToUnicode(p: PWideChar; out CharLen: integer): Cardinal;
 function UnicodeToUTF16(u: cardinal): widestring;
+function IsUTF16CharValid(AChar, ANextChar: WideChar): Boolean;
+function IsUTF16StringValid(AWideStr: widestring): Boolean;
+function Utf16StringReplace(const S, OldPattern, NewPattern: WideString;  Flags: TReplaceFlags): WideString;
 
 function UnicodeLowercase(u: cardinal): cardinal;
 function UTF8LowerCaseViaTables(const s: string): string;
@@ -112,6 +115,73 @@ begin
   else
     Result:=system.widechar($D800+((u - $10000) shr 10))+system.widechar($DC00+((u - $10000) and $3ff));
 end;
+
+// Specification here: http://unicode.org/faq/utf_bom.html#utf16-7
+// Q: Are there any 16-bit values that are invalid?
+// A: Unpaired surrogates are invalid in UTFs. These include any value in the
+// range D800 to DBFF not followed by a value in the range DC00 to DFFF,
+// or any value in the range DC00 to DFFF not preceded by a value in the range D800 to DBFF. [AF]
+//
+// Use ANextChar = #0 to indicate that there is no next char
+function IsUTF16CharValid(AChar, ANextChar: WideChar): Boolean;
+begin
+  if AChar = #0 then Exit(False);
+  Result := ((AChar >= #$D800) and (AChar <= #$DBFF)) and not ((ANextChar >= #$DC00) and (ANextChar <= #$DFFF));
+  //Result := (Word(AChar) in [$D800..$DBFF]) and not (Word(ANextChar) in [$DC00..$DFFF]); <= generates range check error
+  Result := not Result;
+end;
+
+function IsUTF16StringValid(AWideStr: widestring): Boolean;
+var
+  i: Integer;
+begin
+  Result := True;
+  for i := 1 to Length(AWideStr)-1 do
+  begin
+    Result := Result and IsUTF16CharValid(AWideStr[i], AWideStr[i+1]);
+    if not Result then Exit;
+  end;
+end;
+
+//Same as SysUtil.StringReplace but for WideStrings/UncodeStrings, since it's not available in fpc yet
+function Utf16StringReplace(const S, OldPattern, NewPattern: WideString;  Flags: TReplaceFlags): WideString;
+var
+  Srch, OldP, RemS: WideString; // Srch and OldP can contain WideUpperCase versions of S,OldPattern
+  P: Integer;
+begin
+  Srch:=S;
+  OldP:=OldPattern;
+  if rfIgnoreCase in Flags then
+  begin
+    Srch:=WideUpperCase(Srch);
+    OldP:=WideUpperCase(OldP);
+  end;
+  RemS:=S;
+  Result:='';
+  while (Length(Srch)<>0) do
+  begin
+    P:=Pos(OldP, Srch);
+    if P=0 then
+    begin
+      Result:=Result+RemS;
+      Srch:='';
+    end
+    else
+    begin
+      Result:=Result+Copy(RemS,1,P-1)+NewPattern;
+      P:=P+Length(OldP);
+      RemS:=Copy(RemS,P,Length(RemS)-P+1);
+      if not (rfReplaceAll in Flags) then
+      begin
+        Result:=Result+RemS;
+        Srch:='';
+      end
+      else
+        Srch:=Copy(Srch,P,Length(Srch)-P+1);
+    end;
+  end;
+end;
+
 
 // Lowercase Unicode Tables which match UTF-16 but also UTF-32
 var

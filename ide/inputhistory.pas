@@ -36,8 +36,9 @@ unit InputHistory;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, FileProcs, DiffPatch, IDEProcs, AvgLvlTree,
-  Laz2_XMLCfg, SynEditTypes, LazConf, Dialogs, LazUTF8, IDEDialogs, ProjectIntf;
+  Classes, SysUtils, FileProcs, LazFileCache, DiffPatch, IDEProcs,
+  AvgLvlTree, Laz2_XMLCfg, SynEditTypes, LazConf, Dialogs, LazUTF8, IDEDialogs,
+  ProjectIntf, LazFileUtils;
 
 {$ifdef Windows}
 {$define CaseInsensitiveFilenames}
@@ -576,7 +577,7 @@ procedure TInputHistories.SetLazarusDefaultFilename;
 var
   ConfFileName: string;
 begin
-  ConfFileName:=SetDirSeparators(GetPrimaryConfigPath+'/'+DefaultHistoryFile);
+  ConfFileName:=AppendPathDelim(GetPrimaryConfigPath)+DefaultHistoryFile;
   CopySecondaryConfigFile(DefaultHistoryFile);
   FFilename:=ConfFilename;
 end;

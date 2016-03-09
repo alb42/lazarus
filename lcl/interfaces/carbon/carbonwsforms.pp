@@ -39,7 +39,6 @@ type
   TCarbonWSScrollingWinControl = class(TWSScrollingWinControl)
   published
     class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer); override;
   end;
 
   { TCarbonWSScrollBox }
@@ -77,8 +76,8 @@ type
     class procedure SetAlphaBlend(const ACustomForm: TCustomForm; const AlphaBlend: Boolean; const Alpha: Byte); override;
     class procedure SetFormStyle(const ACustomForm: TCustomForm; const ANewFormStyle, {%H-}AOldFormStyle: TFormStyle); override;
 
-    class procedure SetPopupParent(const ACustomForm: TCustomForm;
-      const {%H-}APopupMode: TPopupMode; const APopupParent: TCustomForm); override;
+    class procedure SetRealPopupParent(const ACustomForm: TCustomForm;
+      const APopupParent: TCustomForm); override;
   end;
 
   { TCarbonWSForm }
@@ -130,21 +129,6 @@ begin
   Result := TLCLIntfHandle(TCarbonScrollingWinControl.Create(AWinControl, AParams));
 end;
 
-{------------------------------------------------------------------------------
-  Method:  TCarbonWSScrollingWinControl.ScrollBy
-  Params:  AWinControl - LCL scrolling win control
-           DX, DY      -
-
-  Scrolls the content of the passed window
- ------------------------------------------------------------------------------}
-class procedure TCarbonWSScrollingWinControl.ScrollBy(const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer);
-begin
-  if not CheckHandle(AWinControl, Self, 'ScrollBy') then Exit;
-
-  TCarbonWidget(AWinControl.Handle).ScrollBy(DeltaX, DeltaY);
-  AWinControl.Invalidate;
-end;
-
 { TCarbonWSCustomForm }
 
 {------------------------------------------------------------------------------
@@ -157,19 +141,11 @@ end;
  ------------------------------------------------------------------------------}
 class function TCarbonWSCustomForm.CreateHandle(const AWinControl: TWinControl;
   const AParams: TCreateParams): TLCLIntfHandle;
-var
-  frm : TCustomForm;
 begin
-  if csDesigning in AWinControl.ComponentState then
+  if IsFormDesign(AWinControl) then
     Result := TLCLIntfHandle(TCarbonDesignWindow.Create(AWinControl, AParams))
   else
     Result := TLCLIntfHandle(TCarbonWindow.Create(AWinControl, AParams));
-  frm:=TCustomForm(AWinControl);
-  if Assigned(frm) then
-  begin
-    if (AParams.WndParent<>0) and ((AParams.Style and WS_CHILD) = 0) then
-      SetWindowGroup(TCarbonWindow(Result).Window, GetWindowGroupOfClass(kHelpWindowClass));
-  end;
 end;
 
 {------------------------------------------------------------------------------
@@ -354,16 +330,10 @@ begin
     Self, 'SetFormStyle', 'SetWindowGroup');
 end;
 
-class procedure TCarbonWSCustomForm.SetPopupParent(const ACustomForm:TCustomForm;
-  const APopupMode:TPopupMode;const APopupParent:TCustomForm);
+class procedure TCarbonWSCustomForm.SetRealPopupParent(
+  const ACustomForm: TCustomForm; const APopupParent: TCustomForm);
 begin
-  //todo: better "popup-parent" hanlding
-  if Assigned(APopupParent) and (APopupParent.Handle<>0) then
-  begin
-    SetWindowGroup( TCarbonWindow(ACustomForm.Handle).Window, GetWindowGroupOfClass(kHelpWindowClass));
-  end
-  else
-    SetFormStyle(ACustomForm, ACustomForm.FormStyle, ACustomForm.FormStyle);
+  {ToDo: implement PopupMode/PopupParent for Carbon}
 end;
 
 { TCarbonWSHintWindow }

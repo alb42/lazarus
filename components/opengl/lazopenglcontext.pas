@@ -2,8 +2,9 @@
   This source is only used to compile and install the package.
  }
 
-unit LazOpenGLContext; 
+unit LazOpenGLContext;
 
+{$warn 5023 off : no warning about unused units}
 interface
 
 uses
@@ -11,11 +12,11 @@ uses
 
 implementation
 
-procedure Register; 
+procedure Register;
 begin
-  RegisterUnit('OpenGLContext', @OpenGLContext.Register); 
-end; 
+  RegisterUnit('OpenGLContext', @OpenGLContext.Register);
+end;
 
 initialization
-  RegisterPackage('LazOpenGLContext', @Register); 
+  RegisterPackage('LazOpenGLContext', @Register);
 end.

@@ -1372,6 +1372,8 @@ end;
 ------------------------------------------------------------------------------}
 procedure TControl.DoConstraintsChange(Sender : TObject);
 begin
+  Width:=Constraints.MinMaxWidth(Width);
+  Height:=Constraints.MinMaxHeight(Height);
   AdjustSize;
 end;
 
@@ -1760,6 +1762,17 @@ begin
   Result := (Parent<>nil) and Parent.HandleAllocated and (GetCaptureControl = Self);
 end;
 
+function TControl.GetMousePosFromMessage(const MessageMousePos: TSmallPoint
+  ): TPoint;
+begin
+  if (Width>32767) or (Height>32767) then
+  begin
+    GetCursorPos(Result);
+    Result := ScreenToClient(Result);
+  end else
+    Result := SmallPointToPoint(MessageMousePos);
+end;
+
 function TControl.GetTBDockHeight: Integer;
 begin
   if FTBDockHeight>0 then
@@ -1841,6 +1854,16 @@ end;
 procedure TControl.DoCallNotifyHandler(HandlerType: TControlHandlerType);
 begin
   FControlHandlers[HandlerType].CallNotifyEvents(Self);
+end;
+
+procedure TControl.DoCallKeyEventHandler(HandlerType: TControlHandlerType;
+  var Key: Word; Shift: TShiftState);
+var
+  i: Integer;
+begin
+  i := FControlHandlers[HandlerType].Count;
+  while FControlHandlers[HandlerType].NextDownIndex(i) do
+    TKeyEvent(FControlHandlers[HandlerType][i])(Self, Key, Shift);
 end;
 
 {------------------------------------------------------------------------------
@@ -2021,7 +2044,7 @@ begin
   if (csDesigning in ComponentState) then
   begin
     // redirect messages to designer
-    Form := GetParentForm(Self);
+    Form := GetDesignerForm(Self);
     //debugln(['TControl.WndProc ',dbgsname(Self)]);
     if Assigned(Form) and Assigned(Form.Designer) and Form.Designer.IsDesignMsg(Self, TheMessage) then
       Exit;
@@ -2036,36 +2059,6 @@ begin
   or ((TheMessage.Msg>=LM_MOUSEFIRST2) and (TheMessage.Msg<=LM_MOUSELAST2))
   then begin
     // mouse messages
-    
-    // map double clicks for controls, that do not want doubleclicks
-    if not (csDoubleClicks in ControlStyle) then
-    begin
-      case TheMessage.Msg of
-        LM_LButtonDBLCLK,
-        LM_RButtonDBLCLK,
-        LM_MButtonDBLCLK:
-          Dec(TheMessage.Msg, LM_LBUTTONDBLCLK - LM_LBUTTONDOWN);
-      end;
-    end;
-    // map triple clicks for controls, that do not want tripleclicks
-    if not (csTripleClicks in ControlStyle) then
-    begin
-      case TheMessage.Msg of
-        LM_LBUTTONTRIPLECLK: TheMessage.Msg:=LM_LBUTTONDOWN;
-        LM_MBUTTONTRIPLECLK: TheMessage.Msg:=LM_MBUTTONDOWN;
-        LM_RBUTTONTRIPLECLK: TheMessage.Msg:=LM_RBUTTONDOWN;
-      end;
-    end;
-    // map quad clicks for controls, that do not want quadclicks
-    if not (csQuadClicks in ControlStyle) then
-    begin
-      case TheMessage.Msg of
-        LM_LBUTTONQUADCLK: TheMessage.Msg:=LM_LBUTTONDBLCLK;
-        LM_MBUTTONQUADCLK: TheMessage.Msg:=LM_MBUTTONDBLCLK;
-        LM_RBUTTONQUADCLK: TheMessage.Msg:=LM_RBUTTONDBLCLK;
-      end;
-    end;
-
     case TheMessage.Msg of
 
       LM_MOUSEMOVE:
@@ -2142,11 +2135,14 @@ end;
 ------------------------------------------------------------------------------}
 procedure TControl.DoMouseDown(var Message: TLMMouse; Button: TMouseButton;
   Shift: TShiftState);
+var
+  MP: TPoint;
 begin
   //DebugLn('TControl.DoMouseDown ',DbgSName(Self),' ');
-  if not (csNoStdEvents in ControlStyle) then begin
-    with Message do
-      MouseDown(Button, KeysToShiftState(Keys) + Shift, XPos, YPos);
+  if not (csNoStdEvents in ControlStyle) then
+  begin
+    MP := GetMousePosFromMessage(Message.Pos);
+    MouseDown(Button, KeysToShiftState(Message.Keys) + Shift, MP.X, MP.Y);
   end;
 end;
 
@@ -2155,19 +2151,19 @@ end;
 ------------------------------------------------------------------------------}
 procedure TControl.DoMouseUp(var Message: TLMMouse; Button: TMouseButton);
 var
-  P: TPoint;
+  P, MP: TPoint;
 begin
   if not (csNoStdEvents in ControlStyle) then
-    with Message do
+  begin
+    MP := GetMousePosFromMessage(Message.Pos);
+    if (Button in [mbLeft, mbRight]) and DragManager.IsDragging then
     begin
-      if (Button in [mbLeft, mbRight]) and DragManager.IsDragging then
-      begin
-        P := ClientToScreen(Point(XPos, YPos));
-        DragManager.MouseUp(Button, KeysToShiftState(Keys), P.X, P.Y);
-        Message.Result := 1;
-      end;
-      MouseUp(Button, KeysToShiftState(Keys), XPos, YPos);
+      P := ClientToScreen(MP);
+      DragManager.MouseUp(Button, KeysToShiftState(Message.Keys), P.X, P.Y);
+      Message.Result := 1;
     end;
+    MouseUp(Button, KeysToShiftState(Message.Keys), MP.X, MP.Y);
+  end;
 end;
 
 {------------------------------------------------------------------------------
@@ -2235,7 +2231,7 @@ var
   Handled: Boolean;
 begin
   if (csDesigning in ComponentState) or (Message.Result <> 0) then Exit;
-  P := SmallPointToPoint(Message.Pos);
+  P := GetMousePosFromMessage(Message.Pos);
   // X and Y = -1 when user clicks on keyboard menu button
   if P.X <> -1 then
     P := ScreenToClient(P);
@@ -2603,7 +2599,7 @@ begin
   begin
     Exclude(FControlState, csClicked);
     //DebugLn('TControl.WMLButtonUp B ',dbgs(ClientRect.Left),',',dbgs(ClientRect.Top),',',dbgs(ClientRect.Right),',',dbgs(ClientRect.Bottom),' ',dbgs(Message.Pos.X),',',dbgs(Message.Pos.Y));
-    if PtInRect(ClientRect, SmallPointToPoint(Message.Pos))
+    if PtInRect(ClientRect, GetMousePosFromMessage(Message.Pos))
     then begin
       //DebugLn('TControl.WMLButtonUp C');
       Click;
@@ -2686,9 +2682,11 @@ procedure TControl.WMMouseWheel(var Message: TLMMouseEvent);
 var
   MousePos: TPoint;
   lState: TShiftState;
+  SP: TSmallPoint;
 begin
-  MousePos.X := Message.X;
-  MousePos.Y := Message.Y;
+  SP.X := Message.X; // cannot use SmallPoint() here due to FPC inconsistency in Classes.TSmallPoint<>Types.TSmallPoint on Linux
+  SP.Y := Message.Y;
+  MousePos := GetMousePosFromMessage(SP);
 
   lState := Message.State - [ssCaps, ssNum, ssScroll]; // Remove unreliable states, see http://bugs.freepascal.org/view.php?id=20065
   if DoMouseWheel(lState, Message.WheelDelta, MousePos) then
@@ -3029,8 +3027,8 @@ begin
   if CheckPosition(Self) then
   DebugLn('[TControl.SetBoundsRect] ',Name,':',ClassName);
   {$ENDIF}
-  with ARect do
-    SetBounds(Left, Top, Max(Right - Left, 0), Max(Bottom - Top, 0));
+  SetBounds(ARect.Left, ARect.Top,
+    Max(ARect.Right - ARect.Left, 0), Max(ARect.Bottom - ARect.Top, 0));
 end;
 
 procedure TControl.SetBoundsRectForNewParent(const AValue: TRect);
@@ -3225,16 +3223,15 @@ procedure TControl.DoFloatMsg(ADockSource: TDragDockObject);
 var
   P: TPoint;
   FloatHost: TWinControl;
+  R: TRect;
 begin
   DebugLn(['TControl.DoFloatMsg ',DbgSName(Self),' Floating=',Floating]);
   if Floating and (Parent <> nil) then
   begin
     P := Parent.ClientToScreen(Point(Left, Top));
-    with ADockSource.DockRect do
-    begin
-      Parent.BoundsRect := Bounds(Left + Parent.Left - P.X, Top + Parent.Top - P.Y,
-        Right - Left + Parent.Width - Width,  Bottom - Top + Parent.Height - Height);
-    end;
+    R := ADockSource.DockRect;
+    Parent.BoundsRect := Bounds(R.Left + Parent.Left - P.X, R.Top + Parent.Top - P.Y,
+      R.Right - R.Left + Parent.Width - Width,  R.Bottom - R.Top + Parent.Height - Height);
   end else
   begin
     FloatHost := CreateFloatingDockSite(ADockSource.DockRect);
@@ -4151,14 +4148,16 @@ end;
   TControl WMMouseMove
 ------------------------------------------------------------------------------}
 procedure TControl.WMMouseMove(var Message: TLMMouseMove);
+var
+  MP: TPoint;
 begin
   {$IFDEF VerboseMouseBugfix}
   DebugLn(['[TControl.WMMouseMove] ',Name,':',ClassName,' ',Message.XPos,',',Message.YPos]);
   {$ENDIF}
-  UpdateMouseCursor(Message.XPos,Message.YPos);
+  MP := GetMousePosFromMessage(Message.Pos);
+  UpdateMouseCursor(MP.X,MP.Y);
   if not (csNoStdEvents in ControlStyle) then
-    with Message do
-      MouseMove(KeystoShiftState(Word(Keys)), XPos, YPos);
+    MouseMove(KeystoShiftState(Word(Message.Keys)), MP.X, MP.Y);
 end;
 
 {------------------------------------------------------------------------------
@@ -5415,6 +5414,7 @@ procedure TControl.EnableAutoSizing
   procedure CheckReason;
   var
     i: Integer;
+    s: String;
   begin
     i:=FAutoSizingLockReasons.Count-1;
     while i>=0 do begin
@@ -5424,7 +5424,10 @@ procedure TControl.EnableAutoSizing
       end;
       dec(i);
     end;
-    RaiseGDBException('TControl.EnableAutoSizing never disabled with reason: '+Reason);
+    s:='TControl.EnableAutoSizing '+DbgSName(Self)+' never disabled with reason "'+Reason+'"';
+    for i:=0 to FAutoSizingLockReasons.Count-1 do
+      s+=','+LineEnding+'reason['+IntToStr(i)+']="'+FAutoSizingLockReasons[i]+'"';
+    RaiseGDBException(s);
   end;
   {$ENDIF}
 

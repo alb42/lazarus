@@ -21,10 +21,13 @@ unit Dialogs;
 interface
 
 uses
-  Types, typinfo, Classes, LResources, SysUtils, LazFileUtils,
-  LCLIntf, InterfaceBase, FileUtil, LCLStrConsts, LCLType, LCLProc, Forms,
+  // RTL + FCL + LCL
+  Types, typinfo, Classes, SysUtils, LMessages,
+  LResources, LCLIntf, InterfaceBase, LCLStrConsts, LCLType, LCLProc, Forms,
   Controls, Themes, GraphType, Graphics, Buttons, ButtonPanel, StdCtrls,
-  ExtCtrls, LCLClasses, ClipBrd;
+  ExtCtrls, LCLClasses, ClipBrd,
+  // LazUtils
+  FileUtil, LazFileUtils;
 
 
 type
@@ -117,7 +120,6 @@ type
     procedure SetFilterIndex(const AValue: Integer);
   protected
     class procedure WSRegisterClass; override;
-    function DoExecute: boolean; override;
     function GetFilterIndex: Integer; virtual;
     procedure SetFileName(const Value: String); virtual;
     procedure SetFilter(const Value: String); virtual;
@@ -126,7 +128,6 @@ type
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
     procedure DoTypeChange; virtual;
-    function Execute: boolean; override;
     property Files: TStrings read FFiles;
     property HistoryList: TStrings read FHistoryList write SetHistoryList;
     procedure IntfFileTypeChanged(NewFilterIndex: Integer);
@@ -420,7 +421,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure CloseDialog;
-    function Execute: Boolean;override;
+    function Execute: Boolean; override;
     property Left: Integer read GetLeft write SetLeft;
     property Position: TPoint read GetPosition write SetPosition;
     property Top: Integer read GetTop write SetTop;
@@ -512,14 +513,24 @@ function MessageDlgPosHelp(const aMsg: string; DlgType: TMsgDlgType;
             const HelpFileName: string): TModalResult; overload;
 function CreateMessageDialog(const Msg: string; DlgType: TMsgDlgType;
             Buttons: TMsgDlgButtons): TForm; overload;
+function DefaultPromptDialog(const DialogCaption,
+  DialogMessage: String;
+  DialogType: longint; Buttons: PLongint;
+  ButtonCount, DefaultIndex, EscapeResult: Longint;
+  UseDefaultPos: boolean;
+  X, Y: Longint): Longint;// widgetset independent implementation, see PromptDialogFunction
+
 function QuestionDlg(const aCaption, aMsg: string; DlgType: TMsgDlgType;
             Buttons: array of const; HelpCtx: Longint): TModalResult; overload;
 function QuestionDlg(const aCaption, aMsg: string; DlgType: TMsgDlgType;
             Buttons: array of const; const HelpKeyword: string): TModalResult; overload;
+function DefaultQuestionDialog(const aCaption, aMsg: string; DlgType: LongInt;
+  Buttons: TDialogButtons; HelpCtx: Longint): LongInt;// widgetset independent implementation, see QuestionDialogFunction
 
 procedure ShowMessage(const aMsg: string);
 procedure ShowMessageFmt(const aMsg: string; Params: array of const);
 procedure ShowMessagePos(const aMsg: string; X, Y: Integer);
+function DefaultMessageBox(Text, Caption: PChar; Flags: Longint) : Integer;// widgetset independent implementation, see MessageBoxFunction
 
 function InputBox(const ACaption, APrompt, ADefault : String) : String;
 function PasswordBox(const ACaption, APrompt : String) : String;
@@ -546,6 +557,8 @@ function InputQuery(const ACaption, APrompt : String; MaskInput : Boolean; var V
 function InputQuery(const ACaption, APrompt : String; var Value : String) : Boolean;
 function InputQuery(const ACaption: string; const APrompts: array of string;
   var AValues: array of string; ACloseEvent: TInputCloseQueryEvent = nil): boolean;
+function DefaultInputDialog(const InputCaption, InputPrompt : String;
+  MaskInput : Boolean; var Value : String) : Boolean;// widgetset independent implementation, see InputDialogFunction
 
 function ExtractColorIndexAndColor(const AColorList: TStrings; const AIndex: Integer;
   out ColorIndex: Integer; out ColorValue: TColor): Boolean;
@@ -622,7 +635,7 @@ begin
   RegisterComponents('Misc',[TColorButton]);
 end;
 
-function ShowMessageBox(Text, Caption: PChar; Flags: Longint) : Integer;
+function DefaultMessageBox(Text, Caption: PChar; Flags: Longint) : Integer;
 var
   DlgType : TMsgDlgType;
   Buttons : TMsgDlgButtons;
@@ -742,10 +755,10 @@ end;
 
 
 initialization
-  Forms.MessageBoxFunction := @ShowMessageBox;
-  InterfaceBase.InputDialogFunction := @ShowInputDialog;
-  InterfaceBase.PromptDialogFunction := @ShowPromptDialog;
-  InterfaceBase.QuestionDialogFunction := @ShowQuestionDialog;
+  Forms.MessageBoxFunction := @DefaultMessageBox;
+  InterfaceBase.InputDialogFunction := @DefaultInputDialog;
+  InterfaceBase.PromptDialogFunction := @DefaultPromptDialog;
+  InterfaceBase.QuestionDialogFunction := @DefaultQuestionDialog;
 
 finalization
   InterfaceBase.InputDialogFunction := nil;

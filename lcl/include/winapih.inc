@@ -47,6 +47,7 @@ function ClientToScreen(Handle : HWND; var P : TPoint) : Boolean; {$IFDEF IF_BAS
 function CombineRgn(Dest, Src1, Src2 : HRGN; fnCombineMode : Longint) : Longint; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
 function CreateBitmap(Width, Height: Integer; Planes, BitCount: Longint; BitmapBits: Pointer): HBITMAP; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
 function CreateBrushIndirect(const LogBrush: TLogBrush): HBRUSH; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
+function CreateBrushWithRadialGradient(const LogBrush: TLogRadialGradient): HBRUSH; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
 function CreateCaret(Handle: HWND; Bitmap: hBitmap; width, Height: Integer): Boolean; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
 function CreateCompatibleBitmap(DC: HDC; Width, Height: Integer): HBITMAP; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
 function CreateCompatibleDC(DC: HDC): HDC; {$IFDEF IF_BASE_MEMBER}virtual;{$ENDIF}
@@ -320,7 +321,7 @@ procedure GetRGBIntValues(RGB : DWORD; out R, G, B: integer); inline;
 
 function IndexToOverlayMask(iOverlay: UINT): UINT; inline;
 function InflateRect(var ARect: TRect; dx, dy: Integer): Boolean;
-function IntersectRect(var DestRect: TRect; const SrcRect1, SrcRect2: TRect): Boolean;
+function IntersectRect(var DestRect: TRect; const SrcRect1, SrcRect2: TRect): Boolean; inline;
 function IsCharAlphaNumeric(c : Char) : Boolean;
 function IsRectEmpty(const ARect: TRect): Boolean;
 
@@ -337,11 +338,12 @@ function OffsetRect(var Rect: TRect; dx,dy: Integer): Boolean; inline;
 
 function PtInRect(const Rect : TRect; const Point : TPoint) : Boolean; inline;
 function PointToSmallPoint(const P : TPoint) : TSmallPoint; inline;
+function PointToSmallPointNoChecks(const P : TPoint) : TSmallPoint; inline;
 
 function RGB(R, G, B : Byte) : TColorRef; inline;
 
 function ScrollWindow(hWnd: HWND; XAmount, YAmount: Integer; Rect, ClipRect: PRect): Boolean; inline;
-function SetRect(var ARect : TRect; xLeft,yTop,xRight,yBottom : Integer) : Boolean;
+function SetRect(var ARect : TRect; aLeft,aTop,aRight,aBottom : Integer) : Boolean;
 function SetRectEmpty(var ARect: TRect): Boolean;
 function SetScrollPos(Handle: HWND; nBar, nPos: Integer; bRedraw: Boolean): Integer;
 function SetScrollRange(Handle: HWND; nBar, nMinPos, nMaxPos: Integer; bRedraw: Boolean): Boolean;

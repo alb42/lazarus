@@ -38,7 +38,7 @@ unit Compiler;
 interface
 
 uses
-  Classes, SysUtils, Process, LCLProc, Forms, Controls, contnrs, strutils, FileUtil,
+  Classes, SysUtils, LCLProc, Forms, Controls, contnrs, strutils,
   IDEExternToolIntf, IDEMsgIntf, LazIDEIntf, LazUTF8,
   IDECmdLine, LazarusIDEStrConsts, CompilerOptions, Project,
   DefineTemplates, TransferMacros, EnvironmentOpts, LazFileUtils;
@@ -337,6 +337,7 @@ begin
     Tool.CmdLineParams:=CmdLine;
     Tool.Process.CurrentDirectory:=WorkingDir;
     FPCParser:=TFPCParser(Tool.AddParsers(SubToolFPC));
+    FPCParser.ShowLinesCompiled:=EnvironmentOptions.MsgViewShowFPCMsgLinesCompiled;
     FPCParser.HideHintsSenderNotUsed:=not AProject.CompilerOptions.ShowHintsForSenderNotUsed;
     FPCParser.HideHintsUnitNotUsedInMainSource:=not AProject.CompilerOptions.ShowHintsForUnusedUnitsInMainSrc;
     if (not AProject.CompilerOptions.ShowHintsForUnusedUnitsInMainSrc)
@@ -1204,6 +1205,7 @@ function TCompilerOptReader.ReadCategorySelections(aChar: Char): TStringList;
 // Get the selection list for a category using "fpc -i+char", for new FPC versions.
 begin
   Result:=RunTool(fCompilerExecutable, fParsedTarget + ' -i' + aChar);
+  Result.Sort;
 end;
 
 function TCompilerOptReader.ReadAndParseOptions: TModalResult;

@@ -1057,6 +1057,7 @@ end;
 procedure TCustomListView.BeginUpdate;
 begin
   Inc(FUpdateCount);
+  Include(FFlags, lffPreparingSorting);
   if (FUpdateCount = 1) and HandleAllocated
   then TWSCustomListViewClass(WidgetSetClass).BeginUpdate(Self);
 end;
@@ -1082,6 +1083,7 @@ begin
   then RaiseGDBException('TCustomListView.EndUpdate FUpdateCount=0');
   
   Dec(FUpdateCount);
+  if FUpdateCount=0 then Exclude(FFlags, lffPreparingSorting);
   if (FUpdateCount = 0) and HandleAllocated
   then TWSCustomListViewClass(WidgetSetClass).EndUpdate(Self);
 end;
@@ -1107,7 +1109,7 @@ end;
 function TCustomListView.FindCaption(StartIndex: Integer; Value: string;
   Partial, Inclusive, Wrap: Boolean; PartStart: Boolean = True): TListItem;
 begin
-  Result := FListItems.FindCaption(StartIndex, Value, Partial, Inclusive, Wrap);
+  Result := FListItems.FindCaption(StartIndex, Value, Partial, Inclusive, Wrap, PartStart);
 end;
 
 function TCustomListView.FindData(StartIndex: Integer; Value: Pointer;

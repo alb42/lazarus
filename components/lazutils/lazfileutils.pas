@@ -4,7 +4,7 @@
 unit LazFileUtils;
 
 {$mode objfpc}{$H+}
-
+{$i lazutils_defines.inc}
 interface
 
 uses
@@ -25,7 +25,7 @@ uses
   {$DEFINE NotLiteralFilenames} // e.g. HFS+ normalizes file names
 {$ENDIF}
 
-function CompareFilenames(const Filename1, Filename2: string): integer;
+function CompareFilenames(const Filename1, Filename2: string): integer; overload;
 function CompareFilenamesIgnoreCase(const Filename1, Filename2: string): integer;
 function CompareFileExt(const Filename, Ext: string;
                         CaseSensitive: boolean): integer; overload;
@@ -33,7 +33,7 @@ function CompareFileExt(const Filename, Ext: string): integer; overload;
 
 function CompareFilenameStarts(const Filename1, Filename2: string): integer;
 function CompareFilenames(Filename1: PChar; Len1: integer;
-  Filename2: PChar; Len2: integer): integer;
+  Filename2: PChar; Len2: integer): integer; overload;
 function CompareFilenamesP(Filename1, Filename2: PChar;
   IgnoreCase: boolean = false // false = use default
   ): integer;
@@ -109,7 +109,7 @@ Function FileCreateUtf8(Const FileName : String; ShareMode : Integer; Rights : C
 function FileSizeUtf8(const Filename: string): int64;
 function GetFileDescription(const AFilename: string): string;
 function ReadAllLinks(const Filename: string;
-                      ExceptionOnError: boolean): string; // if a link is broken returns ''
+                 {%H-}ExceptionOnError: boolean): string; // if a link is broken returns ''
 function TryReadAllLinks(const Filename: string): string; // if a link is broken returns Filename
 function GetShellLinkTarget(const FileName: string): string;
 
@@ -140,6 +140,11 @@ function ExtractFileRoot(FileName: String): String;
 {$IFDEF darwin}
 function GetDarwinSystemFilename(Filename: string): string;
 function GetDarwinNormalizedFilename(Filename: string; nForm:Integer=2): string;
+{$ENDIF}
+
+// windows paths
+{$IFDEF windows}
+function SHGetFolderPathUTF8(ID :  Integer) : String;
 {$ENDIF}
 
 procedure SplitCmdLineParams(const Params: string; ParamList: TStrings;
@@ -341,7 +346,6 @@ end;
 function GetDarwinNormalizedFilename(Filename: string; nForm:Integer=2): string;
 var
   theString: CFStringRef;
-  l: CFIndex;
   Mutable: CFMutableStringRef;
 begin
   theString:=CFStringCreateWithCString(nil, Pointer(FileName), kCFStringEncodingUTF8);
@@ -479,8 +483,9 @@ var
   s: String;
   fHandle: THANDLE;
 begin
-  TempFilename:=SysUtils.GetTempFilename(AppendPathDelim(DirectoryName),'tstperm');
   Result:=false;
+  if not DirPathExists(DirectoryName) then exit;
+  TempFilename:=SysUtils.GetTempFilename(AppendPathDelim(DirectoryName),'tstperm');
   fHandle := FileCreateUtf8(TempFileName, fmCreate, 438);
   if (THandle(fHandle) <> feInvalidHandle) then
   begin

@@ -15,12 +15,16 @@ interface
 {$I LR_Vers.inc}
 
 uses
-  SysUtils, Math, {$IFDEF UNIX}CLocale,{$ENDIF}
-  Classes, MaskUtils, Controls, LazFileUtils, Forms,
-  Dialogs, Menus, Variants, DB, Graphics, Printers, osPrinters, LazUTF8, DOM,
-  XMLWrite, XMLRead, XMLConf, LCLType, LCLIntf, TypInfo, LR_View, LR_Pars,
-  LR_Intrp, LR_DSet, LR_DBSet, LR_DBRel, LR_Const, DbCtrls, LazUtf8Classes,
-  LCLProc;
+  SysUtils, Math, strutils, DateUtils, {$IFDEF UNIX}CLocale,{$ENDIF}
+  Classes, TypInfo, MaskUtils, Variants, DB, DOM, XMLWrite, XMLRead, XMLConf,
+  Controls, Forms, Dialogs, Menus, Graphics, LCLProc, LCLType, LCLIntf,
+  Printers, osPrinters,
+  // LazUtils
+  LazFileUtils, LazUTF8, LazUTF8Classes,
+  // IDEIntf
+  PropEdits,
+  // LazReport
+  LR_View, LR_Pars, LR_Intrp, LR_DSet, LR_DBSet, LR_DBRel, LR_Const, DbCtrls;
 
 const
   lrMaxBandsInReport       = 256; //temp fix. in future need remove this limit
@@ -42,7 +46,7 @@ const
   flBandOnFirstPage        = $10;
   flBandOnLastPage         = $20;
   flBandRepeatHeader       = $40;
-  flBandPrintChildIfNotVisible = $80;
+  flBandPrintChildIfNotVisible = $100;
 
   flPictCenter             = 2;
   flPictRatio              = 4;
@@ -253,6 +257,9 @@ type
     FTag: string;
     FURLInfo: string;
     FFindHighlight : boolean;
+    FGapX:Integer;
+    FGapY:Integer;
+
     function GetDataField: string;
     function GetLeft: Double;
     function GetStretched: Boolean;
@@ -271,7 +278,7 @@ type
     SaveX, SaveY, SaveDX, SaveDY: Integer;
     SaveFW: Double;
 
-    gapx, gapy: Integer;
+    InternalGapX, InternalGapY: Integer;
     Memo1: TStringList;
     FDataSet: TfrTDataSet;
     FField: String;
@@ -348,6 +355,8 @@ type
     property StreamMode: TfrStreamMode read fStreamMode write fStreamMode;
     property Restrictions:TlrRestrictions read FRestrictions write FRestrictions;
     property FindHighlight : boolean read FFindHighlight write FFindHighlight;
+    property GapX:Integer read FGapX write FGapX;
+    property GapY:Integer read FGapY write FGapY;
   published
     property Left: double read GetLeft write SetLeft;
     property Top: double read GetTop write SetTop;
@@ -448,6 +457,7 @@ type
     TextHeight: Integer;
     CurStrNo: Integer;
     Exporting: Boolean;
+    FLineSpacing: Integer;
 
     procedure ExpandVariables;
     procedure AssignFont(aCanvas: TCanvas);
@@ -471,7 +481,7 @@ type
     Adjust: Integer; // bit format xxxLLRAA: LL=Layout, R=Rotated, AA=Alignment
     Highlight: TfrHighlightAttr;
     HighlightStr: String;
-    LineSpacing, CharacterSpacing: Integer;
+    CharacterSpacing: Integer;
     LastLine: boolean; // are we painting/exporting the last line?
     FirstLine: boolean;
     
@@ -506,6 +516,7 @@ type
     property OnMouseEnter : TfrScriptStrings read FOnMouseEnter write SetOnMouseEnter;
     property OnMouseLeave : TfrScriptStrings read FOnMouseLeave write SetOnMouseLeave;
     property ParagraphGap : integer read FParagraphGap write FParagraphGap;
+    property LineSpacing : integer read FLineSpacing write FLineSpacing;
   end;
 
   TfrMemoView = class(TfrCustomMemoView)
@@ -535,6 +546,9 @@ type
     property OnClick;
     property OnMouseEnter;
     property OnMouseLeave;
+    property LineSpacing;
+    property GapX;
+    property GapY;
   end;
 
   { TfrBandView }
@@ -556,6 +570,7 @@ type
     function  GetTitleRect: TRect;
     function  TitleSize: Integer;
     procedure CalcTitleSize;
+    procedure FixPrintChildIfNotVisible;
   protected
     procedure SetHeight(const AValue: Double); override;
     procedure SetVisible(AValue: Boolean);override;
@@ -1031,6 +1046,7 @@ type
     procedure AddRec(ALineIndex: Integer; ARec: Pointer); virtual;
     function  GetviewText(View:TfrView): string; virtual;
     function  CheckView({%H-}View:TfrView): boolean; virtual;
+    procedure AfterExport; virtual;
   public
     constructor Create(AStream: TStream); virtual;
     destructor Destroy; override;
@@ -1254,7 +1270,7 @@ type
     // report manipulation methods
     function DesignReport: Integer;
     function PrepareReport: Boolean;
-    procedure ExportTo(FilterClass: TfrExportFilterClass; aFileName: String);
+    function ExportTo(FilterClass: TfrExportFilterClass; aFileName: String):Boolean;
     procedure ShowReport;
     procedure ShowPreparedReport;
     procedure PrintPreparedReport(const PageNumbers: String; Copies: Integer);
@@ -1440,12 +1456,14 @@ function FindObjectProps(AObjStr:string; out frObj:TfrObject; out PropName:strin
 
 const
   lrTemplatePath = 'LazReportTemplate/';
-  frCurrentVersion = 28;
+  frCurrentVersion = 29;
     // version 2.5: lazreport: added to binary stream ParentBandType variable
     //                         on TfrView, used to extend export facilities
     // version 2.6: lazreport: added to binary stream Tag property on TfrView
     // version 2.7: lazreport: added to binary stream FOnClick, FOnMouseEnter, FOnMouseLeave, FCursor property on TfrMemoView
-    // version 2.8. lazreport: added support for child bands
+    // version 2.8: lazreport: added support for child bands
+    // version 2.9: lazreport: added support LineSpacing and GapX, GapY
+    // version 3.0: lazreport: decoupled flHideZeros and flBandPrintChildIfNotVisible
 
   frSpecCount = 9;
   frSpecFuncs: Array[0..frSpecCount - 1] of String = ('PAGE#', '',
@@ -1482,10 +1500,42 @@ type
     EditorProc : TlrObjEditorProc;
   end;
 
-  TfrExportFilterInfo = record
-    ClassRef: TfrExportFilterClass;
-    FilterDesc, FilterExt: String;
+  { TExportFilterItem }
+
+  TExportFilterItem = class
+  private
+    FClassRef: TfrExportFilterClass;
+    FEnabled: boolean;
+    FFilterDesc: String;
+    FFilterExt: String;
+  public
+    constructor Create;
+    property ClassRef: TfrExportFilterClass read FClassRef;
+    property FilterDesc: String read FFilterDesc;
+    property FilterExt: String read FFilterExt;
+    property Enabled:boolean read FEnabled write FEnabled;
   end;
+
+  { TExportFilters }
+
+  TExportFilters = class
+  private
+    FList:TFPList;
+    function GetCount: integer;
+    procedure Clear;
+    function GetItems(AItem: Integer): TExportFilterItem;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure RegisterFilter(AClassRef: TfrExportFilterClass; const AFilterDesc, AFilterExt: String);
+    procedure DisableFilter(AFilterExt: String);
+    procedure EnableFilter(AFilterExt: String);
+    function FindFilter(AFilterExt: String):TExportFilterItem;
+    function FilterIndex(AClassRef: TfrExportFilterClass; AFilterExt:string): Integer;
+    property Count:integer read GetCount;
+    property Items[AItem:Integer]:TExportFilterItem read GetItems;default;
+  end;
+
 
   TfrFunctionInfo = record
     FunctionLibrary: TfrFunctionLibrary;
@@ -1513,8 +1563,6 @@ var
   DisableDrawing: Boolean;
   frAddIns: Array[0..31] of TfrAddInObjectInfo;   // add-in objects
   frAddInsCount: Integer;
-  frFilters: Array[0..31] of TfrExportFilterInfo; // export filters
-  frFiltersCount: Integer;
   frFunctions: Array[0..31] of TfrFunctionInfo;   // function libraries
   frFunctionsCount: Integer;
   frTools: Array[0..31] of TfrToolsInfo;          // tools
@@ -1541,10 +1589,11 @@ var
   // variables used through report building
   TempBmp: TBitmap;            // temporary bitmap used by TfrMemoView
 
+function ExportFilters:TExportFilters;
 implementation
 
 uses
-  strutils, LR_Fmted, LR_Prntr, LR_Progr, LR_Utils, DateUtils, PropEdits
+  LR_Fmted, LR_Prntr, LR_Progr, LR_Utils
   {$IFDEF JPEG}, JPEG {$ENDIF}, lr_hyphen;
 
 type
@@ -1591,6 +1640,7 @@ var
   AppendPage, WasPF: Boolean;
   CompositeMode: Boolean;
   MaxTitleSize: Integer = 0;
+  FExportFilters:TExportFilters = nil;
 
 
   {-----------------------------------------------------------------------------}
@@ -1723,6 +1773,13 @@ begin
     end;
 
   end;
+end;
+
+function ExportFilters: TExportFilters;
+begin
+  if not Assigned(FExportFilters) then
+    FExportFilters:=TExportFilters.Create;
+  Result:=FExportFilters;
 end;
 
 function DoFindObjMetod(S: string; out AObjProp: string
@@ -1886,20 +1943,6 @@ begin
     end;
 end;
 
-function frGetExportFilterIndex(AClassRef: TfrExportFilterClass; const AFilterExt:string): Integer;
-var
-  i: Integer;
-begin
-  result := -1;
-  for i:=0 to Length(frFilters)-1 do
-  with frFilters[i] do
-    if (ClassRef=AClassRef) and (FilterExt=AFilterExt) then
-    begin
-      result := i;
-      break;
-    end;
-end;
-
 procedure frSetAddinEditor(ClassRef: TfrViewClass; EditorForm: TfrObjEditorForm);
 var
   i: Integer;
@@ -1936,13 +1979,7 @@ end;
 procedure frRegisterExportFilter(ClassRef: TfrExportFilterClass;
   const FilterDesc, FilterExt: String);
 begin
-  if frGetExportFilterIndex(ClassRef, FilterExt)<0 then
-  begin
-    frFilters[frFiltersCount].ClassRef := ClassRef;
-    frFilters[frFiltersCount].FilterDesc := FilterDesc;
-    frFilters[frFiltersCount].FilterExt := FilterExt;
-    Inc(frFiltersCount);
-  end;
+  ExportFilters.RegisterFilter(ClassRef,  FilterDesc, FilterExt);
 end;
 
 procedure frRegisterFunctionLibrary(ClassRef: TClass);
@@ -2096,6 +2133,110 @@ begin
       DebugLn('Error: ', e.message,'. Hyphenation support will be disabled');
   end;
 end;
+
+{ TExportFilterItem }
+
+constructor TExportFilterItem.Create;
+begin
+  inherited Create;
+  FEnabled:=true;
+end;
+
+{ TExportFilters }
+
+function TExportFilters.GetCount: integer;
+begin
+  Result:=FList.Count;
+end;
+
+procedure TExportFilters.Clear;
+var
+  i: Integer;
+begin
+  for i:=0 to FList.Count-1 do
+    TExportFilterItem(FList[i]).Free;
+  FList.Clear;
+end;
+
+function TExportFilters.GetItems(AItem: Integer): TExportFilterItem;
+begin
+  Result:=TExportFilterItem(FList[AItem]);
+end;
+
+constructor TExportFilters.Create;
+begin
+  inherited Create;
+  FList:=TFPList.Create;
+end;
+
+destructor TExportFilters.Destroy;
+begin
+  Clear;
+  FList.Free;
+  inherited Destroy;
+end;
+
+procedure TExportFilters.RegisterFilter(AClassRef: TfrExportFilterClass;
+  const AFilterDesc, AFilterExt: String);
+var
+  F: TExportFilterItem;
+begin
+  if FilterIndex(AClassRef, AFilterExt) > -1 then exit;
+  F:=TExportFilterItem.Create;
+  F.FClassRef:=AClassRef;
+  F.FFilterExt:=AFilterExt;
+  F.FFilterDesc:=AFilterDesc;
+
+  FList.Add(F);
+end;
+
+procedure TExportFilters.DisableFilter(AFilterExt: String);
+var
+  F: TExportFilterItem;
+begin
+  F:=FindFilter(AFilterExt);
+  if Assigned(F) then
+    F.FEnabled:=true;
+end;
+
+procedure TExportFilters.EnableFilter(AFilterExt: String);
+var
+  F: TExportFilterItem;
+begin
+  F:=FindFilter(AFilterExt);
+  if Assigned(F) then
+    F.FEnabled:=false;
+end;
+
+function TExportFilters.FindFilter(AFilterExt: String): TExportFilterItem;
+var
+  i: Integer;
+begin
+  Result:=nil;
+  AFilterExt:=UTF8UpperCase(AFilterExt);
+  for i:=0 to FList.Count-1 do
+    if UTF8UpperCase(TExportFilterItem(FList[i]).FFilterExt) = AFilterExt then
+    begin
+      Result:=TExportFilterItem(FList[i]);
+      exit;
+    end;
+end;
+
+function TExportFilters.FilterIndex(AClassRef: TfrExportFilterClass;
+  AFilterExt: string): Integer;
+var
+  i: Integer;
+begin
+  Result:=-1;
+  AFilterExt:=UTF8UpperCase(AFilterExt);
+  for i:=0 to FList.Count-1 do
+    if (TExportFilterItem(FList[i]).FClassRef = AClassRef) and (TExportFilterItem(FList[i]).FilterExt = AFilterExt) then
+    begin
+      Result:=i;
+      exit;
+    end;
+end;
+
 {
 procedure CanvasTextRectJustify(const Canvas:TCanvas;
   const ARect: TRect; X1, X2, Y: integer; const Text: string;
@@ -2469,6 +2610,8 @@ begin
     FTag := TfrView(Source).FTag;
     FURLInfo := TfrView(Source).FURLInfo;
     FRestrictions := TfrView(Source).FRestrictions;
+    FGapX:=TfrView(Source).FGapX;
+    FGapY:=TfrView(Source).FGapY;
   end;
 end;
 
@@ -2499,8 +2642,10 @@ begin
   wy1 := Round((FrameWidth * ScaleY - 1) / 2);
   wy2 := Round(FrameWidth * ScaleY / 2);
   fFrameWidth := FrameWidth * ScaleX;
-  gapx := wx2 + 2;
-  gapy := wy2 div 2 + 1;
+
+  InternalGapX := wx2 + 2 + FGapX;
+  InternalGapY := wy2 div 2 + 1 + FGapY;
+
   bx := x;
   by := y;
   bx1 := Round((SaveX + SaveDX) * ScaleX + OffsX);
@@ -2793,7 +2938,8 @@ begin
       Visible:=(Wb<>0);
     end;
 
-    if (frVersion >= 25) then begin
+    if (frVersion >= 25) then
+    begin
       I := 0;
       Read(I, 4);
       ParentBandType := TfrBandType(I);
@@ -2803,6 +2949,12 @@ begin
     begin
       FTag := frReadString(Stream);
       FURLInfo := frReadString(Stream);
+    end;
+
+    if frVersion >= 29 then
+    begin
+      Stream.Read(FGapX, SizeOf(FGapX));
+      Stream.Read(FGapY, SizeOf(FGapX));
     end;
 
   end;
@@ -2862,6 +3014,9 @@ begin
   S:=XML.GetValue(Path+'Frames/Restrictions/Value','');
   if S<>'' then
     RestoreProperty('Restrictions',S);
+
+  FGapX:=XML.GetValue(Path+'Data/GapX/Value', 0);
+  FGapY:=XML.GetValue(Path+'Data/GapY/Value', 0);
 end;
 
 procedure TfrView.SaveToStream(Stream: TStream);
@@ -2926,6 +3081,9 @@ begin
       FTmpS:=lrExpandVariables(FURLInfo);
       frWriteString(Stream, FTmpS);
     end;
+
+    Stream.Write(FGapX, SizeOf(FGapX));
+    Stream.Write(FGapY, SizeOf(FGapX));
   end;
   {$IFDEF DebugLR}
   Debugln('%s.SaveToStream end',[name]);
@@ -2977,6 +3135,9 @@ begin
 
   if IsPublishedProp(self,'Restrictions') then
     XML.SetValue(Path+'Frames/Restrictions/Value', GetSaveProperty('Restrictions'));
+
+  XML.SetValue(Path+'Data/GapX/Value', FGapX);
+  XML.SetValue(Path+'Data/GapY/Value', FGapY);
 end;
 
 procedure TfrView.Resized;
@@ -3580,7 +3741,7 @@ var
     SMemo.Add(str + Chr(w div 256) + Chr(w mod 256));
     Inc(size, size1);
     //!!
-    maxWidth := dx - gapx - gapx;
+    maxWidth := dx - InternalGapX - InternalGapX;
   end;
 
   procedure WrapLine(const s: String);
@@ -3726,7 +3887,7 @@ var
   var
     i: Integer;
   begin
-    size := y + gapy;
+    size := y + InternalGapY;
     size1 := -WCanvas.Font.Height + LineSpacing;
 //    maxWidth := dx - gapx - gapx;
     {$IFDEF DebugLR}
@@ -3735,13 +3896,13 @@ var
     {$ENDIF}
     for i := 0 to Memo1.Count - 1 do
     begin
-      maxWidth := dx - gapx - gapx - FParagraphGap;
+      maxWidth := dx - InternalGapX - InternalGapX - FParagraphGap;
       if (Flags and flWordWrap) <> 0 then
         WrapLine(Memo1[i])
       else
         OutLine(Memo1[i] + #1);
     end;
-    VHeight := size - y + gapy;
+    VHeight := size - y + InternalGapY;
     TextHeight := size1;
     {$IFDEF DebugLR}
     DebugLn('OutMemo E: Size=%d Size1=%d MaxWidth=%d DIM:%d %d %d %d gapxy:%d %d',
@@ -3756,9 +3917,9 @@ var
   begin
     h := Create90Font(WCanvas.Font);
     oldh := SelectObject(WCanvas.Handle, h);
-    size := x + gapx;
+    size := x + InternalGapX;
     size1 := -WCanvas.Font.Height + LineSpacing;
-    maxwidth := dy - gapy - gapy;
+    maxwidth := dy - InternalGapY - InternalGapY;
     for i := 0 to Memo1.Count - 1 do
     begin
       if (Flags and flWordWrap) <> 0 then
@@ -3769,7 +3930,7 @@ var
     
     SelectObject(WCanvas.Handle, oldh);
     DeleteObject(h);
-    VHeight := size - x + gapx;
+    VHeight := size - x + InternalGapX;
     TextHeight := size1;
   end;
 
@@ -3869,9 +4030,9 @@ var
         {$ENDIF}
         *)
         case Alignment of
-          Classes.taLeftJustify : CurX :=x+gapx;
-          Classes.taRightJustify: CurX :=x+dx-1-gapx-Canvas.TextWidth(St);
-          Classes.taCenter      : CurX :=x+gapx+(dx-gapx-gapx-Canvas.TextWidth(St)) div 2;
+          Classes.taLeftJustify : CurX :=x+InternalGapX;
+          Classes.taRightJustify: CurX :=x+dx-1-InternalGapX-Canvas.TextWidth(St);
+          Classes.taCenter      : CurX :=x+InternalGapX+(dx-InternalGapX-InternalGapX-Canvas.TextWidth(St)) div 2;
         end;
 
         if not Exporting then
@@ -3879,9 +4040,9 @@ var
           if Justify and not LastLine then
           begin
             if FirstLine then
-              CanvasTextRectJustify(Canvas, DR, x+gapx + FParagraphGap, x+dx-1-gapx, round(CurYf), St, true)
+              CanvasTextRectJustify(Canvas, DR, x+InternalGapX + FParagraphGap, x+dx-1-InternalGapX, round(CurYf), St, true)
             else
-              CanvasTextRectJustify(Canvas, DR, x+gapx, x+dx-1-gapx, round(CurYf), St, true)
+              CanvasTextRectJustify(Canvas, DR, x+InternalGapX, x+dx-1-InternalGapX, round(CurYf), St, true)
           end
           else
           begin
@@ -3918,7 +4079,7 @@ var
       if Layout=tlBottom then
         y:=y+dy-VHeight;
     end;
-    curyf := y + gapy;
+    curyf := y + InternalGapY;
 
     LineSpc := LineSpacing * ScaleY;
     // calc our reference at 100% and then scale it
@@ -3969,9 +4130,9 @@ var
       Canvas.TextStyle := Ts;
 
       case Alignment of
-          Classes.taLeftJustify : CurY :=y + dy-gapy;
-          Classes.taRightJustify: CurY :=y + gapy + 1 + Canvas.TextWidth(str);
-          Classes.taCenter      : CurY :=y + gapy + (dy + Canvas.TextWidth(str)) div 2;
+          Classes.taLeftJustify : CurY :=y + dy-InternalGapY;
+          Classes.taRightJustify: CurY :=y + InternalGapY + 1 + Canvas.TextWidth(str);
+          Classes.taCenter      : CurY :=y + InternalGapY + (dy + Canvas.TextWidth(str)) div 2;
       end;
       if not Exporting then
          canvas.TextOut(curx,cury,str)
@@ -3998,7 +4159,7 @@ var
         else if Layout=tlBottom then
           x:=x+dx-VHeight;
       end;
-      curx := x + gapx;
+      curx := x + InternalGapX;
       th := -Canvas.Font.Height + Round(LineSpacing * ScaleY);
       CurStrNo := 0;
       for i := 0 to Memo1.Count - 1 do
@@ -4409,6 +4570,10 @@ begin
       Stream.Read(FParagraphGap, SizeOf(FParagraphGap));
     end;
 
+    if frVersion >= 29 then
+    begin
+      Stream.Read(FLineSpacing, SizeOf(FLineSpacing));
+    end;
   end;
 
   if frVersion = 21 then
@@ -4445,6 +4610,7 @@ begin
 
   FDetailReport:= XML.GetValue(Path+'Data/DetailReport/Value', '');
   FParagraphGap:=XML.GetValue(Path+'Data/ParagraphGap/Value', 0);
+  FLineSpacing:=XML.GetValue(Path+'Data/LineSpacing/Value', 2);
 end;
 
 procedure TfrCustomMemoView.SaveToStream(Stream: TStream);
@@ -4486,6 +4652,7 @@ begin
     frWriteMemo(Stream, FOnMouseLeave);
     frWriteString(Stream, FDetailReport);
     Stream.Write(FParagraphGap, SizeOf(FParagraphGap));
+    Stream.Write(FLineSpacing, SizeOf(FLineSpacing));
   end;
 end;
 
@@ -4517,6 +4684,7 @@ begin
 
   XML.SetValue(Path+'Data/DetailReport/Value', FDetailReport);
   XML.SetValue(Path+'Data/ParagraphGap/Value', FParagraphGap);
+  XML.SetValue(Path+'Data/LineSpacing/Value', FLineSpacing);
 end;
 
 procedure TfrCustomMemoView.GetBlob(b: TfrTField);
@@ -4921,6 +5089,7 @@ begin
     fDataSetStr:=ReadString(Stream);
     if frVersion>=28 then
       fChild :=ReadString(Stream);
+    fixPrintChildIfNotVisible;
   end else
   begin
     if StreamMode=smDesigning then begin
@@ -4938,6 +5107,7 @@ begin
   FCondition := XML.GetValue(Path+'Condition/Value', ''); // todo chk
   FDatasetStr := XML.GetValue(Path+'DatasetStr/Value', ''); // todo chk
   FChild := XML.GetValue(Path+'Child/Value', '');
+  FixPrintChildIfNotVisible;
 end;
 
 procedure TfrBandView.SaveToStream(Stream: TStream);
@@ -5296,6 +5466,15 @@ begin
       if W>MaxTitleSize then
         MaxTitleSize := W;
     end;
+  end;
+end;
+
+procedure TfrBandView.FixPrintChildIfNotVisible;
+begin
+  if ((frVersion=28) or (frVersion=29)) and (flags and $80 <> 0) then
+  begin
+    flags := flags and not $80;
+    flags := flags or flBandPrintChildIfNotVisible;
   end;
 end;
 
@@ -6681,7 +6860,7 @@ begin
         // additionally, when objects are drawn, they are offseted t.gapy pixels
         // but this is object dependant, for TfrMemoView they are.
         if (t is TfrMemoView) then
-          ty := ty + t.gapy;
+          ty := ty + t.InternalGapY;
 
         k := Max(TfrStretcheable(t).MinHeight, 1);
         pgArr[j] := Min(pgArr[j], ty + (newDy-ty) div k * k);
@@ -8851,6 +9030,7 @@ var
   sx, sy: Double;
   v, IsPrinting: Boolean;
   h: THandle;
+  oldRgn, pageRgn: HRGN;
 begin
   IsPrinting := Printer.Printing and (Canvas is TPrinterCanvas);
   {$IFDEF DebugLR}
@@ -8858,52 +9038,68 @@ begin
           'CanvasPPI=%d',[ord(IsPrinting), Index, Canvas.ClassName,
           Canvas.Font.pixelsPerInch]);
   {$ENDIF}
+  pageRgn := 0;
+  oldRgn := CreateRectRgn(0, 0, 0, 0);
+  LCLIntf.GetClipRgn(Canvas.Handle, oldRgn);
+  try
 
-  DocMode := dmPrinting;
-  p := FPages[Index];
-  with p^ do
-  begin
-    if Visible then
+    DocMode := dmPrinting;
+    p := FPages[Index];
+    with p^ do
     begin
-      if Page = nil then
-        ObjectsToPage(Index);
-        
-      sx:=(DrawRect.Right-DrawRect.Left)/PrnInfo.PgW;
-      sy:=(DrawRect.Bottom-DrawRect.Top)/PrnInfo.PgH;
-      h:= Canvas.Handle;
-
-      for i := 0 to Page.Objects.Count - 1 do
+      if Visible then
       begin
-        t :=TfrView(Page.Objects[i]);
-        v := True;
+        if Page = nil then
+          ObjectsToPage(Index);
 
-        if not IsPrinting then
+        sx:=(DrawRect.Right-DrawRect.Left)/PrnInfo.PgW;
+        sy:=(DrawRect.Bottom-DrawRect.Top)/PrnInfo.PgH;
+        h:= Canvas.Handle;
+        pageRgn := CreateRectRgn(DrawRect.Left+1, DrawRect.Top+1, DrawRect.Right-1, DrawRect.Bottom-1);
+        LCLIntf.SelectClipRGN(Canvas.Handle, pageRgn);
+
+        for i := 0 to Page.Objects.Count - 1 do
         begin
-          with t, DrawRect do
+          t :=TfrView(Page.Objects[i]);
+          v := True;
+
+          if not IsPrinting then
           begin
-            v := RectVisible(h, Rect(Round(x * sx) + Left - 10,
-                                     Round(y * sy) + Top - 10,
-                                     Round((x + dx) * sx) + Left + 10,
-                                     Round((y + dy) * sy) + Top + 10));
+            with t, DrawRect do
+            begin
+              v := RectVisible(h, Rect(Round(x * sx) + Left - 10,
+                                       Round(y * sy) + Top - 10,
+                                       Round((x + dx) * sx) + Left + 10,
+                                       Round((y + dy) * sy) + Top + 10));
+            end;
+          end;
+
+          if v then
+          begin
+            t.ScaleX := sx;
+            t.ScaleY := sy;
+            t.OffsX := DrawRect.Left;
+            t.OffsY := DrawRect.Top;
+            t.IsPrinting := IsPrinting;
+            t.Draw(Canvas);
           end;
         end;
 
-        if v then
-        begin
-          t.ScaleX := sx;
-          t.ScaleY := sy;
-          t.OffsX := DrawRect.Left;
-          t.OffsY := DrawRect.Top;
-          t.IsPrinting := IsPrinting;
-          t.Draw(Canvas);
-        end;
+        LCLIntf.DeleteObject(pageRgn);
+        pageRgn := 0;
+
       end
-    end
-{    else
-    begin
-      Page.Free;
-      Page := nil;
-    end;}
+  {    else
+      begin
+        Page.Free;
+        Page := nil;
+      end;}
+    end;
+  finally
+    if pageRgn<>0 then
+      LCLIntf.DeleteObject(pageRgn);
+    LCLIntf.SelectClipRGN(Canvas.Handle, oldRgn);
+    LCLIntf.DeleteObject(oldRgn);
   end;
 end;
 
@@ -9967,8 +10163,8 @@ begin
       end;
     end;
   end;
-
-  if Assigned(CurView) and (CurView.Flags and flHideZeros <> 0) then
+  //check if CurView is TfrBandView to avoid clash with flBandPrintChildIfNotVisible. Issue 29313
+  if Assigned(CurView) and ((CurView.Flags and flHideZeros <> 0) and not (CurView is TfrBandView)) then
   begin
     if TVarData(aValue).VType in [varSmallInt, varInteger, varCurrency,
        varDecimal, varShortInt, varByte, varWord, varLongWord, varInt64,
@@ -10767,7 +10963,8 @@ begin
   frProgressForm.ModalResult := mrOk;
 end;
 
-procedure TfrReport.ExportTo(FilterClass: TfrExportFilterClass; aFileName: String);
+function TfrReport.ExportTo(FilterClass: TfrExportFilterClass; aFileName: String
+  ): Boolean;
 var
   s: String;
   i: Integer;
@@ -10775,10 +10972,10 @@ begin
   // try to find a export filter from registered list
   if (FilterClass=nil) and (fDefExportFilterClass<>'') then
   begin
-    for i:=0 to Length(frFilters)-1 do
-      if (frFilters[i].ClassRef.ClassName=fDefExportFilterClass) then
+    for i:=0 to ExportFilters.Count - 1 do
+      if (ExportFilters[i].FClassRef.ClassName=fDefExportFilterClass) then
       begin
-        FilterClass := frFilters[i].ClassRef;
+        FilterClass := ExportFilters[i].FClassRef;
         break;
       end;
   end;
@@ -10825,10 +11022,18 @@ begin
 
     fDefExportFilterClass := FCurrentFilter.ClassName;
     fDefExportFileName := aFileName;
-  end;
-
-  FreeAndNil(FCurrentFilter);
+    Result:=true;
+  end
+  else
+    Result:=false;
+  //is necessary to destroy the file stream before calling FCurrentFilter.AfterExport
+  //to ensure the exported file is properly written to the file system
   ExportStream.Free;
+  FCurrentFilter.Stream := nil;
+
+  if Result then
+    FCurrentFilter.AfterExport;
+  FreeAndNil(FCurrentFilter);
 end;
 
 procedure TfrReport.FillQueryParams;
@@ -10905,12 +11110,12 @@ begin
     begin
       for i := 0 to Pages.Count - 1 do
         if Pages[i] is TfrPageReport then
-          Pages[i].InitReport;
+            Pages[i].InitReport;
 
       PrepareDataSets;
       for i := 0 to Pages.Count - 1 do
-        if Pages[i]is TfrPageReport then
-          Pages[i].PrepareObjects;
+        if Pages[i] is TfrPageReport then
+            Pages[i].PrepareObjects;
 
       repeat
         {$IFDEF DebugLR}
@@ -11948,6 +12153,11 @@ begin
   result := true;
 end;
 
+procedure TfrExportFilter.AfterExport;
+begin
+  // abstract method
+end;
+
 procedure TfrExportFilter.OnBeginDoc;
 begin
 // abstract method
@@ -12071,7 +12281,8 @@ var
   end;
 
 begin
-  if List.Find(funName, i) then
+  i:=List.IndexOf(funName);
+  if i>=0 then
     AddDesc(List)
   else
   begin
@@ -12318,16 +12529,26 @@ begin
       DebugLn('CurBand=%s CurBand.View=%s AggrBand=%s',
         [BandInfo(CurBand),dbgsName(CurBand.View),BandInfo(AggrBand)]);
       {$ENDIF}
-      s1 := Trim(string(p2));
-      if s1 = '' then begin
-        if (dk=dkCount) and (p1+''<>'') then
-          s1 := p1
-        else
+      if dk <> dkCount then begin
+        // p1 = field
+        // p2 = data band
+        // p3 = InvisibleToo
+        s1 := trim(string(p2));
+        if s1='' then
           s1 := CurBand.View.Name;
-      end;
-      if dk <> dkCount then
-        s2 := Trim(string(p3)) else
+        s2 := Trim(string(p3))
+      end
+      else begin
+        // p1 = data band
+        // p2 = InvisibleToo
+        s1 := Trim(string(p1));
         s2 := Trim(string(p2));
+        if s2<>'1' then
+          s2 := '0';
+      end;
+      // s1 = data band
+      // s2 = '1' o '0' (1 means process invisible records too)
+
       if (AggrBand.Typ in [btPageFooter, btMasterFooter, btDetailFooter,
         btSubDetailFooter, btGroupFooter, btCrossFooter, btReportSummary]) and
          ((s2 = '1') or ((s2 <> '1') and CurBand.Visible)) then
@@ -12531,6 +12752,8 @@ begin
   frVariables.Free;
   frCompressor.Free;
   HookList.Free;
+  if Assigned(FExportFilters) then
+    FreeAndNil(FExportFilters);
 end;
 
 { TfrObject }

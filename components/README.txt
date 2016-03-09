@@ -6,6 +6,8 @@ activex
   
 aggpas
   Anti-Grain Geometry - an antialiased graphic library
+  License: 3-clause BSD license - free for open source and commercial software
+    with the exception of aggpas/gpc/gpc.pas which has a "not free for commercial use".
   
 anchordocking
   ?
@@ -146,6 +148,9 @@ multithreadprocs
   
 opengl
   An OpenGL control.
+
+packagetabs
+  Replacement of source editor tabs/pages with buttons sorted by package and name.
 
 paradox
   Support for Paradox databases.

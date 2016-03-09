@@ -4,6 +4,7 @@
 
 unit TAChartLazarusPkg;
 
+{$warn 5023 off : no warning about unused units}
 interface
 
 uses
@@ -16,7 +17,7 @@ uses
   TAToolEditors, TAMath, TAChartImageList, TAChartTeeChart, TADataTools, 
   TAAnimatedSource, TATextElements, TAAxisSource, TASeriesPropEditors, 
   TACustomFuncSeries, TAFitUtils, TAGUIConnector, TADiagram, TADiagramDrawing, 
-  TADiagramLayout, LazarusPackageIntf;
+  TADiagramLayout, TAChartStrConsts, LazarusPackageIntf;
 
 implementation
 

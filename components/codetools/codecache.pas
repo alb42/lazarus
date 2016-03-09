@@ -37,8 +37,8 @@ uses
   {$IFDEF MEM_CHECK}
   MemCheck,
   {$ENDIF}
-  Classes, SysUtils, SourceLog, LinkScanner, FileProcs, DirectoryCacher,
-  Avl_Tree, Laz2_XMLCfg;
+  Classes, SysUtils, SourceLog, LinkScanner, FileProcs, LazFileUtils, LazFileCache,
+  DirectoryCacher, Avl_Tree, Laz2_XMLCfg, LazDbgLog;
 
 const
   IncludeLinksFileVersion = 2;
@@ -85,9 +85,9 @@ type
     function SaveToFile(const AFilename: string): boolean; override;
     function Save: boolean;
     function FileDateOnDisk: longint;
-    function FileNeedsUpdate: boolean; // needs loading
+    function FileNeedsUpdate(IgnoreModifiedFlag: Boolean = False): boolean; // needs loading
     function FileOnDiskNeedsUpdate: boolean;
-    function FileOnDiskHasChanged: boolean;
+    function FileOnDiskHasChanged(IgnoreModifiedFlag: Boolean = False): boolean;
     function FileOnDiskIsEqual: boolean;
     function AutoRevertFromDisk: boolean;
     procedure LockAutoDiskRevert;
@@ -95,6 +95,7 @@ type
     procedure IncrementRefCount;
     procedure ReleaseRefCount;
     procedure MakeFileDateValid;
+    procedure InvalidateLoadDate;
     function SourceIsText: boolean;
   public
     property CodeCache: TCodeCache read FCodeCache write FCodeCache;
@@ -1124,11 +1125,11 @@ var LinkCnt, i: integer;
 begin
   FIncludeLinks.FreeAndClear;
 
-  FileVersion:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Version',0);
+  FileVersion:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Version',IncludeLinksFileVersion);
   FExpirationTimeInDays:=XMLConfig.GetValue(
       XMLPath+'IncludeLinks/ExpirationTimeInDays',
       FExpirationTimeInDays);
-  if FileVersion=2 then begin
+  if FileVersion>=2 then begin
     List:=TStringList.Create;
     try
       List.Text:=XMLConfig.GetValue(XMLPath+'IncludeLinks/Data','');
@@ -1419,6 +1420,11 @@ begin
   FLoadDate:=FileAgeCached(Filename);
 end;
 
+procedure TCodeBuffer.InvalidateLoadDate;
+begin
+  FLoadDateValid:=false;
+end;
+
 function TCodeBuffer.SourceIsText: boolean;
 var
   l: LongInt;
@@ -1438,14 +1444,21 @@ begin
   Result:=FileAgeCached(Filename);
 end;
 
-function TCodeBuffer.FileNeedsUpdate: boolean;
+function TCodeBuffer.FileNeedsUpdate(IgnoreModifiedFlag: Boolean): boolean;
 // file needs update (to be loaded), if file is not modified and file on disk has changed
 begin
-  if Modified or IsVirtual then exit(false);
-  if LoadDateValid then
-    Result:=(FFileChangeStep=ChangeStep) and (FileDateOnDisk<>LoadDate)
-  else
-    Result:=true;
+  if IgnoreModifiedFlag then
+  begin
+    if IsVirtual then exit(false);
+    Result:=FileDateOnDisk<>LoadDate; // ignore LoadDateValid because it is set to false after edit
+  end else
+  begin
+    if Modified or IsVirtual then exit(false);
+    if LoadDateValid then
+      Result:=(FFileChangeStep=ChangeStep) and (FileDateOnDisk<>LoadDate)
+    else
+      Result:=true;
+  end;
 end;
 
 function TCodeBuffer.FileOnDiskNeedsUpdate: boolean;
@@ -1458,13 +1471,22 @@ begin
           or (not FileExistsCached(Filename));
 end;
 
-function TCodeBuffer.FileOnDiskHasChanged: boolean;
+function TCodeBuffer.FileOnDiskHasChanged(IgnoreModifiedFlag: Boolean): boolean;
 // file on disk has changed since last load/save
 begin
-  if LoadDateValid and FileExistsCached(Filename) then
-    Result:=(FileDateOnDisk<>LoadDate)
-  else
-    Result:=false;
+  if IgnoreModifiedFlag then
+  begin
+    if FileExistsCached(Filename) then
+      Result:=(FileDateOnDisk<>LoadDate) // ignore LoadDateValid because it is set to false after edit
+    else
+      Result:=false;
+  end else
+  begin
+    if LoadDateValid and FileExistsCached(Filename) then
+      Result:=(FileDateOnDisk<>LoadDate)
+    else
+      Result:=false;
+  end;
 end;
 
 function TCodeBuffer.FileOnDiskIsEqual: boolean;

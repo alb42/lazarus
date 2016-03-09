@@ -137,6 +137,7 @@ function CF_Picture: TClipboardFormat;
 function CF_MetaFilePict: TClipboardFormat;
 function CF_Object: TClipboardFormat;
 function CF_Component: TClipboardFormat;
+function CF_HTML: TClipboardformat;
 
 type
   TClipboardData = record
@@ -194,6 +195,7 @@ type
     function FindPictureFormatID: TClipboardFormat;
     function FindFormatID(const FormatName: string): TClipboardFormat;
     //function GetAsHandle(Format: integer): THandle;
+    function GetAsHtml(ExtractFragmentOnly: Boolean): String;
     function GetComponent(Owner, Parent: TComponent): TComponent;
     procedure GetComponent(var RootComponent: TComponent;
                           OnFindComponentClass: TFindComponentClassEvent;
@@ -213,6 +215,8 @@ type
     function HasPictureFormat: boolean;
     procedure Open;
     //procedure SetAsHandle(Format: integer; Value: THandle);
+    procedure SetAsHtml(Html: String);
+    procedure SetAsHtml(Html: String; const PlainText: String);
     function SetComponent(Component: TComponent): Boolean;
     function SetComponentAsText(Component: TComponent): Boolean;
     function SetFormat(FormatID: TClipboardFormat; Stream: TStream): Boolean;
@@ -241,11 +245,15 @@ function RegisterClipboardFormat(const Format: string): TClipboardFormat;
 
 implementation
 
+uses
+  fasthtmlparser, LazUTF8;
+
 var
   FClipboards: array[TClipboardType] of TClipboard;
 
 
 {$I clipbrd.inc}
+
 
 function RegisterClipboardFormat(const Format: string): TClipboardFormat;
 begin

@@ -420,6 +420,14 @@ msgstr "&Каталог"
 msgid "Docking"
 msgstr "Стикування"
 
+#: lclstrconsts.rsdocopy
+msgid "Copy"
+msgstr ""
+
+#: lclstrconsts.rsdopaste
+msgid "Paste"
+msgstr ""
+
 #: lclstrconsts.rsduplicateiconformat
 msgid "Duplicate icon format."
 msgstr "Дублювати формат іконок."
@@ -1067,9 +1075,9 @@ msgstr "Кольорове зображення (PPM)"
 msgid "Post"
 msgstr "Відправити"
 
-#: lclstrconsts.rspressoktoignoreandriskdatacorruptionpresscanceltok
-msgid "%s%sPress OK to ignore and risk data corruption.%sPress Cancel to kill the program."
-msgstr "%s%sНатисніть 'OK' щоб проігнорувати і ризикнути втратити дані.%sНатисніть 'Скасувати' для закриття програми."
+#: lclstrconsts.rspressoktoignoreandriskdatacorruptionpressaborttok
+msgid "%s%sPress OK to ignore and risk data corruption.%sPress Abort to kill the program."
+msgstr ""
 
 #: lclstrconsts.rspriorrecordhint
 msgctxt "lclstrconsts.rspriorrecordhint"

@@ -51,6 +51,18 @@ begin
       and (AControl.AnchorSide[akTop].Control=nil);
 end;
 
+function IsNotAligned(AControl: TControl; ASide: TAnchorKind): boolean;
+begin
+  Result:=(AControl.Align=alNone);
+  if not Result then Exit;
+  if ASide in [akLeft, akRight] then
+    Result:=(AControl.Anchors*[akLeft, akRight]=[akLeft])
+        and (AControl.AnchorSide[akLeft].Control=nil)
+  else
+    Result:=(AControl.Anchors*[akTop, akBottom]=[akTop])
+        and (AControl.AnchorSide[akBottom].Control=nil);
+end;
+
 {------------------------------------------------------------------------------
   Autosizing Helper classes
 -------------------------------------------------------------------------------}
@@ -838,7 +850,7 @@ begin
     Child:=WinControl.Controls[i];
     ChildData:=Children[Child];
     if not ChildData.Visible then continue;
-    if IsNotAligned(Child) then begin
+    if IsNotAligned(Child, Side) then begin
       // this is a non aligned control
       //DebugLn(['TAutoSizeCtrlData.DoMoveNonAlignedChilds Child=',DbgSName(Child),' Side=',dbgs(Side)]);
       if FindMinimum then begin
@@ -858,14 +870,6 @@ begin
       end else begin
         SetFixedLeftTop(ChildData,Side,Child.GetSidePosition(Side)-MoveDiff);
       end;
-    {end else if (Child.Align=alNone) and (Side in Child.Anchors) then begin
-      // e.g. Align=alNone, Anchors=[akLeft,akTop,akRight]
-      if FindMinimum then begin
-        // no auto move
-      end else begin
-        // don't move, but use them for bounds computation
-        SetFixedLeftTop(ChildData,Side,Child.GetSidePosition(Side));
-      end;}
     end else if (Child.Align=alCustom)
     and (Side in AnchorAlign[alCustom]) then begin
       if FindMinimum then begin
@@ -1198,27 +1202,32 @@ begin
       Child:=WinControl.Controls[i];
       ChildData:=Children[Child];
       if not Child.IsControlVisible then continue;
-      if not IsNotAligned(Child) then continue;
-      if MoveNonAlignedChildrenLeft
-      and (ChildData.Sides[akLeft].DistanceState[assddLeftTop]=assdfValid) then
-        MoveNonAlignedToLeft:=Max(MoveNonAlignedToLeft,
-                   Child.Left-ChildData.Sides[akLeft].Distance[assddLeftTop]);
-      { the below is only correct, if PreferredClientWidth is realized.
-      if (ChildData.Sides[akLeft].DistanceState[assddRightBottom]=assdfValid) then
-        MoveNonAlignedToLeft:=Min(MoveNonAlignedToLeft,
-          Child.Left
-          -(PreferredClientWidth
-            -ChildData.Sides[akLeft].Distance[assddRightBottom]));}
-      if MoveNonAlignedChildrenTop
-      and (ChildData.Sides[akTop].DistanceState[assddLeftTop]=assdfValid) then
-        MoveNonAlignedToTop:=Max(MoveNonAlignedToTop,
-                     Child.Top-ChildData.Sides[akTop].Distance[assddLeftTop]);
-      { the below is only correct, if PreferredClientWidth is realized.
-      if (ChildData.Sides[akTop].DistanceState[assddRightBottom]=assdfValid) then
-        MoveNonAlignedToTop:=Min(MoveNonAlignedToTop,
-          Child.Top
-          -(PreferredClientHeight
-            -ChildData.Sides[akTop].Distance[assddRightBottom]));}
+      if IsNotAligned(Child, akLeft) then
+      begin
+        if MoveNonAlignedChildrenLeft
+        and (ChildData.Sides[akLeft].DistanceState[assddLeftTop]=assdfValid) then
+          MoveNonAlignedToLeft:=Max(MoveNonAlignedToLeft,
+                     Child.Left-ChildData.Sides[akLeft].Distance[assddLeftTop]);
+        { the below is only correct, if PreferredClientWidth is realized.
+        if (ChildData.Sides[akLeft].DistanceState[assddRightBottom]=assdfValid) then
+          MoveNonAlignedToLeft:=Min(MoveNonAlignedToLeft,
+            Child.Left
+            -(PreferredClientWidth
+              -ChildData.Sides[akLeft].Distance[assddRightBottom]));}
+      end;
+      if IsNotAligned(Child, akTop) then
+      begin
+        if MoveNonAlignedChildrenTop
+        and (ChildData.Sides[akTop].DistanceState[assddLeftTop]=assdfValid) then
+          MoveNonAlignedToTop:=Max(MoveNonAlignedToTop,
+                       Child.Top-ChildData.Sides[akTop].Distance[assddLeftTop]);
+        { the below is only correct, if PreferredClientWidth is realized.
+        if (ChildData.Sides[akTop].DistanceState[assddRightBottom]=assdfValid) then
+          MoveNonAlignedToTop:=Min(MoveNonAlignedToTop,
+            Child.Top
+            -(PreferredClientHeight
+              -ChildData.Sides[akTop].Distance[assddRightBottom]));}
+      end;
     end;
     if MoveNonAlignedToLeft=Low(integer) then MoveNonAlignedToLeft:=0;
     if MoveNonAlignedToTop=Low(integer) then MoveNonAlignedToTop:=0;
@@ -2853,7 +2862,7 @@ var
       {$ENDIF}
     end;
 
-    // set min size to stop circling (this should not be needed. But if someone
+    // set min size to stop cycling (this should not be needed. But if someone
     // plays/fixes the above code, new bugs can enter and there are far too many
     // combinations to test, and so the LCL can loop for some applications.
     // Prevent this, so users can at least report a bug.)
@@ -3188,7 +3197,7 @@ begin
         // Auto aligning/anchoring can be very interdependent.
         // In worst case the n-2 depends on the n-1, the n-3 depends on n-2
         // and so forth. This is allowed, so do up to n loop step.
-        // Do not more, to avoid endless loops, if there are circle
+        // Do not more, to avoid endless loops, if there are circlular
         // dependencies.
         MaxTries:=ControlCount;
         {$IFDEF CHECK_POSITION}inc(MaxTries);{$ENDIF}
@@ -3207,9 +3216,9 @@ begin
           DoAlignNotAligned;
           if not BoundsMutated then break;
           if (i=ControlCount+1) then begin
-            DebugLn(['TWinControl.AlignControls ENDLESS LOOP STOPPED ',DbgSName(Self),' i=',i]);
+            DebugLn(['Warning: TWinControl.AlignControls ENDLESS LOOP STOPPED ',DbgSName(Self),' i=',i]);
             if LastBoundsMutated<>nil then
-              DebugLn(['TWinControl.AlignControls LAST CHANGED: ',DbgSName(LastBoundsMutated),' Old=',dbgs(LastBoundsMutatedOld),' Now=',dbgs(LastBoundsMutated.BoundsRect)]);
+              DebugLn(['Warning: TWinControl.AlignControls LAST CHANGED: ',DbgSName(LastBoundsMutated),' Old=',dbgs(LastBoundsMutatedOld),' Now=',dbgs(LastBoundsMutated.BoundsRect)]);
           end;
           // update again
           RemainingClientRect:=OldRemainingClientRect;
@@ -3604,8 +3613,8 @@ end;
 
 {------------------------------------------------------------------------------
   TWinControl CanFocus
-  
-  
+
+
 ------------------------------------------------------------------------------}
 function TWinControl.CanFocus: Boolean;
 var
@@ -3626,6 +3635,35 @@ begin
     until False;
     Result := True;
   end;
+end;
+
+{------------------------------------------------------------------------------
+  TWinControl CanSetFocus
+
+  CanSetFocus should be prefered over CanFocus if used in CanSetFocus/SetFocus
+  combination
+
+  if MyControl.CanSetFocus then
+    MyControl.SetFocus;
+
+  because it checks also if the parent form can receive focus and thus prevents
+  the "cannot focus an invisible window" LCL exception.
+------------------------------------------------------------------------------}
+function TWinControl.CanSetFocus: Boolean;
+var
+  Control: TWinControl;
+begin
+  Control := Self;
+  while True do
+  begin
+    // test if all are visible and enabled
+    if not (Control.IsControlVisible and Control.Enabled) then
+      Exit(False);
+    if not Assigned(Control.Parent) then
+      Break;
+    Control := Control.Parent;
+  end;
+  Result := Control is TCustomForm;//the very top parent must be a form
 end;
 
 {------------------------------------------------------------------------------
@@ -4664,15 +4702,21 @@ begin
     if MouseMessage.Msg = LM_MOUSEWHEEL then
     begin
       MouseEventMessage := TLMMouseEvent(TheMessage);
+      {$PUSH}
+      {$R-}{$Q-} // no range, no overflow checks
       MouseEventMessage.X := P.X;
       MouseEventMessage.Y := P.Y;
+      {$POP}
       Control.Dispatch(MouseEventMessage);
       MouseMessage.Result := MouseEventMessage.Result;
+      Result := (MouseMessage.Result <> 0);
     end
     else
+    begin
       MouseMessage.Result := Control.Perform(MouseMessage.Msg, WParam(MouseMessage.Keys),
-                             LParam(Integer(PointToSmallPoint(P))));
-    Result := True;
+                             LParam(Integer(PointToSmallPointNoChecks(P))));
+      Result := True;
+    end;
   end;
 end;
 
@@ -5092,7 +5136,7 @@ var
               (Enabled or (capfAllowDisabled in Flags))
               and
               (Perform(CM_HITTEST, 0,
-                       LParam(Integer(PointToSmallPoint(ControlPos)))) <> 0)
+                       LParam(Integer(PointToSmallPointNoChecks(ControlPos)))) <> 0)
              )
             );
       {$IFDEF VerboseMouseBugfix}
@@ -5600,6 +5644,8 @@ end;
 procedure TWinControl.KeyDown(var Key: Word; Shift: TShiftState);
 begin
   if Assigned(FOnKeyDown) then FOnKeyDown(Self, Key, Shift);
+  if Key <> 0 then
+    DoCallKeyEventHandler(chtOnKeyDown, Key, Shift);
 end;
 
 {------------------------------------------------------------------------------
@@ -5916,7 +5962,18 @@ begin
     UTF8KeyPress(UTF8Key);
     if UTF8Key = '' then Exit;
   end;
-  
+
+  // redirect to designer
+  if (csDesigning in ComponentState) then
+  begin
+    F := GetDesignerForm(Self);
+    if Assigned(F) and Assigned(F.Designer) then
+    begin
+      F.Designer.UTF8KeyPress(UTF8Key);
+      if UTF8Key = '' then Exit;
+    end;
+  end;
+
   Result := False;
 end;
 
@@ -6091,14 +6148,27 @@ begin
   AdjustSize;
 end;
 
+procedure TWinControl.ScrollBy_WS(DeltaX, DeltaY: Integer);
+begin
+  if HandleAllocated then
+    TWSWinControlClass(WidgetSetClass).ScrollBy(Self, DeltaX, DeltaY)
+  else
+    raise Exception.Create('TWinControl.ScrollBy_WS: Handle not allocated');
+end;
+
 procedure TWinControl.ScrollBy(DeltaX, DeltaY: Integer);
 var
   i: Integer;
 begin
   // scroll inner controls
-  for i := 0 to ControlCount - 1 do
-    with Controls[i] do
-      SetBounds(Left + DeltaX, Top + DeltaY, Width, Height);
+  DisableAutoSizing;
+  try
+    for i := 0 to ControlCount - 1 do
+      with Controls[i] do
+        SetBounds(Left + DeltaX, Top + DeltaY, Width, Height);
+  finally
+    EnableAutoSizing;
+  end;
 end;
 
 {------------------------------------------------------------------------------
@@ -6794,7 +6864,8 @@ begin
     if CompareRect(@NewBoundsRealized,@FBoundsRealized) then exit;
 
     TopParent:=GetTopParent;
-    if (TopParent is TWinControl) and (wcfKillIntfSetBounds in TWinControl(TopParent).FWinControlFlags) then
+    if (TopParent is TWinControl)
+    and (wcfKillIntfSetBounds in TWinControl(TopParent).FWinControlFlags) then
       RaiseLoop;
 
     FBoundsRealized := NewBoundsRealized;

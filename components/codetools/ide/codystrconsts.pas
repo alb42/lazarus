@@ -78,6 +78,7 @@ resourcestring
   crsAddAssignMethod = 'Add Assign Method';
   crsShowCodeToolsNodeInfo = 'Show CodeTools Node Info ...';
   crsShowUnitIdentifierDictionary = 'Show Unit / Identifier Dictionary ...';
+  crsFindProcedureMethodOverloads = 'Find Procedure/Method Overloads';
   crsAddAssignMethod2 = 'Add Assign Method ...';
   crsCopyDeclarationToClipboard = 'Copy declaration to Clipboard';
   crsCutDeclarationToClipboard = 'Cut declaration to Clipboard';
@@ -258,6 +259,34 @@ resourcestring
   crsFindSourceOfGDBBacktrace = 'Find source of GDB backtrace';
   crsPasteLinesOfAGdbBacktrace = 'Paste lines of a gdb backtrace:';
   crsJump = 'Jump';
+  crsHideAbstractMethodsAndMethodsOfClassInterfaces = 'Hide abstract methods '
+    +'and methods of class interfaces';
+  crsRelations = 'Relations:';
+  crsIfUncheckedListAlsoProceduresWithSameNameAndIncomp = 'If unchecked list '
+    +'also procedures with same name and incompatible parameter lists.';
+  crsName = 'Name';
+  crsCompatibility = 'Compatibility';
+  crsDistance = 'Distance';
+  crsExact = 'exact';
+  crsCompatible = 'compatible';
+  crsIncompatible = 'incompatible';
+  crsCodyFindOverloads = 'Cody - Find Overloads';
+  crsOnlyMethods = 'Only methods';
+  crsScanningSUnits = 'Scanning: %s units ...';
+  crsOnlyDescendantsOf = 'Only descendants of %s';
+  crsScanning = 'Scanning ...';
+  crsNoOverloadsFoundInProjectUnits = 'no overloads found in project units';
+  crsUnitsS = 'Units: %s';
+  crsErrorCursorIsNotInAProjectUnit = 'Error: cursor is not in a project unit';
+  crsOnlyNonMethods = 'Only non methods';
+  crsAny = 'Any';
+  crsErrorNeedSourceEditorAtProcedureCallOrDeclaration = 'Error: Need source '
+    +'editor at procedure call or declaration';
+  crsParseError = 'Parse error';
+  crsFilter2 = 'Filter';
+  crsOnlyProceduresWithCompatibleParameters = 'Only procedures with compatible'
+    +' parameters';
+  crsJumpTo2 = 'Jump to';
 
 implementation
 

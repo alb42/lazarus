@@ -248,6 +248,7 @@ type
     procedure RecogniseHintDirectives;
     procedure RecognisePropertyDirectives;
     procedure RecogniseExternalProcDirective;
+    function RecognisePublicProcDirective: boolean;
 
     procedure RecogniseAttributes;
 
@@ -290,8 +291,7 @@ uses
   { delphi }
   SysUtils, Forms,
   { local }
-  JcfStringUtils,
-  JcfUnicode;
+  JcfStringUtils;
 
 const
   UPDATE_INTERVAL = 512;
@@ -2630,7 +2630,7 @@ begin
   begin
     lc2 := fcTokenList.SolidToken(2);
     lbOldStyleCharEscape := (lc2 <> nil) and (Length(lc2.Sourcecode) = 1) and
-      not (WideCharIsAlpha(lc2.Sourcecode[1]));
+      not (CharIsAlpha(lc2.Sourcecode[1]));
   end
   else
     lc2 := nil;
@@ -3950,6 +3950,12 @@ begin
         begin
           RecogniseExternalProcDirective;
         end;
+        ttPublic:
+        begin
+          { Break the loop if we have found a class visibility "public" }
+          if not RecognisePublicProcDirective then
+            break;
+        end;
         ttDispId:
         begin
           Recognise(ttDispId);
@@ -3981,14 +3987,20 @@ begin
   { right, i'll fake this one
 
     ExternalProcDirective ->
-      External ["'" libname "'" ["name" "'" procname "'"]]
+      External ["'" libname "'"] ["name" "'" procname "'"]
 
       also allow "index expr"
   }
   PushNode(nExternalDirective);
 
   Recognise(ttExternal);
-  if fcTokenList.FirstSolidTokenType in (IdentiferTokens + [ttQuotedLiteralString]) then
+
+  if fcTokenList.FirstSolidTokenType = ttName then
+  begin
+    Recognise(ttName);
+    RecogniseConstantExpression;
+  end
+  else if fcTokenList.FirstSolidTokenType in (IdentiferTokens + [ttQuotedLiteralString]) then
   begin
     Recognise((IdentiferTokens + [ttQuotedLiteralString]));
 
@@ -4006,6 +4018,27 @@ begin
   end;
 
   PopNode;
+end;
+
+function TBuildParseTree.RecognisePublicProcDirective: boolean;
+begin
+  {
+    PublicProcDirective ->
+      Public ["name" "'" symname "'"]
+  }
+  result:=false;
+  if TopNode.HasParentNode([nClassBody, nObjectType]) then
+    exit;
+
+  Recognise(ttPublic);
+
+  if fcTokenList.FirstSolidTokenType = ttName then
+  begin
+    Recognise(ttName);
+    RecogniseConstantExpression;
+  end;
+
+  result:=true;
 end;
 
 procedure TBuildParseTree.RecogniseObjectType;
@@ -5202,7 +5235,7 @@ end;
 procedure TBuildParseTree.RecogniseAsmFactor;
 var
   lcNext: TSourceToken;
-  lcLastChar: WideChar;
+  lcLastChar: Char;
 begin
   if fcTokenList.FirstSolidTokenType = ttNot then
     Recognise(ttNot);
@@ -5556,7 +5589,6 @@ begin
   Result := False;
   lc := fcTokenList.FirstSolidToken;
 
-
   if lc.TokenType in [ttProcedure, ttFunction] then
   begin
     lcNext := fcTokenList.SolidToken(2);
@@ -5586,7 +5618,7 @@ begin
         if fcTokenList.FirstTokenLength = 1 then
           Recognise(fcTokenList.FirstTokenType)
         else
-           raise TEParseError.Create('Unexpected token, expected single char after ^', fcTokenList.FirstSolidToken);
+          raise TEParseError.Create('Unexpected token, expected single char after ^', fcTokenList.FirstSolidToken);
       end;
       ttHash:
       begin

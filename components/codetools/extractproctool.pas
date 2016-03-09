@@ -32,6 +32,14 @@
   ToDo:
     - check if selection bounds on statement bounds
     - with statements
+
+  Explode With Blocks todos:
+    - check if selection bounds on statement bounds
+    - keep Begin..End in case
+    - support Expressions
+    - with Canvas do with Self do (e.g. shape.inc)
+    - dialog in cody to replace a long expression with a short local variable
+    - bug: shape.inc : with Self do
 }
 unit ExtractProcTool;
 
@@ -43,7 +51,7 @@ interface
 
 uses
   Classes, SysUtils, math, FileProcs, CodeToolsStrConsts, CodeTree, CodeAtom,
-  CodeCache, CustomCodeTool,
+  CodeCache, CustomCodeTool, PascalReaderTool,
   PascalParserTool, CodeCompletionTool, KeywordFuncLists, BasicCodeTools,
   LinkScanner, AVL_Tree, SourceChanger,
   FindDeclarationTool;
@@ -843,7 +851,7 @@ var
     else
       ProcHead:='';
     ProcHead:=ProcHead+ProcName+BaseParamList;
-    ConflictProcNode:=FindProcNode(ContextNode,ProcHead,
+    ConflictProcNode:=FindProcNode(ContextNode,ProcHead,mgMethod,
                                    ShortProcFormat+[phpIgnoreForwards]);
     Result:=ConflictProcNode<>nil;
     if Result then begin
@@ -1116,14 +1124,12 @@ var
   var
     i: Integer;
     Cache: PWithVarCache;
-    Params: TFindDeclarationParams;
-    CLList: THelpersList;
+    ParentParams, Params: TFindDeclarationParams;
   begin
     Result:=false;
 
-    CLList := THelpersList.Create;
+    ParentParams := TFindDeclarationParams.Create(Self,WithVarNode);
     try
-      FindHelpersInContext(WithVarNode, CLList);
       // check cache
       if WithVarCache=nil then
         WithVarCache:=TFPList.Create;
@@ -1142,7 +1148,7 @@ var
         Cache^.WithVarNode:=WithVarNode;
         Cache^.WithVarExpr:=CleanExpressionType;
         Cache^.VarEndPos:=FindEndOfTerm(WithVarNode.StartPos,false,true);
-        Params:=TFindDeclarationParams.Create(CLList);
+        Params:=TFindDeclarationParams.Create(ParentParams);
         try
           Params.ContextNode:=WithVarNode;
           Params.Flags:=[fdfExceptionOnNotFound,fdfFunctionResult,fdfFindChildren];
@@ -1166,7 +1172,7 @@ var
       if CleanPos<=Cache^.VarEndPos then exit;
 
       // search identifier in with var context
-      Params:=TFindDeclarationParams.Create(CLList);
+      Params:=TFindDeclarationParams.Create(ParentParams);
       try
         Params.SetIdentifier(Self,@Src[CleanPos],nil);
         Params.Flags:=[fdfSearchInAncestors,fdfSearchInHelpers];
@@ -1179,7 +1185,7 @@ var
         Params.Free;
       end;
     finally
-      CLList.Free;
+      ParentParams.Free;
     end;
   end;
 
@@ -1365,13 +1371,15 @@ var
       FromPos:=Max(FromPos,DeleteHeaderEndPos);
       ToPos:=Min(ToPos,DeleteFooterStartPos);
       if FromPos>=ToPos then exit;
-      if IndentWith>=IndentInnerWith then
+      if IndentWith>=IndentInnerWith then exit;
       // unindent
       FromPos:=FindLineEndOrCodeAfterPosition(FromPos,true,true);
       //debugln(['UnIndent FromPos=',CleanPosToStr(FromPos),' ToPos=',CleanPosToStr(ToPos),' Src="',dbgstr(Src,FromPos,ToPos),'"']);
       if not SourceChangeCache.IndentBlock(FromPos,ToPos,IndentWith-IndentInnerWith)
-      then
+      then begin
+        debugln(['UnindentAndEncloseSkippedCode.UnIndent failed: ']);
         exit(false);
+      end;
     end;
 
   var
@@ -1478,10 +1486,22 @@ begin
 
     // RemoveWithHeader
     SourceChangeCache.MainScanner:=Scanner;
-    if not FindBounds then exit;
-    if not RemoveWithHeader then exit;
-    if not UnindentAndEncloseSkippedCode then exit;
-    if not PrefixSubIdentifiers then exit;
+    if not FindBounds then begin
+      debugln(['TExtractProcTool.RemoveWithBlock FindBounds failed']);
+      exit;
+    end;
+    if not RemoveWithHeader then begin
+      debugln(['TExtractProcTool.RemoveWithBlock RemoveWithHeader failed']);
+      exit;
+    end;
+    if not UnindentAndEncloseSkippedCode then begin
+      debugln(['TExtractProcTool.RemoveWithBlock UnindentAndEncloseSkippedCode failed']);
+      exit;
+    end;
+    if not PrefixSubIdentifiers then begin
+      debugln(['TExtractProcTool.RemoveWithBlock PrefixSubIdentifiers failed']);
+      exit;
+    end;
 
     Result:=SourceChangeCache.Apply;
     //debugln(['TExtractProcTool.RemoveWithBlock SOURCE:']);

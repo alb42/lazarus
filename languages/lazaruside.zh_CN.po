@@ -169,7 +169,7 @@ msgid "Extended, Actions, right gutter half only"
 msgstr ""
 
 #: lazarusidestrconsts.dlfmousesimplegutterlines
-msgid "Use line numers to select lines"
+msgid "Use line numbers to select lines"
 msgstr ""
 
 #: lazarusidestrconsts.dlfmousesimpleguttersect
@@ -392,6 +392,10 @@ msgstr "只读"
 #: lazarusidestrconsts.dlg1up2low
 msgid "Lowercase, first letter up"
 msgstr "转换为小写, 首字母大写"
+
+#: lazarusidestrconsts.dlgactivedesktop
+msgid "active"
+msgstr ""
 
 #: lazarusidestrconsts.dlgaddassignmentoperator
 msgid "Add assignment operator :="
@@ -640,6 +644,16 @@ msgstr "自动移除空方法"
 msgid "Auto rename file lowercase"
 msgstr "自动把文件名重命名为小写"
 
+#: lazarusidestrconsts.dlgautosaveactivedesktop
+msgid "Auto save active desktop"
+msgstr ""
+
+#: lazarusidestrconsts.dlgautosaveactivedesktophint
+msgid ""
+"Save active desktop on IDE close\n"
+"Save debug desktop on IDE close and debug end\n"
+msgstr ""
+
 #: lazarusidestrconsts.dlgavailableforms
 msgid "Available forms:"
 msgstr "可用窗体:"
@@ -717,6 +731,10 @@ msgstr "括号高亮"
 
 #: lazarusidestrconsts.dlgbracketmatchgroup
 msgid "Matching bracket pairs"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcannotusedockedundockeddesktop
+msgid "You cannot use docked desktop in undocked environment and vice versa."
 msgstr ""
 
 #: lazarusidestrconsts.dlgcasesensitive
@@ -1086,11 +1104,6 @@ msgstr ""
 msgid "Config files"
 msgstr "配置文件:"
 
-#: lazarusidestrconsts.dlgcoother
-msgctxt "lazarusidestrconsts.dlgcoother"
-msgid "Other"
-msgstr "其余的"
-
 #: lazarusidestrconsts.dlgcootherdebugginginfo
 msgid "Other debugging info"
 msgstr ""
@@ -1112,6 +1125,7 @@ msgid "Copy word on copy none"
 msgstr ""
 
 #: lazarusidestrconsts.dlgcorange
+msgctxt "lazarusidestrconsts.dlgcorange"
 msgid "Range"
 msgstr "范围"
 
@@ -1240,6 +1254,10 @@ msgstr ""
 msgid "User defined extension (.pp.xxx)"
 msgstr "用户定义后缀 (.pp.xxx)"
 
+#: lazarusidestrconsts.dlgdebugdesktop
+msgid "debug"
+msgstr ""
+
 #: lazarusidestrconsts.dlgdebugoptionspatheditordlgcaption
 msgid "Path Editor"
 msgstr "路径编辑器"
@@ -1260,19 +1278,9 @@ msgstr "默认值"
 msgid "Delete template "
 msgstr "删除模板"
 
-#: lazarusidestrconsts.dlgdesktop
-msgid "Desktop"
-msgstr "桌面"
-
 #: lazarusidestrconsts.dlgdesktopbuttons
 msgid "Buttons - "
 msgstr ""
-
-#: lazarusidestrconsts.dlgdesktopfiles
-#, fuzzy
-#| msgid "Desktop files"
-msgid "Desktop Files"
-msgstr "桌面配置文件"
 
 #: lazarusidestrconsts.dlgdesktophints
 msgid "Hints"
@@ -1280,6 +1288,18 @@ msgstr ""
 
 #: lazarusidestrconsts.dlgdesktopmenus
 msgid "Menus - "
+msgstr ""
+
+#: lazarusidestrconsts.dlgdesktopname
+msgid "Desktop name"
+msgstr ""
+
+#: lazarusidestrconsts.dlgdesktopsexported
+msgid "%d desktop(s) successfully exported to \"%s\""
+msgstr ""
+
+#: lazarusidestrconsts.dlgdesktopsimported
+msgid "%d desktop(s) successfully imported from \"%s\""
 msgstr ""
 
 #: lazarusidestrconsts.dlgdirection
@@ -1578,9 +1598,9 @@ msgctxt "lazarusidestrconsts.dlgenvtype"
 msgid "Type"
 msgstr "类型"
 
-#: lazarusidestrconsts.dlgeofocusmessagesaftercompilation
-msgid "Focus messages after compilation"
-msgstr "编译后焦点定位到消息窗口"
+#: lazarusidestrconsts.dlgeofocusmessagesatcompilation
+msgid "Focus messages at compilation"
+msgstr ""
 
 #: lazarusidestrconsts.dlgextracharspacing
 msgid "Extra char spacing"
@@ -1906,6 +1926,10 @@ msgstr ""
 msgid "Processing Instruction"
 msgstr ""
 
+#: lazarusidestrconsts.dlgforceuniqueinstancemodalerror
+msgid "The running Lazarus instance cannot accept any files."
+msgstr ""
+
 #: lazarusidestrconsts.dlgforecolor
 msgid "Foreground"
 msgstr "前景色"
@@ -1960,6 +1984,10 @@ msgstr "为 gprof 产生代码"
 
 #: lazarusidestrconsts.dlggrabbercolor
 msgid "Grabber color"
+msgstr ""
+
+#: lazarusidestrconsts.dlggrayeddesktopsundocked
+msgid "Grayed desktops are for undocked environment."
 msgstr ""
 
 #: lazarusidestrconsts.dlggridcolor
@@ -2151,9 +2179,11 @@ msgstr ""
 msgid "Included mixed state $IFDEF node"
 msgstr ""
 
-#: lazarusidestrconsts.dlgignoreverb
-msgid "Ignore"
-msgstr "忽略"
+#: lazarusidestrconsts.dlgimportdesktopexists
+msgid ""
+"A desktop with the same name already exists.\n"
+"Please confirm the desktop name:\n"
+msgstr ""
 
 #: lazarusidestrconsts.dlgincludesystemvariables
 msgid "Include system variables"
@@ -2213,6 +2243,10 @@ msgstr "时间间隔(秒为单位)"
 msgid "Jumping (e.g. Method Jumping)"
 msgstr "跳转(也就是方法跳转)"
 
+#: lazarusidestrconsts.dlgjumptomethodbody
+msgid "Jump directly to method body"
+msgstr ""
+
 #: lazarusidestrconsts.dlgkeepcursorx
 msgid "Keep cursor X position"
 msgstr "保持光标 X 定位"
@@ -2268,15 +2302,19 @@ msgstr "Level 1 (快速和交互调试)"
 
 #: lazarusidestrconsts.dlglevel2opt
 #, fuzzy
-#| msgid "Level 2 (Level 1 + quick optimizations)"
-msgid "2 (quick optimizations)"
+#| msgid "2 (quick optimizations)"
+msgid "2 (-O1 + quick optimizations)"
 msgstr "Level 2 (Level 1 + 快速优化)"
 
 #: lazarusidestrconsts.dlglevel3opt
 #, fuzzy
-#| msgid "Level 3 (Level 2 + slow optimizations)"
-msgid "3 (slow optimizations)"
+#| msgid "3 (slow optimizations)"
+msgid "3 (-O2 + slow optimizations)"
 msgstr "Level 3 (Level 2 + 慢速优化)"
+
+#: lazarusidestrconsts.dlglevel4opt
+msgid "4 (-O3 + aggressive optimizations, beware)"
+msgstr ""
 
 #: lazarusidestrconsts.dlglevelnoneopt
 #, fuzzy
@@ -2299,10 +2337,6 @@ msgstr "智能连接"
 #| msgid "Display Line Numbers in Run-time Error Backtraces"
 msgid "Display line numbers in run-time error backtraces"
 msgstr "当出现运行错误时显示行号"
-
-#: lazarusidestrconsts.dlgloaddfile
-msgid "Load desktop settings from file"
-msgstr "从文件载入 Lazarus 桌面设置"
 
 #: lazarusidestrconsts.dlgmainmenu
 msgid "Main Menu"
@@ -2329,6 +2363,10 @@ msgstr "查看工程单元"
 
 #: lazarusidestrconsts.dlgmakeexecutable
 msgid "\"Make\" executable"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmanagedesktops
+msgid "Manage desktops"
 msgstr ""
 
 #: lazarusidestrconsts.dlgmargingutter
@@ -2829,6 +2867,22 @@ msgstr ""
 msgid "Enable multi caret for column selection"
 msgstr ""
 
+#: lazarusidestrconsts.dlgmultipleinstances
+msgid "Multiple Lazarus instances"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmultipleinstances_alwaysstartnew
+msgid "always start a new instance"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmultipleinstances_forcesingleinstance
+msgid "do not allow multiple instances"
+msgstr ""
+
+#: lazarusidestrconsts.dlgmultipleinstances_openfilesinrunning
+msgid "open files in a running instance"
+msgstr ""
+
 #: lazarusidestrconsts.dlgmultiselect
 msgid "Multi Select"
 msgstr "多选"
@@ -2864,6 +2918,10 @@ msgstr ""
 #: lazarusidestrconsts.dlgnaming
 msgid "Naming"
 msgstr "命名"
+
+#: lazarusidestrconsts.dlgnewdesktop
+msgid "New desktop ..."
+msgstr ""
 
 #: lazarusidestrconsts.dlgnoautomaticrenaming
 #, fuzzy
@@ -2937,6 +2995,12 @@ msgstr "补充单元文件 (-Fu) (分号格开):"
 
 #: lazarusidestrconsts.dlgoverwriteblock
 msgid "Overwrite block"
+msgstr ""
+
+#: lazarusidestrconsts.dlgoverwritedesktop
+msgid ""
+"Desktop with the name \"%s\" was found.\n"
+"Should the old desktop be overwritten?\n"
 msgstr ""
 
 #: lazarusidestrconsts.dlgpalhints
@@ -3139,7 +3203,9 @@ msgid "Property Name"
 msgstr "属性名称"
 
 #: lazarusidestrconsts.dlgqopenlastprj
-msgid "Open last project at start"
+#, fuzzy
+#| msgid "Open last project at start"
+msgid "Open last project and packages at start"
 msgstr "在启动时打开上次的工程"
 
 #: lazarusidestrconsts.dlgqshowborderspacing
@@ -3154,6 +3220,10 @@ msgstr "显示网格"
 msgid "Snap to grid"
 msgstr "对齐到网格"
 
+#: lazarusidestrconsts.dlgreallydeletedesktop
+msgid "Really delete desktop \"%s\"?"
+msgstr ""
+
 #: lazarusidestrconsts.dlgreferencecolor
 msgid "Reference"
 msgstr "参考"
@@ -3163,6 +3233,10 @@ msgstr "参考"
 #| msgid "Regular E&xpressions"
 msgid "Regular e&xpressions"
 msgstr "正则表达式(&R)"
+
+#: lazarusidestrconsts.dlgrenamedesktop
+msgid "Rename desktop"
+msgstr ""
 
 #: lazarusidestrconsts.dlgreplaceall
 msgid "Replace &All"
@@ -3215,6 +3289,18 @@ msgctxt "lazarusidestrconsts.dlgruberbandselectioncolor"
 msgid "Rubberband Selection"
 msgstr "所选的"
 
+#: lazarusidestrconsts.dlgrunninginstancemodalerror
+msgid ""
+"The running Lazarus instance cannot accept any files.\n"
+"Do you want to open them in a new IDE instance?\n"
+"\n"
+"%s\n"
+msgstr ""
+
+#: lazarusidestrconsts.dlgrunninginstancenotrespondingerror
+msgid "Lazarus instance is running but not responding."
+msgstr ""
+
 #: lazarusidestrconsts.dlgrunodisplay
 msgid "Display (not for win32, e.g. 198.112.45.11:0, x.org:1, hydra:0.1)"
 msgstr "显示(不支持 win32, 例如 198.112.45.11:0, x.org:1, hydra:0.1)"
@@ -3246,9 +3332,9 @@ msgstr "用户强制"
 msgid "Run Parameters"
 msgstr "带参数运行"
 
-#: lazarusidestrconsts.dlgsavedfile
-msgid "Save desktop settings to file"
-msgstr "保存 Lazarus 桌面设置到文件"
+#: lazarusidestrconsts.dlgsavecurrentdesktopas
+msgid "Save current desktop as"
+msgstr ""
 
 #: lazarusidestrconsts.dlgsavedlinecolor
 msgid "Saved line"
@@ -3327,6 +3413,10 @@ msgstr ""
 msgid "&Selected text"
 msgstr "选择文本(&S)"
 
+#: lazarusidestrconsts.dlgsetactivedesktop
+msgid "Set active"
+msgstr ""
+
 #: lazarusidestrconsts.dlgsetallelementdefault
 msgid "Set all elements to default"
 msgstr "设置所有的元素为默认"
@@ -3338,6 +3428,26 @@ msgstr "设置元素为默认"
 #: lazarusidestrconsts.dlgsetpropertyvariable
 msgid "Set property Variable"
 msgstr "设置属性变量"
+
+#: lazarusidestrconsts.dlgsetpropertyvariablehint
+msgid "The parameter name for the default setter procedure."
+msgstr ""
+
+#: lazarusidestrconsts.dlgsetpropertyvariableisprefix
+msgid "is prefix"
+msgstr ""
+
+#: lazarusidestrconsts.dlgsetpropertyvariableisprefixhint
+msgid "If checked, the \"Set property Variable\" is a prefix. Otherwise it is a fixed name."
+msgstr ""
+
+#: lazarusidestrconsts.dlgsetpropertyvariableuseconst
+msgid "use const"
+msgstr ""
+
+#: lazarusidestrconsts.dlgsetpropertyvariableuseconsthint
+msgid "If checked, the setter parameter is marked with \"const\"."
+msgstr ""
 
 #: lazarusidestrconsts.dlgshowallunits
 msgid "Show all units"
@@ -3578,6 +3688,11 @@ msgstr "工程构建测试目录"
 msgctxt "lazarusidestrconsts.dlgtexttofind"
 msgid "&Text to find"
 msgstr "查找文本(&T)"
+
+#: lazarusidestrconsts.dlgtoggledebugdesktop
+msgctxt "lazarusidestrconsts.dlgtoggledebugdesktop"
+msgid "Toggle as debug desktop"
+msgstr ""
 
 #: lazarusidestrconsts.dlgtopinfohint
 msgid "Current Class/Proc Hint"
@@ -4047,6 +4162,10 @@ msgstr "新建文件"
 msgid "No package found for dependency \"%s\".%sPlease choose an existing package."
 msgstr "没有找到任何包依赖于 %s%s%s.%s请选择一个存在的包."
 
+#: lazarusidestrconsts.lisa2ppackageorproject
+msgid "Package/Project"
+msgstr ""
+
 #: lazarusidestrconsts.lisa2ppagenametoolong
 msgid "Page Name too long"
 msgstr "页面名称太长"
@@ -4207,6 +4326,12 @@ msgstr "错误的单元文件名"
 msgid "Abandon changes?"
 msgstr "放弃改变？"
 
+#: lazarusidestrconsts.lisabort
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisabort"
+msgid "Abort"
+msgstr "(中止)"
+
 #: lazarusidestrconsts.lisabortall
 msgid "Abort all"
 msgstr "中断所有"
@@ -4321,6 +4446,14 @@ msgstr ""
 msgid "Added property \"%s\" for %s."
 msgstr ""
 
+#: lazarusidestrconsts.lisaddfcutf8
+msgid "Add -FcUTF8"
+msgstr ""
+
+#: lazarusidestrconsts.lisaddfcutf8hint
+msgid "May be needed if source files have non-ansistring literals."
+msgstr ""
+
 #: lazarusidestrconsts.lisaddfilesindirectory
 msgid "Add Files in Directory"
 msgstr ""
@@ -4386,10 +4519,6 @@ msgctxt "lazarusidestrconsts.lisaddressbreakpoint"
 msgid "&Address Breakpoint ..."
 msgstr ""
 
-#: lazarusidestrconsts.lisaddsub
-msgid "Add >>"
-msgstr ""
-
 #: lazarusidestrconsts.lisaddtoincludesearchpath
 msgid "Add to include search path?"
 msgstr ""
@@ -4397,6 +4526,10 @@ msgstr ""
 #: lazarusidestrconsts.lisaddtoproject
 msgid "Add %s to project?"
 msgstr "添加 %s 到工程?"
+
+#: lazarusidestrconsts.lisaddtostartupcomponents
+msgid "Add to startup components?"
+msgstr ""
 
 #: lazarusidestrconsts.lisaddtounitsearchpath
 msgid "Add to unit search path?"
@@ -4432,10 +4565,6 @@ msgstr "目标包"
 msgid "File type"
 msgstr "文件类型"
 
-#: lazarusidestrconsts.lisaf2phasregisterprocedure
-msgid "Has Register procedure"
-msgstr "已经注册的过程函数"
-
 #: lazarusidestrconsts.lisaf2pinvalidpackage
 msgid "Invalid Package"
 msgstr "无效的包"
@@ -4463,22 +4592,9 @@ msgctxt "lazarusidestrconsts.lisaf2pshowall"
 msgid "Show all"
 msgstr "显示所有"
 
-#: lazarusidestrconsts.lisaf2pthefileisalreadyinthepackage
-#, fuzzy,badformat
-#| msgid "The file %s%s%s%sis already in the package %s."
-msgctxt "lazarusidestrconsts.lisaf2pthefileisalreadyinthepackage"
-msgid "The file \"%s\"%sis already in the package %s."
-msgstr "文件%s%s%s%s已经在包%s中."
-
 #: lazarusidestrconsts.lisaf2pthepackageisreadonly
 msgid "The package %s is read only."
 msgstr "包 %s 为只读."
-
-#: lazarusidestrconsts.lisaf2punitname
-#, fuzzy
-#| msgid "Unit Name: "
-msgid "Unit name: "
-msgstr "单元名: "
 
 #: lazarusidestrconsts.lisafilealreadyexistsreplaceit
 #, fuzzy,badformat
@@ -4633,7 +4749,7 @@ msgstr ""
 #: lazarusidestrconsts.lisanerroroccuredatlaststartupwhileloadingloadthispro
 #, fuzzy,badformat
 #| msgid "An error occured at last startup while loading %s!%s%sLoad this project again?"
-msgid "An error occured at last startup while loading %s!%sLoad this project again?"
+msgid "An error occurred at last startup while loading %s!%sLoad this project again?"
 msgstr "装载时发生错误 %s!%s%s 重新载入工程?"
 
 #: lazarusidestrconsts.lisapplicationclassname
@@ -4760,6 +4876,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisautomaticallyremovecharacter
 msgid "do not add character"
+msgstr ""
+
+#: lazarusidestrconsts.lisautomaticallyusesinglepossibleident
+msgid "Automatically use single possible identifier"
 msgstr ""
 
 #: lazarusidestrconsts.lisautomaticfeatures
@@ -5470,7 +5590,7 @@ msgid "Wrong indentation"
 msgstr ""
 
 #: lazarusidestrconsts.liscfeanexceptionoccuredduringdeletionof
-msgid "An exception occured during deletion of%s\"%s:%s\"%s%s"
+msgid "An exception occurred during deletion of%s\"%s:%s\"%s%s"
 msgstr ""
 
 #: lazarusidestrconsts.liscfecancelloadingthisresource
@@ -5705,6 +5825,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lischooseapascalfileforindentationexamples
 msgid "Choose a Pascal file for indentation examples"
+msgstr ""
+
+#: lazarusidestrconsts.lischooseclasssectiondlgformethodcaption
+msgid "Insert new method to section"
 msgstr ""
 
 #: lazarusidestrconsts.lischoosecompilerexecutable
@@ -5968,6 +6092,10 @@ msgstr "组件板"
 
 #: lazarusidestrconsts.liscmppages
 msgid "Pages"
+msgstr ""
+
+#: lazarusidestrconsts.liscmppalettevisible
+msgid "Palette is &visible"
 msgstr ""
 
 #: lazarusidestrconsts.liscmprestoredefaults
@@ -6973,10 +7101,6 @@ msgstr ""
 msgid "Convert Delphi unit"
 msgstr ""
 
-#: lazarusidestrconsts.lisconvdelphiconvertingfile
-msgid "* Converting file %s *"
-msgstr ""
-
 #: lazarusidestrconsts.lisconvdelphiconvertingfoundunits
 msgid "*** Converting unit files found during conversion ***"
 msgstr ""
@@ -7003,10 +7127,6 @@ msgstr ""
 
 #: lazarusidestrconsts.lisconvdelphifixedunitcase
 msgid "Fixed character case of unit \"%s\" to \"%s\"."
-msgstr ""
-
-#: lazarusidestrconsts.lisconvdelphifixingusedunits
-msgid "* Fixing used units for file %s *"
 msgstr ""
 
 #: lazarusidestrconsts.lisconvdelphifoundallunitfiles
@@ -7039,10 +7159,6 @@ msgstr ""
 
 #: lazarusidestrconsts.lisconvdelphiremovedunitinusessection
 msgid "Removed unit \"%s\" in uses section."
-msgstr ""
-
-#: lazarusidestrconsts.lisconvdelphirepairingformfile
-msgid "* Repairing form file %s *"
 msgstr ""
 
 #: lazarusidestrconsts.lisconvdelphirepairingformfiles
@@ -7336,22 +7452,6 @@ msgstr "按钮"
 msgid "Grab width"
 msgstr ""
 
-#: lazarusidestrconsts.liscoolbarhelp1
-msgid "The \"Add\" button inserts a command before the selected Item of the Toolbar."
-msgstr ""
-
-#: lazarusidestrconsts.liscoolbarhelp2
-msgid "If none is selected, the Item will be appended at the end of the Toolbar."
-msgstr ""
-
-#: lazarusidestrconsts.liscoolbarhelp3
-msgid "You may rearrange Toolbar Items with \"Move Up\" and \"Move Down\" buttons."
-msgstr ""
-
-#: lazarusidestrconsts.liscoolbarhelp4
-msgid "Hint: to append an Item at the end, use \"Clear selection\""
-msgstr ""
-
 #: lazarusidestrconsts.liscoolbaridemainmenu
 msgid "IDE Main Menu"
 msgstr ""
@@ -7551,8 +7651,8 @@ msgstr ""
 msgid "Create a project first!"
 msgstr "请先创建一个工程!"
 
-#: lazarusidestrconsts.liscreatedebugandreleasemodesnewproj
-msgid "Create Debug and Release modes for new projects"
+#: lazarusidestrconsts.liscreatedebugandreleasemodes
+msgid "Create Debug and Release modes"
 msgstr ""
 
 #: lazarusidestrconsts.liscreatedirectory
@@ -7589,10 +7689,6 @@ msgstr ""
 
 #: lazarusidestrconsts.liscreatenewpackagecomponent
 msgid "Create new package component"
-msgstr ""
-
-#: lazarusidestrconsts.liscreatenowforthisproject
-msgid "Create now for this project"
 msgstr ""
 
 #: lazarusidestrconsts.liscreateproject
@@ -7701,6 +7797,10 @@ msgstr "自定义选项"
 #: lazarusidestrconsts.liscustomoptions2
 msgid "Custom options"
 msgstr "自定义选项"
+
+#: lazarusidestrconsts.liscustomoptions3
+msgid "Custom Options"
+msgstr ""
 
 #: lazarusidestrconsts.liscustomprogram
 msgid "Custom Program"
@@ -8211,16 +8311,16 @@ msgstr "删除文件 %s%s%s 失败."
 msgid "Delimiter is semicolon."
 msgstr ""
 
-#: lazarusidestrconsts.lisdelphi
-msgid "Delphi"
-msgstr ""
-
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr ""
 
 #: lazarusidestrconsts.lisdesigntimepackagesaddcomponentsandmenuitemstotheid
 msgid "\"Design time\" packages add components and menu items to the IDE. They can be used by projects, but are not compiled into the project. The compiler will not find units of this package when compiling the project."
+msgstr ""
+
+#: lazarusidestrconsts.lisdesktops
+msgid "Desktops ..."
 msgstr ""
 
 #: lazarusidestrconsts.lisdestinationdirectory
@@ -8450,6 +8550,11 @@ msgctxt "lazarusidestrconsts.lisdlgimport"
 msgid "Import ..."
 msgstr ""
 
+#: lazarusidestrconsts.lisdlgmore
+msgctxt "lazarusidestrconsts.lisdlgmore"
+msgid "More ..."
+msgstr ""
+
 #: lazarusidestrconsts.lisdlgopen
 msgctxt "lazarusidestrconsts.lisdlgopen"
 msgid "Open ..."
@@ -8468,6 +8573,10 @@ msgstr "%s 不存在：%s"
 
 #: lazarusidestrconsts.lisdonotchange
 msgid "Do not change"
+msgstr ""
+
+#: lazarusidestrconsts.lisdonotcheckifanotherideinstanceisalreadyrunning
+msgid "%sDo not check if another IDE instance is already running"
 msgstr ""
 
 #: lazarusidestrconsts.lisdonotclosetheproject
@@ -8634,12 +8743,12 @@ msgstr ""
 msgid "Editor ToolBar"
 msgstr ""
 
-#: lazarusidestrconsts.liseditortoolbarhint
-msgid "You may add here your favorite commands"
+#: lazarusidestrconsts.liseditortoolbarsettings
+msgid "Editor Toolbar Settings"
 msgstr ""
 
 #: lazarusidestrconsts.liseditortoolbarvisible
-msgid "EditorToolbar is &visible"
+msgid "Editor Toolbar is &visible"
 msgstr ""
 
 #: lazarusidestrconsts.lisedoptsloadascheme
@@ -8743,6 +8852,10 @@ msgstr "需要标题和文件名"
 #: lazarusidestrconsts.lisedtexttoolworkingdirectory
 msgid "Working Directory:"
 msgstr "工作目录:"
+
+#: lazarusidestrconsts.liselevatethemessageprioritytoalwaysshowitbydefaultit
+msgid "Elevate the message priority to always show it (by default it has low priority \"verbose\")"
+msgstr ""
 
 #: lazarusidestrconsts.lisemdall
 msgctxt "lazarusidestrconsts.lisemdall"
@@ -9059,6 +9172,10 @@ msgstr ""
 msgid "Save Events to File"
 msgstr ""
 
+#: lazarusidestrconsts.liseventmethodsectionlabel
+msgid "Insert new event methods to section"
+msgstr ""
+
 #: lazarusidestrconsts.liseventslogaddcomment
 msgid "Add Comment ..."
 msgstr ""
@@ -9157,12 +9274,25 @@ msgctxt "lazarusidestrconsts.lisexport"
 msgid "Export"
 msgstr "导出 ..."
 
+#: lazarusidestrconsts.lisexportall
+msgid "Export all"
+msgstr ""
+
 #: lazarusidestrconsts.lisexportallitemstofile
 msgid "Export All Items to File"
 msgstr ""
 
+#: lazarusidestrconsts.lisexportenvironmentoptions
+msgctxt "lazarusidestrconsts.lisexportenvironmentoptions"
+msgid "Export environment options"
+msgstr ""
+
 #: lazarusidestrconsts.lisexporthtml
 msgid "Export as HTML"
+msgstr ""
+
+#: lazarusidestrconsts.lisexportimport
+msgid "Export / Import"
 msgstr ""
 
 #: lazarusidestrconsts.lisexportlist
@@ -9171,6 +9301,14 @@ msgstr "导出列表"
 
 #: lazarusidestrconsts.lisexportpackagelistxml
 msgid "Export package list (*.xml)"
+msgstr ""
+
+#: lazarusidestrconsts.lisexportselected
+msgid "Export selected"
+msgstr ""
+
+#: lazarusidestrconsts.lisexportsub
+msgid "Export >>"
 msgstr ""
 
 #: lazarusidestrconsts.lisexpression
@@ -9674,10 +9812,6 @@ msgstr "向后搜索(&B)"
 msgid "freeing buffer lines: %s"
 msgstr ""
 
-#: lazarusidestrconsts.lisfreepascal
-msgid "Free Pascal"
-msgstr ""
-
 #: lazarusidestrconsts.lisfreepascalcompilermessages
 msgid "Free Pascal Compiler messages"
 msgstr ""
@@ -9803,6 +9937,10 @@ msgstr ""
 msgid "%sThere are %d more empty groups, delete all?"
 msgstr ""
 
+#: lazarusidestrconsts.lisgrouplocalvariables
+msgid "Group automatically defined local variables"
+msgstr ""
+
 #: lazarusidestrconsts.lisgroupnameemptyclearinstead
 msgid "The group name cannot be empty. Clear breakpoints' group(s)?"
 msgstr ""
@@ -9907,6 +10045,10 @@ msgstr ""
 msgid "Hint: Check if two packages contain a unit with the same name."
 msgstr "提示: 两个包包含了同名单元."
 
+#: lazarusidestrconsts.lishintclickonshowoptionstofindoutwhereinheritedpaths
+msgid "Hint: Click on \"Show Options\" to find out where inherited paths are coming from."
+msgstr ""
+
 #: lazarusidestrconsts.lishints
 msgid ", Hints: %s"
 msgstr ""
@@ -9980,17 +10122,13 @@ msgctxt "lazarusidestrconsts.lisid"
 msgid "ID"
 msgstr "ID"
 
-#: lazarusidestrconsts.lisidcadd
-#, fuzzy
-msgctxt "lazarusidestrconsts.lisidcadd"
-msgid "Add"
-msgstr "添加"
+#: lazarusidestrconsts.lisidcaddition
+msgid "Addition"
+msgstr ""
 
-#: lazarusidestrconsts.lisidcopen
-#, fuzzy
-msgctxt "lazarusidestrconsts.lisidcopen"
-msgid "Open"
-msgstr "打开"
+#: lazarusidestrconsts.lisidcopening
+msgid "Opening"
+msgstr ""
 
 #: lazarusidestrconsts.liside
 msgid "IDE"
@@ -10126,6 +10264,12 @@ msgstr ""
 msgid "If you want to use two different Lazarus versions you must start the second Lazarus with the command line parameter primary-config-path or pcp.%sFor example:"
 msgstr ""
 
+#: lazarusidestrconsts.lisignore
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisignore"
+msgid "Ignore"
+msgstr "忽略"
+
 #: lazarusidestrconsts.lisignoreall
 msgid "Ignore all"
 msgstr "忽略所有"
@@ -10142,9 +10286,9 @@ msgstr "忽略二进制的"
 msgid "Ignore this exception type"
 msgstr "忽略这个异常类型"
 
-#: lazarusidestrconsts.lisignoreusetformasancestor
-msgid "Ignore, use TForm as ancestor"
-msgstr "忽略, 用 TForm 作为原型"
+#: lazarusidestrconsts.lisignoreuseasancestor
+msgid "Ignore, use %s as ancestor"
+msgstr ""
 
 #: lazarusidestrconsts.lisimitateindentationofcurrentunitprojectorpackage
 msgid "Imitate indentation of current unit, project or package"
@@ -10164,8 +10308,9 @@ msgctxt "lazarusidestrconsts.lisimportant"
 msgid "Important"
 msgstr ""
 
-#: lazarusidestrconsts.lisimportexport
-msgid "Import / Export"
+#: lazarusidestrconsts.lisimportenvironmentoptions
+msgctxt "lazarusidestrconsts.lisimportenvironmentoptions"
+msgid "Import environment options"
 msgstr ""
 
 #: lazarusidestrconsts.lisimportfromfile
@@ -10416,6 +10561,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisinsteadofcompilepackagecreateasimplemakefile
 msgid "Instead of compile package create a simple Makefile."
+msgstr ""
+
+#: lazarusidestrconsts.lisinsufficientencoding
+msgid "Insufficient encoding"
 msgstr ""
 
 #: lazarusidestrconsts.lisinteractive
@@ -11534,10 +11683,6 @@ msgstr "连接目标"
 msgid "list of all case values"
 msgstr ""
 
-#: lazarusidestrconsts.lisloadedsuccessfully
-msgid "Loaded successfully"
-msgstr ""
-
 #: lazarusidestrconsts.lisloadingfailed
 msgid "Loading %s failed."
 msgstr "加载 %s 失败."
@@ -11552,6 +11697,10 @@ msgstr "本地化"
 
 #: lazarusidestrconsts.lislocalsdlgcopyname
 msgid "&Copy Name"
+msgstr ""
+
+#: lazarusidestrconsts.lislocalsdlgcopyrawvalue
+msgid "Copy &RAW Value"
 msgstr ""
 
 #: lazarusidestrconsts.lislocalsdlgcopyvalue
@@ -11597,10 +11746,6 @@ msgstr ""
 
 #: lazarusidestrconsts.lislrsincludefiles
 msgid "Lazarus resources (.lrs) include files"
-msgstr ""
-
-#: lazarusidestrconsts.lismacpascal
-msgid "Mac Pascal"
 msgstr ""
 
 #: lazarusidestrconsts.lismacro
@@ -11952,77 +12097,548 @@ msgstr "编辑上下文帮助"
 msgid "Install/Uninstall Packages ..."
 msgstr "配置已安装的包 ..."
 
-#: lazarusidestrconsts.lismenueditor
-msgid "Menu Editor ..."
+#: lazarusidestrconsts.lismenueditoracceleratorkeysneedschanging
+msgid "Accelerator(&&) key \"%s\" needs changing"
 msgstr ""
 
-#: lazarusidestrconsts.lismenueditorcreatesubmenu
-msgid "Create Submenu"
-msgstr "创建子菜单"
+#: lazarusidestrconsts.lismenueditoraddanewitemaboveselecteditem
+msgid "Add a new item above selected item"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditordeletefromtemplate
-#, fuzzy
-#| msgid "Delete From Template..."
-msgid "Delete From Template ..."
-msgstr "删除窗体模板..."
+#: lazarusidestrconsts.lismenueditoraddanewitemafterselecteditem
+msgid "Add a new item after selected item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddanewitembeforeselecteditem
+msgid "Add a new item before selected item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddanewitembelowselecteditem
+msgid "Add a new item below selected item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddasubmenuattherightofselecteditem
+msgid "Add a submenu at the right of selected item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddasubmenubelowselecteditem
+msgid "Add a submenu below selected item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddfromtemplate
+msgid "&Add from template ..."
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddiconfroms
+msgid "Add icon from %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddimagelisticon
+msgid "Add imagelist &icon"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddmenuitem
+msgid "Add menu item"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddnewitemabove
+msgid "&Add new item above"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddnewitemafter
+msgid "Add ne&w item after"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddnewitembefore
+msgid "&Add new item before"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddnewitembelow
+msgid "Add ne&w item below"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddonclickhandler
+msgid "Add &OnClick handler"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddseparatorafter
+msgid "Add separator &after"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddseparatorbefore
+msgid "Add separator &before"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddsubmenu
+msgid "Add submenu"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddsubmenubelow
+msgid "Add &submenu below"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoraddsubmenuright
+msgid "Add &submenu right"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoranewmenutemplatehasbeensaved
+msgid "A new menu template described as \"%s\" has been saved based on %s, with %d sub items"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorbasiceditmenutemplate
+msgid "&Edit,Basic edit menu,&Undo,Ctrl+Z,&Redo,,-,,Select &All,Ctrl+A,C&ut,Ctrl+X,C&opy,Ctrl+C,P&aste,Ctrl+V,Paste &Special,,-,,F&ind,,R&eplace,,&Go to ...,,"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorbasicfilemenutemplate
+msgid "&File,Basic file menu,&New,,&Open ...,,&Save,,Save &As,,-,,&Print,,P&rint Setup ...,,-,,E&xit,,"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorbasichelpmenutemplate
+msgid "&Help,Basic help menu,Help &Contents,F1,Help &Index,,&Online Help,,-,,&Licence Information,,&Check for Updates,,-,,&About,,"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorbasicwindowmenutemplate
+msgid "&Window,Basic window menu,&New Window,,&Tile,,&Cascade,,&Arrange all,,-,,&Hide,,&Show,,"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorcaption
+msgid "Caption"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorcaptioneditemss
+msgid "Captioned items: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorcaptionshouldnotbeblank
+msgid "Caption should not be blank"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangeconflictingaccelerators
+msgid "Change conflicting accelerator \"%s\""
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangeimagelisticon
+msgid "Change imagelist &icon"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangeshortcutcaptionforcomponent
+msgid "Change %s for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangeshortcutconflicts
+msgid "Change shortcut conflict \"%s\""
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangetheshortcutfors
+msgid "Change the shortCut for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchangetheshortcutkey2fors
+msgid "Change the shortCutKey2 for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchoosetemplatetodelete
+msgid "Choose template to delete"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorchoosetemplatetoinsert
+msgid "Choose template to insert"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorclickanongreyeditemtoedititsshortcut
+msgid "Click a non-greyed item to edit its shortcut or click header to sort by that column"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorcomponentisunexpectedkind
+msgid "Component is unexpected kind"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorcomponentisunnamed
+msgid "Component is unnamed"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorconflictresolutioncomplete
+msgid "<conflict resolution complete>"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorconflictsfoundinitiallyd
+msgid "Conflicts found initially: %d"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditordeepestnestedmenulevels
+msgid "Deepest nested menu level: %s"
+msgstr ""
 
 #: lazarusidestrconsts.lismenueditordeleteitem
-msgid "Delete Item"
+#, fuzzy
+#| msgid "Delete Item"
+msgid "&Delete item"
 msgstr "删除项"
 
-#: lazarusidestrconsts.lismenueditorhandleonclickevent
-msgid "Handle OnClick Event"
-msgstr "处理 OnClick 事件"
+#: lazarusidestrconsts.lismenueditordeletemenutemplate
+msgid "&Delete menu template ..."
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorinsertfromtemplate
-#, fuzzy
-#| msgid "Insert From Template..."
-msgid "Insert From Template ..."
-msgstr "从模板插入..."
+#: lazarusidestrconsts.lismenueditordeletesavedmenutemplate
+msgid "Delete saved menu template"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorinsertnewitemafter
-msgid "Insert New Item (after)"
-msgstr "在后面插入项目"
+#: lazarusidestrconsts.lismenueditordeleteselectedmenutemplate
+msgid "Delete selected menu template"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorinsertnewitembefore
-msgid "Insert New Item (before)"
-msgstr "在前面插入项目"
+#: lazarusidestrconsts.lismenueditordeletethisitemanditssubitems
+msgid "Delete this item and its subitems?"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditordisplaypreviewaspopupmenu
+msgid "Display preview as &Popup menu"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoreditcaption
+msgid "Edit &Caption"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoreditingcaptionofs
+msgid "Editing Caption of %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoreditingsdots
+msgid "To resolve conflict edit %s.%s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoreditingsfors
+msgid "Editing %s for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoreditingssnomenuitemselected
+msgid "Editing %s.%s - no menuitem selected"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorenteramenudescription
+msgid "Enter a menu &Description:"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorenteranewshortcutfors
+msgid "Enter a new ShortCut for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorenteranewshortcutkey2fors
+msgid "Enter a new ShortCutKey2 for %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorexistingsavedtemplates
+msgid "Existing saved templates"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorfurthershortcutconflict
+msgid "Further shortcut conflict"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorgethelptousethiseditor
+msgid "Get help to use this editor"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorgrabkey
+msgid "&Grab key"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorgroupindexvaluess
+msgid "GroupIndex value(s): %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorinadequatedescription
+msgid "Inadequate Description"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorinsertmenutemplateintorootofs
+msgid "Insert menu template into root of %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorinsertselectedmenutemplate
+msgid "Insert selected menu template"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorisnotassigned
+msgid "is not assigned"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoritemswithicons
+msgid "Items with icon: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorlistshortcutsandaccelerators
+msgid "List shortcuts and &accelerators for %s ..."
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorlistshortcutsfors
+msgid "List shortcuts for %s ..."
+msgstr ""
 
 #: lazarusidestrconsts.lismenueditormenueditor
 msgid "Menu Editor"
 msgstr "菜单编辑器"
 
+#: lazarusidestrconsts.lismenueditormenuitemactions
+msgid "Menu Item actions"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormenuitemshortcutconflictsins
+msgid "Menuitem shortcut conflicts in %s"
+msgstr ""
+
 #: lazarusidestrconsts.lismenueditormovedown
 msgid "Move Down (or right)"
 msgstr "下移(或右移)"
+
+#: lazarusidestrconsts.lismenueditormoveitemdown
+msgid "Mo&ve item down"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveitemleft
+msgid "&Move item left"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveitemright
+msgid "Mo&ve item right"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveitemup
+msgid "&Move item up"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveselecteditemdown
+msgctxt "lazarusidestrconsts.lismenueditormoveselecteditemdown"
+msgid "Move selected item down"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveselecteditemtotheleft
+msgid "Move selected item to the left"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveselecteditemtotheright
+msgid "Move selected item to the right"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditormoveselecteditemup
+msgctxt "lazarusidestrconsts.lismenueditormoveselecteditemup"
+msgid "Move selected item up"
+msgstr ""
 
 #: lazarusidestrconsts.lismenueditormoveup
 msgid "Move Up (or left)"
 msgstr "上移 (或左移)"
 
-#: lazarusidestrconsts.lismenueditornewtemplatedescription
-#, fuzzy
-#| msgid "New Template Description..."
-msgid "New Template Description ..."
-msgstr "新建模板描述..."
+#: lazarusidestrconsts.lismenueditorna
+msgid "n/a"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorsaveastemplate
-#, fuzzy
-#| msgid "Save As Template..."
-msgid "Save As Template ..."
-msgstr "保存为模板..."
+#: lazarusidestrconsts.lismenueditornomenuselected
+msgid "(no menu selected)"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorselectmenu
-msgid "Select Menu:"
-msgstr "选择菜单:"
+#: lazarusidestrconsts.lismenueditornone
+msgid "<none>"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditorselecttemplate
-msgid "Select Template:"
-msgstr "选择模板:"
+#: lazarusidestrconsts.lismenueditornonenone
+msgid "<none>,<none>"
+msgstr ""
 
-#: lazarusidestrconsts.lismenueditortemplatepreview
-msgid "Template Preview"
-msgstr "预览模板"
+#: lazarusidestrconsts.lismenueditornoradioitemsinthismenu
+msgid "No radioitems in this menu"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditornoshortcutconflicts
+msgid "<no shortcut conflicts>"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditornousersavedtemplates
+msgid "No user-saved templates"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorpickaniconfroms
+msgid "Pick an icon from %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorpopupassignmentss
+msgid "Popup assignments: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorremainingconflictss
+msgid "Remaining conflicts: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorremoveallseparators
+msgid "&Remove all separators"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorresolvedconflictss
+msgid "Resolved conflicts: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorresolveselectedconflict
+msgid "Resolve selected conflict"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorresolveshortcutconflicts
+msgid "&Resolve shortcut conflicts ..."
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorrootmenu
+msgid "Root menu"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsavedtemplates
+msgid "Saved templates"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsavemenuasatemplate
+msgid "&Save menu as a template ..."
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsavemenuastemplate
+msgid "Save menu as template"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsavemenuastemplateforfutureuse
+msgid "Save menu as template for future use"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsavemenushownasanewtemplate
+msgid "Save menu shown as a new template"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsconflictswiths
+msgid "%s conflicts with %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorseparators
+msgid "Se&parators"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsgroupindexd
+msgid "%s.GroupIndex: %d"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutitemss
+msgid "Shortcut items: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutnotyetchanged
+msgid "Shortcut not yet changed"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcuts
+msgid "Shortcuts"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcuts2
+msgid "Shortc&uts"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsandacceleratorkeys
+msgid "Shortcuts and Accelerator keys"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsd
+msgid "Shortcuts (%d)"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsdandacceleratorkeysd
+msgid "Shortcuts (%d) and Accelerator keys (%d)"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsourceproperty
+msgid "Shortcut,Source Property"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsusedins
+msgid "Shortcuts used in %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshortcutsusedinsd
+msgid "Shortcuts used in %s (%d)"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorshowmenueditortmenuparameterisnil
+msgid "ShowMenuEditor: TMenu parameter is nil"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsins
+msgid "\"%s\" in %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsisalreadyinuse
+msgid ""
+"\"%s\" is already in use in %s as a shortcut.\n"
+"Try a different shortcut.\n"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsisnotaradioitem
+msgid "%s is not a radioitem"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsisnotasufficientdescriptionpleaseexpand
+msgid "Please expand: \"%s\" is not a sufficient Description"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsomewidgetsetsdonotallowseparatorsinthemainmenubar
+msgid "Some widgetsets do not allow separators in the main menubar"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsshortcuts
+msgid "%s: Shortcuts"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsshortcutsandacceleratorkeys
+msgid "%s: Shortcuts and accelerator keys"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorsssonclicks
+msgid "%s.%s.%s - OnClick: %s"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorssubmenu
+msgid "%s submenu"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditorstandardtemplates
+msgid "Standard templates"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditortemplatedescription
+msgid "Template description:"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditortemplates
+msgid "&Templates"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditortemplatesaved
+msgid "Template saved"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditortherearenousersavedmenutemplates
+msgid ""
+"There are no user-saved menu templates.\n"
+"\n"
+"Only standard default templates are available.\n"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditortsclistgetscanlistcompnameinvalidindexdforfscanlis
+msgid "TSCList.GetScanListCompName: invalid index %d for FScanList"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoryouhavetochangetheshortcutfromsstoavoidaconflict
+msgid ""
+"You have to change the shortcut from %s\n"
+"to avoid a conflict\n"
+msgstr ""
+
+#: lazarusidestrconsts.lismenueditoryoumustentertextforthecaption
+msgid "You must enter text for the Caption"
+msgstr ""
 
 #: lazarusidestrconsts.lismenuencloseinifdef
 msgid "Enclose in $IFDEF ..."
@@ -12297,6 +12913,14 @@ msgstr "跳到前一个书签"
 msgid "Jump to Previous Error"
 msgstr "跳到前一个错误"
 
+#: lazarusidestrconsts.lismenujumptoprocedurebegin
+msgid "Jump to Procedure begin"
+msgstr ""
+
+#: lazarusidestrconsts.lismenujumptoprocedureheader
+msgid "Jump to Procedure header"
+msgstr ""
+
 #: lazarusidestrconsts.lismenulowercaseselection
 #, fuzzy
 #| msgid "Lowercase selection"
@@ -12315,6 +12939,10 @@ msgstr "制作资源字符串 ..."
 msgctxt "lazarusidestrconsts.lismenunewcomponent"
 msgid "New Component"
 msgstr "新建组件"
+
+#: lazarusidestrconsts.lismenunewcustom
+msgid "New %s"
+msgstr ""
 
 #: lazarusidestrconsts.lismenunewform
 msgid "New Form"
@@ -12605,6 +13233,10 @@ msgstr "设置一个自由书签"
 msgid "S&how Execution Point"
 msgstr ""
 
+#: lazarusidestrconsts.lismenushowsmarthint
+msgid "Context sensitive smart hint"
+msgstr ""
+
 #: lazarusidestrconsts.lismenusortselection
 #, fuzzy
 #| msgid "Sort selection ..."
@@ -12805,13 +13437,6 @@ msgstr "窗体..."
 msgctxt "lazarusidestrconsts.lismenuviewhistory"
 msgid "History"
 msgstr ""
-
-#: lazarusidestrconsts.lismenuviewidespeedbuttons
-#, fuzzy
-#| msgid "IDE speed buttons"
-msgctxt "lazarusidestrconsts.lismenuviewidespeedbuttons"
-msgid "IDE Speed Buttons"
-msgstr "IDE快速按钮"
 
 #: lazarusidestrconsts.lismenuviewjumphistory
 #, fuzzy
@@ -13087,10 +13712,12 @@ msgid "missing macro name"
 msgstr ""
 
 #: lazarusidestrconsts.lismmmoveselecteditemdown
+msgctxt "lazarusidestrconsts.lismmmoveselecteditemdown"
 msgid "Move selected item down"
 msgstr ""
 
 #: lazarusidestrconsts.lismmmoveselecteditemup
+msgctxt "lazarusidestrconsts.lismmmoveselecteditemup"
 msgid "Move selected item up"
 msgstr ""
 
@@ -13142,6 +13769,14 @@ msgstr ""
 msgid "Undo last change to this grid"
 msgstr ""
 
+#: lazarusidestrconsts.lismmusesystemencoding
+msgid "Use system encoding"
+msgstr ""
+
+#: lazarusidestrconsts.lismmusesystemencodinghint
+msgid "Disable support for UTF-8 default string encoding."
+msgstr ""
+
 #: lazarusidestrconsts.lismmvalues
 msgid "Value \"%s\""
 msgstr ""
@@ -13178,16 +13813,11 @@ msgctxt "lazarusidestrconsts.lismore"
 msgid "More"
 msgstr "更多"
 
-#: lazarusidestrconsts.lismore2
-msgid "More ..."
-msgstr ""
-
 #: lazarusidestrconsts.lismoresub
 #, fuzzy
-#| msgid "More ..."
 msgctxt "lazarusidestrconsts.lismoresub"
-msgid "More >>"
-msgstr "更多..."
+msgid "More"
+msgstr "更多"
 
 #: lazarusidestrconsts.lismove
 msgid "Move"
@@ -13680,6 +14310,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisonlymessageswiththesefpcidscommaseparated
 msgid "Only messages with these FPC IDs (comma separated):"
+msgstr ""
+
+#: lazarusidestrconsts.lisonlyregisterthelazaruspackagefileslpkdonotbuild
+msgid "Only register the Lazarus package files (.lpk). Do not build."
 msgstr ""
 
 #: lazarusidestrconsts.lisonlysearchforwholewords
@@ -14620,19 +15254,27 @@ msgid "Virtual Unit"
 msgstr "虚单元"
 
 #: lazarusidestrconsts.lispkgmacropackagedirectoryparameterispackageid
-msgid "Package directory. Parameter is package ID"
+msgid "Package directory. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmacropackageincludefilessearchpathparameterispackageid
-msgid "Package include files search path. Parameter is package ID"
+msgid "Package include files search path. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
+msgstr ""
+
+#: lazarusidestrconsts.lispkgmacropackagenameparameterispackageid
+msgid "Package name. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
+msgstr ""
+
+#: lazarusidestrconsts.lispkgmacropackageoutputdirectoryparameterispackageid
+msgid "Package output directory. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmacropackagesourcesearchpathparameterispackageid
-msgid "Package source search path. Parameter is package ID"
+msgid "Package source search path. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmacropackageunitsearchpathparameterispackageid
-msgid "Package unit search path. Parameter is package ID"
+msgid "Package unit search path. Parameter is package ID, e.g. \"Name\" or \"Name 1.0\""
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangaddingnewdependencyforpackagepackage
@@ -14849,6 +15491,12 @@ msgstr "替换文件"
 
 #: lazarusidestrconsts.lispkgmangrequiredpackageswerenotfound
 msgid "One or more required packages were not found. See package graph for details."
+msgstr ""
+
+#: lazarusidestrconsts.lispkgmangsaveasalreadyopenedpackage
+msgid ""
+"The package %s is already open in the IDE.\n"
+"You cannot save a package with the same name.\n"
 msgstr ""
 
 #: lazarusidestrconsts.lispkgmangsavepackage
@@ -15505,7 +16153,7 @@ msgstr "依赖关系 %s%s%s 没有解决.%s请选择一个存在的包."
 #, fuzzy,badformat
 #| msgid "The Maximum Version %s%s%s is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
 msgctxt "lazarusidestrconsts.lisprojaddthemaximumversionisinvalid"
-msgid "The Maximum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
+msgid "The Maximum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor example: 1.0.20.10"
 msgstr "最大版本 %s%s%s 无效.%s请使用如下格式 主要版本.次要版本.发布版本.构建版本%s例如: 1.0.20.10"
 
 #: lazarusidestrconsts.lisprojaddthemaximumversionislowerthantheminimimversion
@@ -15517,7 +16165,7 @@ msgstr "最大版本小于最小版本."
 #, fuzzy,badformat
 #| msgid "The Minimum Version %s%s%s is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
 msgctxt "lazarusidestrconsts.lisprojaddtheminimumversionisinvalid"
-msgid "The Minimum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor exmaple: 1.0.20.10"
+msgid "The Minimum Version \"%s\" is invalid.%sPlease use the format major.minor.release.build%sFor example: 1.0.20.10"
 msgstr "最小版本 %s%s%s 无效.%s请使用如下格式 主要版本.次要版本.发布版本.构建版本%s例如: 1.0.20.10"
 
 #: lazarusidestrconsts.lisprojaddthepackagenameisinvalidplasechooseanexistingpackag
@@ -15901,6 +16549,12 @@ msgstr ""
 #| msgid "Quit Lazarus"
 msgid "&Quit Lazarus"
 msgstr "退出 Lazarus"
+
+#: lazarusidestrconsts.lisrange
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisrange"
+msgid "Range"
+msgstr "范围"
 
 #: lazarusidestrconsts.lisreaderror
 msgid "Read Error"
@@ -16367,10 +17021,6 @@ msgstr "保存更改到工程 %s?"
 msgid "Save current editor file"
 msgstr "保存当前编辑器的文件"
 
-#: lazarusidestrconsts.lissavedsuccessfully
-msgid "Saved successfully"
-msgstr ""
-
 #: lazarusidestrconsts.lissavedwithidesettings
 msgid "Saved with IDE settings"
 msgstr ""
@@ -16442,6 +17092,10 @@ msgstr ""
 #: lazarusidestrconsts.lissavespace
 msgid "Save "
 msgstr "保存"
+
+#: lazarusidestrconsts.lissavingfileasloosescharactersatlinecolumn
+msgid "Saving file \"%s\" as \"%s\" looses characters at line %s, column %s."
+msgstr ""
 
 #: lazarusidestrconsts.lisscalingfactor
 msgid "Scaling factor:"
@@ -16604,16 +17258,16 @@ msgstr ""
 msgid "(Set up default indentation)"
 msgstr ""
 
-#: lazarusidestrconsts.lissetutf8inrtl
-msgid "Set UTF-8 in RTL"
-msgstr ""
-
 #: lazarusidestrconsts.lisshort
 msgid "Short:"
 msgstr "快捷键:"
 
 #: lazarusidestrconsts.lisshortnopath
 msgid "Short, no path"
+msgstr ""
+
+#: lazarusidestrconsts.lisshouldthecomponentbeautocreatedwhentheapplications
+msgid "Should the component \"%s\" be auto created when the application starts?"
 msgstr ""
 
 #: lazarusidestrconsts.lisshow
@@ -16638,6 +17292,10 @@ msgstr ""
 
 #: lazarusidestrconsts.lisshowemptyunitspackages
 msgid "Show empty units/packages"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowfpcmessagelinescompiled
+msgid "Show FPC message \"lines compiled\""
 msgstr ""
 
 #: lazarusidestrconsts.lisshowglyphsfor
@@ -16802,12 +17460,12 @@ msgstr "匹配"
 msgid "Sorry, this type is not yet implemented"
 msgstr "对不起, 这种类型尚未实现"
 
-#: lazarusidestrconsts.lissort
-msgid "Sort"
-msgstr ""
-
 #: lazarusidestrconsts.lissortforscope
 msgid "Sort for scope"
+msgstr ""
+
+#: lazarusidestrconsts.lissorting
+msgid "Sorting"
 msgstr ""
 
 #: lazarusidestrconsts.lissortselascending
@@ -17710,10 +18368,6 @@ msgstr "单元搜索路径%s%s%s包含在包%s的源目录%s中"
 msgid "The working directory \"%s\" does not exist.%sPlease check the working directory in Menu > Run > Run parameters."
 msgstr "工作目录%s%s%s不存在.%s请通过菜单 运行>带参数运行 检查工作目录."
 
-#: lazarusidestrconsts.listhisbuildmodenowsetsutf8inthertlflagsareinpagesoth
-msgid "This build mode now sets UTF-8 in the RTL.%s Flags are in pages \"Other\" and \"Additions and Overrides\"."
-msgstr ""
-
 #: lazarusidestrconsts.listhiscomponentalreadycontainsaclasswiththename
 msgid "This component already contains a class with the name %s."
 msgstr ""
@@ -17872,18 +18526,6 @@ msgstr ""
 msgid "Raise toolbars"
 msgstr ""
 
-#: lazarusidestrconsts.listoolbaroptionsstandardvisible
-msgid "Standard toolbar visible"
-msgstr ""
-
-#: lazarusidestrconsts.listoolbaroptionstoolbarsvisible
-msgid "Toolbars visible"
-msgstr ""
-
-#: lazarusidestrconsts.listoolbaroptionsviewdebugvisible
-msgid "Debug toolbar visible"
-msgstr ""
-
 #: lazarusidestrconsts.listoolhasnoexecutable
 msgid "tool \"%s\" has no executable"
 msgstr ""
@@ -17947,10 +18589,6 @@ msgstr ""
 
 #: lazarusidestrconsts.listreeneedsrefresh
 msgid "Tree needs refresh"
-msgstr ""
-
-#: lazarusidestrconsts.listurbopascal
-msgid "Turbo Pascal"
 msgstr ""
 
 #: lazarusidestrconsts.listwomovedfileswillhavethesamefilenamein
@@ -18254,6 +18892,10 @@ msgstr "无法转换文件 %s%s%s%s错误: %s"
 #| msgid "Unable to convert text form data of file %s%s%s%s%sinto binary stream. (%s)"
 msgid "Unable to convert text form data of file %s\"%s\"%sinto binary stream. (%s)"
 msgstr "无法转换文本窗体数据文件 %s%s%s%s%s 为二进制流. (%s)"
+
+#: lazarusidestrconsts.lisunabletoconverttoencoding
+msgid "Unable to convert to encoding \"%s\""
+msgstr ""
 
 #: lazarusidestrconsts.lisunabletocopyfile
 msgid "Unable to copy file"
@@ -18684,6 +19326,10 @@ msgstr ""
 msgid "Usage message (-h option)"
 msgstr ""
 
+#: lazarusidestrconsts.lisuse
+msgid "Use"
+msgstr ""
+
 #: lazarusidestrconsts.lisuseandclose
 msgid "Use and close"
 msgstr ""
@@ -18774,11 +19420,6 @@ msgstr ""
 #: lazarusidestrconsts.lisusershomedirectory
 msgid "User's home directory"
 msgstr "用户主目录"
-
-#: lazarusidestrconsts.lisusesub
-msgctxt "lazarusidestrconsts.lisusesub"
-msgid "Use >>"
-msgstr ""
 
 #: lazarusidestrconsts.lisuseunit
 msgctxt "lazarusidestrconsts.lisuseunit"
@@ -19067,6 +19708,10 @@ msgstr "XML 错误"
 msgid "XML parser error in file %s%sError: %s"
 msgstr "XML 解析错误的文件 %s%s错误: %s"
 
+#: lazarusidestrconsts.lisyes
+msgid "Yes"
+msgstr ""
+
 #: lazarusidestrconsts.lisyoucandisablethisforindividualformsviathepackageed
 msgid "You can disable this for individual forms via the package editor"
 msgstr ""
@@ -19216,9 +19861,25 @@ msgstr ""
 msgid "Found, but not listed here: "
 msgstr ""
 
+#: lazarusidestrconsts.rsi18nexcluded
+msgid "Excluded"
+msgstr ""
+
+#: lazarusidestrconsts.rsi18nforceupdatepofilesonnextcompile
+msgid "Force update PO files on next compile"
+msgstr ""
+
+#: lazarusidestrconsts.rsi18nidentifiers
+msgid "Identifiers:"
+msgstr ""
+
 #: lazarusidestrconsts.rsi18noptions
 msgid "i18n Options"
 msgstr "多语言选项"
+
+#: lazarusidestrconsts.rsi18noriginals
+msgid "Originals:"
+msgstr ""
 
 #: lazarusidestrconsts.rsincludeversioninfohint
 msgid "Version info is stored if the executable format supports it."
@@ -20180,6 +20841,10 @@ msgstr "下一个书签"
 msgid "Go to next editor"
 msgstr "下一个编辑窗口"
 
+#: lazarusidestrconsts.srkmecnexteditorinhistory
+msgid "Go to next editor in history"
+msgstr ""
+
 #: lazarusidestrconsts.srkmecnextsharededitor
 msgid "Go to next editor with same Source"
 msgstr ""
@@ -20265,6 +20930,10 @@ msgstr "前一个书签"
 #: lazarusidestrconsts.srkmecpreveditor
 msgid "Go to prior editor"
 msgstr "上一个编辑窗口"
+
+#: lazarusidestrconsts.srkmecpreveditorinhistory
+msgid "Go to previous editor in history"
+msgstr ""
 
 #: lazarusidestrconsts.srkmecprevsharededitor
 msgid "Go to prior editor with same Source"
@@ -20847,6 +21516,14 @@ msgstr "移动光标到单词左边"
 #: lazarusidestrconsts.srkmecwordright
 msgid "Move cursor word right"
 msgstr "移动光标到单词右边"
+
+#: lazarusidestrconsts.srkmeczoomin
+msgid "Zoom in"
+msgstr ""
+
+#: lazarusidestrconsts.srkmeczoomout
+msgid "Zoom out"
+msgstr ""
 
 #: lazarusidestrconsts.srkmeditforcmd
 msgid "Edit keys of command"

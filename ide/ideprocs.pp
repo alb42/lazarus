@@ -30,9 +30,15 @@ unit IDEProcs;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, LCLProc, AvgLvlTree, Laz2_XMLCfg, LazUTF8,
-  lazutf8classes, LazFileUtils, LazFileCache, StdCtrls, ExtCtrls, SourceLog,
-  FileProcs, CodeToolManager, CodeToolsConfig, CodeCache, LazConf;
+  // RTL + LCL
+  Classes, SysUtils, LCLProc, StdCtrls, ExtCtrls,
+  // CodeTools
+  BasicCodeTools, SourceLog, FileProcs, CodeToolManager, CodeToolsConfig, CodeCache,
+  // LazUtils
+  FileUtil, LazFileUtils, LazFileCache, LazUTF8, lazutf8classes,
+  AvgLvlTree, Laz2_XMLCfg,
+  // IDE
+  LazConf;
 
 type
   // comments
@@ -70,7 +76,7 @@ type
       Data: TObject) of object;
       
 // file operations
-function BackupFile(const Filename, BackupFilename: string): boolean;
+function BackupFileForWrite(const Filename, BackupFilename: string): boolean;
 function ClearFile(const Filename: string; RaiseOnError: boolean): boolean;
 function CreateEmptyFile(const Filename: string): boolean;
 function CopyFileWithMethods(const SrcFilename, DestFilename: string;
@@ -128,8 +134,6 @@ function MergeSearchPaths(const OldSearchPath, AddSearchPath: string): string;
 procedure MergeSearchPaths(SearchPath: TStrings; const AddSearchPath: string);
 function RemoveSearchPaths(const SearchPath, RemoveSearchPath: string): string;
 function RemoveNonExistingPaths(const SearchPath, BaseDirectory: string): string;
-function CreateAbsoluteSearchPath(const SearchPath, BaseDirectory: string): string; inline;
-function CreateRelativeSearchPath(const SearchPath, BaseDirectory: string): string; inline;
 function RebaseSearchPath(const SearchPath,
                           OldBaseDirectory, NewBaseDirectory: string;
                           SkipPathsStartingWithMacro: boolean): string;
@@ -265,7 +269,7 @@ function CheckGroupItemChecked(CheckGroup: TCheckGroup; const Caption: string): 
 implementation
 
 
-{$If Not defined(MSWindows) and not defined(HASAMIGA)}
+{$IfNdef MSWindows}
 // to get more detailed error messages consider the os
 uses
   Unix, BaseUnix;
@@ -355,18 +359,29 @@ begin
 end;
 
 function FilenameIsPascalSource(const Filename: string): boolean;
-var Ext: string;
-  p: Integer;
-  AnUnitName: String;
+var
+  s: string;
+  i: Integer;
 begin
-  AnUnitName:=ExtractFileNameOnly(Filename);
-  if (AnUnitName='') or (not IsValidIdent(AnUnitName)) then
-    exit(false);
+  Result:=False;
+  // Check unit name
+  s:=ExtractFileNameOnly(Filename);
+  if (s='') or not IsDottedIdentifier(s) then
+    exit;
+  // Check extension
+  s:=lowercase(ExtractFileExt(Filename));
+  for i:=Low(PascalSourceExt) to High(PascalSourceExt) do
+    if s=PascalSourceExt[i] then
+      exit(True);
+end;
+
+function FilenameIsFormText(const Filename: string): boolean;
+var
+  Ext: string;
+begin
   Ext:=lowercase(ExtractFileExt(Filename));
-  for p:=Low(PascalFileExt) to High(PascalFileExt) do
-    if Ext=PascalFileExt[p] then
-      exit(true);
-  Result:=(Ext='.lpr') or (Ext='.dpr') or (Ext='.dpk');
+  Result:=((Ext='.lfm') or (Ext='.dfm') or (Ext='.xfm'))
+          and (ExtractFileNameOnly(Filename)<>'');
 end;
 
 function FindShortFileNameOnDisk(const Filename: string): string;
@@ -442,14 +457,6 @@ begin
     else if NewFilename<>OldFilename then
       List[i]:=NewFilename;
   end;
-end;
-
-function FilenameIsFormText(const Filename: string): boolean;
-var Ext: string;
-begin
-  Ext:=lowercase(ExtractFileExt(Filename));
-  Result:=((Ext='.lfm') or (Ext='.dfm') or (Ext='.xfm'))
-          and (ExtractFileNameOnly(Filename)<>'');
 end;
 
 function MergeSearchPaths(const OldSearchPath, AddSearchPath: string): string;
@@ -810,11 +817,6 @@ begin
   end;
 end;
 
-function CreateRelativeSearchPath(const SearchPath, BaseDirectory: string): string;
-begin
-  Result:=FileProcs.CreateRelativeSearchPath(SearchPath,BaseDirectory);
-end;
-
 function RemoveNonExistingPaths(const SearchPath, BaseDirectory: string): string;
 var
   StartPos: Integer;
@@ -860,11 +862,6 @@ begin
   end;
 end;
 
-function CreateAbsoluteSearchPath(const SearchPath, BaseDirectory: string): string;
-begin
-  Result:=FileProcs.CreateAbsoluteSearchPath(SearchPath,BaseDirectory);
-end;
-
 function SwitchPathDelims(const Filename: string; Switch: TPathDelimSwitch): string;
 var
   i: Integer;
@@ -890,8 +887,7 @@ begin
     Result:=Filename;
 end;
 
-function CheckPathDelim(const OldPathDelim: string; out Changed: boolean
-  ): TPathDelimSwitch;
+function CheckPathDelim(const OldPathDelim: string; out Changed: boolean): TPathDelimSwitch;
 begin
   Changed:=OldPathDelim<>PathDelim;
   if Changed then begin
@@ -961,8 +957,7 @@ begin
   Result:=rltCaseSensitive;
 end;
 
-function CompareRecentListItem(s1, s2: string; ListType: TRecentListType
-  ): boolean;
+function CompareRecentListItem(s1, s2: string; ListType: TRecentListType): boolean;
 begin
   case ListType of
   rltCaseInsensitive: Result:=UTF8LowerCase(s1)=UTF8LowerCase(s2);
@@ -1436,6 +1431,7 @@ function BackupFile(const Filename, BackupFilename: string): boolean;
 
 var
   FHandle: THandle;
+  Code: TCodeBuffer;
   {$IF defined(MSWindows) or defined(AROS)}
   OldAttr: Longint;
   {$ELSE}
@@ -1448,20 +1444,24 @@ begin
   {$IF defined(MSWindows) or defined(AROS)}
   OldAttr := FileGetAttrUTF8(Filename);
   {$ELSE}
-  FpStat(Filename, OldInfo{%H-});
+  if FpStat(Filename, OldInfo{%H-})<>0 then
+    exit; // can't backup this file
   {$ENDIF}
   
-  // if not a symlink/hardlink or locked => rename old file, create empty new file
+  // if not a symlink/hardlink or locked => rename old file (quick), create empty new file
   if not FileIsSymlink(Filename) and
      not FileIsHardLink(FileName) and
      not FileIsLocked(Filename) and
-     FileProcs.RenameFileUTF8(Filename, BackupFilename) then
+     RenameFileUTF8(Filename, BackupFilename) then
   begin
     // create empty file
     FHandle := FileCreate(UTF8ToSys(FileName));
     FileClose(FHandle);
+    Code:=CodeToolBoss.FindFile(Filename);
+    if Code<>nil then
+      Code.InvalidateLoadDate;
   end
-  else // file is a symlink/hardlink or locked or rename failed => copy file
+  else // file is a symlink/hardlink or locked or rename failed => copy file (slow)
   if not CopyFile(Filename, BackupFilename) then exit;
 
   // restore file attributes

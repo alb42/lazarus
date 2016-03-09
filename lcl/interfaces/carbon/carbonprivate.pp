@@ -262,6 +262,8 @@ type
     procedure CreateWidget(const AParams: TCreateParams); override;
     procedure DestroyWidget; override;
   public
+    procedure AddToWidget(AParent: TCarbonWidget); override;
+
     procedure ControlAdded; override;
     procedure BoundsChanged; override;
 
@@ -402,8 +404,10 @@ var SavedMouseUpMsg: TLMMouse;
 var PostponedDownMsg: TLMMouse;
 var PostponedDown: Boolean;
 
+// Stores last mouse info for multiple clicks
+var LastMouse: TLastMouseInfo;
 // Stores last mouse pos to call mouse move only when it really has changed
-var LastMousePos: TPoint;
+var LastMousePos: TPoint; // in client coordinates
 
 {$I carbonprivatecommon.inc}
 {$I carbonprivatecontrol.inc}
@@ -582,6 +586,30 @@ begin
 end;
 
 {------------------------------------------------------------------------------
+  Method:  TCarbonDesignWindow.AddToWidget
+
+  Override to perform docked design window
+ ------------------------------------------------------------------------------}
+procedure TCarbonDesignWindow.AddToWidget(AParent: TCarbonWidget);
+begin
+  inherited AddToWidget(AParent);
+
+  if not Assigned(fWindowRef) then
+  begin
+    HIViewRemoveFromSuperview(FDesignControl);
+    OSError(HIViewAddSubview(HIViewGetFirstSubview(FScrollView), FDesignControl),
+      Self, 'AddToWidget', SViewAddView);
+    BringDesignerToFront;
+  end else
+  begin
+    HIViewRemoveFromSuperview(FDesignControl);
+    OSError(HIViewAddSubview(fWinContent, FDesignControl), Self, 'AddToWidget',
+      SViewAddView);
+    BringDesignerToFront;
+  end;
+end;
+
+{------------------------------------------------------------------------------
   Method:  TCarbonDesignWindow.ControlAdded
 
   Notifies about control added
@@ -602,7 +630,11 @@ var
 begin
   inherited;
 
-  GetClientRect(R{%H-});
+  if Assigned(FWindowRef) then
+    GetClientRect(R{%H-})
+  else
+    GetScreenBounds(R{%H-});
+
   OffsetRect(R, -R.Left, -R.Top);
   OSError(HIViewSetFrame(FDesignControl, RectToCGRect(R)),
     Self, SSetBounds, SViewFrame);
@@ -1218,7 +1250,7 @@ begin
         CGContextSaveGState(Context);
         CGContextSetRGBFillColor(Context, (c and $FF) * rgbkoef, ((c shr 8) and $FF)*rgbkoef,
           ((c shr 16) and $FF)*rgbkoef, 1);
-        with b do CGContextFillRect(Context, RectToCGRect(Bounds(0,0, Right-Left, Bottom-Top)));
+        CGContextFillRect(Context, RectToCGRect(Bounds(0,0, b.Right-b.Left, b.Bottom-b.Top)));
         CGContextRestoreGState(Context);
       end;
     end;

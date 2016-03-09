@@ -1043,7 +1043,7 @@ begin
     //debugln('[TJITForms.DoCreateJITComponent] Creating an instance of JIT class "'+NewClassName+'" = class('+AncestorClass.ClassName+') ...');
     Instance:=TComponent(FCurReadClass.NewInstance);
     if DisableAutoSize and (Instance is TControl) then
-      TControl(Instance).DisableAutoSizing;
+      TControl(Instance).DisableAutoSizing{$IFDEF DebugDisableAutoSizing}('TAnchorDockMaster Delayed'){$ENDIF};
     //debugln('[TJITForms.DoCreateJITComponent] Initializing new instance ... ',DbgS(Instance));
     TComponent(FCurReadJITComponent):=Instance;
     try
@@ -1895,7 +1895,7 @@ end;
 function TJITForms.IsJITForm(AComponent: TComponent): Boolean;
 begin
   Result:=(AComponent<>nil) and (AComponent is TCustomForm)
-      and (TCustomForm(AComponent).Parent=nil) and (IndexOf(AComponent)>=0);
+      and (IndexOf(AComponent)>=0);
 end;
 
 function TJITForms.GetItem(Index: integer): TCustomForm;

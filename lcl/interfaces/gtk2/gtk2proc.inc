@@ -336,25 +336,25 @@ begin
   Result:=-1;
 end;
 
-function RectFromGdkRect(AGdkRect: TGdkRectangle): TRect;
+function RectFromGdkRect(const AGdkRect: TGdkRectangle): TRect;
 begin
-  with Result, AGdkRect do
+  with AGdkRect do
   begin
-    Left := x;
-    Top := y;
-    Right := Width + x;
-    Bottom := Height + y;
+    Result.Left := x;
+    Result.Top := y;
+    Result.Right := Width + x;
+    Result.Bottom := Height + y;
   end;
 end;
 
-function GdkRectFromRect(R: TRect): TGdkRectangle;
+function GdkRectFromRect(const R: TRect): TGdkRectangle;
 begin
-  with Result, R do
+  with Result do
   begin
-    x := Left;
-    y := Top;
-    width := Right-Left;
-    height := Bottom-Top;
+    x := R.Left;
+    y := R.Top;
+    width := R.Right-R.Left;
+    height := R.Bottom-R.Top;
   end;
 end;
 
@@ -7744,6 +7744,8 @@ var
   Requisition: TGtkRequisition;
   WindowFixedWidget: PGtkWidget;
   VBox: PGtkWidget;
+  lscreen: PGdkScreen;
+  lscreenrect: TGdkRectangle;
 begin
   Result := nil;
   if Styles=nil then exit;
@@ -8055,7 +8057,9 @@ begin
           end;
           //DebugLn('AddToStyleWindow realized: ',WName,' ',GetWidgetDebugReport(StyleObject^.Widget));
         end;
-        ResizeWidget(StyleObject^.Widget,200,200);
+        lscreen := gdk_screen_get_default();
+        gdk_screen_get_monitor_geometry(lscreen, 0, @lscreenrect);
+        ResizeWidget(StyleObject^.Widget,lscreenrect.width,lscreenrect.height);
       end;
     end;
 

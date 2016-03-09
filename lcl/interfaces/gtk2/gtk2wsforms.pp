@@ -39,9 +39,8 @@ type
   protected
     class procedure SetCallbacks(const AWidget: PGtkWidget; const AWidgetInfo: PWidgetInfo); virtual;
   published
-    class function  CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
+    class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class procedure SetColor(const AWinControl: TWinControl); override;
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer); override;
   end;
 
   { TGtk2WSScrollBox }
@@ -68,9 +67,9 @@ type
   protected
     class procedure SetCallbacks(const AWidget: PGtkWidget; const AWidgetInfo: PWidgetInfo); virtual;
   published
-    class function  CanFocus(const AWinControl: TWinControl): Boolean; override;
+    class function CanFocus(const AWinControl: TWinControl): Boolean; override;
     class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer); override;
+    class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
     class procedure SetIcon(const AForm: TCustomForm; const Small, Big: HICON); override;
     class procedure SetAlphaBlend(const ACustomForm: TCustomForm;
        const AlphaBlend: Boolean; const Alpha: Byte); override;
@@ -85,8 +84,8 @@ type
     class procedure SetBorderIcons(const AForm: TCustomForm;
                                    const ABorderIcons: TBorderIcons); override;
     class procedure SetColor(const AWinControl: TWinControl); override;
-    class procedure SetPopupParent(const ACustomForm: TCustomForm;
-       const APopupMode: TPopupMode; const APopupParent: TCustomForm); override;
+    class procedure SetRealPopupParent(const ACustomForm: TCustomForm;
+       const APopupParent: TCustomForm); override;
   end;
 
   { TGtk2WSForm }
@@ -354,6 +353,7 @@ var
   WindowType: TGtkWindowType;
   ACustomForm: TCustomForm;
   AResizable: gint;
+  Allocation: TGtkAllocation;
 begin
   // Start of old CreateForm method
   ACustomForm := TCustomForm(AWinControl);
@@ -444,6 +444,12 @@ begin
   if not (csDesigning in AWinControl.ComponentState) then
     WidgetInfo^.UserData := Pointer(1);
 
+  Allocation.X := AParams.X;
+  Allocation.Y := AParams.Y;
+  Allocation.Width := AParams.Width;
+  Allocation.Height := AParams.Height;
+  gtk_widget_size_allocate(P, @Allocation);
+
   {$IFDEF DebugLCLComponents}
   DebugGtkWidgets.MarkCreated(P, dbgsName(AWinControl));
   {$ENDIF}
@@ -459,7 +465,7 @@ begin
   g_idle_remove_by_data(Data);
 end;
 
-class procedure TGtk2WSCustomForm.ScrollBy(const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer);
+class procedure TGtk2WSCustomForm.ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer);
 var
   Layout: PGtkLayout;
   WidgetInfo: PWidgetInfo;
@@ -681,7 +687,7 @@ var
   {$IFDEF HASX}
   TempGdkWindow: PGdkWindow;
   {$ENDIF}
-  AForm: TCustomForm;
+  AForm, APopupParent: TCustomForm;
   GtkWindow: PGtkWindow;
   Geometry: TGdkGeometry;
 
@@ -779,11 +785,11 @@ begin
     if AWinControl.HandleObjectShouldBeVisible and
       not (csDesigning in AForm.ComponentState) and
       not (AForm.FormStyle in fsAllStayOnTop) and
-      not (fsModal in AForm.FormState) and
-      (AForm.PopupMode = pmExplicit) and
-      (AForm.PopupParent = nil) then
+      not (fsModal in AForm.FormState) then
     begin
-      SetPopupParent(AForm, AForm.PopupMode, AForm.PopupParent);
+      APopupParent := AForm.GetRealPopupParent;
+      if (APopupParent <> nil) then
+        SetRealPopupParent(AForm, APopupParent);
     end;
     {$ENDIF}
 
@@ -843,27 +849,13 @@ begin
   TGtk2WSWinControl.SetColor(AWinControl);
 end;
 
-class procedure TGtk2WSCustomForm.SetPopupParent(const ACustomForm: TCustomForm;
-  const APopupMode: TPopupMode; const APopupParent: TCustomForm);
-var
-  PopupParent: TCustomForm;
+class procedure TGtk2WSCustomForm.SetRealPopupParent(
+  const ACustomForm: TCustomForm; const APopupParent: TCustomForm);
 begin
-  if not WSCheckHandleAllocated(ACustomForm, 'SetPopupParent') then Exit;
+  if not WSCheckHandleAllocated(ACustomForm, 'SetRealPopupParent') then Exit;
 
-  case APopupMode of
-    pmNone:
-      PopupParent := nil;
-    pmAuto:
-      PopupParent := Screen.ActiveForm;
-    pmExplicit:
-    begin
-      PopupParent := APopupParent;
-      if PopupParent = nil then
-        PopupParent := Application.MainForm;
-    end;
-  end;
-  if PopupParent <> nil then
-    gtk_window_set_transient_for({%H-}PGtkWindow(ACustomForm.Handle), {%H-}PGtkWindow(PopupParent.Handle))
+  if APopupParent <> nil then
+    gtk_window_set_transient_for({%H-}PGtkWindow(ACustomForm.Handle), {%H-}PGtkWindow(APopupParent.Handle))
   else
     gtk_window_set_transient_for({%H-}PGtkWindow(ACustomForm.Handle), nil);
 end;
@@ -959,8 +951,7 @@ begin
   end;
 end;
 
-class procedure TGtk2WSScrollingWinControl.SetColor(
-  const AWinControl: TWinControl);
+class procedure TGtk2WSScrollingWinControl.SetColor(const AWinControl: TWinControl);
 begin
   if not WSCheckHandleAllocated(AWinControl, 'SetColor')
   then Exit;
@@ -969,39 +960,6 @@ begin
                                clNone, AWinControl.Color,
                                [GTK_STATE_NORMAL, GTK_STATE_ACTIVE,
                                 GTK_STATE_PRELIGHT, GTK_STATE_SELECTED]);
-end;
-
-class procedure TGtk2WSScrollingWinControl.ScrollBy(
-  const AWinControl: TScrollingWinControl; const DeltaX, DeltaY: integer);
-var
-  Scrolled: PGtkScrolledWindow;
-  Adjustment: PGtkAdjustment;
-  h, v: Double;
-  NewPos: Double;
-begin
-  if not AWinControl.HandleAllocated then exit;
-  Scrolled := GTK_SCROLLED_WINDOW({%H-}Pointer(AWinControl.Handle));
-  if not GTK_IS_SCROLLED_WINDOW(Scrolled) then
-    exit;
-  Adjustment := gtk_scrolled_window_get_hadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    h := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if h - DeltaX <= NewPos then
-      NewPos := h - DeltaX;
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
-  Adjustment := gtk_scrolled_window_get_vadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    v := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if v - DeltaY <= NewPos then
-      NewPos := v - DeltaY;
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
-  AWinControl.Invalidate;
 end;
 
 { TGtk2WSHintWindow }

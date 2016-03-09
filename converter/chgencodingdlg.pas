@@ -21,8 +21,7 @@
   Author: Mattias Gaertner
 
   Abstract:
-    Dialog and functions to change encodings (e.g. UTF-8) of projects and
-    packages.
+    Dialog and functions to change encodings (e.g. UTF-8) of projects and packages.
 }
 unit ChgEncodingDlg;
 
@@ -31,13 +30,19 @@ unit ChgEncodingDlg;
 interface
 
 uses
-  Classes, SysUtils, LCLProc, FileProcs, Forms, Controls, Graphics,
-  Dialogs, LConvEncoding, ExtCtrls, StdCtrls, ComCtrls, Buttons,
-  IDEWindowIntf, SynRegExpr, SrcEditorIntf, IDEHelpIntf,
-  CodeCache, CodeToolsStructs, CodeToolManager, AVL_Tree,
+  // RTL + FCL + LCL
+  Classes, SysUtils, AVL_Tree,
+  LCLProc, Forms, Controls, ExtCtrls, StdCtrls, ComCtrls, Buttons,
+  // CodeTools
+  CodeCache, CodeToolsStructs, CodeToolManager, FileProcs,
+  // LazUtils
+  LConvEncoding, LazFileUtils, LazFileCache,
+  // IDEIntf
+  IDEWindowIntf, SrcEditorIntf, IDEHelpIntf,
+  // SynEdit
+  SynRegExpr,
   // IDE
-  IDEProcs, CodeBrowser, PackageDefs, PackageSystem, Project,
-  LazarusIDEStrConsts;
+  IDEProcs, PackageDefs, PackageSystem, Project, LazarusIDEStrConsts;
 
 type
 
@@ -48,6 +53,7 @@ type
     HelpButton: TBitBtn;
     BtnPanel: TPanel;
     CloseButton: TBitBtn;
+    LabelNoPreview: TLabel;
     RegExprErrorLabel: TLabel;
     NewEncodingComboBox: TComboBox;
     FileFilterCombobox: TComboBox;
@@ -346,17 +352,20 @@ var
   Encoding: String;
   li: TListItem;
   HasFiles: Boolean;
+  IsDone: Boolean;
 begin
   Screen.Cursor:=crHourGlass;
   try
     HasFiles:=GetFiles;
     PreviewListView.Items.Clear;
-    if HasFiles and (FFiles.Tree.Count=0) then begin
-      li:=PreviewListView.Items.Add;
-      li.Caption:=lisFilesHaveRightEncoding;
-      ApplyButton.Enabled:=False;
-      exit;
-    end;
+
+    IsDone:=HasFiles and (FFiles.Tree.Count=0);
+    PreviewGroupBox.Visible:=not IsDone;
+    LabelNoPreview.Visible:=IsDone;
+    LabelNoPreview.Caption:=lisFilesHaveRightEncoding;
+    ApplyButton.Enabled:=not IsDone;
+    if IsDone then exit;
+
     PreviewListView.BeginUpdate;
     Node:=FFiles.Tree.FindLowest;
     while Node<>nil do begin

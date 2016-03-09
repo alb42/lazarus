@@ -37,7 +37,7 @@ uses
 // To get as little as posible circles,
 // uncomment only when needed for registration
 ////////////////////////////////////////////////////
-  Graphics, Controls, Forms, LCLType, LCLProc,
+  Classes, Graphics, Controls, Forms, LCLType, LCLProc,
 ////////////////////////////////////////////////////
   WSLCLClasses, WSControls, Gtk3WSControls, WSFactory, WSForms, WSProc,
   LazGtk3, LazGdk3, LazGLib2, gtk3widgets, gtk3int, gtk3objects;
@@ -51,10 +51,8 @@ type
 
   TGtk3WSScrollingWinControl = class(TWSScrollingWinControl)
   published
-    class function  CreateHandle(const AWinControl: TWinControl;
+    class function CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLIntfHandle; override;
-    class procedure ScrollBy(const AWinControl: TScrollingWinControl; 
-      const DeltaX, DeltaY: integer); override;
   end;
 
   { TWSScrollBox }
@@ -97,8 +95,8 @@ type
     class procedure SetFormStyle(const AForm: TCustomform; const AFormStyle, AOldFormStyle: TFormStyle); override;
     class procedure SetIcon(const AForm: TCustomForm; const Small, Big: HICON); override;
     class procedure ShowModal(const ACustomForm: TCustomForm); override;
-    class procedure SetPopupParent(const ACustomForm: TCustomForm;
-      const APopupMode: TPopupMode; const APopupParent: TCustomForm); override;
+    class procedure SetRealPopupParent(const ACustomForm: TCustomForm;
+      const APopupParent: TCustomForm); override;
     class procedure SetShowInTaskbar(const AForm: TCustomForm; const AValue: TShowInTaskbar); override;
     class procedure SetZPosition(const AWinControl: TWinControl; const APosition: TWSZPosition); override;
     class function GetDefaultColor(const AControl: TControl; const ADefaultColorType: TDefaultColorType): TColor; override;
@@ -155,54 +153,6 @@ begin
   Result := TLCLIntfHandle(TGtk3ScrollingWinControl.Create(AWinControl, AParams));
 end;
 
-class procedure TGtk3WSScrollingWinControl.ScrollBy(const AWinControl: TScrollingWinControl;
-  const DeltaX, DeltaY: integer);
-var
-  Scrolled: PGtkScrolledWindow;
-  Adjustment: PGtkAdjustment;
-  h, v: Double;
-  NewPos: Double;
-begin
-  {.$IFDEF GTK3DEBUGCORE}
-  // DebugLn('TGtk3WSScrollingWinControl.ScrollBy not implemented ');
-  {.$ENDIF}
-  if not AWinControl.HandleAllocated then exit;
-  Scrolled := TGtk3ScrollingWinControl(AWinControl.Handle).GetScrolledWindow;
-  if not Gtk3IsScrolledWindow(Scrolled) then
-    exit;
-  {$note below is old gtk2 implementation}
-  TGtk3ScrollingWinControl(AWinControl.Handle).ScrollX :=  TGtk3ScrollingWinControl(AWinControl.Handle).ScrollX + DeltaX;
-  TGtk3ScrollingWinControl(AWinControl.Handle).ScrollY :=  TGtk3ScrollingWinControl(AWinControl.Handle).ScrollY + DeltaY;
-  //TODO: change this part like in Qt using ScrollX and ScrollY variables
-  //GtkAdjustment calculation isn't good here (can go below 0 or over max)
-  // DebugLn('TGtk3WSScrollingWinControl.ScrollBy DeltaX=',dbgs(DeltaX),' DeltaY=',dbgs(DeltaY));
-  exit;
-  Adjustment := gtk_scrolled_window_get_hadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    h := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if h - DeltaX <= NewPos then
-      NewPos := h - DeltaX;
-    if NewPos < 0 then
-      NewPos := 0;
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
-  Adjustment := gtk_scrolled_window_get_vadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    v := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if v - DeltaY <= NewPos then
-      NewPos := v - DeltaY;
-    if NewPos < 0 then
-      NewPos := 0;
-    // writeln('OldValue ',dbgs(V),' NewValue ',dbgs(NewPos),' upper=',dbgs(Adjustment^.upper - Adjustment^.page_size));
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
-  AWinControl.Invalidate;
-end;
-  
 { TGtk3WSCustomForm }
 
 class function TGtk3WSCustomForm.CreateHandle(const AWinControl: TWinControl;
@@ -245,6 +195,10 @@ class procedure TGtk3WSCustomForm.SetBounds(const AWinControl: TWinControl;
 var
   AWidget: PGtkWidget;
   ARect: TGdkRectangle;
+  Geometry: TGdkGeometry;
+  AHints: TGdkWindowHints;
+  AFixedWidthHeight: Boolean;
+  AForm: TCustomForm;
 begin
   if not WSCheckHandleAllocated(AWinControl, 'SetBounds') then
     Exit;
@@ -252,6 +206,7 @@ begin
   DebugLn('TGtk3WSCustomForm.SetBounds ',dbgsName(AWinControl),Format(' ALeft %d ATop %d AWidth %d AHeight %d',[ALeft, ATop, AWidth, AHeight]));
   {$ENDIF}
   AWidget := TGtk3Widget(AWinControl.Handle).Widget;
+  AForm := TCustomForm(AWinControl);
   TGtk3Widget(AWinControl.Handle).BeginUpdate;
   ARect.x := ALeft;
   ARect.y := ATop;
@@ -259,6 +214,54 @@ begin
   ARect.Height := AHeight;
   try
     AWidget^.size_allocate(@ARect);
+    if not (csDesigning in AForm.ComponentState) and (AForm.Parent = nil) and (AForm.ParentWindow = 0) then
+    begin
+      AFixedWidthHeight := AForm.BorderStyle in [bsDialog, bsSingle, bsToolWindow];
+      with Geometry do
+      begin
+        if not AFixedWidthHeight and (AForm.Constraints.MinWidth > 0) then
+          min_width := AForm.Constraints.MinWidth
+        else
+          min_width := AForm.Width;
+        if not AFixedWidthHeight and (AForm.Constraints.MaxWidth > 0) then
+          max_width := AForm.Constraints.MaxWidth
+        else
+        max_width := AForm.Width;
+        if not AFixedWidthHeight and (AForm.Constraints.MinHeight > 0) then
+          min_height := AForm.Constraints.MinHeight
+        else
+          min_height := AForm.Height;
+        if not AFixedWidthHeight and (AForm.Constraints.MaxHeight > 0) then
+          max_height := AForm.Constraints.MaxHeight
+        else
+          max_height := AForm.Height;
+
+        base_width := AForm.Width;
+        base_height := AForm.Height;
+        width_inc := 1;
+        height_inc := 1;
+        min_aspect := 0;
+        max_aspect := 1;
+        win_gravity := PGtkWindow(AWidget)^.get_gravity;
+      end;
+
+      if AFixedWidthHeight then
+        PGtkWindow(AWidget)^.set_geometry_hints(nil, @Geometry,
+          GDK_HINT_POS or GDK_HINT_MIN_SIZE or GDK_HINT_MAX_SIZE)
+      else
+      begin
+        if AForm.BorderStyle <> bsNone then
+        begin
+          AHints := GDK_HINT_POS or GDK_HINT_BASE_SIZE;
+          if (AForm.Constraints.MinHeight > 0) or (AForm.Constraints.MinWidth > 0) then
+            AHints := AHints or GDK_HINT_MIN_SIZE;
+          if (AForm.Constraints.MaxHeight > 0) or (AForm.Constraints.MaxWidth > 0) then
+            AHints := AHints or GDK_HINT_MAX_SIZE;
+
+          PGtkWindow(AWidget)^.set_geometry_hints(nil, @Geometry, AHints);
+        end;
+      end;
+    end;
     PGtkWindow(AWidget)^.resize(AWidth, AHeight);
     PGtkWindow(AWidget)^.move(ALeft, ATop);
   finally
@@ -437,20 +440,20 @@ begin
   {$ENDIF}
 end;
 
-class procedure TGtk3WSCustomForm.SetPopupParent(const ACustomForm: TCustomForm;
-  const APopupMode: TPopupMode; const APopupParent: TCustomForm);
+class procedure TGtk3WSCustomForm.SetRealPopupParent(
+  const ACustomForm: TCustomForm; const APopupParent: TCustomForm);
 begin
-  if not WSCheckHandleAllocated(ACustomForm, 'ShowPopupParent') then
+  if not WSCheckHandleAllocated(ACustomForm, 'SetRealPopupParent') then
     Exit;
   {$IFDEF GTK3DEBUGCORE}
-  DebugLn('TGtk3WSCustomForm.SetPopupParent');
+  DebugLn('TGtk3WSCustomForm.SetRealPopupParent');
   {$ENDIF}
 end;
 
 class procedure TGtk3WSCustomForm.SetAlphaBlend(const ACustomForm: TCustomForm;
   const AlphaBlend: Boolean; const Alpha: Byte);
 begin
-  if not WSCheckHandleAllocated(ACustomForm, 'ShowAlphaBlend') then
+  if not WSCheckHandleAllocated(ACustomForm, 'SetAlphaBlend') then
     Exit;
   {$IFDEF GTK3DEBUGCORE}
   DebugLn('TGtk3WSCustomForm.SetAlphaBlend');

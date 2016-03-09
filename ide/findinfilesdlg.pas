@@ -18,9 +18,8 @@ interface
 
 uses
   Classes, SysUtils,
-  FileProcs,
-  LCLProc, LCLIntf, Controls, StdCtrls, Forms, Buttons, ExtCtrls, Dialogs,
-  ButtonPanel,
+  FileProcs, LazFileUtils,
+  LCLProc, Controls, StdCtrls, Forms, Buttons, ExtCtrls, Dialogs, ButtonPanel,
   SynEditTypes, SynEdit,
   MacroIntf, IDEWindowIntf, SrcEditorIntf, IDEHelpIntf, IDEDialogs,
   LazarusIDEStrConsts, InputHistory, EditorOptions, Project, IDEProcs,
@@ -154,8 +153,7 @@ begin
   StoreIDEFileDialog(SelectDirectoryDialog);
 end;
 
-procedure TLazFindInFilesDialog.FormClose(Sender: TObject;
-  var CloseAction: TCloseAction);
+procedure TLazFindInFilesDialog.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   IDEDialogLayoutList.SaveLayout(Self);
 end;
@@ -205,22 +203,25 @@ end;
 
 procedure TLazFindInFilesDialog.OKButtonClick(Sender : TObject);
 var
-  Dir: String;
+  Directories, Dir: String;
   p: Integer;
 begin
   if (WhereRadioGroup.ItemIndex=ItemIndDirectories) then
   begin
-    Dir:=GetResolvedDirectories;
+    Directories:=GetResolvedDirectories;
     p:=1;
-    Dir:=GetNextDirectoryInSearchPath(Dir,p);
-    if not DirectoryExistsUTF8(Dir) then
-    begin
-      IDEMessageDialog(lisEnvOptDlgDirectoryNotFound,
-                 Format(dlgSeachDirectoryNotFound,[Dir]),
-                 mtWarning, [mbOk]);
-      ModalResult:=mrNone;
-    end;
-  end
+    repeat
+      Dir:=GetNextDirectoryInSearchPath(Directories,p);
+      if (Dir<>'') and not DirectoryExistsUTF8(Dir) then
+      begin
+        IDEMessageDialog(lisEnvOptDlgDirectoryNotFound,
+                   Format(dlgSeachDirectoryNotFound,[Dir]),
+                   mtWarning, [mbOk]);
+        ModalResult:=mrNone;
+        Break;
+      end;
+    until Dir='';
+  end;
 end;
 
 procedure TLazFindInFilesDialog.ReplaceCheckBoxChange(Sender: TObject);

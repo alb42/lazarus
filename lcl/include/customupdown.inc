@@ -37,6 +37,7 @@ Type
 procedure TUpDownButton.MouseDown(Button: TMouseButton; Shift: TShiftState; X,
   Y: Integer);
 begin
+  inherited MouseDown(Button, Shift, X, Y);
   if Button = mbLeft then begin
     With FUpDown do begin
       FMouseTimerEvent := @Self.Click;
@@ -57,6 +58,7 @@ end;
 procedure TUpDownButton.MouseUp(Button: TMouseButton; Shift: TShiftState; X,
   Y: Integer);
 begin
+  inherited MouseUp(Button, Shift, X, Y);
   With FUpDown do
     If Assigned(FMouseTimer) then begin
       FreeAndNil(FMouseTimer);
@@ -129,7 +131,6 @@ var
   j : integer;
 begin
   Inherited Paint;
-
   if Enabled then
     Canvas.Pen.Color := clBtnText //Not perfect, but it works
   else
@@ -215,6 +216,7 @@ begin
     SetInitialBounds(0, 0, CX, CY);
   FArrowKeys := True;
   FMax := 100;
+  FMinRepeatInterval := 100;
   FIncrement := 1;
   FAlignButton := udRight;
   FThousands := True;
@@ -227,11 +229,17 @@ begin
 end;
 
 procedure TCustomUpDown.BTimerExec(Sender : TObject);
+var
+  AInterval:Integer;
 begin
   If Assigned(FMouseTimerEvent)
      and PtInRect(FMouseDownBounds,Mouse.CursorPos) then begin
-    if TTimer(Sender).Interval > 100
-      then TTimer(Sender).Interval := TTimer(Sender).Interval - 25;
+    AInterval := TTimer(Sender).Interval;
+    if AInterval > FMinRepeatInterval then begin
+      AInterval := AInterval - 25;
+      if AInterval < FMinRepeatInterval then AInterval := FMinRepeatInterval;
+      TTimer(Sender).Interval := AInterval;
+    end;
     FMouseTimerEvent;
   end;
 end;
@@ -355,25 +363,31 @@ end;
 
 procedure TCustomUpDown.AssociateKeyDown(Sender: TObject; var Key: Word;
   ShiftState : TShiftState);
+var
+  ConsumeKey: Boolean;
 begin
-  If ArrowKeys and (ShiftState = []) then begin
+  ConsumeKey := False;
+  if ArrowKeys and (ShiftState = []) then
+  begin
     case FOrientation of
       udVertical:
         case Key of
           VK_Up:
-            TCustomSpeedButton(FMaxBtn).Click;
+            begin TCustomSpeedButton(FMaxBtn).Click; ConsumeKey := True; end;
           VK_Down:
-            TCustomSpeedButton(FMinBtn).Click;
+            begin TCustomSpeedButton(FMinBtn).Click; ConsumeKey := True; end;
         end;
       udHorizontal:
         case Key of
           VK_Left:
-            TCustomSpeedButton(FMinBtn).Click;
+            begin TCustomSpeedButton(FMinBtn).Click; ConsumeKey := True; end;
           VK_Right:
-            TCustomSpeedButton(FMaxBtn).Click;
+            begin TCustomSpeedButton(FMaxBtn).Click; ConsumeKey := True; end;
         end;
     end;
-  end
+  end;
+  if ConsumeKey then
+    Key := 0;
 end;
 
 procedure TCustomUpDown.OnAssociateChangeBounds(Sender: TObject);
@@ -477,6 +491,13 @@ begin
     If FPosition < FMin then
       Position := FMin;
   end;
+end;
+
+procedure TCustomUpDown.SetMinRepeatInterval(AValue: Byte);
+begin
+  if FMinRepeatInterval = AValue then Exit;
+  FMinRepeatInterval := AValue;
+  if FMinRepeatInterval < 25 then FMinRepeatInterval := 25;
 end;
 
 procedure TCustomUpDown.SetMax(Value: SmallInt);

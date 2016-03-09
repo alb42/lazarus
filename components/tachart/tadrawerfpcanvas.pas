@@ -59,11 +59,13 @@ type
     procedure Polyline(
       const APoints: array of TPoint; AStartIndex, ANumPts: Integer);
     procedure PrepareSimplePen(AColor: TChartColor);
+    procedure PutPixel(AX, AY: Integer; AColor: TChartColor);
     procedure RadialPie(
       AX1, AY1, AX2, AY2: Integer;
       AStartAngle16Deg, AAngleLength16Deg: Integer);
     procedure Rectangle(const ARect: TRect);
     procedure Rectangle(AX1, AY1, AX2, AY2: Integer);
+    procedure ResetFont;
     procedure SetBrushColor(AColor: TChartColor);
     procedure SetBrushParams(AStyle: TFPBrushStyle; AColor: TChartColor);
     procedure SetPenParams(AStyle: TFPPenStyle; AColor: TChartColor);
@@ -203,6 +205,11 @@ begin
   FCanvas.Pen.Style := psSolid;
 end;
 
+procedure TFPCanvasDrawer.PutPixel(AX, AY: Integer; AColor: TChartColor);
+begin
+  FCanvas.Colors[AX, AY] := FChartColorToFPColorFunc(AColor);
+end;
+
 procedure TFPCanvasDrawer.RadialPie(
   AX1, AY1, AX2, AY2: Integer; AStartAngle16Deg, AAngleLength16Deg: Integer);
 var
@@ -223,6 +230,11 @@ end;
 procedure TFPCanvasDrawer.Rectangle(const ARect: TRect);
 begin
   FCanvas.Rectangle(ARect);
+end;
+
+procedure TFPCanvasDrawer.ResetFont;
+begin
+  FCanvas.Font.Orientation := 0;
 end;
 
 procedure TFPCanvasDrawer.SetBrush(ABrush: TFPCustomBrush);

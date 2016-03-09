@@ -46,7 +46,8 @@ uses
   clocale, // needed to initialize default locale settings on Linux.
   {$endif}
   Classes, SysUtils, Controls, LCLType, Graphics, Math, StdCtrls, Buttons,
-  ExtCtrls, Forms, ComCtrls, Types, LMessages, LazUTF8, CalControlWrapper;
+  ExtCtrls, Forms, ComCtrls, Types, LMessages, Calendar, LazUTF8,
+  CalControlWrapper;
 
 const
   { We will deal with the NullDate value the special way. It will be especially
@@ -114,12 +115,17 @@ type
 
   TDTDateMode = (dmComboBox, dmUpDown, dmNone);
 
+  { calendar alignment - left or right,
+    dtaDefault means it is determined by BiDiMode }
+  TDTCalAlignment = (dtaLeft, dtaRight, dtaDefault);
+
   { TCustomDateTimePicker }
 
   TCustomDateTimePicker = class(TCustomControl)
   private
     FAutoAdvance: Boolean;
     FAutoButtonSize: Boolean;
+    FCalAlignment: TDTCalAlignment;
     FCalendarWrapperClass: TCalendarControlWrapperClass;
     FCascade: Boolean;
     FCenturyFrom, FEffectiveCenturyFrom: Word;
@@ -186,10 +192,12 @@ type
     function GetChecked: Boolean;
     function GetDate: TDate;
     function GetDateTime: TDateTime;
+    function GetDroppedDown: Boolean;
     function GetShowCheckBox: Boolean;
     function GetTime: TTime;
     procedure SetArrowShape(const AValue: TArrowShape);
     procedure SetAutoButtonSize(AValue: Boolean);
+    procedure SetCalAlignment(AValue: TDTCalAlignment);
     procedure SetCalendarWrapperClass(AValue: TCalendarControlWrapperClass);
     procedure SetCenturyFrom(const AValue: Word);
     procedure SetChecked(const AValue: Boolean);
@@ -380,6 +388,8 @@ type
     property MonthNames: String read FMonthNames write SetMonthNames;
     property ShowMonthNames: Boolean
              read FShowMonthNames write SetShowMonthNames default False;
+    property DroppedDown: Boolean read GetDroppedDown;
+    property CalAlignment: TDTCalAlignment read FCalAlignment write SetCalAlignment default dtaDefault;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -401,6 +411,7 @@ type
   public
     property DateTime;
     property CalendarWrapperClass;
+    property DroppedDown;
   published
     property ArrowShape;
     property ShowCheckBox;
@@ -449,6 +460,7 @@ type
     property ParentBiDiMode;
     property MonthNames;
     property ShowMonthNames;
+    property CalAlignment;
 // events:
     property OnChange;
     property OnCheckBoxChange;
@@ -529,8 +541,7 @@ type
     procedure CalendarKeyDown(Sender: TObject; var Key: Word;
                                       Shift: TShiftState);
     procedure CalendarResize(Sender: TObject);
-    procedure CalendarMouseUp(Sender: TObject; Button: TMouseButton;
-                                      Shift: TShiftState; X, Y: Integer);
+    procedure CalendarClick(Sender: TObject);
     procedure VisibleOfParentChanged(Sender: TObject);
 
   protected
@@ -580,7 +591,8 @@ begin
   H := Height;
   W := Width;
 
-  if IsRightToLeft then
+  if (DTPicker.CalAlignment = dtaRight) or
+        ((DTPicker.CalAlignment = dtaDefault) and IsRightToLeft) then
     P := DTPicker.ControlToScreen(Point(DTPicker.Width - W, DTPicker.Height))
   else
     P := DTPicker.ControlToScreen(Point(0, DTPicker.Height));
@@ -654,14 +666,16 @@ end;
 procedure TDTCalendarForm.CalendarKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  case Key of
-    VK_ESCAPE:
-      CloseCalendarForm;
+  if (not(Cal.GetCalendarControl is TCustomCalendar))
+       or (TCustomCalendar(Cal.GetCalendarControl).GetCalendarView = cvMonth) then
+    case Key of
+      VK_ESCAPE:
+        CloseCalendarForm;
 
-    VK_RETURN, VK_SPACE:
-      CloseCalendarForm(True);
+      VK_RETURN, VK_SPACE:
+        CloseCalendarForm(True);
 
-  end;
+    end;
 end;
 
 procedure TDTCalendarForm.CalendarResize(Sender: TObject);
@@ -669,11 +683,13 @@ begin
   AdjustCalendarFormSize;
 end;
 
-procedure TDTCalendarForm.CalendarMouseUp(Sender: TObject;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure TDTCalendarForm.CalendarClick(Sender: TObject);
+var
+  P: TPoint;
 begin
-  if Cal.AreCoordinatesOnDate(X, Y) then
-    CloseCalendarForm(True);
+  P := Cal.GetCalendarControl.ScreenToClient(Mouse.CursorPos);
+  if Cal.AreCoordinatesOnDate(P.x, P.y) then
+     CloseCalendarForm(True);
 
 end;
 
@@ -720,11 +736,6 @@ begin
 
   inherited DoClose(CloseAction);
 end;
-
-type
-  { To be able to access TControl's protected members,
-    we derive our class TDTControl from TControl: }
-  TDTControl = class(TControl);
 
 constructor TDTCalendarForm.CreateNewDTCalendarForm(AOwner: TComponent;
   ADTPicker: TCustomDateTimePicker);
@@ -785,7 +796,7 @@ begin
     Cal.SetDate(DTPicker.Date);
 
   Cal.GetCalendarControl.OnResize := @CalendarResize;
-  TDTControl(Cal.GetCalendarControl).OnMouseUp := @CalendarMouseUp;
+  Cal.GetCalendarControl.OnClick := @CalendarClick;
   if Cal.GetCalendarControl is TWinControl then begin
     TWinControl(Cal.GetCalendarControl).OnKeyDown := @CalendarKeyDown;
     TWinControl(Cal.GetCalendarControl).TabStop := True;
@@ -805,7 +816,7 @@ begin
 
   if Assigned(Cal) then begin
     Cal.GetCalendarControl.OnResize := nil;
-    TDTControl(Cal.GetCalendarControl).OnMouseUp := nil;
+    Cal.GetCalendarControl.OnClick := nil;
     if Cal.GetCalendarControl is TWinControl then
       TWinControl(Cal.GetCalendarControl).OnKeyDown := nil;
     Cal.Free;
@@ -3293,6 +3304,11 @@ begin
     Result := FDateTime;
 end;
 
+function TCustomDateTimePicker.GetDroppedDown: Boolean;
+begin
+  Result := Assigned(FCalendarForm);
+end;
+
 function TCustomDateTimePicker.GetShowCheckBox: Boolean;
 begin
   Result := Assigned(FCheckBox);
@@ -3333,6 +3349,12 @@ begin
     end;
 
   end;
+end;
+
+procedure TCustomDateTimePicker.SetCalAlignment(AValue: TDTCalAlignment);
+begin
+  if FCalAlignment = AValue then Exit;
+  FCalAlignment := AValue;
 end;
 
 procedure TCustomDateTimePicker.SetCalendarWrapperClass(
@@ -3637,6 +3659,7 @@ begin
   with GetControlClassDefaultSize do
     SetInitialBounds(0, 0, cx, cy);
 
+  FCalAlignment := dtaDefault;
   FCorrectedDTP := dtpAMPM;
   FCorrectedValue := 0;
   FChangeInRecursiveCall := False;

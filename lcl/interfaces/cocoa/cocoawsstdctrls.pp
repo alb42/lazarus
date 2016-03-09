@@ -137,6 +137,8 @@ type
     class function CreateHandle(const AWinControl: TWinControl; const AParams: TCreateParams): TLCLIntfHandle; override;
     class function GetStrings(const ACustomMemo: TCustomMemo): TStrings; override;
 
+    //class function GetCanUndo(const ACustomEdit: TCustomEdit): Boolean; override;
+    class function GetCaretPos(const ACustomEdit: TCustomEdit): TPoint; override;
     class function GetSelStart(const ACustomEdit: TCustomEdit): integer; override;
     class function GetSelLength(const ACustomEdit: TCustomEdit): integer; override;
 
@@ -320,6 +322,7 @@ procedure TLCLRadioButtonCallback.ButtonClick;
 var
   SubView: NSView;
 begin
+  if not Owner.lclIsEnabled() then Exit;
   if NSButton(Owner).state = NSOnState then
   begin
     for SubView in NSButton(Owner).superView.subviews do
@@ -333,6 +336,7 @@ end;
 
 procedure TLCLButtonCallback.ButtonClick;
 begin
+  if not Owner.lclIsEnabled() then Exit;
   SendSimpleMessage(Target, LM_CLICKED);
 end;
 
@@ -348,6 +352,7 @@ end;
 procedure TLCLCheckBoxCallback.ButtonClick;
 begin
   inherited;
+  if not Owner.lclIsEnabled() then Exit;
   SendSimpleMessage(Target, LM_CHANGED);
   // todo: win32 has something about dbcheckbox handling here. so maybe we need to handle it special too
 end;
@@ -783,6 +788,11 @@ begin
   nr:=scr.documentVisibleRect;
   txt.setFrame(nr);
   txt.textContainer.setLineFragmentPadding(0);
+  txt.lclSetEnabled(True);
+
+  // ToDo: This should be made selectable in the LCL
+  txt.setAutomaticQuoteSubstitutionEnabled(False);
+  txt.setAutomaticTextReplacementEnabled(False);
 
   txt.callback := TLCLCommonCallback.Create(txt, AWinControl);
   ns := NSStringUtf8(AParams.Caption);
@@ -804,8 +814,49 @@ begin
     Result := nil
 end;
 
-class function TCocoaWSCustomMemo.GetSelStart(const ACustomEdit: TCustomEdit
-  ): integer;
+class function TCocoaWSCustomMemo.GetCaretPos(const ACustomEdit: TCustomEdit): TPoint;
+var
+  txt: TCocoaTextView;
+  lValue: NSValue;
+  viewString: NSString;
+  paraStart: NSUInteger = 0;
+  paraEnd: NSUInteger = 0;
+  contentsEnd: NSUInteger = 0;
+  curLine: Integer = 0;
+begin
+  Result := Point(0, 0);
+  txt := MemoTextView(ACustomEdit);
+  if not Assigned(txt) then Exit;
+  lValue := NSValue(txt.selectedRanges.objectAtIndex(0));
+  if lValue = nil then Exit;
+
+  viewString := txt.string_;
+  Result.X := lValue.rangeValue.location;
+
+  // There is no simple function to do this in Cocoa :(
+  while (paraEnd < viewString.length) do
+  begin
+    viewString.getLineStart_end_contentsEnd_forRange(@paraStart,
+      @paraEnd, @contentsEnd, NSMakeRange(paraEnd, 0));
+
+    if (lValue.rangeValue.location >= paraStart) and
+       (lValue.rangeValue.location < paraEnd) then
+    begin
+      Break;
+    end
+    else
+      Result.X := Result.X - (paraEnd - paraStart);
+
+    Inc(curLine);
+  end;
+  Result.Y := curLine;
+
+  {This doesn't work :/
+  lineRange := viewString.lineRangeForRange(lValue.rangeValue);
+  Result.X := lineRange.location;}
+end;
+
+class function TCocoaWSCustomMemo.GetSelStart(const ACustomEdit: TCustomEdit): integer;
 var
   txt: TCocoaTextView;
 begin
@@ -890,8 +941,12 @@ begin
   begin
     rocmb := NSView(TCocoaReadOnlyComboBox.alloc).lclInitWithCreateParams(AParams);
     if not Assigned(rocmb) then Exit;
+    rocmb.Owner := TCustomComboBox(AWinControl);
     rocmb.callback:=TLCLComboboxCallback.Create(rocmb, AWinControl);
     rocmb.list:=TCocoaComboBoxList.Create(nil, rocmb);
+    rocmb.setTarget(rocmb);
+    rocmb.setAction(objcselector('comboboxAction:'));
+    rocmb.selectItemAtIndex(rocmb.lastSelectedItemIndex);
     Result:=TLCLIntfHandle(rocmb);
   end
   else
@@ -924,12 +979,18 @@ end;
 
 class procedure TCocoaWSCustomComboBox.SetItemIndex(const ACustomComboBox:
   TCustomComboBox;NewIndex:integer);
+var
+  rocmb: TCocoaReadOnlyComboBox;
 begin
   if (not Assigned(ACustomComboBox)) or (not ACustomComboBox.HandleAllocated) then
     Exit;
 
   if ACustomComboBox.ReadOnly then
-    TCocoaReadOnlyComboBox(ACustomComboBox.Handle).selectItemAtIndex(NewIndex)
+  begin
+    rocmb := TCocoaReadOnlyComboBox(ACustomComboBox.Handle);
+    rocmb.lastSelectedItemIndex := NewIndex;
+    rocmb.selectItemAtIndex(NewIndex);
+  end
   else
     TCocoaComboBox(ACustomComboBox.Handle).selectItemAtIndex(NewIndex);
 end;
@@ -1058,6 +1119,9 @@ class function TCocoaWSCustomGroupBox.CreateHandle(const AWinControl: TWinContro
 var
   box: TCocoaGroupBox;
   cap: NSString;
+  lGroupBoxContents: TCocoaCustomControl;
+  ns: NSRect;
+  //str: string;
 begin
   box := NSView(TCocoaGroupBox.alloc).lclInitWithCreateParams(AParams);
   if Assigned(box) then
@@ -1066,6 +1130,14 @@ begin
     cap := NSStringUTF8(AParams.Caption);
     box.setTitle(cap);
     cap.release;
+
+    // set a content view in order to be able to customize drawing for labels/color
+    ns := GetNSRect(AParams.X, AParams.Y, AParams.Width, AParams.Height);
+    lGroupBoxContents := TCocoaCustomControl(TCocoaCustomControl.alloc.initWithFrame(ns));
+    lGroupBoxContents.callback := TLCLCustomControlCallback.Create(lGroupBoxContents, AWinControl);
+    //str := Format('%X=%X', [PtrUInt(box.callback), PtrUInt(lGroupBoxContents.callback)]);
+    lGroupBoxContents.autorelease;
+    box.setContentView(lGroupBoxContents);
   end;
   Result := TLCLIntfHandle(box);
 end;

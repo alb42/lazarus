@@ -437,6 +437,8 @@ type
     FOnDrag: TDataPointDragEvent;
     FOnDragStart: TDataPointDragEvent;
     FOrigin: TDoublePoint;
+    FKeepDistance: Boolean;
+    FDistance: TDoublePoint;
   strict protected
     procedure Cancel; override;
   public
@@ -448,6 +450,7 @@ type
   published
     property ActiveCursor default crSizeAll;
     property EscapeCancels default true;
+    property KeepDistance: Boolean read FKeepDistance write FKeepDistance default false;
     property OnDrag: TDataPointDragEvent read FOnDrag write FOnDrag;
     property OnDragStart: TDataPointDragEvent
       read FOnDragStart write FOnDragStart;
@@ -573,17 +576,20 @@ type
   end;
 
   procedure Register;
-  procedure RegisterChartToolClass(
-    AToolClass: TChartToolClass; const ACaption: String);
+
+  procedure RegisterChartToolClass(AToolClass: TChartToolClass;
+    const ACaption: String); overload;
+  procedure RegisterChartToolClass(AToolClass: TChartToolClass;
+    ACaptionPtr: PStr); overload;
 
 var
-  ToolsClassRegistry: TStringList;
+  ToolsClassRegistry: TClassRegistry = nil;
 
 implementation
 
 uses
   GraphMath, InterfaceBase, LCLType, LCLIntf, Math, SysUtils,
-  TACustomSeries, TAEnumerators, TAGeometry, TAMath;
+  TAChartStrConsts, TACustomSeries, TAEnumerators, TAGeometry, TAMath;
 
 function InitBuiltinTools(AChart: TChart): TBasicChartToolset;
 var
@@ -607,15 +613,23 @@ var
   i: Integer;
 begin
   for i := 0 to ToolsClassRegistry.Count - 1 do
-    RegisterNoIcon([TChartToolClass(ToolsClassRegistry.Objects[i])]);
+    RegisterNoIcon([TChartToolClass(ToolsClassRegistry.GetClass(i))]);
   RegisterComponents(CHART_COMPONENT_IDE_PAGE, [TChartToolset]);
 end;
 
-procedure RegisterChartToolClass(
-  AToolClass: TChartToolClass; const ACaption: String);
+procedure RegisterChartToolClass(AToolClass: TChartToolClass;
+  const ACaption: String);
 begin
   RegisterClass(AToolClass);
-  ToolsClassRegistry.AddObject(ACaption, TObject(AToolClass));
+  if ToolsClassRegistry.IndexOfClass(AToolClass) < 0 then
+    ToolsClassRegistry.Add(TClassRegistryItem.Create(AToolClass, ACaption));
+end;
+
+procedure RegisterChartToolClass(AToolClass: TChartToolClass; ACaptionPtr: PStr);
+begin
+  RegisterClass(AToolClass);
+  if ToolsClassRegistry.IndexOfClass(AToolClass) < 0 then
+    ToolsClassRegistry.Add(TClassRegistryItem.CreateRes(AToolClass, ACaptionPtr));
 end;
 
 { TDataPointTool.TPointRef }
@@ -1323,12 +1337,14 @@ var
   ext: TDoubleRect;
 begin
   ext := FChart.LogicalExtent;
-  center := FChart.ImageToGraph(APoint);
   sz := ext.b - ext.a;
-  if FixedPoint and (sz.X <> 0) and (sz.Y <> 0) then
-    ratio := (center - ext.a) / sz
-  else
+  if FixedPoint and (sz.X <> 0) and (sz.Y <> 0) then begin
+    center := FChart.ImageToGraph(APoint);
+    ratio := (center - ext.a) / sz;
+  end else begin
+    center := DoublePoint((ext.a.x + ext.b.X) / 2, (ext.a.y + ext.b.y) / 2);
     ratio := DoublePoint(0.5, 0.5);
+  end;
   ext.a := center - sz * ratio / AFactor;
   ext.b := center + sz * (DoublePoint(1, 1) - ratio) / AFactor;
   DoZoom(ext, false);
@@ -1677,8 +1693,9 @@ begin
   FindNearestPoint(APoint);
   if FSeries = nil then exit;
   FOrigin := NearestGraphPoint;
+  p := FChart.ImageToGraph(APoint);
+  FDistance := p - FOrigin;
   if Assigned(OnDragStart) then begin
-    p := FChart.ImageToGraph(APoint);
     OnDragStart(Self, p);
     if Toolset.FIsHandled then exit;
   end;
@@ -1696,6 +1713,7 @@ begin
     OnDrag(Self, p);
     if Toolset.FIsHandled then exit;
   end;
+  if FKeepDistance then p := p - FDistance;
   FSeries.MovePoint(FPointIndex, p);
   Handled;
 end;
@@ -1962,20 +1980,20 @@ end;
 
 initialization
 
-  ToolsClassRegistry := TStringList.Create;
+  ToolsClassRegistry := TClassRegistry.Create;
   OnInitBuiltinTools := @InitBuiltinTools;
-  RegisterChartToolClass(TZoomDragTool, 'Zoom by drag');
-  RegisterChartToolClass(TZoomClickTool, 'Zoom by click');
-  RegisterChartToolClass(TZoomMouseWheelTool, 'Zoom by mouse wheel');
-  RegisterChartToolClass(TPanDragTool, 'Panning by drag');
-  RegisterChartToolClass(TPanClickTool, 'Panning by click');
-  RegisterChartToolClass(TPanMouseWheelTool, 'Panning by mouse wheel');
-  RegisterChartToolClass(TReticuleTool, 'Reticule');
-  RegisterChartToolClass(TDataPointClickTool, 'Data point click');
-  RegisterChartToolClass(TDataPointDragTool, 'Data point drag');
-  RegisterChartToolClass(TDataPointHintTool, 'Data point hint');
-  RegisterChartToolClass(TDataPointCrosshairTool, 'Data point crosshair');
-  RegisterChartToolClass(TUserDefinedTool, 'User-defined');
+  RegisterChartToolClass(TZoomDragTool, @rsZoomByDrag);
+  RegisterChartToolClass(TZoomClickTool, @rsZoomByClick);
+  RegisterChartToolClass(TZoomMouseWheelTool, @rsZoomByMouseWheel);
+  RegisterChartToolClass(TPanDragTool, @rsPanningByDrag);
+  RegisterChartToolClass(TPanClickTool, @rsPanningbyClick);
+  RegisterChartToolClass(TPanMouseWheelTool, @rsPanningByMouseWheel);
+//  RegisterChartToolClass(TReticuleTool, @rsReticule);
+  RegisterChartToolClass(TDataPointClickTool, @rsDataPointClick);
+  RegisterChartToolClass(TDataPointDragTool, @rsDataPointDrag);
+  RegisterChartToolClass(TDataPointHintTool, @rsDataPointHint);
+  RegisterChartToolClass(TDataPointCrosshairTool, @rsDataPointCrosshair);
+  RegisterChartToolClass(TUserDefinedTool, @rsUserDefinedTool);
 
 finalization
 

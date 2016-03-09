@@ -126,7 +126,8 @@ type
     function GetUnregisteredIcon: TCustomBitmap;
     function GetSelectButtonIcon: TCustomBitmap;
     function SelectAButton(Button: TSpeedButton): boolean;
-    procedure ComponentWasAdded;
+    procedure ComponentWasAdded({%H-}ALookupRoot, {%H-}AComponent: TComponent;
+                                {%H-}ARegisteredComponent: TRegisteredComponent);
     procedure CheckComponentDesignerVisible(AComponent: TComponent; var Invisible: boolean);
   public
     constructor Create;
@@ -506,17 +507,16 @@ end;
 
 procedure TComponentPalette.ActivePageChanged(Sender: TObject);
 begin
-  if FPageControl=nil then exit;
+  if (FPageControl=nil) or fUpdatingPageControl then exit;
   if (Selected<>nil)
   and ((Selected.RealPage as TComponentPage).PageComponent=FPageControl.ActivePage) then exit;
-  if fUpdatingPageControl then exit;
   {$IFDEF VerboseComponentPalette}
   DebugLn('TComponentPalette.ActivePageChanged: Calling ReAlignButtons, setting Selected:=nil.');
   {$ENDIF}
   ReAlignButtons(FPageControl.ActivePage);
   Selected:=nil;
 
-  if Assigned(FOnChangeActivePage) then
+  if MainIDE.IDEStarted and Assigned(FOnChangeActivePage) then
     FOnChangeActivePage(Sender);
 end;
 
@@ -693,7 +693,7 @@ begin
         DisableAutoSize);
       if AComponent<>nil then begin
         if DisableAutoSize and (AComponent is TControl) then
-          TControl(AComponent).EnableAutoSizing;
+          TControl(AComponent).EnableAutoSizing{$IFDEF DebugDisableAutoSizing}('TComponentPalette.ComponentBtnDblClick'){$ENDIF};
         GlobalDesignHook.PersistentAdded(AComponent,true);
       end;
     end;
@@ -896,7 +896,8 @@ begin
   Result := (Selected = NewComponent);
 end;
 
-procedure TComponentPalette.ComponentWasAdded;
+procedure TComponentPalette.ComponentWasAdded(ALookupRoot, AComponent: TComponent;
+  ARegisteredComponent: TRegisteredComponent);
 begin
   if not (ssShift in GetKeyShiftState) and (SelectionMode = csmSingle) then
     Selected := nil;

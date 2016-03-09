@@ -26,7 +26,7 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, Controls, Buttons, Forms, StdCtrls, Graphics,
-  ComCtrls, Grids;
+  ComCtrls, Grids, Laz2_XMLCfg;
 
 const
   NoParent = -1;
@@ -60,6 +60,20 @@ type
   TIDEOptionsEditorSettings = set of TIDEOptionsEditorSetting;
 
   TIDEOptionsWriteEvent = procedure(Sender: TObject; Restore: boolean) of object;
+
+  TAbstractDesktopDockingOpt = class
+  public
+    constructor Create; virtual;
+    procedure StoreWindowPositions; virtual; abstract;
+    procedure LoadDefaults; virtual; abstract;
+    procedure Load(Path: String; aXMLCfg: TRttiXMLConfig); virtual; abstract;
+    procedure Save(Path: String; aXMLCfg: TRttiXMLConfig); virtual; abstract;
+    procedure ImportSettingsFromIDE; virtual; abstract;
+    procedure ExportSettingsToIDE; virtual; abstract;
+    function RestoreDesktop: Boolean; virtual; abstract;
+    procedure Assign(Source: TAbstractDesktopDockingOpt); virtual; abstract;
+  end;
+  TAbstractDesktopDockingOptClass = class of TAbstractDesktopDockingOpt;
 
   { TAbstractIDEOptions base class for all option containers }
 
@@ -103,6 +117,47 @@ type
 
   TAbstractIDEEnvironmentOptions = class(TAbstractIDEOptions);
   TAbstractIDEHelpOptions = class(TAbstractIDEEnvironmentOptions);
+
+  TOnAddToRecent = procedure(Sender: TObject; AFileName: string; var AAllow: Boolean) of object;
+  TIDERecentHandler = (irhOpenFiles, irhProjectFiles, irhPackageFiles);
+
+  TIDEEnvironmentOptions = class(TAbstractIDEEnvironmentOptions)
+  private
+    fRecentHandlers: array[TIDERecentHandler] of TMethodList;
+
+    procedure DoCallRecentHandlers(AHandler: TIDERecentHandler;
+      const AFileName: string; var AAllow: Boolean);
+  protected
+    procedure DoAddToRecentOpenFiles(const AFileName: string; var AAllow: Boolean);
+    procedure DoAddToRecentProjectFiles(const AFileName: string; var AAllow: Boolean);
+    procedure DoAddToRecentPackageFiles(const AFileName: string; var AAllow: Boolean);
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    procedure AddToRecentOpenFiles(const AFilename: string); virtual; abstract;
+    procedure RemoveFromRecentOpenFiles(const AFilename: string); virtual; abstract;
+    procedure AddToRecentProjectFiles(const AFilename: string); virtual; abstract;
+    procedure RemoveFromRecentProjectFiles(const AFilename: string); virtual; abstract;
+    procedure AddToRecentPackageFiles(const AFilename: string); virtual; abstract;
+    procedure RemoveFromRecentPackageFiles(const AFilename: string); virtual; abstract;
+
+    procedure AddHandlerAddToRecentOpenFiles(Handler: TOnAddToRecent; const AsFirst: boolean = true); // AsFirst means: first to call
+    procedure RemoveHandlerAddToRecentOpenFiles(Handler: TOnAddToRecent);
+    procedure AddHandlerAddToRecentProjectFiles(Handler: TOnAddToRecent; const AsFirst: boolean = true); // AsFirst means: first to call
+    procedure RemoveHandlerAddToRecentProjectFiles(Handler: TOnAddToRecent);
+    procedure AddHandlerAddToRecentPackageFiles(Handler: TOnAddToRecent; const AsFirst: boolean = true); // AsFirst means: first to call
+    procedure RemoveHandlerAddToRecentPackageFiles(Handler: TOnAddToRecent);
+  end;
+
+  TIDEEditorOptions = class(TAbstractIDEEnvironmentOptions)
+  protected
+    function GetTabPosition: TTabPosition; virtual; abstract;
+  public
+    // read-only access to options needed by external packages.
+    // feel free to extend when needed
+    property TabPosition: TTabPosition read GetTabPosition;
+  end;
 
   TOnLoadIDEOptions = procedure(Sender: TObject; AOptions: TAbstractIDEOptions) of object;
   TOnSaveIDEOptions = procedure(Sender: TObject; AOptions: TAbstractIDEOptions) of object;
@@ -218,6 +273,10 @@ function RegisterIDEOptionsEditor(AGroupIndex: Integer;
            AutoCreateGroup: boolean = false): PIDEOptionsEditorRec;
 
 function IDEEditorGroups: TIDEOptionsGroupList;
+
+var
+  IDEEnvironmentOptions: TIDEEnvironmentOptions;
+  IDEEditorOptions: TIDEEditorOptions;
 
 const
   // Font style used by filter
@@ -407,6 +466,102 @@ begin
     Result := 1
   else
     Result := 0;
+end;
+
+{ TIDEEnvironmentOptions }
+
+constructor TIDEEnvironmentOptions.Create;
+var
+  I: TIDERecentHandler;
+begin
+  inherited Create;
+
+  for I := Low(fRecentHandlers) to High(fRecentHandlers) do
+    fRecentHandlers[I] := TMethodList.Create;
+end;
+
+procedure TIDEEnvironmentOptions.AddHandlerAddToRecentOpenFiles(
+  Handler: TOnAddToRecent; const AsFirst: boolean);
+begin
+  fRecentHandlers[irhOpenFiles].Add(TMethod(Handler), AsFirst);
+end;
+
+procedure TIDEEnvironmentOptions.AddHandlerAddToRecentPackageFiles(
+  Handler: TOnAddToRecent; const AsFirst: boolean);
+begin
+  fRecentHandlers[irhPackageFiles].Add(TMethod(Handler), AsFirst);
+end;
+
+procedure TIDEEnvironmentOptions.AddHandlerAddToRecentProjectFiles(
+  Handler: TOnAddToRecent; const AsFirst: boolean);
+begin
+  fRecentHandlers[irhProjectFiles].Add(TMethod(Handler), AsFirst);
+end;
+
+destructor TIDEEnvironmentOptions.Destroy;
+var
+  I: TIDERecentHandler;
+begin
+  for I := Low(fRecentHandlers) to High(fRecentHandlers) do
+    fRecentHandlers[I].Free;
+
+  inherited Destroy;
+end;
+
+procedure TIDEEnvironmentOptions.DoAddToRecentOpenFiles(
+  const AFileName: string; var AAllow: Boolean);
+begin
+  DoCallRecentHandlers(irhOpenFiles, AFileName, AAllow);
+end;
+
+procedure TIDEEnvironmentOptions.DoAddToRecentPackageFiles(
+  const AFileName: string; var AAllow: Boolean);
+begin
+  DoCallRecentHandlers(irhPackageFiles, AFileName, AAllow);
+end;
+
+procedure TIDEEnvironmentOptions.DoAddToRecentProjectFiles(
+  const AFileName: string; var AAllow: Boolean);
+begin
+  DoCallRecentHandlers(irhProjectFiles, AFileName, AAllow);
+end;
+
+procedure TIDEEnvironmentOptions.DoCallRecentHandlers(
+  AHandler: TIDERecentHandler; const AFileName: string; var AAllow: Boolean);
+var
+  xMethod: TOnAddToRecent;
+  I: Integer;
+begin
+  for I := 0 to fRecentHandlers[AHandler].Count-1 do
+  begin
+    xMethod := TOnAddToRecent(fRecentHandlers[AHandler][I]);
+    xMethod(Self, AFileName, AAllow);
+  end;
+end;
+
+procedure TIDEEnvironmentOptions.RemoveHandlerAddToRecentOpenFiles(
+  Handler: TOnAddToRecent);
+begin
+  fRecentHandlers[irhOpenFiles].Remove(TMethod(Handler));
+end;
+
+procedure TIDEEnvironmentOptions.RemoveHandlerAddToRecentPackageFiles(
+  Handler: TOnAddToRecent);
+begin
+  fRecentHandlers[irhPackageFiles].Remove(TMethod(Handler));
+end;
+
+procedure TIDEEnvironmentOptions.RemoveHandlerAddToRecentProjectFiles(
+  Handler: TOnAddToRecent);
+begin
+  fRecentHandlers[irhProjectFiles].Remove(TMethod(Handler));
+end;
+
+{ TAbstractDesktopDockingOpt }
+
+constructor TAbstractDesktopDockingOpt.Create;
+begin
+  inherited Create;
 end;
 
 { TDefaultFont }

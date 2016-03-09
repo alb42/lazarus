@@ -37,10 +37,10 @@ unit PkgLinksDlg;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  Classes, SysUtils, Forms, Controls, StdCtrls,
   Buttons, Grids, ExtCtrls, ComCtrls, Menus, AvgLvlTree, LazUTF8,
-  FileProcs, PackageIntf,
-  LazarusIDEStrConsts, PackageDefs, PackageLinks, LPKCache;
+  FileProcs, LazFileUtils, LazFileCache, PackageIntf,
+  LazarusIDEStrConsts, PackageLinks, LPKCache;
 
 type
 
@@ -405,7 +405,6 @@ end;
 
 procedure TPackageLinksDialog.RescanGlobalLinks;
 begin
-  PkgLinks.ClearGlobalLinks;
   PkgLinks.UpdateGlobalLinks;
 end;
 
@@ -484,9 +483,6 @@ begin
       LPKFilename:=Link.LPKFilename;
       LPLFilename:=Link.LPLFilename;
       AutoCheckExists:=Link.AutoCheckExists;
-      NotFoundCount:=Link.NotFoundCount;
-      LastCheckValid:=Link.LastCheckValid;
-      LastCheck:=Link.LastCheck;
       LPKFileDateValid:=Link.LPKFileDateValid;
       LPKFileDate:=Link.LPKFileDate;
       LastUsed:=Link.LastUsed;

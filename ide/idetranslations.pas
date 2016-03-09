@@ -33,7 +33,7 @@ interface
 
 uses
   Classes, SysUtils, GetText, LazUTF8, Translations,
-  IDEProcs, FileProcs, avl_tree,
+  IDEProcs, FileProcs, LazFileUtils, LazFileCache,
   CodeToolManager, DirectoryCacher, CodeCache,
   LazarusIDEStrConsts;
   { IDE Language (Human, not computer) }
@@ -83,8 +83,14 @@ function ConvertRSTFiles(RSTDirectory, PODirectory: string;
   ): Boolean;
 procedure UpdatePoFileAndTranslations(SrcFiles: TStrings;
   const POFilename: string);
+procedure UpdatePoFileAndTranslations(SrcFiles: TStrings;
+  const POFilename: string; ForceUpdatePoFiles: Boolean;
+  ExcludedIdentifiers: TStrings; ExcludedOriginals: TStrings);
 procedure UpdateBasePoFile(SrcFiles: TStrings;
   const POFilename: string; POFile: PPOFile = nil);
+procedure UpdateBasePoFile(SrcFiles: TStrings;
+  const POFilename: string; POFile: PPOFile;
+  ExcludedIdentifiers: TStrings; ExcludedOriginals: TStrings);
 function FindTranslatedPoFiles(const BasePOFilename: string): TStringList;
 procedure UpdateTranslatedPoFile(const BasePOFile: TPOFile; TranslatedFilename: string);
 
@@ -201,7 +207,7 @@ var
   i: Integer;
   Item: PItem;
   j: Integer;
-  OutputFilename: String;
+  OutputFilename, OtherRSTFilename, Ext, OtherExt: String;
 begin
   Result:=true;
   if (RSTDirectory='') or (PODirectory='') then exit;// nothing to do
@@ -227,11 +233,10 @@ begin
     Item:=nil;
     // collect all rst/po files that needs update
     for i:=0 to Files.Count-1 do begin
-      if (CompareFileExt(Files[i],'.rst',false)<>0) and 
-         (CompareFileExt(Files[i],'.lrt',false)<>0) and
-         (CompareFileExt(Files[i],'.rsj',false)<>0)
-      then continue;
       RSTFilename:=RSTDirectory+Files[i];
+      Ext:=LowerCase(ExtractFileExt(RSTFilename));
+      if (Ext<>'.rst') and (Ext<>'.lrt') and (Ext<>'.rsj') then
+        continue;
       if POFilename='' then
         OutputFilename:=PODirectory+ChangeFileExt(Files[i],'.po')
       else
@@ -250,7 +255,32 @@ begin
         Item^.RSTFileList:=TStringList.Create;
         Item^.OutputFilename:=OutputFilename;
         Items.Add(Item);
+      end else begin
+        // there is already a source file for this .po file
+        //debugln(['ConvertRSTFiles found another source: ',RSTFilename]);
+        if (Ext='.rsj') or (Ext='.rst') then begin
+          // rsj are created by FPC 2.7.1+, rst by older => use only the newest
+          for j:=Item^.RSTFileList.Count-1 downto 0 do begin
+            OtherRSTFilename:=Item^.RSTFileList[j];
+            //debugln(['ConvertRSTFiles old: ',OtherRSTFilename]);
+            OtherExt:=LowerCase(ExtractFileExt(OtherRSTFilename));
+            if (OtherExt='.rsj') or (OtherExt='.rst') then begin
+              if FileAgeCached(RSTFilename)<=FileAgeCached(OtherRSTFilename) then
+              begin
+                // this one is older => skip
+                //debugln(['ConvertRSTFiles ',RSTFilename,' is older => skip']);
+                RSTFilename:='';
+                break;
+              end else begin
+                // this one is newer
+                //debugln(['ConvertRSTFiles ',RSTFilename,' is newer => ignoring old']);
+                Item^.RSTFileList.Delete(j);
+              end;
+            end;
+          end;
+        end;
       end;
+      if RSTFilename='' then continue;
       Item^.RSTFileList.Add(RSTFilename);
       if (not Item^.NeedUpdate)
       or (not FileExistsCached(OutputFilename))
@@ -285,21 +315,32 @@ end;
 
 procedure UpdatePoFileAndTranslations(SrcFiles: TStrings;
   const POFilename: string);
+begin
+  UpdatePoFileAndTranslations(SrcFiles, POFilename, False, nil, nil);
+end;
+
+procedure UpdatePoFileAndTranslations(SrcFiles: TStrings;
+  const POFilename: string; ForceUpdatePoFiles: Boolean;
+  ExcludedIdentifiers: TStrings; ExcludedOriginals: TStrings);
 var
   BasePOFile: TPOFile;
   TranslatedFiles: TStringList;
   TranslatedFilename: String;
 begin
   BasePOFile:=nil;
-  UpdateBasePoFile(SrcFiles,POFilename,@BasePOFile);
+  // Once we exclude identifiers and originals from the base PO file,
+  // they will be automatically removed in the translated files on update.
+  UpdateBasePoFile(SrcFiles,POFilename,@BasePOFile,
+    ExcludedIdentifiers, ExcludedOriginals);
   if BasePOFile=nil then exit;
   TranslatedFiles:=nil;
   try
     TranslatedFiles:=FindTranslatedPoFiles(POFilename);
     if TranslatedFiles=nil then exit;
     for TranslatedFilename in TranslatedFiles do begin
-      if FileAgeCached(TranslatedFilename)>=FileAgeCached(POFilename) then
-        continue;
+      if not ForceUpdatePoFiles then
+        if FileAgeCached(TranslatedFilename)>=FileAgeCached(POFilename) then
+          continue;
       UpdateTranslatedPoFile(BasePOFile,TranslatedFilename);
     end;
   finally
@@ -310,6 +351,13 @@ end;
 
 procedure UpdateBasePoFile(SrcFiles: TStrings;
   const POFilename: string; POFile: PPOFile);
+begin
+  UpdateBasePoFile(SrcFiles, POFilename, POFile, nil, nil);
+end;
+
+procedure UpdateBasePoFile(SrcFiles: TStrings;
+  const POFilename: string; POFile: PPOFile;
+  ExcludedIdentifiers: TStrings; ExcludedOriginals: TStrings);
 var
   BasePOFile: TPOFile;
   i: Integer;
@@ -345,6 +393,10 @@ begin
       BasePOFile.UpdateStrings(SrcLines,FileType);
     end;
     SrcLines.Clear;
+    if Assigned(ExcludedIdentifiers) then
+      BasePOFile.RemoveIdentifiers(ExcludedIdentifiers);
+    if Assigned(ExcludedOriginals) then
+      BasePOFile.RemoveOriginals(ExcludedOriginals);
     BasePOFile.SaveToStrings(SrcLines);
     if POBuf=nil then begin
       POBuf:=CodeToolBoss.CreateFile(POFilename);

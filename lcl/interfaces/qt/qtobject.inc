@@ -70,6 +70,9 @@ begin
   FLastWFPMousePos := Point(MaxInt, MaxInt);
   FLastWFPResult := 0;
   inherited Create;
+  {$IFDEF QtUseAccurateFrame}
+  FWSFrameMargins := Rect(0, 0, 0, 0);
+  {$ENDIF}
   FIsLibraryInstance := QCoreApplication_instance() <> nil;
   if FIsLibraryInstance then
     App := QApplicationH(QCoreApplication_instance())
@@ -235,7 +238,7 @@ begin
 
   if not FIsLibraryInstance then
   begin
-    {$IFDEF HAIKU}
+    {$IF DEFINED(HAIKU) OR DEFINED(QTOPIA)}
     FAppSessionQuit := nil;
     FAppSaveSessionRequest := nil;
     {$ELSE}
@@ -986,11 +989,22 @@ var
         Assigned(TQtMainWindow(OldWidget).LCLObject) and
         not (csDesigning in TQtMainWindow(OldWidget).LCLObject.ComponentState))
         or MDIFocusFixNeeded then
+      begin
         // DO NOT TRIGGER ANYTHING, THIS IS SPURIOUS EVENT FROM MDIAREA
-        {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
-        Writeln('TQtWidgetSet.FocusChanged: *** DO NOT KILL FOCUS ***')
-        {$ENDIF}
-      else
+        //issue #29528
+        if TQtMainWindow(OldWidget).IsMdiChild and (TQtMainWindow(OldWidget).LCLObject.ControlCount = 0) then
+        begin
+          {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+          Writeln('TQtWidgetSet.FocusChanged: *** SEND KILL FOCUS FOR MDICHILD WITH 0 CONTROLS ***');
+          {$ENDIF}
+          OldWidget.DeliverMessage(Msg);
+        end else
+        begin
+          {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+          Writeln('TQtWidgetSet.FocusChanged: *** DO NOT KILL FOCUS ***');
+          {$ENDIF}
+        end;
+      end else
         if CheckIfActiveForm(OldWidget) then
           OldWidget.DeliverMessage(Msg)
         {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
@@ -1111,11 +1125,26 @@ begin
                 ;
 
             end else
-              // if this happens then qt's mdi focus is real crap
-              {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
-              writeln('TQtWidgetSet.FocusChanged: WE ARE COMPLETELY OUT OF MIND WHAT TO DO (1) .....')
-              {$ENDIF}
-              ;
+            begin
+              // issue #29528
+              if TQtMainWindow(NewWidget).LCLObject.ControlCount = 0 then
+              begin
+                {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+                writeln('TQtWidgetSet.FocusChanged: setting focus to mdiChild with 0 controls .....');
+                {$ENDIF}
+                Msg.msg := LM_SETFOCUS;
+                if OldWidget = NewWidget then
+                  OldWidget := nil;
+                Msg.wParam := PtrInt(OldWidget);
+                NewWidget.DeliverMessage(Msg);
+              end else
+              begin
+                // if this happens then qt's mdi focus is real crap
+                {$IF DEFINED(VerboseFocus) OR DEFINED(DebugQtFocus)}
+                writeln('TQtWidgetSet.FocusChanged: WE ARE COMPLETELY OUT OF MIND WHAT TO DO (1) .....');
+                {$ENDIF}
+              end;
+            end;
 
           end else
           begin
@@ -1155,7 +1184,7 @@ begin
     ' errorInteraction ',dbgs(QSessionManager_allowsErrorInteraction(sessionManager)),
     ' phase2 ',dbgs(QSessionManager_isPhase2(sessionManager)));
   {$ENDIF}
-  {$IFNDEF HAIKU}
+  {$IF NOT DEFINED(HAIKU) AND NOT DEFINED(QTOPIA)}
   // if session manager does not allow interaction, then we close app without any intf calls
   if QSessionManager_allowsInteraction(sessionManager) then
   begin
@@ -1204,6 +1233,7 @@ begin
      {$ifdef HASX11} LCL_CAPABILITY_YES {$else} LCL_CAPABILITY_NO {$endif};
      {when issue #20475 is fixed, then set this to LCL_CAPABILITY_YES}
      lcReceivesLMClearCutCopyPasteReliably: Result := LCL_CAPABILITY_NO;
+    lcRadialGradientBrush: Result := LCL_CAPABILITY_YES;
   else
     Result := inherited GetLCLCapability(ACapability);
   end;
@@ -1233,25 +1263,42 @@ end;
 procedure TQtWidgetSet.DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor);
 var
   Color: TQColor;
+  AQColor: QColorH;
   ColorRef: TColorRef;
   Pen: QPenH;
   Painter: QPainterH;
+  ADevType: Integer;
 begin
   if IsValidDC(CanvasHandle) then
   begin
     // WriteLn('TQtWidgetSet.DCSetPixel X=',X,' Y=',Y, ' AColor=',dbghex(AColor),' rgb ? ',dbgHex(ColorToRGB(AColor)));
     Painter := TQtDeviceContext(CanvasHandle).Widget;
-    {Save current pen.Better save copy of pen instead of
-     using painter save/restore, or saved Pen in devicecontext which
-     may be null. Issue #27620}
-    Pen := QPen_create(QPainter_pen(Painter));
-    try
+    ADevType := QPaintDevice_devType(QPaintEngine_paintDevice(QPainter_paintEngine(Painter)));
+    {qt private PaintDeviceFlags 2 = QPixmap 3 = QImage. issue #29256}
+    if ((ADevType = 2) or (ADevType = 3)) and
+     (TQtDeviceContext(CanvasHandle).vImage <> nil) and
+      (TQtDeviceContext(CanvasHandle).vImage.Handle <> nil) then
+    begin
       ColorRef := TColorRef(ColorToRGB(AColor));
       QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
-      QPainter_setPen(Painter, @Color);
-      QPainter_drawPoint(Painter, X,Y);
-    finally
-      QPainter_setPen(Painter, Pen);
+      AQColor := QColor_create(PQColor(@Color));
+      QImage_setPixel(TQtDeviceContext(CanvasHandle).vImage.Handle, X, Y, QColor_rgb(AQColor));
+      QColor_destroy(AQColor);
+    end else
+    begin
+      {Save current pen.Better save copy of pen instead of
+       using painter save/restore, or saved Pen in devicecontext which
+       may be null. Issue #27620}
+      Pen := QPen_create(QPainter_pen(Painter));
+      try
+        ColorRef := TColorRef(ColorToRGB(AColor));
+        QColor_fromRgb(@Color, Red(ColorRef), Green(ColorRef), Blue(ColorRef));
+        QPainter_setPen(Painter, PQColor(@Color));
+        QPainter_drawPoint(Painter, X,Y);
+      finally
+        QPainter_setPen(Painter, Pen);
+        QPen_destroy(Pen);
+      end;
     end;
   end;
 end;
@@ -1408,7 +1455,8 @@ begin
       if IsValidHintHandle(TObject(SavedHintHandlesList.Items[i])) then
       begin
         AWidget := TQtHintWindow(SavedHintHandlesList.Items[i]);
-        AWidget.NeedRestoreVisible := AWidget.getVisible;
+        AWidget.NeedRestoreVisible := AWidget.getVisible and
+          Assigned(AWidget.LCLObject) and AWidget.LCLObject.Visible;
         AWidget.Hide;
       end;
     end;
@@ -1431,7 +1479,8 @@ begin
       if IsValidHintHandle(TObject(SavedHintHandlesList.Items[i])) then
       begin
         AWidget := TQtHintWindow(SavedHintHandlesList.Items[i]);
-        if AWidget.NeedRestoreVisible then
+        if AWidget.NeedRestoreVisible and Assigned(AWidget.LCLObject) and
+          AWIdget.LCLObject.Visible then
         begin
           AWidget.NeedRestoreVisible := False;
           AWidget.Show;
@@ -1795,7 +1844,7 @@ var
   Size: TSize;
 begin
   {$IFDEF DARWIN}
-  FCachedMenuBarHeight := 1;
+  Exit(0);
   {$ENDIF}
   if FCachedMenuBarHeight = -1 then
   begin
@@ -1808,22 +1857,164 @@ begin
     QMenuBar_sizeHint(AMenuBar, @Size);
     QMainWindow_destroy(DummyWindow);
     FCachedMenuBarHeight := Size.cy;
-
-    if QStyle_styleHint(QApplication_style(),
-      QStyleSH_MainWindow_SpaceBelowMenuBar) > 0 then
-      inc(FCachedMenuBarHeight, 4);
-    if QStyle_styleHint(QApplication_style(),
-      QStyleSH_ScrollView_FrameOnlyAroundContents) > 0 then
-      inc(FCachedMenuBarHeight, 4);
   end;
   if (FCachedMenuBarHeight <= 0) then
   begin
     FCachedMenuBarHeight := 22;
-    if QStyle_styleHint(QApplication_style(), QStyleSH_MainWindow_SpaceBelowMenuBar) > 0 then
-      inc(FCachedMenuBarHeight, 4);
   end;
   Result := FCachedMenuBarHeight;
 end;
+
+{$IFDEF QtUseAccurateFrame}
+function TQtWidgetSet.GetFrameMargins: TRect;
+var
+  ATempWidget: QWidgetH;
+  R: TRect;
+  ASize, AFrameSize: TSize;
+  AID: LongWord;
+  I: integer;
+  B: Boolean;
+  ATicks: DWORD;
+  {$IFDEF DebugQtUseAccurateFrame}
+  StartupTime: DWord;
+  {$ENDIF}
+  {$IFDEF HASX11}
+  AWMName: String;
+  //AShadowRect: TRect;
+  //AList: TStringList;
+  ALeft, ATop, AWidth, AHeight, ABorder: integer;
+  {$ENDIF}
+begin
+  if (FWSFrameMargins.Left = 0) and (FWSFrameMargins.Top = 0) or
+    (FWSFrameMargins.Right = 0) and (FWSFrameMargins.Bottom = 0) then
+  begin
+    {$IFDEF HASX11}
+    AWMName := GetWindowManager;
+    // blacklist of window managers which does not support NET_FRAME_EXTENTS
+    if (AWMName = 'Blackbox') then
+    begin
+      DebugLn('WARNING: QtLCL: "Blackbox" wm does not implement for _NET_FRAME_EXTENTS.');
+      FWSFrameMargins := Rect(1, 23, 1, 10);
+      Result := FWSFrameMargins;
+      exit;
+    end;
+    {$ENDIF}
+
+    {$IFDEF DebugQtUseAccurateFrame}
+    StartupTime := GetTickCount;
+    {$ENDIF}
+
+    ATempWidget := QWidget_create(nil, QtWindow or QtDialog);
+    QWidget_setAttribute(ATempWidget, QtWA_NativeWindow, True);
+
+    {$IFDEF HASX11}
+    if QX11Info_isCompositingManagerRunning then
+      QWidget_setWindowOpacity(ATempWidget, 0);
+    {$ENDIF}
+
+    QWidget_move(ATempWidget, -MAXSHORT, -MAXSHORT);
+    QWidget_resize(ATempWidget, 32, 32);
+
+    {$IFDEF HASX11}
+    QWidget_setAttribute(ATempWidget, QtWA_ShowWithoutActivating);
+    QWidget_show(ATempWidget);
+    AID := QWidget_winID(ATempWidget);
+
+    B := AskX11_NET_REQUEST_FRAME_EXTENTS(AID, R);
+
+    if B and (R.Top = 0) then
+    begin
+      ATicks := 0;
+      while R.Top = 0 do
+      begin
+        QWidget_size(ATempWidget, @ASize);
+        QWidget_frameSize(ATempWidget, @AFrameSize);
+        R.Left := (AFrameSize.cx - ASize.cx) div 2;
+        R.Right := R.Left;
+        R.Top := (AFrameSize.cy - ASize.cy) - R.Left;
+        R.Bottom := R.Left;
+        QCoreApplication_processEvents;
+        ATicks += 1;
+        if ATicks > 50 then
+          break; // error !
+      end;
+      (* TODO: If shadows are enabled on KWin ask for shadow rect !
+      AList := TStringList.Create;
+      try
+        GetX11SupportedAtoms(AID, AList);
+        GetX11RectForAtom(AID,'_KDE_NET_WM_SHADOW', AShadowRect);
+      finally
+        AList.Free;
+      end;
+      *)
+    end;
+
+    if B and QX11Info_isCompositingManagerRunning then
+    begin
+      {TODO: some wm's have different attributes for windows with fixed sizes and modal windows,
+      so we need to query attributes for such windows too.
+      Currently such composited wm's is "Mutter (Muffin)", "Gnome Shell"}
+      // writeln('Current WM=',GetWindowManager);
+      while not GetX11WindowRealized(QWidget_winID(ATempWidget)) do
+        QApplication_syncX();
+      if GetX11WindowAttributes(QWidget_winID(ATempWidget), ALeft, ATop, AWidth, AHeight, ABorder) then
+      begin
+        if (ALeft > 0) and (ATop > 0) then
+          R := Rect(ALeft, ATop, ALeft, ALeft);
+      end;
+    end;
+    if not B then
+    begin
+      MapX11Window(AID);
+      QApplication_syncX();
+    end;
+
+    if not B and not GetX11RectForAtom(AID, '_NET_FRAME_EXTENTS', R) then
+    begin
+      AId := QWidget_winID(ATempWidget);
+      I := 0;
+      ATicks := GetTickCount;
+      while not GetX11RectForAtom(AID, '_NET_FRAME_EXTENTS', R) do
+      begin
+        QApplication_syncX();
+        QCoreApplication_processEvents;
+        inc(I);
+        {if we do not get frame extents in 100ms get out}
+        if GetTickCount - ATicks > 100 then
+          break;
+      end;
+      {$IFDEF DebugQtUseAccurateFrame}
+      DebugLn('TQtWidgetSet.GetFrameMargins: EXIT LOOP AFTER ',dbgs(GetTickCount - ATicks),' ms LOOP=',dbgs(i),' R=',dbgs(R));
+      {$ENDIF}
+    end;
+    {$ELSE}
+    // create native window
+    QWidget_winId(ATempWidget);
+    QWidget_size(ATempWidget, @ASize);
+    QWidget_frameSize(ATempWidget, @AFrameSize);
+    R.Left := (AFrameSize.cx - ASize.cx) div 2;
+    R.Right := R.Left;
+    R.Top := (AFrameSize.cy - ASize.cy) - R.Left;
+    R.Bottom := R.Left;
+    {$ENDIF}
+
+    FWSFrameMargins := R;
+    {$IFDEF DebugQtUseAccurateFrame}
+    // just test
+    {$IFDEF HASX11}
+    QWidget_size(ATempWidget, @ASize);
+    QWidget_frameSize(ATempWidget, @AFrameSize);
+    {$ENDIF}
+    with FWSFrameMargins do
+      DebugLn('TQtWidgetSet.GetFrameMargins: **MARGINS=',Format('l %d t %d r %d b %d QtFrame x %d y %d compositor %s sysMetrics %d startup needed %d ms',
+        [Left, Top, Right, Bottom, AFrameSize.cx - ASize.cx, AFrameSize.cy - ASize.cy, BoolToStr({$IFDEF HASX11}QX11Info_isCompositingManagerRunning{$ELSE}False{$ENDIF}), GetSystemMetrics(SM_CYCAPTION),GetTickCount - StartupTime]));
+    {$ENDIF}
+    QWidget_hide(ATempWidget);
+    QWidget_destroy(ATempWidget);
+  end;
+  Result := FWSFrameMargins;
+end;
+{$ENDIF}
 
 procedure TQtWidgetSet.ClearCachedColors;
 var

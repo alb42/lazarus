@@ -23,13 +23,14 @@ interface
 
 uses
   Classes, TypInfo, SysUtils, types, RtlConsts, Forms, Controls, LCLProc,
+  {$IFDEF UseOICheckBoxThemed} CheckBoxThemed, {$ENDIF}
   GraphType, FPCAdds, // for StrToQWord in older fpc versions
   StringHashList, ButtonPanel, Graphics, StdCtrls, Buttons, Menus, LCLType,
   ExtCtrls, ComCtrls, LCLIntf, Dialogs, EditBtn, PropertyStorage, Grids, ValEdit,
   FileUtil, FileCtrl, ObjInspStrConsts, PropEditUtils, Themes,
   // Forms with .lfm files
   FrmSelectProps, StringsPropEditDlg, KeyValPropEditDlg, CollectionPropEditForm,
-  FileFilterPropEditor;
+  FileFilterPropEditor, IDEWindowIntf;
 
 const
   MaxIdentLength: Byte = 63;
@@ -570,6 +571,7 @@ type
   TClassPropertyEditor = class(TPropertyEditor)
   private
     FSubPropsTypeFilter: TTypeKinds;
+    FHideClassName: Boolean;
     procedure SetSubPropsTypeFilter(const AValue: TTypeKinds);
     function EditorFilter(const AEditor: TPropertyEditor): Boolean;
   protected
@@ -583,6 +585,7 @@ type
 
     property SubPropsTypeFilter: TTypeKinds
       read FSubPropsTypeFilter write SetSubPropsTypeFilter default tkAny;
+    property HideClassName: Boolean read FHideClassName write FHideClassName;
   end;
 
 { TMethodPropertyEditor
@@ -1179,7 +1182,7 @@ type
                       InstanceMethod:ShortString; TypeData:PTypeData) of object;
   // components
   TPropHookGetComponent = function(const ComponentPath: String):TComponent of object;
-  TPropHookGetComponentName = function(AComponent: TComponent):ShortString of object;
+  TPropHookGetComponentName = function(AComponent: TComponent):String of object;
   TPropHookGetComponentNames = procedure(TypeData: PTypeData;
                                          Proc: TGetStrProc) of object;
   TPropHookGetRootClassName = function:ShortString of object;
@@ -1197,6 +1200,7 @@ type
   TPropHookPersistentAdded = procedure(APersistent: TPersistent; Select: boolean
                                       ) of object;
   TPropHookPersistentDeleting = procedure(APersistent: TPersistent) of object;
+  TPropHookPersistentDeleted = procedure of object;
   TPropHookDeletePersistent = procedure(var APersistent: TPersistent) of object;
   TPropHookGetSelection = procedure(const ASelection: TPersistentSelectionList
                                              ) of object;
@@ -1244,6 +1248,7 @@ type
     htBeforeAddPersistent,
     htPersistentAdded,
     htPersistentDeleting,
+    htPersistentDeleted,
     htDeletePersistent,
     htGetSelectedPersistents,
     htSetSelectedPersistents,
@@ -1258,6 +1263,9 @@ type
     htRefreshPropertyValues,
     // dependencies
     htAddDependency,
+    // designer
+    htDesignerMouseDown,
+    htDesignerMouseUp,
     // other
     htGetCheckboxForBoolean
     );
@@ -1304,7 +1312,7 @@ type
                         InstanceMethod: ShortString;  TypeData: PTypeData);
     // components
     function GetComponent(const ComponentPath: string): TComponent;
-    function GetComponentName(AComponent: TComponent): ShortString;
+    function GetComponentName(AComponent: TComponent): String;
     procedure GetComponentNames(TypeData: PTypeData; const Proc: TGetStrProc);
     function GetRootClassName: ShortString;
     function GetAncestorInstance(const InstProp: TInstProp;
@@ -1320,12 +1328,17 @@ type
     procedure ComponentRenamed(AComponent: TComponent);
     procedure PersistentAdded(APersistent: TPersistent; Select: boolean);
     procedure PersistentDeleting(APersistent: TPersistent);
+    procedure PersistentDeleted;
     procedure DeletePersistent(var APersistent: TPersistent);
     procedure GetSelection(const ASelection: TPersistentSelectionList);
     procedure SetSelection(const ASelection: TPersistentSelectionList);
     procedure Unselect(const APersistent: TPersistent);
     function IsSelected(const APersistent: TPersistent): boolean;
     procedure SelectOnlyThis(const APersistent: TPersistent);
+    procedure DesignerMouseDown(Sender: TObject; Button: TMouseButton;
+                        Shift: TShiftState; X, Y: Integer);
+    procedure DesignerMouseUp(Sender: TObject; Button: TMouseButton;
+                        Shift: TShiftState; X, Y: Integer);
     // persistent objects
     function GetObject(const aName: ShortString): TPersistent;
     function GetObjectName(Instance: TPersistent): ShortString;
@@ -1406,6 +1419,14 @@ type
                      const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
     procedure RemoveHandlerGetAncestorInstProp(
                      const OnGetAncestorInstProp: TPropHookGetAncestorInstProp);
+    procedure AddHandlerDesignerMouseDown(
+                 const OnMouseDown: TMouseEvent);
+    procedure RemoveHandlerDesignerMouseDown(
+                 const OnMouseDown: TMouseEvent);
+    procedure AddHandlerDesignerMouseUp(
+                 const OnMouseUp: TMouseEvent);
+    procedure RemoveHandlerDesignerMouseUp(
+                 const OnMouseUp: TMouseEvent);
     // component create, delete, rename
     procedure AddHandlerComponentRenamed(
                            const OnComponentRenamed: TPropHookComponentRenamed);
@@ -1423,6 +1444,10 @@ type
                        const OnPersistentDeleting: TPropHookPersistentDeleting);
     procedure RemoveHandlerPersistentDeleting(
                        const OnPersistentDeleting: TPropHookPersistentDeleting);
+    procedure AddHandlerPersistentDeleted(
+                       const OnPersistentDeleted: TPropHookPersistentDeleted);
+    procedure RemoveHandlerPersistentDeleted(
+                       const OnPersistentDeleted: TPropHookPersistentDeleted);
     procedure AddHandlerDeletePersistent(
                            const OnDeletePersistent: TPropHookDeletePersistent);
     procedure RemoveHandlerDeletePersistent(
@@ -2154,7 +2179,8 @@ begin
       Result:=C^.EditorClass
     else begin
       if (PropType^.Kind<>tkClass)
-      or (GetTypeData(PropType)^.ClassType.InheritsFrom(TPersistent)) then
+      or (GetTypeData(PropType)^.ClassType.InheritsFrom(TPersistent))
+      or (GetTypeData(PropType)^.PropCount > 0) then
         Result:=PropClassMap[PropType^.Kind]
       else
         Result:=nil;
@@ -3459,12 +3485,32 @@ procedure TBoolPropertyEditor.PropDrawValue(ACanvas: TCanvas; const ARect: TRect
                                             AState: TPropEditDrawState);
 var
   TxtRect: TRect;
+  {$IFDEF UseOICheckBoxThemed}
+  str: string;
+  stat: TCheckBoxState;
+  {$ENDIF}
 begin
   if FPropertyHook.GetCheckboxForBoolean then
-    TxtRect := DrawCheckbox(ACanvas, ARect, GetOrdValue<>0)
+  begin                         // Checkbox for Booleans.
+  {$IFDEF UseOICheckBoxThemed}
+    TxtRect.Top := -100;        // Don't call inherited PropDrawValue
+    if GetOrdValue<>0 then
+    begin
+      stat := cbChecked;
+      str := '(True)';
+    end else begin
+      stat := cbUnchecked;
+      str := '(False)';
+    end;
+    TCheckBoxThemed.PaintSelf(ACanvas, str, ARect, stat, False, False, False, False, taRightJustify);
+  {$ELSE}
+    TxtRect := DrawCheckbox(ACanvas, ARect, GetOrdValue<>0);
+  {$ENDIF}
+  end
   else
-    TxtRect := ARect;
-  inherited PropDrawValue(ACanvas, TxtRect, AState);
+    TxtRect := ARect;           // Classic Combobox for Booleans.
+  if TxtRect.Top <> -100 then
+    inherited PropDrawValue(ACanvas, TxtRect, AState);
 end;
 
 { TInt64PropertyEditor }
@@ -3532,15 +3578,27 @@ end;
 function TFloatPropertyEditor.GetValue: ansistring;
 const
   Precisions: array[TFloatType] of Integer = (7, 15, 19, 19, 19);
+var
+  FS: TFormatSettings;
 begin
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.'; //It's Pascal sourcecode representation of a float, not a textual (i18n) one
   Result := FloatToStrF(GetFloatValue, ffGeneral,
-    Precisions[GetTypeData(GetPropType)^.FloatType], 0);
+    Precisions[GetTypeData(GetPropType)^.FloatType], 0, FS);
 end;
 
 procedure TFloatPropertyEditor.SetValue(const NewValue: ansistring);
+var
+  FS: TFormatSettings;
+  NewFloat: Extended;
 begin
   //writeln('TFloatPropertyEditor.SetValue A ',NewValue,'  ',StrToFloat(NewValue));
-  SetFloatValue(StrToFloat(NewValue));
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.'; //after all, this is Pascal, so we expect a period
+  if not TryStrToFloat(NewValue, NewFloat, FS) then
+    //if this failed, assume the user entered DS from his current locale
+    NewFloat := StrToFloat(NewValue, DefaultFormatSettings);
+  SetFloatValue(NewFloat);
   //writeln('TFloatPropertyEditor.SetValue B ',GetValue);
 end;
 
@@ -4130,6 +4188,7 @@ begin
   if CollectionForm = nil then
     CollectionForm := TCollectionPropertyEditorForm.Create(Application);
   CollectionForm.SetCollection(ACollection, OwnerPersistent, PropName);
+  SetPopupModeParentForPropertyEditor(CollectionForm);
   CollectionForm.EnsureVisible;
   Result:=CollectionForm;
 end;
@@ -4194,7 +4253,7 @@ end;
 
 function TClassPropertyEditor.GetValue: ansistring;
 begin
-  Result:='(' + GetPropType^.Name + ')';
+  if not FHideClassName then Result:='(' + GetPropType^.Name + ')';
 end;
 
 procedure TClassPropertyEditor.SetSubPropsTypeFilter(const AValue: TTypeKinds);
@@ -4321,7 +4380,7 @@ class function TMethodPropertyEditor.GetDefaultMethodName(Root,
   PropName: shortstring): shortstring;
 // returns the default name for a new method
 var I: Integer;
-  Postfix: String;
+  Postfix: shortstring;
 begin
   Result:='';
   if Root=nil then exit;
@@ -5093,9 +5152,9 @@ var
   Dlg: TForm;
   BtnPanel: TButtonPanel;
 begin
+  Dlg:=TForm.Create(Application);
   try
-    Dlg:=TForm.Create(nil);
-    Dlg.BorderStyle:=bsToolWindow;
+    Dlg.BorderIcons:=[biSystemMenu];
     Dlg.Caption:=oisSelectShortCut;
     Dlg.Position:=poScreenCenter;
     Dlg.Constraints.MinWidth:=350;
@@ -5679,8 +5738,7 @@ begin
   end;
 end;
 
-function TPropertyEditorHook.GetComponent(const ComponentPath: string
-  ): TComponent;
+function TPropertyEditorHook.GetComponent(const ComponentPath: string): TComponent;
 var
   i: Integer;
 begin
@@ -5696,10 +5754,10 @@ begin
     Result := TComponent(LookupRoot).FindComponent(ComponentPath);
 end;
 
-function TPropertyEditorHook.GetComponentName(AComponent: TComponent
-  ): ShortString;
+function TPropertyEditorHook.GetComponentName(AComponent: TComponent): String;
 var
   i: Integer;
+  CompName, OwnerName: String;
   Handler: TPropHookGetComponentName;
 begin
   Result := '';
@@ -5711,10 +5769,24 @@ begin
     Handler := TPropHookGetComponentName(FHandlers[htGetComponentName][i]);
     Result := Handler(AComponent);
   end;
-  if Result = '' then begin
-    Result := AComponent.Name;
+  if Result = '' then
+  begin
+    CompName := AComponent.Name;
     if (AComponent.Owner<>LookupRoot) and (AComponent.Owner<>nil) then
-      Result:=AComponent.Owner.Name+'.'+Result;
+      OwnerName := AComponent.Owner.Name;
+{    if CompName='' then
+      DebugLn('TPropertyEditorHook.GetComponentName: AComponent.Name is empty, '+
+              'AComponent.Owner.Name="' + OwnerName+'".');
+    if OwnerName='' then
+      DebugLn('TPropertyEditorHook.GetComponentName: AComponent.Owner.Name is empty.');
+}
+    Result := CompName;
+    if OwnerName<>'' then
+    begin
+      Result := OwnerName;
+      if CompName<>'' then
+        Result := Result+'.'+CompName;
+    end;
   end;
 end;
 
@@ -5847,6 +5919,15 @@ begin
     TPropHookPersistentDeleting(FHandlers[htPersistentDeleting][i])(APersistent);
 end;
 
+procedure TPropertyEditorHook.PersistentDeleted;
+var
+  i: Integer;
+begin
+  i:=GetHandlerCount(htPersistentDeleted);
+  while GetNextHandlerIndex(htPersistentDeleted,i) do
+    TPropHookPersistentDeleted(FHandlers[htPersistentDeleted][i])();
+end;
+
 procedure TPropertyEditorHook.DeletePersistent(var APersistent: TPersistent);
 // Call this to actually free APersistent
 // One of the hooks will free it.
@@ -5862,8 +5943,7 @@ begin
     FreeThenNil(APersistent);
 end;
 
-procedure TPropertyEditorHook.GetSelection(
-  const ASelection: TPersistentSelectionList);
+procedure TPropertyEditorHook.GetSelection(const ASelection: TPersistentSelectionList);
 var
   i: Integer;
   Handler: TPropHookGetSelection;
@@ -5920,8 +6000,7 @@ begin
   end;
 end;
 
-function TPropertyEditorHook.IsSelected(const APersistent: TPersistent
-  ): boolean;
+function TPropertyEditorHook.IsSelected(const APersistent: TPersistent): boolean;
 var
   Selection: TPersistentSelectionList;
 begin
@@ -5981,7 +6060,12 @@ begin
     if Instance is TComponent then
       Result:=TComponent(Instance).Name
     else if instance is TCollectionItem then 
-      Result:=TCollectionItem(Instance).GetNamePath;
+      Result:=TCollectionItem(Instance).GetNamePath
+    else begin
+      Result:=Instance.ClassName;
+      if (Length(Result) > 1) and (Result[1] in ['t', 'T']) then
+        system.Delete(Result, 1, 1);
+    end;
 end;
 
 procedure TPropertyEditorHook.GetObjectNames(TypeData: PTypeData;
@@ -6054,8 +6138,35 @@ begin
   end;
 end;
 
-procedure TPropertyEditorHook.Revert(Instance:TPersistent;
-  PropInfo:PPropInfo);
+procedure TPropertyEditorHook.DesignerMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  i: Integer;
+  Handler: TMouseEvent;
+begin
+  i := GetHandlerCount(htDesignerMouseDown);
+  while GetNextHandlerIndex(htDesignerMouseDown, i) do
+  begin
+    Handler := TMouseEvent(FHandlers[htDesignerMouseDown][i]);
+    Handler(Sender, Button,  Shift, X, Y);
+  end;
+end;
+
+procedure TPropertyEditorHook.DesignerMouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  i: Integer;
+  Handler: TMouseEvent;
+begin
+  i := GetHandlerCount(htDesignerMouseUp);
+  while GetNextHandlerIndex(htDesignerMouseUp, i) do
+  begin
+    Handler := TMouseEvent(FHandlers[htDesignerMouseUp][i]);
+    Handler(Sender, Button,  Shift, X, Y);
+  end;
+end;
+
+procedure TPropertyEditorHook.Revert(Instance:TPersistent; PropInfo:PPropInfo);
 var
   i: Integer;
 begin
@@ -6344,6 +6455,18 @@ begin
   RemoveHandler(htPersistentDeleting,TMethod(OnPersistentDeleting));
 end;
 
+procedure TPropertyEditorHook.AddHandlerPersistentDeleted(
+  const OnPersistentDeleted: TPropHookPersistentDeleted);
+begin
+  AddHandler(htPersistentDeleted,TMethod(OnPersistentDeleted));
+end;
+
+procedure TPropertyEditorHook.RemoveHandlerPersistentDeleted(
+  const OnPersistentDeleted: TPropHookPersistentDeleted);
+begin
+  RemoveHandler(htPersistentDeleted,TMethod(OnPersistentDeleted));
+end;
+
 procedure TPropertyEditorHook.AddHandlerDeletePersistent(
   const OnDeletePersistent: TPropHookDeletePersistent);
 begin
@@ -6433,10 +6556,34 @@ begin
   AddHandler(htModified,TMethod(OnModified));
 end;
 
+procedure TPropertyEditorHook.AddHandlerDesignerMouseDown(
+  const OnMouseDown: TMouseEvent);
+begin
+  AddHandler(htDesignerMouseDown,TMethod(OnMouseDown));
+end;
+
+procedure TPropertyEditorHook.AddHandlerDesignerMouseUp(
+  const OnMouseUp: TMouseEvent);
+begin
+  AddHandler(htDesignerMouseUp,TMethod(OnMouseUp));
+end;
+
 procedure TPropertyEditorHook.RemoveHandlerModified(
   const OnModified: TPropHookModified);
 begin
   RemoveHandler(htModified,TMethod(OnModified));
+end;
+
+procedure TPropertyEditorHook.RemoveHandlerDesignerMouseDown(
+  const OnMouseDown: TMouseEvent);
+begin
+  RemoveHandler(htDesignerMouseDown,TMethod(OnMouseDown));
+end;
+
+procedure TPropertyEditorHook.RemoveHandlerDesignerMouseUp(
+  const OnMouseUp: TMouseEvent);
+begin
+  RemoveHandler(htDesignerMouseUp,TMethod(OnMouseUp));
 end;
 
 procedure TPropertyEditorHook.AddHandlerRevert(const OnRevert: TPropHookRevert);
@@ -7099,10 +7246,11 @@ end;
 
 procedure InitPropEdits;
 begin
-  PropertyClassList:=TList.Create;
-  PropertyEditorMapperList:=TList.Create;
-  // register the standard property editors
+  // Don't create PropertyClassList and PropertyEditorMapperList lists here.
+  // RegisterPropertyEditor and RegisterPropertyEditorMapper create them,
+  //  and they are called from many initialization sections in unpredictable order.
 
+  // register the standard property editors
   RegisterPropertyEditor(TypeInfo(AnsiString), TComponent, 'Name', TComponentNamePropertyEditor);
   RegisterPropertyEditor(TypeInfo(TTranslateString), TCustomLabel, 'Caption', TStringMultilinePropertyEditor);
   RegisterPropertyEditor(TypeInfo(TTranslateString), TCustomStaticText, 'Caption', TStringMultilinePropertyEditor);
@@ -7115,10 +7263,8 @@ begin
   RegisterPropertyEditor(TypeInfo(AnsiString), nil, 'SessionProperties', TSessionPropertiesPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TModalResult), nil, 'ModalResult', TModalResultPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TShortCut), nil, '', TShortCutPropertyEditor);
-  //RegisterPropertyEditor(DummyClassForPropTypes.PTypeInfos('TDate'),
-  //  nil,'',TDatePropertyEditor);
-  //RegisterPropertyEditor(DummyClassForPropTypes.PTypeInfos('TTime'),
-  //  nil,'',TTimePropertyEditor);
+  //RegisterPropertyEditor(DummyClassForPropTypes.PTypeInfos('TDate'), nil,'',TDatePropertyEditor);
+  //RegisterPropertyEditor(DummyClassForPropTypes.PTypeInfos('TTime'), nil,'',TTimePropertyEditor);
   RegisterPropertyEditor(TypeInfo(TDateTime), nil, '', TDateTimePropertyEditor);
   RegisterPropertyEditor(TypeInfo(TCursor), nil, '', TCursorPropertyEditor);
   RegisterPropertyEditor(TypeInfo(TComponent), nil, '', TComponentPropertyEditor);
@@ -7150,23 +7296,26 @@ begin
 end;
 
 procedure FinalPropEdits;
-var i: integer;
+var
+  i: integer;
   pm: PPropertyEditorMapperRec;
   pc: PPropertyClassRec;
 begin
-  for i:=0 to PropertyEditorMapperList.Count-1 do begin
-    pm:=PPropertyEditorMapperRec(PropertyEditorMapperList.Items[i]);
-    Dispose(pm);
+  if PropertyEditorMapperList<>nil then begin
+    for i:=0 to PropertyEditorMapperList.Count-1 do begin
+      pm:=PPropertyEditorMapperRec(PropertyEditorMapperList.Items[i]);
+      Dispose(pm);
+    end;
+    FreeAndNil(PropertyEditorMapperList);
   end;
-  PropertyEditorMapperList.Free;
-  PropertyEditorMapperList:=nil;
 
-  for i:=0 to PropertyClassList.Count-1 do begin
-    pc:=PPropertyClassRec(PropertyClassList[i]);
-    Dispose(pc);
+  if PropertyClassList<>nil then begin
+    for i:=0 to PropertyClassList.Count-1 do begin
+      pc:=PPropertyClassRec(PropertyClassList[i]);
+      Dispose(pc);
+    end;
+    FreeAndNil(PropertyClassList);
   end;
-  PropertyClassList.Free;
-  PropertyClassList:=nil;
 
   FreeAndNil(ListPropertyEditors);
   FreeAndNil(VirtualKeyStrings);

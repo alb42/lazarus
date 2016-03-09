@@ -43,7 +43,7 @@ uses
   // IDEIntf
   PropEditUtils, ComponentEditors, FormEditingIntf,
   // IDE
-  EnvironmentOpts, NonControlDesigner, DesignerProcs;
+  EnvironmentOpts, DesignerProcs;
 
 type
   TArrSize = array of array [0 .. 3] of integer;
@@ -1160,8 +1160,8 @@ begin
   InvalidateGrabbers;
   OldCustomForm:=FForm;
   FForm:=NewCustomForm;
-  if FForm is TNonControlDesignerForm then
-    FMediator:=TNonControlDesignerForm(FForm).Mediator
+  if FForm is FormEditingHook.NonFormProxyDesignerForm[NonControlProxyDesignerFormId] then
+    FMediator:=(FForm as INonControlDesigner).Mediator
   else
     FMediator:=nil;
   FLookupRoot:=GetSelectionOwner;
@@ -1177,8 +1177,7 @@ begin
   Result:=FGrabbers[AGrabIndex];
 end;
 
-procedure TControlSelection.SetGrabbers(AGrabIndex:TGrabIndex;
-  const AGrabber: TGrabber);
+procedure TControlSelection.SetGrabbers(AGrabIndex:TGrabIndex; const AGrabber: TGrabber);
 begin
   FGrabbers[AGrabIndex]:=AGrabber;
 end;
@@ -2813,6 +2812,9 @@ var
         ARight:=ALeft+TControl(AComponent).Width;
         ABottom:=ATop+TControl(AComponent).Height;
       end else begin
+        if Assigned(IDEComponentsMaster) then
+          if not IDEComponentsMaster.DrawNonVisualComponents(ALookupRoot) then
+            Exit;
         ARight:=ALeft+NonVisualCompWidth;
         ABottom:=ATop+NonVisualCompWidth;
       end;

@@ -67,13 +67,15 @@ type
   { TSVGPathTokenizer }
 
   TSVGPathTokenizer = class
+  protected
+    Tokens: TSVGTokenList;
   public
     FPointSeparator, FCommaSeparator: TFormatSettings;
-    Tokens: TSVGTokenList;
     ExtraDebugStr: string;
     constructor Create;
-    Destructor Destroy; override;
+    destructor Destroy; override;
     procedure AddToken(AStr: string);
+    procedure ClearTokens;
     procedure TokenizePathString(AStr: string);
     procedure TokenizeFunctions(AStr: string);
     function DebugOutTokensAsString: string;
@@ -97,19 +99,27 @@ type
     FBrushDefs: TFPList; // of TvEntityWithPenAndBrush;
     // debug symbols
     FPathNumber: Integer;
+    // BrushDefs functions
+    function FindBrushDef_WithName(AName: string): TvEntityWithPenAndBrush;
+    //
     function ReadSVGColor(AValue: string): TFPColor;
-    function ReadSVGStyle(AValue: string; ADestEntity: TvEntityWithPen; ADestStyle: TvStyle = nil; AUseFillAsPen: Boolean = False): TvSetPenBrushAndFontElements;
+    function ReadSVGGradientColorStyle(AValue: String): TFPColor;
+    function ReadSVGStyle(AData: TvVectorialPage; AValue: string;
+      ADestEntity: TvEntityWithPen; ADestStyle: TvStyle = nil;
+      AUseFillAsPen: Boolean = False): TvSetPenBrushAndFontElements;
     function ReadSVGStyleToStyleLists(AValue: string; AStyleKeys, AStyleValues: TStringList): TvSetPenBrushAndFontElements;
     function ReadSVGPenStyleWithKeyAndValue(AKey, AValue: string; ADestEntity: TvEntityWithPen): TvSetPenBrushAndFontElements;
     function ReadSVGBrushStyleWithKeyAndValue(AKey, AValue: string; ADestEntity: TvEntityWithPenAndBrush): TvSetPenBrushAndFontElements;
     function ReadSVGFontStyleWithKeyAndValue(AKey, AValue: string; ADestEntity: TvEntityWithPenBrushAndFont; ADestStyle: TvStyle = nil): TvSetPenBrushAndFontElements;
-    function ReadSVGGeneralStyleWithKeyAndValue(AKey, AValue: string; ADestEntity: TvEntity): TvSetPenBrushAndFontElements;
+    procedure ReadSVGGeneralStyleWithKeyAndValue(AData: TvVectorialPage;
+        AKey, AValue: string; ADestEntity: TvEntity);
     function IsAttributeFromStyle(AStr: string): Boolean;
-    procedure ApplyLayerStyles(ADestEntity: TvEntity);
+    procedure ApplyLayerStyles(AData: TvVectorialPage; ADestEntity: TvEntity);
     function ReadSpaceSeparatedFloats(AInput: string; AOtherSeparators: string): TDoubleArray;
     procedure ReadSVGTransformationMatrix(AMatrix: string; out AA, AB, AC, AD, AE, AF: Double);
     //
     function GetTextContentFromNode(ANode: TDOMNode): string;
+    procedure ReadDefs_LinearGradient(ADest: TvEntityWithPenAndBrush; ANode: TDOMNode; AData: TvVectorialPage);
     procedure ReadDefsFromNode(ANode: TDOMNode; AData: TvVectorialPage; ADoc: TvVectorialDocument);
     //
     function ReadEntityFromNode(ANode: TDOMNode; AData: TvVectorialPage; ADoc: TvVectorialDocument): TvEntity;
@@ -130,9 +140,12 @@ type
     function ReadTextFromNode(ANode: TDOMNode; AData: TvVectorialPage; ADoc: TvVectorialDocument): TvEntity;
     function ReadUseFromNode(ANode: TDOMNode; AData: TvVectorialPage; ADoc: TvVectorialDocument): TvEntity;
     //
+    procedure StringToPenPattern(const AStr: String; var APen: TvPen);
     function  StringWithUnitToFloat(AStr: string; ACoordKind: TSVGCoordinateKind = sckUnknown;
       ADefaultUnit: TSVGUnit = suPX; ATargetUnit: TSVGUnit = suPX): Double;
     function  StringFloatZeroToOneToWord(AStr: string): Word;
+    function  StringWithPercentToFloat(AStr: String): Double;
+
     procedure ConvertSVGCoordinatesToFPVCoordinates(
       const AData: TvVectorialPage;
       const ASrcX, ASrcY: Double; var ADestX, ADestY: Double;
@@ -147,6 +160,7 @@ type
       ADoViewBoxAdjust: Boolean = True);
     procedure AutoDetectDocSize(var ALeft, ATop, ARight, ABottom: Double; ABaseNode: TDOMNode);
     function SVGColorValueStrToWord(AStr: string): Word;
+
   public
     { General reading methods }
     constructor Create; override;
@@ -167,8 +181,8 @@ const
   // 90 inches per pixel = (1 / 90) * 25.4 = 0.2822
   // FLOAT_MILIMETERS_PER_PIXEL = 0.3528; // DPI 72 = 1 / 72 inches per pixel
 
-  FLOAT_MILIMETERS_PER_PIXEL = 1; //0.2822; // DPI 90 = 1 / 90 inches per pixel => Actually I changed the value! Because otherwise it looks ugly!
-  FLOAT_PIXELS_PER_MILIMETER = 1 / FLOAT_MILIMETERS_PER_PIXEL; // DPI 90 = 1 / 90 inches per pixel
+  FLOAT_MILLIMETERS_PER_PIXEL = 1; //0.2822; // DPI 90 = 1 / 90 inches per pixel => Actually I changed the value! Because otherwise it looks ugly!
+  FLOAT_PIXELS_PER_MILIMETER = 1 / FLOAT_MILLIMETERS_PER_PIXEL; // DPI 90 = 1 / 90 inches per pixel
 
   FLOAT_POINTS_PER_PIXEL = 0.75; // For conversion
   FLOAT_PIXEL_PER_POINT = 1 / FLOAT_POINTS_PER_PIXEL; // For conversion
@@ -206,8 +220,8 @@ end;
 
 destructor TSVGPathTokenizer.Destroy;
 begin
+  ClearTokens;
   Tokens.Free;
-
   inherited Destroy;
 end;
 
@@ -216,11 +230,12 @@ var
   lToken: TSVGToken;
   lStr: string;
 begin
-  lToken := TSVGToken.Create;
+//  lToken := TSVGToken.Create;
 
   lStr := Trim(AStr);
   if lStr = '' then Exit;
 
+  lToken := TSVGToken.Create;
   // Moves
   if lStr[1] = 'M' then lToken.TokenType := sttMoveTo
   else if lStr[1] = 'm' then lToken.TokenType := sttRelativeMoveTo
@@ -271,16 +286,27 @@ begin
   Tokens.Add(lToken);
 end;
 
+procedure TSVGPathTokenizer.ClearTokens;
+var
+  i: Integer;
+begin
+  for i := Tokens.Count-1 downto 0 do
+    Tokens[i].Free;
+  Tokens.Clear;
+end;
+
 procedure TSVGPathTokenizer.TokenizePathString(AStr: string);
 const
   Str_Space: Char = ' ';
   Str_Comma: Char = ',';
+  Str_Plus: Char = '+';
+  Str_Minus: Char = '-';
   ListOfCommandLetters: set of Char = ['a'..'d', 'f'..'z', 'A'..'D', 'F'..'Z'];
 var
   i: Integer;
   lTmpStr: string = '';
   lState: Integer;
-  lFirstTmpStrChar, lCurChar: Char;
+  lFirstTmpStrChar, lCurChar, lPrevChar: Char;
 begin
   lState := 0;
 
@@ -290,6 +316,7 @@ begin
     case lState of
     0: // Adding to the tmp string
     begin
+      if i > 0 then lPrevChar := AStr[i-1];
       lCurChar := AStr[i];
       if lCurChar = Str_Space then
       begin
@@ -301,6 +328,11 @@ begin
       begin
         AddToken(lTmpStr);
         lTmpStr := '';
+      end
+      else if (lCurChar in [Str_Plus, Str_Minus]) and (lPrevChar in ['0'..'9']) then
+      begin
+        AddToken(lTmpStr);
+        lTmpStr := lCurChar;
       end
       else
       begin
@@ -433,6 +465,22 @@ end;
 
 { TvSVGVectorialReader }
 
+function TvSVGVectorialReader.FindBrushDef_WithName(AName: string): TvEntityWithPenAndBrush;
+var
+  i: Integer;
+begin
+  Result := nil;
+  for i := 0 to FBrushDefs.Count-1 do
+  begin
+    Result := TvEntityWithPenAndBrush(FBrushDefs.Items[i]);
+    if Result.Name = AName then
+    begin
+      Exit;
+    end;
+  end;
+  Result := nil;
+end;
+
 function TvSVGVectorialReader.ReadSVGColor(AValue: string): TFPColor;
 var
   lValue, lStr: string;
@@ -488,332 +536,248 @@ begin
 
   // Support for named colors
   // List here: http://www.december.com/html/spec/colorsvghex.html
-  case lValue of
-  'black':   Result := colBlack;
-  'navy':    Result.Blue := $8080;
-  'darkblue':Result.Blue := $8B8B;
-  'mediumblue':Result.Blue := $CDCD;
-  'blue':    Result := colBlue;
-  'darkgreen':Result.Green := $6464;
-  'green':   Result.Green := $8080;
-  'teal':
-  begin
-    Result.Green := $8080;
-    Result.Blue := $8080;
+  case lValue[1] of
+    'a': case lValue of
+           'aliceblue'           : Result := FPColor($F0F0, $F8F8, $FFFF);
+           'antiquewhite'        : Result := FPColor($FAFA, $EBEB, $D7D7);
+           'aqua'                : Result := colCyan;
+           'aquamarine'          : Result := FPColor($7F7F, $FFFF, $D4D4);
+           'azure'               : Result := FPColor($F0F0, $FFFF, $FFFF);
+         end;
+
+    'b': case lValue of
+           'beige'               : Result := FPColor($F5F5, $F5F5, $DCDC);
+           'bisque'              : Result := FPColor($FFFF, $E4E4, $C4C4);
+           'black'               : Result := colBlack;
+           'blanchedalmond'      : Result := FPColor($FFFF, $EBEB, $CDCD);
+           'blue'                : Result := colBlue;
+           'blueviolet'          : Result := FPColor($8A8A, $2B2B, $E2E2);
+           'brown'               : Result := FPColor($A5A5, $2A2A, $2A2A);
+           'burlywood'           : Result := FPColor($DEDE, $B8B8, $8787);
+         end;
+
+    'c': case lValue of
+           'cadetblue'           : Result := FPColor($5F5F, $9E9E, $A0A0);
+           'chartreuse'          : Result := FPColor($7F7F, $FFFF, $0000);
+           'chocolate'           : Result := FPColor($D2D2, $6969, $1E1E);
+           'coral'               : Result := FPColor($FFFF, $7F7F, $5050);
+           'cornflowerblue'      : Result := FPColor($6464, $9595, $EDED);
+           'cornsilk'            : Result := FPColor($FFFF, $F8F8, $DCDC);
+           'crimson'             : Result := FPColor($DCDC, $1414, $3C3C);
+           'cyan'                : Result := colCyan;
+         end;
+
+    'd': case lValue of
+           'darkblue'            : Result.Blue := $8B8B;
+           'darkcyan'            : Result := FPColor($0000, $8B8B, $8B8B);
+           'darkgoldenrod'       : Result := FPColor($B8B8, $8686, $0B0B);
+           'darkgray',
+           'darkgrey'            : Result := FPColor($A9A9, $A9A9, $A9A9);
+           'darkgreen'           : Result.Green := $6464;
+           'darkkhaki'           : Result := FPColor($BDBD, $B7B7, $6B6B);
+           'darkmagenta'         : Result := FPColor($8B8B, $0000, $8B8B);
+           'darkolivegreen'      : Result := FPColor($5555, $6B6B, $2F2F);
+           'darkorange'          : Result := FPColor($FFFF, $8C8C, $0000);
+           'darkorchid'          : Result := FPColor($9999, $3232, $CCCC);
+           'darkred'             : Result.Red := $8B8B;
+           'darksalmon'          : Result := FPColor($E9E9, $9696, $7A7A);
+           'darkseagreen'        : Result := FPColor($8F8F, $BCBC, $8F8F);
+           'darkslateblue'       : Result := FPColor($4848, $3D3D, $8B8B);
+           'darkslategray',
+           'darkslategrey'       : Result := FPColor($2F2F, $4F4F, $4F4F);
+           'darkturquoise'       : Result := FPColor($0000, $CECE, $D1D1);
+           'darkviolet'          : Result := FPColor($9494, $0000, $D3D3);
+           'deeppink'            : Result := FPColor($FFFF, $1414, $9393);
+           'deepskyblue'         : Result := FPColor($0000, $BFBF, $FFFF);
+           'dimgray',
+           'dimgrey'             : Result := FPColor($6969, $6969, $6969);
+           'dodgerblue'          : Result := FPColor($1E1E, $9090, $FFFF);
+         end;
+
+    'f': case lValue of
+           'firebrick'           : Result := FPColor($B2B2, $2222, $2222);
+           'floralwhite'         : Result := FPColor($FFFF, $FAFA, $F0F0);
+           'forestgreen'         : Result := FPColor($2222, $8B8B, $2222);
+           'fuchsia'             : Result := colFuchsia;
+         end;
+
+    'g': case lValue of
+           'gainsboro'           : Result := FPColor($DCDC, $DCDC, $DCDC);
+           'ghostwhite'          : Result := FPColor($F8F8, $F8F8, $FFFF);
+           'gold'                : Result := FPColor($FFFF, $D7D7, $0000);
+           'goldenrod'           : Result := FPColor($DADA, $A5A5, $2020);
+           'gray', 'grey'        : Result := colGray;
+           'green'               : Result.Green := $8080;
+           'greenyellow'         : Result := FPColor($ADAD, $FFFF, $2F2F);
+         end;
+
+    'h': case lValue of
+           'honeydew'            : Result := FPColor($F0F0, $FFFF, $F0F0);
+           'hotpink'             : Result := FPColor($FFFF, $6969, $B4B4);
+         end;
+
+    'i': case lValue of
+           'indianred'           : Result := FPColor($CDCD, $5C5C, $5C5C);
+           'indigo'              : Result := FPColor($4B4B, $0000, $8282);
+           'ivory'               : Result := FPColor($FFFF, $FFFF, $F0F0);
+         end;
+
+    'k': case lValue of
+           'khaki'               : Result := FPColor($F0F0, $E6E6, $8C8C);
+         end;
+
+    'l': case lValue of
+           'lavender'            : Result := FPColor($E6E6, $E6E6, $FAFA);
+           'lavenderblush'       : Result := FPColor($FFFF, $F0F0, $F5F5);
+           'lawngreen'           : Result := FPColor($7C7C, $FCFE, $0000);
+           'lemonchiffon'        : Result := FPColor($FFFF, $FAFA, $CDCD);
+           'lightblue'           : Result := FPColor($ADAD, $D8D8, $E6E6);
+           'lightcoral'          : Result := FPColor($F0F0, $8080, $8080);
+           'lightcyan'           : Result := FPColor($E0E0, $FFFF, $FFFF);
+           'lightgoldenrodyellow': Result := FPColor($FAFA, $FAFA, $D2D2);
+           'lightgray',
+           'lightgrey'           : Result := FPColor($D3D3, $D3D3, $D3D3);
+           'lightgreen'          : Result := FPColor($9090, $EEEE, $9090);
+           'lightpink'           : Result := FPColor($FFFF, $B6B6, $C1C1);
+           'lightsalmon'         : Result := FPColor($FFFF, $A0A0, $7A7A);
+           'lightseagreen'       : Result := FPColor($2020, $B2B2, $AAAA);
+           'lightskyblue'        : Result := FPColor($8787, $CECE, $FAFA);
+           'lightslategray',
+           'lightslategrey'      : Result := FPColor($7777, $8888, $9999);
+           'lightsteelblue'      : Result := FPColor($B0B0, $C4C4, $DEDE);
+           'lightyellow'         : Result := FPColor($FFFF, $FEFE, $0000);
+           'lime'                : Result := colGreen;
+           'limegreen'           : Result := FPColor($3232, $CDCD, $3232);
+           'linen'               : Result := FPColor($FAFA, $F0F0, $E6E6);
+         end;
+
+    'm': case lValue of
+           'magenta'             : Result := colMagenta;
+           'maroon'              : Result.Red := $8080;
+           'mediumaquamarine'    : Result := FPColor($6666, $CDCD, $AAAA);
+           'mediumblue'          : Result.Blue := $CDCD;
+           'mediumorchid'        : Result := FPColor($BABA, $5555, $D3D3);
+           'mediumpurple'        : Result := FPColor($9393, $7070, $DBDB);
+           'mediumseagreen'      : Result := FPColor($3C3C, $CBCB, $7171);
+           'mediumslateblue'     : Result := FPColor($7B7B, $6868, $EEEE);
+           'mediumspringgreen'   : Result := FPColor($0000, $FAFA, $9A9A);
+           'mediumturquoise'     : Result := FPColor($4848, $D1D1, $CCCC);
+           'mediumvioletred'     : Result := FPColor($C7C7, $1515, $8585);
+           'midnightblue'        : Result := FPColor($1919, $1919, $7070);
+           'mintcream'           : Result := FPColor($F5F5, $FFFF, $FAFA);
+           'mistyrose'           : Result := FPColor($FFFF, $E4E4, $E1E1);
+           'moccasin'            : Result := FPColor($FFFF, $E4E4, $B5B5);
+         end;
+
+    'n': case lValue of
+           'navajowhite'         : Result := FPColor($FFFF, $DEDE, $ADAD);
+           'navy'                : Result.Blue := $8080;
+         end;
+
+    'o': case lValue of
+           'oldlace'             : Result := FPColor($FDFD, $F5F5, $E6E6);
+           'olive'               : Result := colOlive;
+           'olivedrab'           : Result := FPColor($6B6B, $8E8E, $2323);
+           'orange'              : Result := FPColor($FFFF, $A5A5, $0000);
+           'orangered'           : Result := FPColor($FFFF, $4545, $0000);
+           'orchid'              : Result := FPColor($DADA, $7070, $D6D6);
+         end;
+
+    'p': case lValue of
+           'palegreen'           : Result := FPColor($9898, $FBFB, $9898);
+           'palegoldenrod'       : Result := FPColor($EEEE, $E8E8, $AAAA);
+           'paleturquoise'       : Result := FPColor($AFAF, $EEEE, $EEEE);
+           'palevioletred'       : Result := FPColor($DBDB, $7070, $9393);
+           'papayawhip'          : Result := FPColor($FFFF, $EFEF, $D5D5);
+           'peachpuff'           : Result := FPColor($FFFF, $DADA, $B9B9);
+           'peru'                : Result := FPColor($CDCD, $8585, $3F3F);
+           'pink'                : Result := FPColor($FFFF, $C0C0, $CBCB);
+           'plum'                : Result := FPColor($DDDD, $A0A0, $DDDD);
+           'powderblue'          : Result := FPColor($B0B0, $E0E0, $E6E6);
+           'purple'              : Result := colPurple;
+         end;
+
+    'r': case lValue of
+           'red'                 : Result := colRed;
+           'rosybrown'           : Result := FPColor($BCBC, $8F8F, $8F8F);
+           'royalblue'           : Result := FPColor($4141, $6969, $E1E1);
+         end;
+
+    's': case lValue of
+           'saddlebrown'         : Result := FPColor($8B8B, $4545, $1313);
+           'salmon'              : Result := FPColor($FAFA, $8080, $7272);
+           'sandybrown'          : Result := FPColor($F4F4, $A4A4, $6060);
+           'seagreen'            : Result := FPColor($2E2E, $8B8B, $5757);
+           'seashell'            : Result := FPColor($FFFF, $F5F5, $EEEE);
+           'sienna'              : Result := FPColor($A0A0, $5252, $2D2D);
+           'silver'              : Result := colSilver;
+           'skyblue'             : Result := FPColor($8787, $CECE, $EBEB);
+           'slateblue'           : Result := FPCOlor($6A6A, $5A5A, $CDCD);
+           'slategray',
+           'slategrey'           : Result := FPColor($7070, $8080, $9090);
+           'snow'                : Result := FPColor($FFFF, $FAFA, $FAFA);
+           'springgreen'         : Result := FPColor($0000, $FFFF, $7F7F);
+           'steelblue'           : Result := FPColor($4646, $8282, $B4B4);
+         end;
+
+    't': case lValue of
+           'tan'                 : Result := FPColor($D2D2, $B4B4, $8C8C);
+           'teal'                : Result := FPColor($0000, $8080, $8080);
+           'thistle'             : Result := FPColor($D8D8, $BFBF, $D8D8);
+           'tomato'              : Result := FPColor($FFFF, $6363, $4747);
+           'turquoise'           : Result := FPColor($4040, $E0E0, $D0D0);
+         end;
+
+    'v': case lValue of
+           'violet'              : Result := FPColor($EEEE, $8282, $EEEE);
+         end;
+
+    'w': case lValue of
+           'wheat'               : Result := FPColor($F5F5, $DEDE, $B3B3);
+           'white'               : Result := colWhite;
+           'whitesmoke'          : Result := FPColor($F5F5, $F5F5, $F5F5);
+         end;
+
+    'y': case lValue of
+           'yellow'              : Result := colYellow;
+           'yellowgreen'         : Result := FPColor($9A9A, $CDCD, $3232);
+         end;
   end;
-  'darkcyan':
-  begin
-    Result.Green := $8B8B;
-    Result.Blue := $8B8B;
-  end;
-  'deepskyblue':
-  begin
-    Result.Green := $BFBF;
-    Result.Blue := $FFFF;
-  end;
-  'darkturquoise':
-  begin
-    Result.Green := $CECE;
-    Result.Blue := $D1D1;
-  end;
-  'mediumspringgreen':
-  begin
-    Result.Green := $FAFA;
-    Result.Blue := $9A9A;
-  end;
-  'lime': Result := colGreen;
-  'springgreen':
-  begin
-    Result.Green := $FFFF;
-    Result.Blue := $7F7F;
-  end;
-  'cyan':   Result := colCyan;
-  'aqua':   Result := colCyan;
-  'midnightblue':
-  begin
-    Result.Red := $1919;
-    Result.Green := $1919;
-    Result.Blue := $7070;
-  end;
-  'dodgerblue':
-  begin
-    Result.Red := $1E1E;
-    Result.Green := $9090;
-    Result.Blue := $FFFF;
-  end;
-  'lightseagreen':
-  begin
-    Result.Red := $2020;
-    Result.Green := $B2B2;
-    Result.Blue := $AAAA;
-  end;
-  'forestgreen':
-  begin
-    Result.Red := $2222;
-    Result.Green := $8B8B;
-    Result.Blue := $2222;
-  end;
-  'seagreen':
-  begin
-    Result.Red := $2E2E;
-    Result.Green := $8B8B;
-    Result.Blue := $5757;
-  end;
-  'darkslategray', 'darkslategrey':
-  begin
-    Result.Red := $2F2F;
-    Result.Green := $4F4F;
-    Result.Blue := $4F4F;
-  end;
-  'limegreen':
-  begin
-    Result.Red := $3232;
-    Result.Green := $CDCD;
-    Result.Blue := $3232;
-  end;
-  'mediumseagreen':
-  begin
-    Result.Red := $3C3C;
-    Result.Green := $CBCB;
-    Result.Blue := $7171;
-  end;
-  'turquoise':
-  begin
-    Result.Red := $4040;
-    Result.Green := $E0E0;
-    Result.Blue := $D0D0;
-  end;
-  'royalblue':
-  begin
-    Result.Red := $4141;
-    Result.Green := $6969;
-    Result.Blue := $E1E1;
-  end;
-  'steelblue':
-  begin
-    Result.Red := $4646;
-    Result.Green := $8282;
-    Result.Blue := $B4B4;
-  end;
-  'darkslateblue':
-  begin
-    Result.Red := $4848;
-    Result.Green := $3D3D;
-    Result.Blue := $8B8B;
-  end;
-  'mediumturquoise':
-  begin
-    Result.Red := $4848;
-    Result.Green := $D1D1;
-    Result.Blue := $CCCC;
-  end;
-{
-indigo #4B0082
- 	darkolivegreen #556B2F		cadetblue #5F9EA0
-cornflowerblue #6495ED
- 	mediumaquamarine #66CDAA		dimgrey #696969
-dimgray #696969
- 	slateblue #6A5ACD		olivedrab #6B8E23
-slategrey #708090
- 	slategray #708090		lightslategray(Hex3) #778899
-lightslategrey(Hex3) #778899
- 	mediumslateblue #7B68EE		lawngreen #7CFC00
-chartreuse #7FFF00
-}
-  'aquamarine':
-  begin
-    Result.Red := $7F7F;
-    Result.Green := $FFFF;
-    Result.Blue := $D4D4;
-  end;
-  'maroon': Result.Red := $8080;
-  'purple': Result := colPurple;
-  'olive':  Result := colOlive;
-  'gray', 'grey': Result := colGray;
-  'skyblue':
-  begin
-    Result.Red := $8787;
-    Result.Green := $CECE;
-    Result.Blue := $EBEB;
-  end;
-  'lightskyblue':
-  begin
-    Result.Red := $8787;
-    Result.Green := $CECE;
-    Result.Blue := $FAFA;
-  end;
-  'blueviolet':
-  begin
-    Result.Red := $8A8A;
-    Result.Green := $2B2B;
-    Result.Blue := $E2E2;
-  end;
-  'darkred': Result.Red := $8B8B;
-  'darkmagenta':
-  begin
-    Result.Red := $8B8B;
-    Result.Blue := $8B8B;
-  end;
-{
-saddlebrown #8B4513
- 	darkseagreen #8FBC8F		lightgreen #90EE90
-mediumpurple #9370DB
- 	darkviolet #9400D3		palegreen #98FB98
-darkorchid #9932CC
- 	yellowgreen #9ACD32		sienna #A0522D
-brown #A52A2A
- 	darkgray #A9A9A9		darkgrey #A9A9A9
-lightblue #ADD8E6
- 	greenyellow #ADFF2F		paleturquoise #AFEEEE
-lightsteelblue #B0C4DE
- 	powderblue #B0E0E6		firebrick #B22222
-darkgoldenrod #B8860B
- 	mediumorchid #BA55D3		rosybrown #BC8F8F
-darkkhaki #BDB76B
-}
-  'silver': Result := colSilver;
-  'mediumvioletred':
-  begin
-    Result.Red := $C7C7;
-    Result.Green := $1515;
-    Result.Blue := $8585;
-  end;
-  'indianred':
-  begin
-    Result.Red := $CDCD;
-    Result.Green := $5C5C;
-    Result.Blue := $5C5C;
-  end;
-  'peru':
-  begin
-    Result.Red := $CDCD;
-    Result.Green := $8585;
-    Result.Blue := $3F3F;
-  end;
-  'chocolate':
-  begin
-    Result.Red := $D2D2;
-    Result.Green := $6969;
-    Result.Blue := $1E1E;
-  end;
-{
-tan #D2B48C
- 	lightgray #D3D3D3		lightgrey #D3D3D3
-thistle #D8BFD8
- 	orchid #DA70D6		goldenrod #DAA520
-palevioletred #DB7093
- 	crimson #DC143C		gainsboro #DCDCDC
-plum #DDA0DD
- 	burlywood #DEB887		lightcyan #E0FFFF
-lavender #E6E6FA
-}
-  'darksalmon':
-  begin
-    Result.Red := $E9E9;
-    Result.Green := $9696;
-    Result.Blue := $7A7A;
-  end;
-  'violet':
-  begin
-    Result.Red := $EEEE;
-    Result.Green := $8282;
-    Result.Blue := $EEEE;
-  end;
-  'palegoldenrod':
-  begin
-    Result.Red := $EEEE;
-    Result.Green := $E8E8;
-    Result.Blue := $AAAA;
-  end;
-  'lightcoral':
-  begin
-    Result.Red := $F0F0;
-    Result.Green := $8080;
-    Result.Blue := $8080;
-  end;
-  'khaki':
-  begin
-    Result.Red := $F0F0;
-    Result.Green := $E6E6;
-    Result.Blue := $8C8C;
-  end;
-  'aliceblue':
-  begin
-    Result.Red := $F0F0;
-    Result.Green := $F8F8;
-    Result.Blue := $FFFF;
-  end;
-  'honeydew':
-  begin
-    Result.Red := $F0F0;
-    Result.Green := $FFFF;
-    Result.Blue := $F0F0;
-  end;
-  'azure':
-  begin
-    Result.Red := $F0F0;
-    Result.Green := $FFFF;
-    Result.Blue := $FFFF;
-  end;
-  'sandybrown':
-  begin
-    Result.Red := $F4F4;
-    Result.Green := $A4A4;
-    Result.Blue := $6060;
-  end;
-{
- 	wheat #F5DEB3		beige #F5F5DC
-whitesmoke #F5F5F5
- 	mintcream #F5FFFA		ghostwhite #F8F8FF
-salmon #FA8072
- 	antiquewhite #FAEBD7		linen #FAF0E6
-lightgoldenrodyellow #FAFAD2
- 	oldlace #FDF5E6
-}
-  'red':   Result := colRed;
-  'fuchsia':   Result := colFuchsia;
-  'magenta':   Result := colMagenta;
-{	deeppink #FF1493
-orangered #FF4500
- 	tomato #FF6347		hotpink #FF69B4
-coral #FF7F50
- 	darkorange #FF8C00		lightsalmon #FFA07A
-orange #FFA500
- 	lightpink #FFB6C1		pink #FFC0CB
-gold #FFD700
- 	peachpuff #FFDAB9		navajowhite #FFDEAD
-moccasin #FFE4B5
- 	bisque #FFE4C4		mistyrose #FFE4E1
-blanchedalmond #FFEBCD
- 	papayawhip #FFEFD5		lavenderblush #FFF0F5
-seashell #FFF5EE
- 	cornsilk #FFF8DC		lemonchiffon #FFFACD
-floralwhite #FFFAF0
-}
-  'snow':
-  begin
-    Result.Red := $FFFF;
-    Result.Green := $FAFA;
-    Result.Blue := $FAFA;
-  end;
-  'yellow': Result := colYellow;
-  'lightyellow':
-  begin
-    Result.Red := $FFFF;
-    Result.Green := $FEFE;
-  end;
-  'ivory':
-  begin
-    Result.Red := $FFFF;
-    Result.Green := $FFFF;
-    Result.Blue := $F0F0;
-  end;
-  'white': Result := colWhite;
+end;
+
+// style="stop-color:rgb(255,255,10);stop-opacity:1.0"
+function TvSVGVectorialReader.ReadSVGGradientColorStyle(AValue: String): TFPColor;
+var
+  lStr, lStyleKeyStr, lStyleValueStr: String;
+  lStrings: TStringList;
+  i: Integer;
+  p: Integer;
+begin
+  Result := colBlack;
+  if AValue = '' then Exit;
+  lStrings := TStringList.Create;
+  try
+    lStrings.Delimiter := ';';
+    lStrings.StrictDelimiter := True;
+    lStrings.DelimitedText := LowerCase(AValue);
+    for i := 0 to lStrings.Count-1 do
+    begin
+      lStr := lStrings.Strings[i];
+      p := Pos(':', lStr);
+      lStyleKeyStr := Trim(Copy(lStr, 1, p-1));
+      lStyleValueStr := Trim(Copy(lStr, p+1, MaxInt));
+      if lStyleKeyStr = 'stop-color' then
+        Result := ReadSVGColor(lStyleValueStr)
+      else if lStyleKeyStr = 'stop-opacity' then
+        Result.Alpha := Round(StrToFloat(lStyleValueStr, FPointSeparator)*$FFFF);
+    end;
+  finally
+    lStrings.Free;
   end;
 end;
 
 // style="fill:none;stroke:black;stroke-width:3"
-function TvSVGVectorialReader.ReadSVGStyle(AValue: string;
+function TvSVGVectorialReader.ReadSVGStyle(AData: TvVectorialPage; AValue: string;
   ADestEntity: TvEntityWithPen; ADestStyle: TvStyle = nil;
   AUseFillAsPen: Boolean = False): TvSetPenBrushAndFontElements;
 var
@@ -829,19 +793,19 @@ begin
   try
     lStrings.Delimiter := ';';
     lStrings.StrictDelimiter := True;
-    lStrings.DelimitedText := LowerCase(AValue);
+    lStrings.DelimitedText := AValue;
     for i := 0 to lStrings.Count-1 do
     begin
       lStr := lStrings.Strings[i];
       lPosEqual := Pos(':', lStr);
       lStyleKeyStr := Copy(lStr, 0, lPosEqual-1);
-      lStyleKeyStr := Trim(lStyleKeyStr);
+      lStyleKeyStr := LowerCase(Trim(lStyleKeyStr));
       lStyleValueStr := Copy(lStr, lPosEqual+1, Length(lStr));
       lStyleValueStr := Trim(lStyleValueStr);
       if ADestEntity <> nil then
       begin
         ReadSVGPenStyleWithKeyAndValue(lStyleKeyStr, lStyleValueStr, ADestEntity);
-        ReadSVGGeneralStyleWithKeyAndValue(lStyleKeyStr, lStyleValueStr, ADestEntity);
+        ReadSVGGeneralStyleWithKeyAndValue(AData, lStyleKeyStr, lStyleValueStr, ADestEntity);
         if AUseFillAsPen and (lStyleKeyStr = 'fill') then
           Result := Result + ReadSVGPenStyleWithKeyAndValue('stroke', lStyleValueStr, ADestEntity)
         else if ADestEntity is TvText then
@@ -920,7 +884,7 @@ begin
   end
   else if AKey = 'stroke-opacity' then
   begin
-    ADestEntity.Pen.Color.Alpha := Round(StrToFloat(AValue)*$FFFF);
+    ADestEntity.Pen.Color.Alpha := Round(StrToFloat(AValue, FPointSeparator)*$FFFF);
   end
   else if AKey = 'stroke-linecap' then
   begin
@@ -929,7 +893,9 @@ begin
     'round':
     'square': ADestEntity.Pen;
     end;}
-  end;
+  end
+  else if AKey = 'stroke-dasharray' then
+    StringToPenPattern(AValue, ADestEntity.Pen);
 end;
 
 function TvSVGVectorialReader.ReadSVGBrushStyleWithKeyAndValue(AKey,
@@ -938,7 +904,6 @@ var
   OldAlpha: Word;
   Len: Integer;
   lDefName: String;
-  i: Integer;
   lCurBrush: TvEntityWithPenAndBrush;
 begin
   Result := [];
@@ -952,14 +917,11 @@ begin
       lDefName := StringReplace(lDefName, ')', '', []);
       if lDefName = '' then Exit;
 
-      for i := 0 to FBrushDefs.Count-1 do
+      lCurBrush := FindBrushDef_WithName(lDefName);
+      if lCurBrush <> nil then
       begin
-        lCurBrush := TvEntityWithPenAndBrush(FBrushDefs.Items[i]);
-        if lCurBrush.Name = lDefName then
-        begin
-          ADestEntity.Brush := lCurBrush.Brush;
-          Exit;
-        end;
+        ADestEntity.Brush := lCurBrush.Brush;
+        Exit;
       end;
       Exit;
     end;
@@ -977,6 +939,13 @@ begin
 
     Result := Result + [spbfBrushColor, spbfBrushStyle];
   end
+  else if AKey = 'fill-rule' then
+  begin
+    if AValue = 'evenodd' then
+      ADestEntity.WindingRule := vcmEvenOddRule else
+    if AValue = 'nonzero' then
+      ADestEntity.WindingRule  := vcmNonzeroWindingRule;  // to do: "inherit" missing here
+  end
   else if AKey = 'fill-opacity' then
     ADestEntity.Brush.Color.Alpha := StringFloatZeroToOneToWord(AValue)
   // For linear gradient => stop-color:rgb(255,255,0);stop-opacity:1
@@ -984,7 +953,7 @@ begin
   begin
     Len := Length(ADestEntity.Brush.Gradient_colors);
     SetLength(ADestEntity.Brush.Gradient_colors, Len+1);
-    ADestEntity.Brush.Gradient_colors[Len] := ReadSVGColor(AValue);
+    ADestEntity.Brush.Gradient_colors[Len].Color := ReadSVGColor(AValue);
   end;
 end;
 
@@ -992,6 +961,8 @@ function TvSVGVectorialReader.ReadSVGFontStyleWithKeyAndValue(AKey,
   AValue: string; ADestEntity: TvEntityWithPenBrushAndFont; ADestStyle: TvStyle = nil): TvSetPenBrushAndFontElements;
 var
   lLowerValue: String;
+  p: Integer;
+  fntName: String;
 begin
   Result := [];
   lLowerValue := LowerCase(AValue);
@@ -1022,14 +993,21 @@ begin
   end
   else if AKey = 'font-size' then
   begin
-    if ADestEntity <> nil then ADestEntity.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX, suPT));
-    if ADestStyle <> nil then ADestStyle.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPX, suPT));
+    if ADestEntity <> nil then ADestEntity.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPT, suPT));
+    if ADestStyle <> nil then ADestStyle.Font.Size := Round(StringWithUnitToFloat(AValue, sckXSize, suPT, suPT));
     Result := Result + [spbfFontSize];
   end
   else if AKey = 'font-family' then
   begin
-    if ADestEntity <> nil then ADestEntity.Font.Name := AValue;
-    if ADestStyle <> nil then ADestStyle.Font.Name := AValue;
+    // Extract the font name
+    // To do: Check if font name exists in system. Use replacement fonts which
+    // may follow after the comma.
+    p := pos(',', AValue);
+    if p = 0 then
+      fntName := AValue else
+      fntName := trim(Copy(AValue, 1, p-1));
+    if ADestEntity <> nil then ADestEntity.Font.Name := fntName;
+    if ADestStyle <> nil then ADestStyle.Font.Name := fntName;
     Result := Result + [spbfFontName];
   end
   else if AKey = 'font-weight' then
@@ -1073,8 +1051,8 @@ begin
     ADestStyle.SetElements := ADestStyle.SetElements + Result;
 end;
 
-function TvSVGVectorialReader.ReadSVGGeneralStyleWithKeyAndValue(AKey,
-  AValue: string; ADestEntity: TvEntity): TvSetPenBrushAndFontElements;
+procedure TvSVGVectorialReader.ReadSVGGeneralStyleWithKeyAndValue(AData: TvVectorialPage;
+  AKey, AValue: string; ADestEntity: TvEntity);
 var
   // transform
   MA, MB, MC, MD, ME, MF: Double;
@@ -1129,7 +1107,17 @@ begin
         end
         else if lFunctionName = 'rotate' then
         begin
-          ADestEntity.Rotate(lMatrixElements[0], Make3DPoint(0, 0, 0));
+          lMRotate := -DegToRad(lMatrixElements[0]);
+            // "-" because of orientation of svg coordinate system
+          lMTranslateX := 0;
+          lMTranslateY := 0;
+          if Length(lMatrixElements) > 1 then
+            lMTranslateX := lMatrixElements[1];
+          if Length(lMatrixElements) > 2 then
+            lMTranslateY := lMatrixElements[2];
+          ConvertSVGCoordinatesToFPVCoordinates(AData,
+            lMTranslateX, lMTranslateY, lMTranslateX, lMTranslateY);
+          ADestEntity.Rotate(lMRotate, Make3DPoint(lMTranslateX, lMTranslateY));
         end;
 
         Inc(i, 2);
@@ -1152,11 +1140,12 @@ begin
     // brush
     (AStr = 'fill') or (AStr = 'fill-opacity') or
     // font
-    (AStr = 'font-size') or (AStr = 'fill-family') or
+    (AStr = 'font-size') or (AStr = 'font-family') or
     (AStr = 'font-weight') or (AStr = 'text-anchor');
 end;
 
-procedure TvSVGVectorialReader.ApplyLayerStyles(ADestEntity: TvEntity);
+procedure TvSVGVectorialReader.ApplyLayerStyles(AData: TvVectorialPage;
+  ADestEntity: TvEntity);
 var
   lStringsKeys, lStringsValues: TStringList;
   i, j: Integer;
@@ -1179,7 +1168,7 @@ begin
       if ADestEntity is TvEntityWithPenBrushAndFont then
         ReadSVGFontStyleWithKeyAndValue(lCurKey, lCurValue, ADestEntity as TvEntityWithPenBrushAndFont);
       // transform
-      ReadSVGGeneralStyleWithKeyAndValue(lCurKey, lCurValue, ADestEntity);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lCurKey, lCurValue, ADestEntity);
     end;
   end;
 end;
@@ -1264,6 +1253,119 @@ begin
   end;
 end;
 
+// <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+procedure TvSVGVectorialReader.ReadDefs_LinearGradient(ADest: TvEntityWithPenAndBrush;
+  ANode: TDOMNode; AData: TvVectorialPage);
+var
+  lAttrName, lAttrValue, lNodeName: DOMString;
+  i, len: Integer;
+  lCurSubNode: TDOMNode;
+  lBrushEntity, lCurBrush: TvEntityWithPenAndBrush;
+  lGradientColor: TvGradientColor;
+  x1, y1, x2, y2: Double;
+begin
+  x1 := 0;
+  x2 := 0;
+  y1 := 0;
+  y2 := 0;
+  for i := 0 to ANode.Attributes.Length - 1 do
+  begin
+    lAttrName := lowercase(ANode.Attributes.Item[i].NodeName);
+    lAttrValue := ANode.Attributes.Item[i].NodeValue;
+    if lAttrName = 'id' then
+      ADest.Name := lAttrValue
+    else
+    if lAttrName = 'x1' then
+    begin
+      if lAttrValue[Length(lAttrValue)] = '%' then
+        Include(ADest.Brush.Gradient_flags, gfRelStartX);
+      x1 := StringWithPercentToFloat(lAttrValue);
+    end else
+    if lAttrName = 'x2' then
+    begin
+      if lAttrValue[Length(lAttrValue)] = '%' then
+        Include(ADest.Brush.Gradient_flags, gfRelEndX);
+      x2 := StringWithPercentToFloat(lAttrValue);
+    end else
+    if lAttrName = 'y1' then
+    begin
+      if lAttrValue[Length(lAttrValue)] = '%' then
+        Include(ADest.Brush.Gradient_flags, gfRelStartY);
+      y1 := StringWithPercentToFloat(lAttrValue);
+    end else
+    if lAttrName = 'y2' then
+    begin
+      if lAttrValue[Length(lAttrValue)] = '%' then
+        Include(ADest.Brush.Gradient_flags, gfRelEndY);
+      y2 := StringWithPercentToFloat(lAttrValue);
+    end else
+    if lAttrName = 'gradientunits' then
+    begin
+      lAttrValue := LowerCase(lAttrValue);
+      if lAttrValue = 'userspaceonuse' then
+        Include(ADest.Brush.Gradient_flags, gfRelToUserSpace)
+      else if lAttrValue = 'objectboundingbox' then
+        Exclude(ADest.Brush.Gradient_flags, gfRelToUserSpace);
+    end;
+  end;
+  ADest.Brush.Gradient_start.X := x1;
+  ADest.Brush.Gradient_end.X := x2;
+  ADest.Brush.Gradient_start.Y := y1;
+  ADest.Brush.Gradient_end.Y := y2;
+  ConvertSVGCoordinatesToFPVCoordinates(AData, x1, y1, x1, y1);
+  ConvertSVGCoordinatesToFPVCoordinates(AData, x2, y2, x2, y2);
+  if not (gfRelStartX in ADest.Brush.Gradient_flags) then
+    ADest.Brush.Gradient_start.X := x1;
+  if not (gfRelEndX in ADest.Brush.Gradient_flags) then
+    ADest.Brush.Gradient_end.X := x2;
+  if not (gfRelStartY in ADest.Brush.Gradient_flags) then
+    ADest.Brush.Gradient_start.Y := y1;
+  if not (gfRelEndY in ADest.Brush.Gradient_flags) then
+    ADest.Brush.Gradient_end.Y := y2;
+  if (ADest.Brush.Gradient_start.X = 0) and
+     (ADest.Brush.Gradient_start.Y = 0) and
+     (ADest.Brush.Gradient_end.X = 0) and
+     (ADest.Brush.Gradient_end.Y = 0) then
+  begin
+    ADest.Brush.Gradient_start.X := 0.0;
+    ADest.Brush.Gradient_start.Y := 0.0;
+    ADest.Brush.Gradient_end.X := 1.0;
+    ADest.Brush.Gradient_end.Y := 1.0;
+  end;
+  if ADest.Brush.Gradient_start.X = ADest.Brush.Gradient_end.X then
+    ADest.Brush.Kind := bkVerticalGradient
+  else if ADest.Brush.Gradient_start.Y = ADest.Brush.Gradient_end.Y then
+    ADest.Brush.Kind := bkHorizontalGradient
+  else
+    ADest.Brush.Kind := bkOtherLinearGradient;
+
+  // <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
+  // <stop offset="100%" style="stop-color:rgb(255,0,0);stop-opacity:1" />
+  lCurSubNode := ANode.FirstChild;
+  while Assigned(lCurSubNode) do
+  begin
+    lNodeName := LowerCase(lCurSubNode.NodeName);
+    if lNodeName = 'stop' then begin
+      for i := 0 to lCurSubNode.Attributes.Length - 1 do
+      begin
+        lAttrName := lCurSubNode.Attributes.Item[i].NodeName;
+        lAttrValue := lCurSubNode.Attributes.Item[i].NodeValue;
+        if lAttrName = 'offset' then
+          lGradientColor.Position := StringWithPercentToFloat(lAttrValue)
+          // use as fraction 0..1
+        else if lAttrName = 'style' then
+          lGradientColor.Color := ReadSVGGradientColorStyle(lAttrValue)
+        else if lAttrName = 'stop-color' then
+          lGradientColor.Color := ReadSVGColor(lAttrValue);
+      end;
+      len := Length(ADest.Brush.Gradient_colors);
+      SetLength(ADest.Brush.Gradient_colors, Len+1);
+      ADest.Brush.Gradient_colors[len] := lGradientColor;
+    end;
+    lCurSubNode := lCurSubNode.NextSibling;
+  end;
+end;
+
 procedure TvSVGVectorialReader.ReadDefsFromNode(ANode: TDOMNode;
   AData: TvVectorialPage; ADoc: TvVectorialDocument);
 var
@@ -1272,12 +1374,11 @@ var
   lPreviousLayer: TvEntityWithSubEntities;
   lAttrName, lAttrValue, lNodeName: DOMString;
   lLayerName: String;
-  i: Integer;
+  i, len: Integer;
   lCurNode, lCurSubNode: TDOMNode;
-  lBrushEntity: TvEntityWithPenAndBrush;
+  lBrushEntity, lCurBrush: TvEntityWithPenAndBrush;
   lCurEntity: TvEntity;
-  lOffset: Double;
-  x1, x2, y1, y2: string;
+  lAttrValue_Double: Double;
 begin
   lCurNode := ANode.FirstChild;
   while Assigned(lCurNode) do
@@ -1287,53 +1388,56 @@ begin
       'radialgradient':
       begin
         lBrushEntity := TvEntityWithPenAndBrush.Create(nil);
+
+        // First copy everything we can from any xlink:href
+        for i := 0 to lCurNode.Attributes.Length - 1 do
+        begin
+          lAttrName := LowerCase(lCurNode.Attributes.Item[i].NodeName);
+          lAttrValue := lCurNode.Attributes.Item[i].NodeValue;
+          if lAttrName = 'xlink:href' then
+          begin
+            lAttrValue := StringReplace(Trim(lAttrValue), '#', '', []);
+            lCurBrush := FindBrushDef_WithName(lAttrValue);
+            if lCurBrush <> nil then
+              lBrushEntity.Brush := lCurBrush.Brush;
+          end;
+        end;
+
+        // Now linear gradient properties
+        ReadDefs_LinearGradient(lBrushEntity, lCurNode, AData);
+
+        // Now process our own properties
+
         lBrushEntity.Brush.Kind := bkRadialGradient;
 
         // <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+        // or
+        // <linearGradient id="linearGradient6038">
+        // <stop style="stop-color:#ffffff;stop-opacity:1;" offset="0" id="stop6040" />
+        // <stop style="stop-color:#000000;stop-opacity:0;" offset="1" id="stop6042" />
+        // </linearGradient>
+        // <radialGradient inkscape:collect="always" xlink:href="#linearGradient6038"
+        //  id="radialGradient3333" gradientUnits="userSpaceOnUse"
+        //  gradientTransform="matrix(0.05999054,1.120093,-1.0249935,0.05489716,995.9708,109.4759)"
+        //  cx="406.62762" cy="567.12799" fx="406.62762" fy="567.12799" r="37.15749" />
         for i := 0 to lCurNode.Attributes.Length - 1 do
         begin
           lAttrName := lCurNode.Attributes.Item[i].NodeName;
           lAttrValue := lCurNode.Attributes.Item[i].NodeValue;
-          if lAttrName = 'id' then
-          begin
-            lBrushEntity.Name := lAttrValue;
+          case lAttrName of
+          'cx', 'cy', 'fx', 'fy', 'r':
+            lAttrValue_Double := StringWithUnitToFloat(lAttrValue, sckUnknown, suMM, suMM);
           end;
-          {else if lAttrName = 'cx' then
-          begin
-            lLayerName := lCurNode.Attributes.Item[i].NodeValue;
-            lBlock.Name := lLayerName;
+
+          case lAttrName of
+          'id': lBrushEntity.Name := lAttrValue;
+          'cx': lBrushEntity.Brush.Gradient_cx := lAttrValue_Double;
+          'cy': lBrushEntity.Brush.Gradient_cy := lAttrValue_Double;
+          'r':  lBrushEntity.Brush.Gradient_r  := lAttrValue_Double;
+          'fx': lBrushEntity.Brush.Gradient_fx := lAttrValue_Double;
+          'fy': lBrushEntity.Brush.Gradient_fy := lAttrValue_Double;
           end;
-          }
-        end;
-
-{        Gradient_cx, Gradient_cy, Gradient_r, Gradient_fx, Gradient_fy: Double;
-        Gradient_cx_Unit, Gradient_cy_Unit, Gradient_r_Unit, Gradient_fx_Unit, Gradient_fy_Unit: TvCoordinateUnit;
-        Gradient_colors: array of TFPColor;}
-
-        //  <stop offset="0%" style="stop-color:rgb(255,255,255); stop-opacity:0" />
-        //  <stop offset="100%" style="stop-color:rgb(0,0,255);stop-opacity:1" />
-        //</radialGradient>}
-        lCurSubNode := lCurNode.FirstChild;
-        while Assigned(lCurSubNode) do
-        begin
-          {lNodeName := LowerCase(lCurSubNode.NodeName);
-
-          for i := 0 to lCurSubNode.Attributes.Length - 1 do
-          begin
-            lAttrName := lCurSubNode.Attributes.Item[i].NodeName;
-            lAttrValue := lCurSubNode.Attributes.Item[i].NodeValue;
-            if lAttrName = 'offset' then
-            begin
-              //lOffset := lAttrName;
-            end;
-            else if lAttrName = 'cx' then
-            begin
-              lLayerName := lCurNode.Attributes.Item[i].NodeValue;
-              lBlock.Name := lLayerName;
-            end;
-          end;}
-
-          lCurSubNode := lCurSubNode.NextSibling;
+          //lBrushEntity.Gradient_cx_Unit, Gradient_cy_Unit, Gradient_r_Unit, Gradient_fx_Unit, Gradient_fy_Unit
         end;
 
         FBrushDefs.Add(lBrushEntity);
@@ -1348,46 +1452,7 @@ begin
       begin
         lBrushEntity := TvEntityWithPenAndBrush.Create(nil);
 
-        // <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
-        for i := 0 to lCurNode.Attributes.Length - 1 do
-        begin
-          lAttrName := lCurNode.Attributes.Item[i].NodeName;
-          lAttrValue := lCurNode.Attributes.Item[i].NodeValue;
-          if lAttrName = 'id' then
-            lBrushEntity.Name := lAttrValue
-          else if lAttrName = 'x1' then
-            x1 := lAttrValue
-          else if lAttrName = 'x2' then
-            x2 := lAttrValue
-          else if lAttrName = 'y1' then
-            y1 := lAttrValue
-          else if lAttrName = 'y2' then
-            y2 := lAttrValue;
-        end;
-        if x2 = x1 then lBrushEntity.Brush.Kind := bkVerticalGradient
-        else lBrushEntity.Brush.Kind := bkHorizontalGradient;
-
-        // <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
-        // <stop offset="100%" style="stop-color:rgb(255,0,0);stop-opacity:1" />
-        lCurSubNode := lCurNode.FirstChild;
-        while Assigned(lCurSubNode) do
-        begin
-          lNodeName := LowerCase(lCurSubNode.NodeName);
-
-          for i := 0 to lCurSubNode.Attributes.Length - 1 do
-          begin
-            lAttrName := lCurSubNode.Attributes.Item[i].NodeName;
-            lAttrValue := lCurSubNode.Attributes.Item[i].NodeValue;
-            if lAttrName = 'offset' then
-            begin
-              lOffset := StringWithUnitToFloat(lAttrValue);
-            end
-            else if lAttrName = 'style' then
-              ReadSVGStyle(lAttrValue, lBrushEntity);
-          end;
-
-          lCurSubNode := lCurSubNode.NextSibling;
-        end;
+        ReadDefs_LinearGradient(lBrushEntity, lCurNode, AData);
 
         FBrushDefs.Add(lBrushEntity);
       end;
@@ -1450,6 +1515,7 @@ begin
   lEntityName := LowerCase(ANode.NodeName);
   case lEntityName of
     'circle': Result := ReadCircleFromNode(ANode, AData, ADoc);
+    'defs': ReadDefsFromNode(ANode, AData, ADoc);
     'ellipse': Result := ReadEllipseFromNode(ANode, AData, ADoc);
     'frame': Result := ReadFrameFromNode(ANode, AData, ADoc);
     'g': ReadLayerFromNode(ANode, AData, ADoc);
@@ -1467,7 +1533,7 @@ end;
 function TvSVGVectorialReader.ReadCircleFromNode(ANode: TDOMNode;
   AData: TvVectorialPage; ADoc: TvVectorialDocument): TvEntity;
 var
-  cx, cy, cr, dtmp: double;
+  cx, cy, cr, tmp: double;
   lCircle: TvCircle;
   i: Integer;
   lNodeName, lNodeValue: DOMString;
@@ -1482,7 +1548,7 @@ begin
   lCircle.Brush.Style := bsSolid;
   lCircle.Brush.Color := colBlack;
   // Apply the layer style
-  ApplyLayerStyles(lCircle);
+  ApplyLayerStyles(AData, lCircle);
 
   // read the attributes
   for i := 0 to ANode.Attributes.Length - 1 do
@@ -1490,26 +1556,35 @@ begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
     lNodeValue := ANode.Attributes.Item[i].NodeValue;
     if lNodeName = 'cx' then
-      cx := StringWithUnitToFloat(lNodeValue, sckX, suPX, suMM)
+      cx := StringWithUnitToFloat(lNodeValue) //, sckX, suPX, suMM)
     else if lNodeName = 'cy' then
-      cy := StringWithUnitToFloat(lNodeValue, sckY, suPX, suMM)
+      cy := StringWithUnitToFloat(lNodeValue) //, sckY, suPX, suMM)
     else if lNodeName = 'r' then
-      cr := StringWithUnitToFloat(lNodeValue, sckXSize, suPX, suMM)
+      cr := StringWithUnitToFloat(lNodeValue) //, sckXSize, suPX, suMM)
     else if lNodeName = 'id' then
-      lCircle.Name := lNodeValue
-    else if lNodeName = 'style' then
-      ReadSVGStyle(lNodeValue, lCircle)
+      lCircle.Name := lNodeValue;
+  end;
+
+  ConvertSVGCoordinatesToFPVCoordinates(AData, cx, cy, cx, cy);
+  ConvertSVGSizeToFPVSize(AData, cr, cr, lCircle.Radius, tmp);
+  lCircle.X := lCircle.X + cx;
+  lCircle.Y := lCircle.Y + cy;
+
+  // Make sure that transformations are read after geometry and position
+  // of cirlce is known.
+  for i := 0 to ANode.Attributes.Length - 1 do
+  begin
+    lNodeName := ANode.Attributes.Item[i].NodeName;
+    lNodeValue := ANode.Attributes.Item[i].NodeValue;
+    if lNodeName = 'style' then
+      ReadSVGStyle(AData, lNodeValue, lCircle)
     else if IsAttributeFromStyle(lNodeName) then
     begin
       ReadSVGPenStyleWithKeyAndValue(lNodeName, lNodeValue, lCircle);
       ReadSVGBrushStyleWithKeyAndValue(lNodeName, lNodeValue, lCircle);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, lNodeValue, lCircle);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lCircle);
     end;
   end;
-
-  lCircle.X := lCircle.X + cx;
-  lCircle.Y := lCircle.Y + cy;
-  lCircle.Radius := lCircle.Radius + cr;
 
   Result := lCircle;
 end;
@@ -1533,7 +1608,7 @@ begin
   lEllipse.Brush.Style := bsSolid;
   lEllipse.Brush.Color := colBlack;
   // Apply the layer style
-  ApplyLayerStyles(lEllipse);
+  ApplyLayerStyles(AData, lEllipse);
 
   // read the attributes
   for i := 0 to ANode.Attributes.Length - 1 do
@@ -1549,21 +1624,27 @@ begin
     else if lNodeName = 'ry' then
       cry := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'id' then
-      lEllipse.Name := ANode.Attributes.Item[i].NodeValue
-    else if lNodeName = 'style' then
-      ReadSVGStyle(lNodeValue, lEllipse)
+      lEllipse.Name := ANode.Attributes.Item[i].NodeValue;
+  end;
+
+  ConvertSVGCoordinatesToFPVCoordinates(AData, cx, cy, lEllipse.X, lEllipse.Y);
+  ConvertSVGSizeToFPVSize(AData, crx, cry, lEllipse.HorzHalfAxis, lEllipse.VertHalfAxis);
+
+  // Make sure that transformations are read after geometry and position
+  // of ellipse is known.
+  for i := 0 to ANode.Attributes.Length - 1 do
+  begin
+    lNodeName := ANode.Attributes.Item[i].NodeName;
+    lNodeValue := ANode.Attributes.Item[i].NodeValue;
+    if lNodeName = 'style' then
+      ReadSVGStyle(AData, lNodeValue, lEllipse)
     else if IsAttributeFromStyle(lNodeName) then
     begin
       ReadSVGPenStyleWithKeyAndValue(lNodeName, lNodeValue, lEllipse);
       ReadSVGBrushStyleWithKeyAndValue(lNodeName, lNodeValue, lEllipse);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, lNodeValue, lEllipse);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lEllipse);
     end;
   end;
-
-  ConvertSVGCoordinatesToFPVCoordinates(
-        AData, cx, cy, lEllipse.X, lEllipse.Y);
-  ConvertSVGDeltaToFPVDelta(
-        AData, crx, cry, lEllipse.HorzHalfAxis, lEllipse.VertHalfAxis);
 
   Result := lEllipse;
 end;
@@ -1606,7 +1687,7 @@ begin
   lText := nil;//TvText.Create(nil);
 
   // Apply the layer style
-  ApplyLayerStyles(lText);
+  ApplyLayerStyles(AData, lText);
 
   // read the attributes
   for i := 0 to ANode.Attributes.Length - 1 do
@@ -1618,7 +1699,7 @@ begin
     else if lNodeName = 'svg:y' then
       ly := ly + StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'draw:style-name' then
-      ReadSVGStyle(lNodeValue, lText);
+      ReadSVGStyle(AData, lNodeValue, lText);
   end;
 
   // Get the text contents
@@ -1682,7 +1763,7 @@ begin
   lText := TvText.Create(nil);
 
   // Apply the layer style
-  ApplyLayerStyles(lText);
+  ApplyLayerStyles(AData, lText);
 
   {// read the attributes
   for i := 0 to ANode.Attributes.Length - 1 do
@@ -1811,7 +1892,7 @@ begin
     begin
       //ReadSVGPenStyleWithKeyAndValue(lNodeName, lNodeValue, lImage);
       //ReadSVGBrushStyleWithKeyAndValue(lNodeName, lNodeValue, lImage);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, lNodeValue, lImage);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lImage);
     end;
   end;
 
@@ -1836,7 +1917,7 @@ begin
   lImage.Y := lImage.Y + lImage.Height / 2;
 
   // Apply the layer style
-  ApplyLayerStyles(lImage);
+  ApplyLayerStyles(AData, lImage);
 
   Result := lImage;
 end;
@@ -1961,19 +2042,24 @@ begin
   AData.AddLineToPath(vx2, vy2);
   lPath := AData.EndPath(True);
 
+  // Add default SVG pen/brush
+  lPath.Pen.Style := psClear;
+
   // Apply the layer style
-  ApplyLayerStyles(lPath);
+  ApplyLayerStyles(AData, lPath);
 
   // Add the entity styles
   for i := 0 to ANode.Attributes.Length - 1 do
   begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
     if lNodeName = 'style' then
-      ReadSVGStyle(ANode.Attributes.Item[i].NodeValue, lPath)
+      ReadSVGStyle(AData, ANode.Attributes.Item[i].NodeValue, lPath)
     else if IsAttributeFromStyle(lNodeName) then
     begin
-      ReadSVGPenStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGPenStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
     end;
   end;
   //
@@ -2004,9 +2090,9 @@ begin
   // Add default SVG pen/brush
   lPath.Pen.Style := psClear;
   lPath.Brush.Color := colBlack;
-  lPath.Brush.Style := bsSolid;
+  lPath.Brush.Style := bsClear;
   // Apply the layer style
-  ApplyLayerStyles(lPath);
+  ApplyLayerStyles(AData, lPath);
   // Add the pen/brush/name
   for i := 0 to ANode.Attributes.Length - 1 do
   begin
@@ -2014,12 +2100,15 @@ begin
     if lNodeName = 'id' then
       lPath.Name := ANode.Attributes.Item[i].NodeValue
     else if lNodeName = 'style' then
-      ReadSVGStyle(ANode.Attributes.Item[i].NodeValue, lPath)
+      ReadSVGStyle(AData, ANode.Attributes.Item[i].NodeValue, lPath)
     else if IsAttributeFromStyle(lNodeName) then
     begin
-      ReadSVGPenStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
-      ReadSVGBrushStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGPenStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGBrushStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
     end;
   end;
 end;
@@ -2035,7 +2124,7 @@ var
   lDebugStr: String;
   lTmpTokenType: TSVGTokenType;
 begin
-  FSVGPathTokenizer.Tokens.Clear;
+  FSVGPathTokenizer.ClearTokens;
   FSVGPathTokenizer.TokenizePathString(AStr);
   //lDebugStr := FSVGPathTokenizer.DebugOutTokensAsString();
   CurX := 0;
@@ -2069,12 +2158,13 @@ procedure TvSVGVectorialReader.ReadNextPathCommand(ACurTokenType: TSVGTokenType;
   var i: Integer; var CurX, CurY: Double; AData: TvVectorialPage;
   ADoc: TvVectorialDocument);
 var
-  X, Y, X2, Y2, X3, Y3, XQ, YQ: Double;
+  X, Y, X2, Y2, X3, Y3, XQ, YQ, Xnew, Ynew, cx, cy, phi, tmp: Double;
   LargeArcFlag, SweepFlag, LeftmostEllipse, ClockwiseArc: Boolean;
   lCurTokenType: TSVGTokenType;
   lDebugStr: String;
   lToken5Before, lToken7Before: TSVGTokenType;
   lCorrectPreviousToken: Boolean;
+  lPrevRelative, lCurRelative: Boolean;
 begin
   lCurTokenType := ACurTokenType;
   // --------------
@@ -2117,7 +2207,8 @@ begin
     CurY := Y;
     AData.AddLineToPath(CurX, CurY);
 
-    Inc(i, 3);
+    Inc(i, 1);
+//    Inc(i, 3);
   end
   // --------------
   // Lines
@@ -2125,38 +2216,39 @@ begin
   else if lCurTokenType in [sttLineTo, sttRelativeLineTo, sttHorzLineTo,
     sttRelativeHorzLineTo, sttVertLineTo, sttRelativeVertLineTo] then
   begin
-    X := FSVGPathTokenizer.Tokens.Items[i+1].Value;
-    if not (lCurTokenType in [sttHorzLineTo, sttRelativeHorzLineTo, sttVertLineTo, sttRelativeVertLineTo]) then
+    if lCurTokenType in [sttLineTo, sttRelativeLineTo] then
+    begin
+      X := FSVGPathTokenizer.Tokens.Items[i+1].Value;
       Y := FSVGPathTokenizer.Tokens.Items[i+2].Value;
-
-    // "l" LineTo uses relative coordenates in SVG
-    if lCurTokenType in [sttRelativeLineTo, sttRelativeHorzLineTo, sttRelativeVertLineTo] then
+      if lCurTokenType = sttLineTo then
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X,Y, CurX,CurY)
+      else
+      begin
+        ConvertSVGDeltaToFPVDelta(AData, X,Y, X,Y);
+        CurX := CurX + X;
+        CurY := CurY + Y;
+      end;
+      inc(i, 3);
+    end else
+    if lCurTokenType in [sttHorzLineTo, sttVertLineTo] then
     begin
-      ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y);
-      CurX := CurX + X;
-      CurY := CurY + Y;
-    end
-    else
+      tmp := FSVGPathTokenizer.Tokens.Items[i+1].Value;
+      ConvertSVGCoordinatesToFPVCoordinates(AData, tmp, tmp, X, Y);
+      if lCurTokenType = sttHorzLineTo then
+        CurX := X else
+        CurY := Y;
+      inc(i, 2);
+    end else
+    if lCurTokenType in [sttRelativeHorzLineTo, sttRelativeVertLineTo] then
     begin
-      ConvertSVGCoordinatesToFPVCoordinates(AData, X, Y, X, Y);
-      CurX := X;
-      CurY := Y;
+      tmp := FSVGPathTokenizer.Tokens.Items[i+1].Value;
+      ConvertSVGDeltaToFPVDelta(AData, tmp, tmp, X, Y);
+      if lCurTokenType = sttRelativeHorzLineTo then
+        CurX := CurX + X else
+        CurY := CurY + Y;
+      inc(i, 2);
     end;
-
-    // horizontal and vertical line corrections
-    if lCurTokenType in [sttHorzLineTo, sttRelativeHorzLineTo] then
-      Y := 0
-    else if lCurTokenType in [sttVertLineTo, sttRelativeVertLineTo] then
-    begin
-      Y := X;
-      X := 0;
-    end;
-
     AData.AddLineToPath(CurX, CurY);
-
-    if not (lCurTokenType in [sttHorzLineTo, sttRelativeHorzLineTo, sttVertLineTo, sttRelativeVertLineTo]) then
-      Inc(i, 3)
-    else Inc(i, 2);
   end
   // --------------
   // Cubic Bezier
@@ -2164,6 +2256,7 @@ begin
   else if lCurTokenType in [sttBezierTo, sttRelativeBezierTo,
     sttSmoothBezierTo, sttRelativeSmoothBezierTo] then
   begin
+    lPrevRelative := false;
     if lCurTokenType in [sttBezierTo, sttRelativeBezierTo] then
     begin
       X2 := FSVGPathTokenizer.Tokens.Items[i+1].Value;
@@ -2189,10 +2282,11 @@ begin
         lCorrectPreviousToken := lToken5Before in [sttSmoothBezierTo, sttRelativeSmoothBezierTo];
         lCorrectPreviousToken := lCorrectPreviousToken or
           (lToken7Before in [sttBezierTo, sttRelativeBezierTo]);
+        lPrevRelative := (lToken5Before = sttRelativeSmoothBezierTo) or (lToken7Before = sttRelativeBezierTo);
       end;
       if (i >= 7) and (lCorrectPreviousToken) then
       begin
-        if lCurTokenType = sttRelativeSmoothBezierTo then
+        if (lCurTokenType = sttRelativeSmoothBezierTo) or lPrevRelative then
         begin
           X2 := FSVGPathTokenizer.Tokens.Items[i-2].Value - FSVGPathTokenizer.Tokens.Items[i-4].Value;
           Y2 := FSVGPathTokenizer.Tokens.Items[i-1].Value - FSVGPathTokenizer.Tokens.Items[i-3].Value;
@@ -2211,17 +2305,32 @@ begin
     end;
 
     // Careful that absolute coordinates require using ConvertSVGCoordinatesToFPVCoordinates
-    if lCurTokenType in [sttRelativeBezierTo, sttRelativeSmoothBezierTo] then
+    lCurRelative := lCurTokenType in [sttRelativeBezierTo, sttRelativeSmoothBezierTo];
+    if lPrevRelative then
     begin
       ConvertSVGDeltaToFPVDelta(AData, X2, Y2, X2, Y2);
-      ConvertSVGDeltaToFPVDelta(AData, X3, Y3, X3, Y3);
-      ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y);
-    end
-    else
+      if lCurRelative then
+      begin
+        ConvertSVGDeltaToFPVDelta(AData, X3, Y3, X3, Y3);
+        ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y);
+      end else
+      begin
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X3, Y3, X3, Y3);
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X, Y, X, Y);
+      end;
+    end else
     begin
-      ConvertSVGCoordinatesToFPVCoordinates(AData, X2, Y2, X2, Y2);
-      ConvertSVGCoordinatesToFPVCoordinates(AData, X3, Y3, X3, Y3);
-      ConvertSVGCoordinatesToFPVCoordinates(AData, X, Y, X, Y);
+      if lCurRelative then
+      begin
+        ConvertSVGDeltaToFPVDelta(AData, X2, Y2, X2, Y2);
+        ConvertSVGDeltaToFPVDelta(AData, X3, Y3, X3, Y3);
+        ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y);
+      end else
+      begin
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X2, Y2, X2, Y2);
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X3, Y3, X3, Y3);
+        ConvertSVGCoordinatesToFPVCoordinates(AData, X, Y, X, Y);
+      end;
     end;
 
     // Covers the case where there is no valid first control point in smooth bezier
@@ -2250,14 +2359,16 @@ begin
     end
     else
     begin
-      AData.AddBezierToPath(X2, Y2, X3, Y3, X, Y);
+      if lPrevRelative then
+        AData.AddBezierToPath(X2 + CurX, Y2 + CurY, X3, Y3, X, Y) else
+        AData.AddBezierToPath(X2, Y2, X3, Y3, X, Y);
       CurX := X;
       CurY := Y;
     end;
 
     if lCurTokenType in [sttBezierTo, sttRelativeBezierTo] then
-      Inc(i, 7)
-    else Inc(i, 5);
+      Inc(i, 7) else
+      Inc(i, 5);
   end
   // --------------
   // Quadratic Bezier
@@ -2312,29 +2423,68 @@ begin
   begin
     X2 := FSVGPathTokenizer.Tokens.Items[i+1].Value; // RX
     Y2 := FSVGPathTokenizer.Tokens.Items[i+2].Value; // RY
-    X3 := FSVGPathTokenizer.Tokens.Items[i+3].Value; // RotationX
-    X3 := X3 * Pi / 180; // degrees to radians conversion
+    phi := FSVGPathTokenizer.Tokens.Items[i+3].Value; // RotationX
+    phi := DegToRad(phi);  // degrees to radians conversion
     LargeArcFlag := Round(FSVGPathTokenizer.Tokens.Items[i+4].Value) = 1;
     SweepFlag := Round(FSVGPathTokenizer.Tokens.Items[i+5].Value) = 1;
     X := FSVGPathTokenizer.Tokens.Items[i+6].Value;  // X
     Y := FSVGPathTokenizer.Tokens.Items[i+7].Value;  // Y
 
-    // non-coordinate values
+    {
+    if lCurTokenType = sttRelativeEllipticArcTo then
+    begin
+      Xnew := CurX + X;
+      Ynew := CurY + Y;
+    end else
+    begin
+      Xnew := CurX;
+      Ynew := CurY;
+    end;
+
+    CalcEllipseCenter(CurX, CurY, Xnew, Ynew, X2, Y2, phi, LargeArcFlag, SweepFlag, cx, cy, tmp);
+    ConvertSVGCoordinatesToFPVCoordinates(AData, cx, cy, cx, cy);
+     }
+    // non-coordinate values (radii)
     ConvertSVGDeltaToFPVDelta(AData, X2, Y2, X2, Y2);
+    if X2 < 0 then X2 := -X2;
+    if Y2 < 0 then Y2 := -Y2;
 
     // Careful that absolute coordinates require using ConvertSVGCoordinatesToFPVCoordinates
     if lCurTokenType in [sttRelativeEllipticArcTo] then
-    begin
-      ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y);
-    end
+      ConvertSVGDeltaToFPVDelta(AData, X, Y, X, Y)
     else
-    begin
       ConvertSVGCoordinatesToFPVCoordinates(AData, X, Y, X, Y);
+
+    if lCurTokenType = sttRelativeEllipticArcTo then
+    begin
+      Xnew := CurX + X;
+      Ynew := CurY + Y;
+    end else
+    begin
+      Xnew := X;
+      Ynew := Y;
     end;
 
+    // in svg the y axis increases downward, in fpv upward. Therefore, angles
+    // change their sign!
+    phi := -phi;
+    SweepFlag := not SweepFlag;  // i.e. "clockwise" turns into "counter-clockwise"!
+
+    if CalcEllipseCenter(CurX, CurY, Xnew, Ynew, X2, Y2, phi, LargeArcFlag, SweepFlag, cx, cy, tmp) then
+      AData.AddEllipticalArcWithCenterToPath(X2*tmp, Y2*tmp, phi, Xnew, Ynew, cx, cy, SweepFlag)
+    else
+      // Use a straight segment in case of no solution existing for the ellipse center
+      AData.AddLineToPath(Xnew, Ynew);
+
+    CurX := Xnew;
+    CurY := Ynew;
+    {
     // Convert SVG flags to fpvectorial flags
     LeftmostEllipse := (LargeArcFlag and (not SweepFlag))
       or ((not LargeArcFlag) and SweepFlag);
+    if (Y > CurY) or ((Y = CurY) and (X > CurX)) then
+      LeftMostEllipse := not LeftMostEllipse;
+      // if Y = CurY then "LeftMost" is to be understood as "TopMost"
     ClockwiseArc := SweepFlag;
 
     if lCurTokenType = sttRelativeEllipticArcTo then
@@ -2349,6 +2499,7 @@ begin
       CurX := X;
       CurY := Y;
     end;
+     }
 
     Inc(i, 8);
   end
@@ -2365,7 +2516,7 @@ var
   X, Y: Double;
   FirstPtX, FirstPtY, CurX, CurY: Double;
 begin
-  FSVGPathTokenizer.Tokens.Clear;
+  FSVGPathTokenizer.ClearTokens;
   FSVGPathTokenizer.TokenizePathString(AStr);
   CurX := 0;
   CurY := 0;
@@ -2414,7 +2565,7 @@ begin
   for i := 0 to ANode.Attributes.Length - 1 do
   begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
-    if  lNodeName = 'points' then
+    if lNodeName = 'points' then
       lPointsStr := ANode.Attributes.Item[i].NodeValue;
   end;
 
@@ -2423,8 +2574,12 @@ begin
   lPath := AData.EndPath(True);
   Result := lPath;
 
+  // Add default SVG pen/brush
+  lPath.Pen.Style := psClear;
+  lPath.Brush.Style := bsClear;
+
   // Apply the layer style
-  ApplyLayerStyles(lPath);
+  ApplyLayerStyles(AData, lPath);
 
   // now read the other attributes
   for i := 0 to ANode.Attributes.Length - 1 do
@@ -2433,12 +2588,15 @@ begin
     if lNodeName = 'id' then
       lPath.Name := ANode.Attributes.Item[i].NodeValue
     else if lNodeName = 'style' then
-      ReadSVGStyle(ANode.Attributes.Item[i].NodeValue, lPath)
+      ReadSVGStyle(AData, ANode.Attributes.Item[i].NodeValue, lPath)
     else if IsAttributeFromStyle(lNodeName) then
     begin
-      ReadSVGPenStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
-      ReadSVGBrushStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGPenStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGBrushStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lPath);
     end;
   end;
 end;
@@ -2451,6 +2609,7 @@ var
   lRect: TvRectangle;
   i: Integer;
   lNodeName: DOMString;
+  lNodeValue: String;
 begin
   lx := 0.0;
   ly := 0.0;
@@ -2465,44 +2624,52 @@ begin
   lRect.Brush.Style := bsSolid;
   lRect.Brush.Color := colBlack;
   // Apply the layer style
-  ApplyLayerStyles(lRect);
+  ApplyLayerStyles(AData, lRect);
 
   // read the attributes
   for i := 0 to ANode.Attributes.Length - 1 do
   begin
     lNodeName := ANode.Attributes.Item[i].NodeName;
+    lNodeValue := ANode.Attributes.Item[i].NodeValue;
     if  lNodeName = 'x' then
-      lx := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      lx := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'y' then
-      ly := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      ly := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'rx' then
-      lrx := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      lrx := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'ry' then
-      lry := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      lry := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'width' then
-      cx := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      cx := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'height' then
-      cy := StringWithUnitToFloat(ANode.Attributes.Item[i].NodeValue)
+      cy := StringWithUnitToFloat(lNodeValue)
     else if lNodeName = 'id' then
-      lRect.Name := ANode.Attributes.Item[i].NodeValue
-    else if lNodeName = 'style' then
-      ReadSVGStyle(ANode.Attributes.Item[i].NodeValue, lRect)
-    else if IsAttributeFromStyle(lNodeName) then
-    begin
-      ReadSVGPenStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lRect);
-      ReadSVGBrushStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lRect);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, ANode.Attributes.Item[i].NodeValue, lRect);
-    end;
+      lRect.Name := lNodeValue;
   end;
 
-  ConvertSVGCoordinatesToFPVCoordinates(
-        AData, lx, ly, lRect.X, lRect.Y);
-  ConvertSVGSizeToFPVSize(
-        AData, cx, cy, lRect.CX, lRect.CY);
-  ConvertSVGSizeToFPVSize(
-        AData, lrx, lry, lRect.RX, lRect.RY);
+  ConvertSVGCoordinatesToFPVCoordinates(AData, lx, ly, lRect.X, lRect.Y);
+  ConvertSVGSizeToFPVSize(AData, cx, cy, lRect.CX, lRect.CY);
+  ConvertSVGSizeToFPVSize(AData, lrx, lry, lRect.RX, lRect.RY);
   lRect.RX := Abs(lRect.RX) * 2;
   lRect.RY := Abs(lRect.RY) * 2;
+
+  // Make sure that transformations are read after geometry and position
+  // of rectangle is known.
+  for i := 0 to ANode.Attributes.Length - 1 do
+  begin
+    lNodeName := ANode.Attributes.Item[i].NodeName;
+    if lNodeName = 'style' then
+      ReadSVGStyle(AData, lNodeValue, lRect)
+    else if IsAttributeFromStyle(lNodeName) then
+    begin
+      ReadSVGPenStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lRect);
+      ReadSVGBrushStyleWithKeyAndValue(lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lRect);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName,
+        ANode.Attributes.Item[i].NodeValue, lRect);
+    end;
+  end;
 
   Result := lRect;
 end;
@@ -2592,12 +2759,13 @@ var
 
   procedure ReadTextSpans(ACurNode: TDOMNode);
   var
-    j: Integer;
+    i,j: Integer;
     lCurNode: TDOMNode;
     lTextStr: string;
     lText: TvText;
     lCText: TvCurvedText;
     lInsertedEntity, lInsertedSubEntity: TvEntity;
+    s: String;
   begin
     lCurNode := ACurNode.FirstChild;
     while lCurNode <> nil do
@@ -2679,24 +2847,22 @@ var
         end;
 
         // Apply the layer style
-        ApplyLayerStyles(lCText);
+        ApplyLayerStyles(AData, lCText);
 
         // Apply the layer style
         ApplyStackStylesToText(lCText);
       end
       else
+      if lNodeValue <> '' then
       begin
         lText := lParagraph.AddText(lNodeValue);
-
         lText.Font.Size := 10;
         lText.Name := lName;
         // Apply the layer style
-        ApplyLayerStyles(lText);
-
+        ApplyLayerStyles(AData, lText);
         // Apply the layer style
         ApplyStackStylesToText(lText);
       end;
-
 
       lCurNode := lCurNode.NextSibling;
     end;
@@ -2731,11 +2897,11 @@ begin
       lParagraph.Name := lName;
     end
     else if lNodeName = 'style' then
-      ReadSVGStyle(lNodeValue, nil, lCurStyle)
+      ReadSVGStyle(AData, lNodeValue, nil, lCurStyle)
     else if IsAttributeFromStyle(lNodeName) then
     begin
       ReadSVGFontStyleWithKeyAndValue(lNodeName, lNodeValue, nil, lCurStyle);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, lNodeValue, lParagraph);
+  //    ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lParagraph);
     end;
   end;
 
@@ -2756,6 +2922,15 @@ begin
   // </text>
   // These other lines can be positioned, so they need to appear as independent TvText elements
   ReadTextSpans(ANode);
+
+  // read the attributes
+  for i := 0 to ANode.Attributes.Length - 1 do
+  begin
+    lNodeName := ANode.Attributes.Item[i].NodeName;
+    lNodeValue := ANode.Attributes.Item[i].NodeValue;
+    if IsAttributeFromStyle(lNodeName) then
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lParagraph);
+  end;
 
   // Finalization
   lCurObject := lTextSpanStack.Pop();
@@ -2814,14 +2989,14 @@ begin
     lNodeValue := ANode.Attributes.Item[i].NodeValue;
     if lNodeName = 'style' then
     begin
-      ReadSVGStyle(lNodeValue, lInsert);
+      ReadSVGStyle(AData, lNodeValue, lInsert);
     end
     else if IsAttributeFromStyle(lNodeName) then
     begin
       lInsert.SetElements += ReadSVGPenStyleWithKeyAndValue(lNodeName, lNodeValue, lInsert);
       lInsert.SetElements += ReadSVGBrushStyleWithKeyAndValue(lNodeName, lNodeValue, lInsert);
       lInsert.SetElements += ReadSVGFontStyleWithKeyAndValue(lNodeName, lNodeValue, lInsert);
-      ReadSVGGeneralStyleWithKeyAndValue(lNodeName, lNodeValue, lInsert);
+      ReadSVGGeneralStyleWithKeyAndValue(AData, lNodeName, lNodeValue, lInsert);
     end;
   end;
 
@@ -2831,6 +3006,50 @@ begin
   lInsert.Y := lInsert.Y - AData.Height;
 
   Result := lInsert;
+end;
+
+procedure TvSVGVectorialReader.StringToPenPattern(const AStr: String;
+  var APen: TvPen);
+var
+  float_patt: TDoubleArray;
+  patt: array of LongWord;
+  i: Integer;
+begin
+  if AStr = 'none' then
+    exit;
+
+  float_patt := ReadSpaceSeparatedFloats(AStr, ',');
+  if Length(float_patt) < 2 then
+    exit;
+
+  SetLength(patt, Length(float_patt));
+  for i:=0 to High(patt) do
+  begin
+    if float_patt[i] < 0 then
+      raise Exception.CreateFmt('Incorrect value in stroke-dasharray "%s"', [AStr]);
+    patt[i] := round(float_patt[i]);
+  end;
+
+  case Length(patt) of
+    2: if patt[1] = 5 then
+         case patt[0] of
+           3: begin APen.Style := psDot;  exit; end;     // stroke-dasharray: 3, 5
+           9: begin APen.Style := psDash; exit; end;     // stroke-dasharray: 9, 5
+         end;
+    4: if (patt[0] = 9) and (patt[1] = 5) and (patt[2] = 3) and (patt[3] = 5) then
+       begin                             // stroke-dasharray: 9, 5, 3, 5
+         APen.Style := psDashDot;
+         exit;
+       end;
+    6: if (patt[0] = 9) and (patt[1] = 5) and (patt[2] = 3) and (patt[3] = 5) and
+          (patt[4] = 3) and (patt[5] = 5)
+       then begin                       // stroke-dasharray: 9, 5, 3, 5, 3, 5
+         APen.Style := psDashDotDot;
+         exit;
+       end;
+  end;
+  APen.Style := psPattern;
+  APen.Pattern := patt;
 end;
 
 function TvSVGVectorialReader.StringWithUnitToFloat(AStr: string;
@@ -2868,7 +3087,7 @@ var
   procedure DoProcessMM_End();
   begin
     if ATargetUnit = suPX then
-      Result := Result / FLOAT_MILIMETERS_PER_PIXEL;
+      Result := Result / FLOAT_MILLIMETERS_PER_PIXEL;
     DoViewBoxAdjust();
   end;
 
@@ -2876,7 +3095,7 @@ var
   begin
     Result := StrToFloat(ValueStr, FPointSeparator);
     case ATargetUnit of
-    suMM: Result := Result * FLOAT_MILIMETERS_PER_PIXEL;
+    suMM: Result := Result * FLOAT_MILLIMETERS_PER_PIXEL;
     suPT: Result := Result * FLOAT_POINTS_PER_PIXEL;
     end;
     DoViewBoxAdjust();
@@ -2900,6 +3119,13 @@ begin
     ValueStr := Copy(AStr, 1, Len-2);
     Result := StrToFloat(ValueStr, FPointSeparator);
     Result := Result * 10;
+    DoProcessMM_End();
+  end
+  else if UnitStr = 'in' then
+  begin
+    ValueStr := Copy(AStr, 1, Len-2);
+    Result := StrToFloat(ValueStr, FPointSeparator);
+    Result := Result * 25.4;
     DoProcessMM_End();
   end
   else if UnitStr = 'px' then
@@ -2941,12 +3167,25 @@ begin
   Result := Round(StrToFloat(AStr, FPointSeparator) * $FFFF);
 end;
 
+{@@ Converts a number string to a floating-point number. If the string has a
+    % character at its end then it is removed, and the numerical value is
+    divided by 100. }
+function TvSVGVectorialReader.StringWithPercentToFloat(AStr: String): Double;
+begin
+  if AStr[Length(AStr)] = '%' then
+  begin
+    Delete(AStr, Length(AStr), 1);
+    Result := 0.01 * StrToFloat(trim(AStr), FPointSeparator);
+  end else
+    Result := StrToFloat(AStr, FPointSeparator);
+end;
+
 procedure TvSVGVectorialReader.ConvertSVGCoordinatesToFPVCoordinates(
   const AData: TvVectorialPage; const ASrcX, ASrcY: Double;
   var ADestX,ADestY: Double; ADoViewBoxAdjust: Boolean = True);
 begin
-  ADestX := ASrcX * FLOAT_MILIMETERS_PER_PIXEL;
-  ADestY := AData.Height - ASrcY * FLOAT_MILIMETERS_PER_PIXEL;
+  ADestX := ASrcX * FLOAT_MILLIMETERS_PER_PIXEL;
+  ADestY := AData.Height - ASrcY * FLOAT_MILLIMETERS_PER_PIXEL;
   if ViewBoxAdjustment and ADoViewBoxAdjust then
   begin
     ADestX := (ASrcX - ViewBox_Left) * Page_Width / ViewBox_Width;
@@ -2958,8 +3197,8 @@ procedure TvSVGVectorialReader.ConvertSVGDeltaToFPVDelta(
   const AData: TvVectorialPage; const ASrcX, ASrcY: Double; var ADestX,
   ADestY: Double; ADoViewBoxAdjust: Boolean = True);
 begin
-  ADestX := ASrcX * FLOAT_MILIMETERS_PER_PIXEL;
-  ADestY := - ASrcY * FLOAT_MILIMETERS_PER_PIXEL;
+  ADestX := ASrcX * FLOAT_MILLIMETERS_PER_PIXEL;
+  ADestY := - ASrcY * FLOAT_MILLIMETERS_PER_PIXEL;
   if ViewBoxAdjustment and ADoViewBoxAdjust then
   begin
     ADestX := ASrcX * Page_Width / ViewBox_Width;
@@ -2971,8 +3210,8 @@ procedure TvSVGVectorialReader.ConvertSVGSizeToFPVSize(
   const AData: TvVectorialPage; const ASrcX, ASrcY: Double; var ADestX,
   ADestY: Double; ADoViewBoxAdjust: Boolean = True);
 begin
-  ADestX := ASrcX * FLOAT_MILIMETERS_PER_PIXEL;
-  ADestY := ASrcY * FLOAT_MILIMETERS_PER_PIXEL;
+  ADestX := ASrcX * FLOAT_MILLIMETERS_PER_PIXEL;
+  ADestY := ASrcY * FLOAT_MILLIMETERS_PER_PIXEL;
   if ViewBoxAdjustment and ADoViewBoxAdjust then
   begin
     ADestX := ASrcX * Page_Width / ViewBox_Width;
@@ -3055,9 +3294,13 @@ begin
 end;
 
 destructor TvSVGVectorialReader.Destroy;
+var
+  i: Integer;
 begin
   FLayerStylesKeys.Free;
   FLayerStylesValues.Free;
+
+  for i:=FBrushDefs.Count-1 downto 0 do TObject(FBrushDefs[i]).Free;
   FBrushDefs.Free;
   FSVGPathTokenizer.Free;
 
@@ -3179,7 +3422,7 @@ begin
     AData.Height := ly2 - ly;
   end;
 
-  // Make sure the latest page size is syncronized with auto-detected
+  // Make sure the latest page size is synchronized with auto-detected
   // or ViewBox-only obtained size
   Page_Width := AData.Width;
   Page_Height := AData.Height;

@@ -22,7 +22,7 @@ uses
   {$IFDEF STALE_PIPE_WORKAROUND}
   BaseUnix,
   {$ENDIF}
-  Classes, SysUtils, FileUtil, LazLogger, SimpleIPC, process, UTF8Process;
+  Classes, SysUtils, LazFileUtils, LazLogger, SimpleIPC, process, UTF8Process;
 
 const
   PROTOCOL_VERSION='2'; //IDE<>LHelp communication protocol version. Please update when breaking compatibility
@@ -193,7 +193,7 @@ function TLHelpConnection.ServerRunning: Boolean;
 {$IFDEF STALE_PIPE_WORKAROUND}
 {$ENDIF}
 begin
-  Result := (fServerOut<>nil) and (fServerOut.ServerRunning);
+  Result := (fServerOut<>nil) and (fServerOut.ServerID <> '') and (fServerOut.ServerRunning);
   {$IFDEF STALE_PIPE_WORKAROUND}
   if not Result then
     Exit; // ==>

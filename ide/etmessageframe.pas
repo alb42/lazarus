@@ -170,8 +170,7 @@ type
     function GetActiveFilter: TLMsgViewFilter; inline;
     function GetHeaderBackground(aToolState: TLMVToolState): TColor;
     function GetSelectedLine: integer;
-    function GetUrgencyStyles(Urgency: TMessageLineUrgency
-      ): TMsgCtrlUrgencyStyle;
+    function GetUrgencyStyles(Urgency: TMessageLineUrgency): TMsgCtrlUrgencyStyle;
     function GetViews(Index: integer): TLMsgWndView;
     procedure OnViewChanged(Sender: TObject); // (main thread)
     procedure MsgUpdateTimerTimer(Sender: TObject);
@@ -463,7 +462,7 @@ begin
   MsgQuickFixMenuSection := RegisterIDEMenuSection(Root, 'Quick Fix');
   MsgAboutSection:=RegisterIDEMenuSection(Root,'About');
     Parent:=MsgAboutSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisAbout;
     MsgAboutToolMenuItem:=RegisterIDEMenuCommand(Parent, 'About', lisAbout);
     MsgOpenToolOptionsMenuItem:=RegisterIDEMenuCommand(Parent, 'Open Tool '
@@ -471,18 +470,18 @@ begin
   MsgFilterMsgOfTypeMenuItem:=RegisterIDEMenuCommand(Root,'FilterMsgOfType',lisFilterAllMessagesOfCertainType);
   MsgRemoveCompOptHideMenuSection:=RegisterIDEMenuSection(Root,'RemoveCompOptHideMsg');
     Parent:=MsgRemoveCompOptHideMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisRemoveCompilerOptionHideMessage;
   MsgRemoveMsgTypeFilterMenuSection:=RegisterIDEMenuSection(Root,'RemoveMsgTypeFilters');
     Parent:=MsgRemoveMsgTypeFilterMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisRemoveMessageTypeFilter;
     MsgRemoveFilterMsgOneTypeMenuSection:=RegisterIDEMenuSection(Parent,'RemoveOneMsgTypeFilterSection');
     MsgRemoveFilterAllMsgTypesMenuItem:=RegisterIDEMenuCommand(Parent, 'Remove'
       +' all message type filters', lisRemoveAllMessageTypeFilters);
   MsgFilterBelowMenuSection:=RegisterIDEMenuSection(Root,'Filter Below Section');
     Parent:=MsgFilterBelowMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisFilterNonUrgentMessages;
     MsgFilterWarningsMenuItem:=RegisterIDEMenuCommand(Parent,
       'Filter Warnings', lisFilterWarningsAndBelow);
@@ -512,14 +511,14 @@ begin
     +' without Source Position', lisFilterHintsWithoutSourcePosition);
   MsgFiltersMenuSection:=RegisterIDEMenuSection(Root,'Switch Filter Section');
     Parent:=MsgFiltersMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisSwitchFilterSettings;
     MsgSelectFilterMenuSection:=RegisterIDEMenuSection(Parent,'Filters');
     MsgAddFilterMenuItem:=RegisterIDEMenuCommand(Parent, 'Add Filter',
       lisAddFilter);
   MsgCopyMenuSection:=RegisterIDEMenuSection(Root,'Copy');
     Parent:=MsgCopyMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisCopy;
     MsgCopyFilenameMenuItem:=RegisterIDEMenuCommand(Parent, 'Filename',
       lisCopyFileNameToClipboard);
@@ -529,7 +528,7 @@ begin
       lisCopyAllOriginalMessagesToClipboard);
   MsgSaveToFileMenuSection:=RegisterIDEMenuSection(Root,'Save');
     Parent:=MsgSaveToFileMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisSave;
     MsgSaveShownToFileMenuItem:=RegisterIDEMenuCommand(Parent, 'Save Shown '
       +'Messages to File', lisSaveShownMessagesToFile);
@@ -540,13 +539,13 @@ begin
   MsgClearMenuItem := RegisterIDEMenuCommand(Root, 'Clear', lisClear);
   MsgOptionsMenuSection:=RegisterIDEMenuSection(Root,'Option Section');
     Parent:=MsgOptionsMenuSection;
-    Parent.ChildsAsSubMenu:=true;
+    Parent.ChildrenAsSubMenu:=true;
     Parent.Caption:=lisOptions;
     MsgWndStayOnTopMenuItem:=RegisterIDEMenuCommand(Parent,
       'Window stay on top', lisWindowStaysOnTop);
     MsgFilenameStyleMenuSection:=RegisterIDEMenuSection(Parent,'Filename Styles');
       Parent:=MsgFilenameStyleMenuSection;
-      Parent.ChildsAsSubMenu:=true;
+      Parent.ChildrenAsSubMenu:=true;
       Parent.Caption:=lisFilenameStyle;
       MsgFileStyleShortMenuItem:=RegisterIDEMenuCommand(Parent, 'Short',
         lisShortNoPath);
@@ -559,7 +558,7 @@ begin
     MsgShowIDMenuItem:=RegisterIDEMenuCommand(Parent, 'ShowID',
       lisShowMessageTypeID);
     MsgMoreOptionsMenuItem:=RegisterIDEMenuCommand(Parent, 'More Options',
-      lisMore2);
+      lisDlgMore);
 end;
 
 {$R *.lfm}
@@ -2820,7 +2819,7 @@ begin
       //assign default caption if item is not visible (needed for EditorToolBar)
       MsgOpenToolOptionsMenuItem.Caption:=lisOpenToolOptions;
     MsgOpenToolOptionsMenuItem.OnClick:=@OpenToolsOptionsMenuItemClick;
-    MsgAboutSection.ChildsAsSubMenu:=VisibleCnt>1;
+    MsgAboutSection.ChildrenAsSubMenu:=VisibleCnt>1;
 
     // Filtering
     if CanFilterMsgType then begin
@@ -3581,7 +3580,8 @@ begin
     if not (CurMark is TETMark) then continue;
     Msg:=CurMark.MsgLine;
     CurHint:=MessagesCtrl.UrgencyToStr(Msg.Urgency)+': '+Msg.Msg;
-    if HintStr<>'' then HintStr:=HintStr+LineEnding;
+    if HintStr<>'' then
+      HintStr:=HintStr+LineEnding;
     HintStr:=HintStr+CurHint;
   end;
 end;

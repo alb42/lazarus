@@ -34,7 +34,7 @@ unit PPUParser;
 interface
 
 uses
-  Classes, SysUtils, FileProcs, lazutf8classes, contnrs;
+  Classes, SysUtils, contnrs, FileProcs, LazFileUtils, lazutf8classes;
 
 const
   PPUIsEndianBig = {$IFDEF ENDIAN_BIG}True{$ELSE}False{$ENDIF};
@@ -198,7 +198,7 @@ const
      'mipsel',
      'jvm',
      'i8086',
-     'a64'
+     'aarch64'
      );
 
 // from ppu.pas

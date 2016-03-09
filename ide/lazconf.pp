@@ -93,7 +93,6 @@ procedure GetDefaultTestBuildDirs(List: TStrings);
 function CreateCompilerTestPascalFilename: string;
 
 function FindDefaultExecutablePath(const Executable: string): string;
-function GetDefaultCompilerFilename: string; // e.g. ppc386.exe
 procedure GetDefaultCompilerFilenames(List: TStrings); // list of standard paths of compiler on various distributions
 function FindDefaultCompilerPath: string; // full path of GetDefaultCompilerFilename
 function FindDefaultMakePath: string; // full path of "make"
@@ -217,7 +216,7 @@ begin
     Result:=Executable
   else
     Result:=SearchFileInPath(Executable,'',
-                             GetEnvironmentVariableUTF8('PATH'),':',
+                             GetEnvironmentVariableUTF8('PATH'),PathSeparator,
                              [sffDontSearchInBasePath]);
   Result:=TrimFilename(Result);
 end;
@@ -328,7 +327,7 @@ end;
 procedure SetPrimaryConfigPath(const NewValue: String);
 begin
   debugln('SetPrimaryConfigPath NewValue="',UTF8ToConsole(NewValue),'" -> "',UTF8ToConsole(ExpandFileNameUTF8(NewValue)),'"');
-  PrimaryConfigPath := AppendPathDelim(ExpandFileNameUTF8(NewValue));
+  PrimaryConfigPath := ChompPathDelim(ExpandFileNameUTF8(NewValue));
 end;
 
 {---------------------------------------------------------------------------
@@ -337,7 +336,7 @@ end;
 procedure SetSecondaryConfigPath(const NewValue: String);
 begin
   debugln('SetSecondaryConfigPath NewValue="',UTF8ToConsole(NewValue),'" -> "',UTF8ToConsole(ExpandFileNameUTF8(NewValue)),'"');
-  SecondaryConfigPath := AppendPathDelim(ExpandFileNameUTF8(NewValue));
+  SecondaryConfigPath := ChompPathDelim(ExpandFileNameUTF8(NewValue));
 end;
 
 {---------------------------------------------------------------------------
@@ -361,6 +360,7 @@ begin
       debugln(['WARNING: unable to copy config "',SecondaryFilename,'" to "',PrimaryFilename,'"']);
       exit;
     end;
+    InvalidateFileStateCache; // we have to invalidate cache in order FileExistsCached finds the new primary config file
   end;
 end;
 
@@ -446,11 +446,6 @@ begin
   or (CompareText(TargetOS,'openbsd')=0)
   then
     Result:=ExtractFilePath(Result)+lowercase(ExtractFileName(Result));
-end;
-
-function GetDefaultCompilerFilename: string;
-begin
-  Result:=DefineTemplates.GetDefaultCompilerFilename;
 end;
 
 function GetDefaultLazarusSrcDirectories: TStringList;

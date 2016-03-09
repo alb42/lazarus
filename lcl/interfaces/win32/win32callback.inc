@@ -81,9 +81,7 @@ begin
   PrevWndProc := GetWin32WindowInfo(Window)^.DefWndProc;
   if (PrevWndProc = nil) or (PrevWndProc = @WindowProc) // <- prevent recursion
   then begin
-    if UnicodeEnabledOS
-    then Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
-    else Result := Windows.DefWindowProc(Window, Msg, WParam, LParam)
+    Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
   end
   else begin
     // combobox child edit weirdness: combobox handling WM_SIZE will compare text
@@ -96,10 +94,7 @@ begin
         IsComboboxAndHasEdit(Window);
     if setComboWindow then
       ComboBoxHandleSizeWindow := Window;
-    if UnicodeEnabledOS then
-      Result := Windows.CallWindowProcW(PrevWndProc, Window, Msg, WParam, LParam)
-    else
-      Result := Windows.CallWindowProc(PrevWndProc, Window, Msg, WParam, LParam);
+    Result := Windows.CallWindowProcW(PrevWndProc, Window, Msg, WParam, LParam);
     if setComboWindow then
       ComboBoxHandleSizeWindow := 0;
   end;
@@ -182,18 +177,6 @@ var
   CurDoubleBuffer: TDoubleBuffer = (DC: 0; Bitmap: 0; BitmapWidth: 0; BitmapHeight: 0);
   DisabledForms: TList = nil;
   CurrentWindow: HWND = 0;
-
-function CheckMouseMovement: boolean;
-  // returns true if mouse did not move between lmousebutton down
-var
-  lCursorPos: TPoint;
-  moveX, moveY: integer;
-begin
-  GetCursorPos(lCursorPos);
-  moveX := lCursorPos.X - MouseDownPos.X;
-  moveY := lCursorPos.Y - MouseDownPos.Y;
-  Result := (-3 <= moveX) and (moveX <= 3) and (-3 <= moveY) and (moveY <= 3);
-end;
 
 function GetNeedParentPaint(AWindowInfo: PWin32WindowInfo; AWinControl: TWinControl): boolean;
 begin
@@ -375,12 +358,9 @@ type
     procedure DoMsgEnable;
     function DoMsgEraseBkgnd(var WinResult: LResult): Boolean;
     procedure DoMsgKeyDownUp(aMsg: Cardinal; var WinResult: LResult);
-    procedure DoMsgLButtonCommon;
-    procedure DoMsgLButtonDoubleClick;
-    procedure DoMsgLButtonDown;
     procedure DoMsgMeasureItem;
     procedure DoMsgMouseMove;
-    procedure DoMsgMouseUpDownClick(aMsg: Cardinal);
+    procedure DoMsgMouseDownUpClick(aButton: Byte; aIsDblClick: Boolean; aMouseDown: Boolean);
     procedure DoMsgContextMenu;
     function DoMsgMouseWheel(var WinResult: LResult): Boolean;
     function DoMsgMove: Boolean;
@@ -837,6 +817,19 @@ begin
   else LMScroll.SmallPos := High(LMScroll.SmallPos);
 end;
 
+// FlashWindowEx is not (yet) in FPC
+type
+  FLASHWINFO = record
+    cbSize: UINT;
+    hwnd: HWND;
+    dwFlags: DWORD;
+    uCount: UINT;
+    dwTimeout: DWORD;
+  end;
+  PFLASHWINFO = ^FLASHWINFO;
+
+function FlashWindowEx(pfwi:PFLASHWINFO):WINBOOL; stdcall; external 'user32' name 'FlashWindowEx';
+
 procedure TWindowProcHelper.HandleSetCursor;
 var
   lControl: TControl;
@@ -844,6 +837,8 @@ var
   ACursor: TCursor;
   MouseMessage: Word;
   P: TPoint;
+  lWindow: HWND;
+  FlashInfo: FLASHWINFO;
 begin
   if Assigned(lWinControl) then
   begin
@@ -880,16 +875,46 @@ begin
       // a mouse click on a window
       if ((MouseMessage = WM_LBUTTONDOWN) or
           (MouseMessage = WM_RBUTTONDOWN) or
-          (MouseMessage = WM_XBUTTONDOWN)) and
-         Assigned(Screen) and Assigned(Screen.ActiveCustomForm) and
-         Screen.ActiveCustomForm.HandleAllocated and
-         (GetForegroundWindow <> Screen.ActiveCustomForm.Handle) then
+          (MouseMessage = WM_MBUTTONDOWN) or
+          (MouseMessage = WM_XBUTTONDOWN))
+      and Assigned(Screen)
+      then
       begin
         // A mouse click is happen on our application window which is not active
         // we need to active it ourself. This is needed only when click is happen
         // on disabled window (e.g. ShowModal is called and non modal window is clicked)
-        Win32WidgetSet.AppBringToFront;
-        LMessage.Result := 1;
+        // We also flash the modal window and beep (default windows behavior).
+
+        // search for modal window with GetLastActivePopup
+        if Application.MainFormOnTaskBar and (Application.MainFormHandle <> 0) then
+          lWindow := GetLastActivePopup(Application.MainFormHandle)
+        else
+          lWindow := GetLastActivePopup(Win32WidgetSet.AppHandle);
+
+        if lWindow <> 0 then // modal window found
+        begin
+          if lWindow <> GetActiveWindow then
+          begin
+            // Activate the application in case it is not active without beep+flash
+            Win32WidgetSet.AppBringToFront;
+            LMessage.Result := 1; // disable native beep+flash, we don't want it
+          end else
+          begin
+            // Simulate default MS Windows beep+flash
+            // because MS Windows is able to flash only modal windows if
+            // a disabled window from the same parent chain was clicked on.
+            // This code flashes the dialog if whatever disabled form was clicked on.
+            Beep;
+            FillChar(FlashInfo{%H-}, SizeOf(FlashInfo), 0);
+            FlashInfo.cbSize := SizeOf(FlashInfo);
+            FlashInfo.hwnd := lWindow;
+            FlashInfo.dwFlags := 1; // FLASHW_CAPTION
+            FlashInfo.uCount := 6;
+            FlashInfo.dwTimeout := 70;
+            FlashWindowEx(@flashinfo);
+            LMessage.Result := 1; // disable native beep+flash, we already beep+flashed
+          end;
+        end;
       end;
     end;
   end;
@@ -938,7 +963,6 @@ begin
       if Application.MainForm.HandleAllocated then
         Windows.ShowWindow(Application.MainFormHandle, SW_HIDE);
     end;
-
     PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
     WinProcess := False;
     Application.IntfAppMinimize;
@@ -949,6 +973,13 @@ begin
     PLMsg^.Result := Windows.DefWindowProc(Window, WM_SYSCOMMAND, WParam, LParam);
     WinProcess := False;
     Application.IntfAppMinimize;
+  end else
+  if Assigned(lWinControl) and (fsModal in TCustomForm(lWinControl).FormState) then
+  begin
+    // issue #26463
+    PLMsg^.Result := 1;
+    WinProcess := False;
+    Win32WidgetSet.AppMinimize;
   end;
 end;
 
@@ -967,7 +998,15 @@ begin
     Application.IntfAppRestore;
   end
   else if Assigned(lWinControl) and (lWinControl = Application.MainForm) then
+  begin
     Application.IntfAppRestore;
+  end else
+  if Assigned(lWinControl) and (fsModal in TCustomForm(lWinControl).FormState) then
+  begin
+    // issue #26463
+    PLMsg^.Result := 1;
+    Win32WidgetSet.AppRestore;
+  end;
 end;
 
 procedure TWindowProcHelper.HandleSysCommand;
@@ -1030,10 +1069,7 @@ var
   L: LongWord;
   I, C: Integer;
   DropForm: TWinControl;
-{$IFDEF WindowsUnicodeSupport}
-  AnsiBuffer: string;
   WideBuffer: WideString;
-{$ENDIF}
 begin
   Drop := HDROP(WParam);
   try
@@ -1043,28 +1079,11 @@ begin
     SetLength(Files, C);
     for I := 0 to C - 1 do
     begin
-      {$IFDEF WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
-        SetLength(WideBuffer, L);
-        L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
-        SetLength(WideBuffer, L);
-        Files[I] := UTF16ToUTF8(WideBuffer);
-      end
-      else
-      begin
-        L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-        SetLength(AnsiBuffer, L);
-        L := DragQueryFile(Drop, I, @AnsiBuffer[1], L + 1);
-        SetLength(WideBuffer, L);
-        Files[I] := ANSIToUTF8(AnsiBuffer);
-      end;
-      {$ELSE}
-      L := DragQueryFile(Drop, I, nil, 0); // get I. file name length
-      SetLength(Files[I], L);
-      DragQueryFile(Drop, I, PChar(Files[I]), L + 1);
-      {$ENDIF}
+      L := DragQueryFileW(Drop, I, nil, 0); // get I. file name length
+      SetLength(WideBuffer, L);
+      L := DragQueryFileW(Drop, I, @WideBuffer[1], L + 1);
+      SetLength(WideBuffer, L);
+      Files[I] := UTF16ToUTF8(WideBuffer);
     end;
 
     if Length(Files) > 0 then
@@ -1095,7 +1114,7 @@ begin
     WinProcess := not lWinControl.IntfUTF8KeyPress(UTF8Char, 1, False);
     // if somewhere key is changed then don't perform a regular keypress
     Result := not WinProcess or (UTF8Char <> OldUTF8Char);
-    if UTF8Char <> OldUTF8Char then
+    if Result then
     begin
       WS := UTF8ToUTF16(UTF8Char);
       if Length(WS) > 0 then
@@ -1198,7 +1217,6 @@ end;
 
 procedure TWindowProcHelper.DoMsgChar(var WinResult: LResult);
 begin
-  {$ifdef WindowsUnicodeSupport}
   // first send a IntfUTF8KeyPress to the LCL
   // if the key was not handled send a CN_CHAR for AnsiChar<=#127
   OrgCharCode := Word(WParam);
@@ -1209,10 +1227,7 @@ begin
     begin
       Msg := CN_CHAR;
       KeyData := LParam;
-      if UnicodeEnabledOS then
-        CharCode := Word(Char(WideChar(WParam)))
-      else
-        CharCode := Word(WParam);
+      CharCode := Word(Char(WideChar(WParam)));
       OrgCharCode := CharCode;
       WinResult := 0;
     end;
@@ -1220,17 +1235,6 @@ begin
   end
   else
     WParam := OrgCharCode;
-  {$else}
-  PLMsg := @LMChar;
-  with LMChar do
-  begin
-    Msg := CN_CHAR;
-    KeyData := LParam;
-    CharCode := Word(WParam);
-    WinResult := 0;
-  end;
-  WinProcess := false;
-  {$endif}
 end;
 
 procedure TWindowProcHelper.DoCmdCheckBoxParam;
@@ -1381,6 +1385,8 @@ procedure TWindowProcHelper.DoMsgDrawItem;
 var
   menuItem: TObject;
   PDrawIS: PDrawItemStruct;
+  isDrawListItem: Boolean;
+  DrawItemMsg: Integer;
 begin
   PDrawIS := PDrawItemStruct(LParam);
   if (WParam = 0) and (PDrawIS^.ctlType = ODT_MENU) then
@@ -1409,14 +1415,16 @@ begin
           (TCustomCombobox(lWinControl).Style = csOwnerDrawVariable))))
     then
       UpdateDrawListItem(LM_DRAWLISTITEM)
-    else
-    if (lWinControl <> nil) and (lWinControl is TListView) and
-      (TListView(lWinControl).ViewStyle = vsReport) and
-      (PDrawIS^.ctlType = ODT_LISTVIEW) and
-      (TListView(lWinControl).OwnerDraw)
-    then
-      UpdateDrawListItem(CN_DRAWITEM)
-    else
+    else if Assigned(WindowInfo^.DrawItemHandler) then begin
+      DrawItemMsg := 0;
+      isDrawListItem := False;
+      WindowInfo^.DrawItemHandler(lWinControl, Window, Msg, WParam, PDrawIS^,
+        DrawItemMsg, isDrawListItem);
+      if isDrawListItem and (DrawItemMsg<>0) then
+        UpdateDrawListItem(DrawItemMsg)
+      else
+        UpdateDrawItems;
+    end else
       UpdateDrawItems;
   end;
 end;
@@ -1517,59 +1525,24 @@ begin
   WinProcess := false;
 end;
 
-procedure TWindowProcHelper.DoMsgLButtonCommon;
+procedure TWindowProcHelper.DoMsgMouseDownUpClick(aButton: Byte;
+  aIsDblClick: Boolean; aMouseDown: Boolean);
+var
+  MousePos: TPoint;
 begin
-  MouseDownTime := GetTickCount64;
+  GetCursorPos(MousePos{%H-});
+
   NotifyUserInput := True;
   PLMsg := @LMMouse;
-  with LMMouse Do
-  begin
-    case MouseDownCount of
-      2: Msg := LM_LBUTTONDBLCLK;
-      3: Msg := LM_LBUTTONTRIPLECLK;
-      4: Msg := LM_LBUTTONQUADCLK;
-      else Msg := LM_LBUTTONDOWN;
-    end;
-    XPos := GET_X_LPARAM(LParam);
-    YPos := GET_Y_LPARAM(LParam);
-    Keys := WParam;
-  end;
-end;
+  LMMouse.Msg := CheckMouseButtonDownUp(Window, lWinControl, LastMouse, MousePos, aButton, aMouseDown);
 
-procedure TWindowProcHelper.DoMsgLButtonDoubleClick;
-begin
-  // always within the time-window
-  if (MouseDownCount < 1) or (MouseDownCount > 4) then
-    MouseDownCount := 1;
-  inc(MouseDownCount);
-  DoMsgLButtonCommon;
-end;
-
-procedure TWindowProcHelper.DoMsgLButtonDown;
-begin
-  if (MouseDownCount < 1) or (MouseDownCount > 4) then
-    MouseDownCount := 1;
-  if (MouseDownWindow = Window)
-      and (GetTickCount64 - MouseDownTime <= GetDoubleClickTime)
-      and CheckMouseMovement then
-    inc(MouseDownCount)
-  else
-    MouseDownCount := 1;
-  MouseDownWindow := Window;
-  GetCursorPos(MouseDownPos);
-  DoMsgLButtonCommon;
-end;
-
-procedure TWindowProcHelper.DoMsgMouseUpDownClick(aMsg: Cardinal);
-begin
-  NotifyUserInput := True;
-  PLMsg := @LMMouse;
-  with LMMouse Do
-  begin
-    Msg := aMsg;
-    XPos := GET_X_LPARAM(LParam);
-    YPos := GET_Y_LPARAM(LParam);
-    Keys := WParam;
+  LMMouse.XPos := GET_X_LPARAM(LParam);
+  LMMouse.YPos := GET_Y_LPARAM(LParam);
+  LMMouse.Keys := WParam;
+  case LastMouse.ClickCount of
+    2: LMMouse.Keys := LMMouse.Keys or MK_DOUBLECLICK;
+    3: LMMouse.Keys := LMMouse.Keys or MK_TRIPLECLICK;
+    4: LMMouse.Keys := LMMouse.Keys or MK_QUADCLICK;
   end;
 end;
 
@@ -1934,6 +1907,7 @@ var
   // used by WM_CHAR, WM_SYSCHAR and WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP
   CharCodeNotEmpty: boolean;
   R: TRect;
+  ACtl: TWinControl;
 begin
   FillChar(LMessage, SizeOf(LMessage), 0);
   PLMsg := @LMessage;
@@ -2173,15 +2147,23 @@ begin
       LMessage.WParam := WParam;
     end;
     //TODO:LM_KILLCHAR,LM_KILLWORD,LM_KILLLINE
-    WM_LBUTTONDBLCLK: DoMsgLButtonDoubleClick;
-    WM_LBUTTONDOWN:   DoMsgLButtonDown;
-    WM_LBUTTONUP:     DoMsgMouseUpDownClick(LM_LBUTTONUP);
-    WM_MBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_MBUTTONDBLCLK);
-    WM_MBUTTONDOWN:   DoMsgMouseUpDownClick(LM_MBUTTONDOWN);
-    WM_MBUTTONUP:     DoMsgMouseUpDownClick(LM_MBUTTONUP);
-    WM_XBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_XBUTTONDBLCLK);
-    WM_XBUTTONDOWN:   DoMsgMouseUpDownClick(LM_XBUTTONDOWN);
-    WM_XBUTTONUP:     DoMsgMouseUpDownClick(LM_XBUTTONUP);
+    WM_LBUTTONDBLCLK: DoMsgMouseDownUpClick(1, True, True);
+    WM_LBUTTONDOWN:   DoMsgMouseDownUpClick(1, False, True);
+    WM_LBUTTONUP:     DoMsgMouseDownUpClick(1, False, False);
+    WM_RBUTTONDBLCLK: DoMsgMouseDownUpClick(2, True, True);
+    WM_RBUTTONDOWN:   DoMsgMouseDownUpClick(2, False, True);
+    WM_RBUTTONUP:
+    begin
+      DoMsgMouseDownUpClick(2, False, False);
+      WinProcess := false;
+      Result := 0;
+    end;
+    WM_MBUTTONDBLCLK: DoMsgMouseDownUpClick(3, True, True);
+    WM_MBUTTONDOWN:   DoMsgMouseDownUpClick(3, False, True);
+    WM_MBUTTONUP:     DoMsgMouseDownUpClick(3, False, False);
+    WM_XBUTTONDBLCLK: DoMsgMouseDownUpClick(4, True, True);
+    WM_XBUTTONDOWN:   DoMsgMouseDownUpClick(4, False, True);
+    WM_XBUTTONUP:     DoMsgMouseDownUpClick(4, False, False);
     WM_MOUSEHOVER:
     begin
       NotifyUserInput := True;
@@ -2218,14 +2200,6 @@ begin
       if ((LParam and PRF_CLIENT) = PRF_CLIENT) and (lWinControl <> nil) then
         SendPaintMessage(HDC(WParam));
     WM_PASTE:         LMessage.Msg := LM_PASTE;
-    WM_RBUTTONDBLCLK: DoMsgMouseUpDownClick(LM_RBUTTONDBLCLK);
-    WM_RBUTTONDOWN:   DoMsgMouseUpDownClick(LM_RBUTTONDOWN);
-    WM_RBUTTONUP:
-    begin
-      DoMsgMouseUpDownClick(LM_RBUTTONUP);
-      WinProcess := false;
-      Result := 0;
-    end;
     WM_CONTEXTMENU:
     begin
       DoMsgContextMenu;
@@ -2241,8 +2215,18 @@ begin
         if not IsIconic(Window) and (GetFocus = Window) then
         begin
           TargetWindow := LookupTopWindow(Window);
+
           if TargetWindow <> Window then
+          begin
+            // issues #26463, #29744
+            if (Application.ModalLevel > 0) and IsIconic(TargetWindow) then
+            begin
+              ACtl := FindControl(TargetWindow);
+              if (ACtl is TCustomForm) and (fsModal in TCustomForm(ACtl).FormState) then
+                Win32WidgetSet.AppRestore;
+            end;
             SetFocus(TargetWindow);
+          end;
         end;
         Result := 0;
         Exit;
@@ -2340,6 +2324,11 @@ begin
     WM_IME_SETCONTEXT,
     WM_IME_STARTCOMPOSITION:
       SetLMessageAndParams(Msg, True);
+    WM_ACTIVATEAPP:
+    begin
+      if Application.MainFormOnTaskBar and not Win32WidgetSet.AppMinimizing then
+        RestorePopups;
+    end;
   else
     // pass along user defined messages
     if Msg >= WM_USER then
@@ -2455,18 +2444,11 @@ begin
     begin
       // if key not yet processed, let windows process it
       WinProcess := LMChar.Result = 0;
-      {$IFDEF WindowsUnicodeSupport}
-      if UnicodeEnabledOS then
-      begin
-        // if charcode was modified by LCL, convert ansi char
-        // to unicode char, if not change was made WParam has
-        // the right unicode char so just use it.
-        if (LMChar.Result = 1) or (OrgCharCode <> LMChar.CharCode) then
-          WParam := Word(WideChar(LMChar.CharCode));
-      end
-      else
-      {$ENDIF}
-        WParam := LMChar.CharCode;
+      // if charcode was modified by LCL, convert ansi char
+      // to unicode char, if not change was made WParam has
+      // the right unicode char so just use it.
+      if (LMChar.Result = 1) or (OrgCharCode <> LMChar.CharCode) then
+        WParam := Word(WideChar(LMChar.CharCode));
     end;
 
     CN_KEYDOWN, CN_KEYUP, CN_SYSKEYDOWN, CN_SYSKEYUP:
@@ -2700,9 +2682,7 @@ begin
       end;
     end;
   else
-    if UnicodeEnabledOS
-    then Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
-    else Result := Windows.DefWindowProc(Window, Msg, WParam, LParam);
+    Result := Windows.DefWindowProcW(Window, Msg, WParam, LParam)
   end;
 end;
 

@@ -218,6 +218,8 @@ function KeySchemeNameToSchemeType(const SchemeName: string): TKeyMapScheme;
 
 function ShiftStateToCfgStr(Shift: TShiftState): string;
 function KeyValuesToCfgStr(const ShortcutA, ShortcutB: TIDEShortCut): string;
+function KeyValuesToCaptionStr(const ShortcutA, ShortcutB: TIDEShortCut;
+  Brackets: Char = '['): String;
 function CfgStrToShiftState(const s: string): TShiftState;
 
 function CompareLoadedKeyCommands(Data1, Data2: Pointer): integer;
@@ -435,7 +437,11 @@ begin
     ecBlockGotoBegin  : Result := srkmecBlockGotoBegin;
     ecBlockGotoEnd    : Result := srkmecBlockGotoEnd;
 
-    // multi coret
+    ecZoomOut         : Result := srkmecZoomOut;
+    ecZoomIn          : Result := srkmecZoomIn;
+    ecZoomNorm        : Result := dlfMouseSimpleButtonZoomReset;
+
+    // multi caret
     ecPluginMultiCaretSetCaret          : Result := srkmecPluginMultiCaretSetCaret;
     ecPluginMultiCaretUnsetCaret        : Result := srkmecPluginMultiCaretUnsetCaret;
     ecPluginMultiCaretToggleCaret       : Result := srkmecPluginMultiCaretToggleCaret;
@@ -448,6 +454,8 @@ begin
     // sourcenotebook
     ecNextEditor              : Result:= srkmecNextEditor;
     ecPrevEditor              : Result:= srkmecPrevEditor;
+    ecPrevEditorInHistory     : Result:= srkmecPrevEditorInHistory;
+    ecNextEditorInHistory     : Result:= srkmecNextEditorInHistory;
     ecMoveEditorLeft          : Result:= srkmecMoveEditorLeft;
     ecMoveEditorRight         : Result:= srkmecMoveEditorRight;
     ecMoveEditorLeftmost      : Result:= srkmecMoveEditorLeftmost;
@@ -555,6 +563,8 @@ begin
     ecJumpToImplementation    : Result:= lisMenuJumpToImplementation;
     ecJumpToImplementationUses: Result:= lisMenuJumpToImplementationUses;
     ecJumpToInitialization    : Result:= lisMenuJumpToInitialization;
+    ecJumpToProcedureHeader   : Result:= lisMenuJumpToProcedureHeader;
+    ecJumpToProcedureBegin    : Result:= lisMenuJumpToProcedureBegin;
     ecOpenFileAtCursor        : Result:= srkmecOpenFileAtCursor;
     ecProcedureList           : Result:= lisPListProcedureList;
 
@@ -590,7 +600,8 @@ begin
 
     // codetools
     ecWordCompletion          : Result:= srkmecWordCompletion;
-    ecCompleteCode            : Result:= srkmecCompleteCode;
+    ecCompleteCode            : Result:= lisMenuCompleteCode;
+    ecCompleteCodeInteractive : Result:= lisMenuCompleteCodeInteractive;
     ecIdentCompletion         : Result:= dlgedidcomlet;
     ecShowCodeContext         : Result:= srkmecShowCodeContext;
     ecExtractProc             : Result:= srkmecExtractProc;
@@ -631,6 +642,7 @@ begin
     ecViewProjectForms        : Result:= srkmecViewForms;
     ecViewProjectSource       : Result:= lisMenuViewProjectSource;
     ecProjectOptions          : Result:= lisMenuProjectOptions;
+    ecProjectChangeBuildMode  : Result:= lisChangeBuildMode;
 
     // run menu (menu string resource)
     ecCompile                 : Result:= srkmecCompile;
@@ -682,6 +694,7 @@ begin
     ecRescanFPCSrcDir         : Result:= lisMenuRescanFPCSourceDirectory;
     ecEditCodeTemplates       : Result:= lisMenuEditCodeTemplates;
     ecCodeToolsDefinesEd      : Result:= lisKMCodeToolsDefinesEditor;
+    ecManageDesktops          : Result:= lisDesktops;
 
     ecExtToolSettings         : Result:= srkmecExtToolSettings;
     ecManageExamples          : Result:= lisMenuExampleProjects;
@@ -702,6 +715,7 @@ begin
     ecEditContextHelp         : Result:= lisMenuEditContextHelp;
     ecReportingBug            : Result:= srkmecReportingBug;
     ecFocusHint               : Result:= lisFocusHint;
+    ecSmartHint               : Result:= lisMenuShowSmartHint;
 
     // desginer
     ecDesignerCopy            : Result:= lisDsgCopyComponents;
@@ -788,6 +802,35 @@ begin
 
       end;
   end;
+end;
+
+function KeyValuesToCaptionStr(const ShortcutA, ShortcutB: TIDEShortCut;
+  Brackets: Char): String;
+  function AddBrakets(S: String): String;
+  begin
+    if Brackets = '[' then
+      Result := '[' + S + ']'
+    else if Brackets = '(' then
+      Result := '(' + S + ')'
+    else if Brackets > #0 then
+      Result := Brackets + S + Brackets
+    else
+      Result := S;
+  end;
+begin
+  Result := '';
+  if (ShortcutA.Key1 = VK_UNKNOWN) and (ShortcutB.Key1 = VK_UNKNOWN) then
+    Result := Result{ + lisNone2 }
+  else
+  if (ShortcutA.Key1 = VK_UNKNOWN) then
+    Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutB))
+  else
+  if (ShortcutB.Key1 = VK_UNKNOWN) then
+    Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutA))
+  else
+    Result := Result + AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutA))
+                     + '  '+lisOr+'  ' +
+                       AddBrakets(KeyAndShiftStateToEditorKeyString(ShortcutB));
 end;
 
 function IDEShortCutEmpty(const Key: TIDEShortCut): boolean;
@@ -1091,6 +1134,7 @@ begin
   ecAutoCompletion:      SetSingle(VK_J,[ssCtrl]);
   ecWordCompletion:      SetSingle(VK_W,[ssCtrl]);
   ecCompleteCode:        SetSingle(VK_C,[ssCtrl,ssShift]);
+  ecCompleteCodeInteractive: SetSingle(VK_X,[ssCtrl,ssShift]);
   ecIdentCompletion:     SetSingle(VK_SPACE,[ssCtrl]);
   ecShowCodeContext:     SetSingle(VK_SPACE,[ssCtrl,ssShift]);
   ecExtractProc:         SetSingle(VK_UNKNOWN,[]);
@@ -1122,6 +1166,8 @@ begin
   // source notebook
   ecNextEditor:          SetSingle(VK_TAB,[ssCtrl]);
   ecPrevEditor:          SetSingle(VK_TAB,[ssShift,ssCtrl]);
+  ecPrevEditorInHistory: SetSingle(VK_OEM_3,[ssCtrl]);//~
+  ecNextEditorInHistory: SetSingle(VK_OEM_3,[ssShift,ssCtrl]);//~
   ecResetDebugger:       SetSingle(VK_UNKNOWN,[]);
   ecToggleBreakPoint:    SetSingle(VK_F5,[]);
   ecMoveEditorLeft:      SetSingle(VK_UNKNOWN,[]);
@@ -1226,6 +1272,7 @@ begin
   ecViewProjectForms:    SetSingle(VK_F12,[ssShift]);
   ecViewProjectSource:   SetSingle(VK_UNKNOWN,[]);
   ecProjectOptions:      SetSingle(VK_F11,[ssShift,ssCtrl]);
+  ecProjectChangeBuildMode:SetSingle(VK_UNKNOWN,[]);
 
   // run menu
   ecCompile:             SetSingle(VK_F9,[ssCtrl]);
@@ -1528,6 +1575,7 @@ begin
   ecAutoCompletion:      SetSingle(VK_J,[ssCtrl]);
   ecWordCompletion:      SetSingle(VK_W,[ssShift,ssCtrl]);
   ecCompleteCode:        SetSingle(VK_C,[ssShift,ssCtrl]);
+  ecCompleteCodeInteractive: SetSingle(VK_X,[ssCtrl,ssShift]);
   ecIdentCompletion:     SetSingle(VK_UNKNOWN,[]);
   ecShowCodeContext:     SetSingle(VK_SPACE,[ssShift,ssCtrl]);
   ecExtractProc:         SetSingle(VK_UNKNOWN,[]);
@@ -1556,6 +1604,8 @@ begin
   // source notebook
   ecNextEditor:          SetSingle(VK_F6,[],         VK_TAB,[ssCtrl]);
   ecPrevEditor:          SetSingle(VK_F6,[ssShift],  VK_TAB,[ssShift,ssCtrl]);
+  ecPrevEditorInHistory: SetSingle(VK_OEM_3,[ssCtrl]);//~
+  ecNextEditorInHistory: SetSingle(VK_OEM_3,[ssShift,ssCtrl]);//~
   ecResetDebugger:       SetSingle(VK_UNKNOWN,[]);
   ecToggleBreakPoint:    SetSingle(VK_UNKNOWN,[]);
   ecMoveEditorLeft:      SetSingle(VK_UNKNOWN,[]);
@@ -1657,6 +1707,7 @@ begin
   ecViewProjectForms:    SetSingle(VK_F12,[ssShift]);
   ecViewProjectSource:   SetSingle(VK_UNKNOWN,[]);
   ecProjectOptions:      SetSingle(VK_F11,[ssShift,ssCtrl]);
+  ecProjectChangeBuildMode:SetSingle(VK_UNKNOWN,[]);
 
   // run menu
   ecCompile:             SetSingle(VK_F9,[ssCtrl]);
@@ -2144,6 +2195,7 @@ begin
   ecAutoCompletion:      SetSingle(VK_J,[ssMeta]);
   ecWordCompletion:      SetSingle(VK_SPACE,[ssCtrl,ssAlt]);
   ecCompleteCode:        SetSingle(VK_C,[ssCtrl,ssShift]);
+  ecCompleteCodeInteractive: SetSingle(VK_X,[ssCtrl,ssShift]);
   ecIdentCompletion:     SetSingle(VK_SPACE,[ssCtrl]);
   ecShowCodeContext:     SetSingle(VK_SPACE,[ssCtrl,ssShift]);
   ecExtractProc:         SetSingle(VK_UNKNOWN,[]);
@@ -2278,6 +2330,7 @@ begin
   ecViewProjectForms:    SetSingle(VK_U,[ssShift,ssCtrl]);
   ecViewProjectSource:   SetSingle(VK_UNKNOWN,[]);
   ecProjectOptions:      SetSingle(VK_UNKNOWN,[]);
+  ecProjectChangeBuildMode:SetSingle(VK_UNKNOWN,[]);
 
   // run menu
   ecCompile:             SetSingle(VK_B,[ssMeta]);
@@ -2341,6 +2394,7 @@ begin
   ecEditContextHelp:     SetSingle(VK_F1,[ssShift,ssCtrl], VK_HELP,[ssCtrl]);
   ecReportingBug:        SetSingle(VK_UNKNOWN,[]);
   ecFocusHint:           SetSingle(VK_UNKNOWN,[]);
+  ecSmartHint:           SetSingle(VK_UNKNOWN,[]);
 
   // designer
   ecDesignerCopy:        SetSingle(VK_C,[ssMeta]);
@@ -2745,7 +2799,8 @@ begin
   C:=Categories[AddCategory(CommandCategoryCodeTools,srkmCatCodeTools,IDECmdScopeSrcEditOnly)];
   AddDefault(C, 'Code template completion', srkmecAutoCompletion, ecAutoCompletion);
   AddDefault(C, 'Word completion', srkmecWordCompletion, ecWordCompletion);
-  AddDefault(C, 'Complete code', srkmecCompletecode, ecCompleteCode);
+  AddDefault(C, 'Complete code', lisMenuCompleteCode, ecCompleteCode);
+  AddDefault(C, 'Complete code (with dialog)', lisMenuCompleteCodeInteractive, ecCompleteCodeInteractive);
   AddDefault(C, 'Identifier completion', dlgEdIdComlet, ecIdentCompletion);
   AddDefault(C, 'Rename identifier', srkmecRenameIdentifier, ecRenameIdentifier);
   AddDefault(C, 'Find identifier references', srkmecFindIdentifierRefs, ecFindIdentifierRefs);
@@ -2768,6 +2823,8 @@ begin
   AddDefault(C, 'Jump to Implementation', lisMenuJumpToImplementation, ecJumpToImplementation);
   AddDefault(C, 'Jump to Implementation uses', lisMenuJumpToImplementationUses, ecJumpToImplementationUses);
   AddDefault(C, 'Jump to Initialization', lisMenuJumpToInitialization, ecJumpToInitialization);
+  AddDefault(C, 'Jump to Procedure header', lisMenuJumpToProcedureHeader, ecJumpToProcedureHeader);
+  AddDefault(C, 'Jump to Procedure begin', lisMenuJumpToProcedureBegin, ecJumpToProcedureBegin);
   AddDefault(C, 'Show abstract methods', srkmecShowAbstractMethods, ecShowAbstractMethods);
   AddDefault(C, 'Remove empty methods', srkmecRemoveEmptyMethods, ecRemoveEmptyMethods);
   AddDefault(C, 'Remove unused units', srkmecRemoveUnusedUnits, ecRemoveUnusedUnits);
@@ -2859,6 +2916,8 @@ begin
   C:=Categories[AddCategory('SourceNotebook',srkmCatSrcNoteBook,IDECmdScopeSrcEdit)];
   AddDefault(C, 'Go to next editor', srkmecNextEditor, ecNextEditor);
   AddDefault(C, 'Go to prior editor', srkmecPrevEditor, ecPrevEditor);
+  AddDefault(C, 'Go to previous editor in history', srkmecPrevEditorInHistory, ecPrevEditorInHistory);
+  AddDefault(C, 'Go to next editor in history', srkmecNextEditorInHistory, ecNextEditorInHistory);
   AddDefault(C, 'Add break point', srkmecToggleBreakPoint, ecToggleBreakPoint);
   AddDefault(C, 'Remove break point', srkmecRemoveBreakPoint, ecRemoveBreakPoint);
   AddDefault(C, 'Move editor left', srkmecMoveEditorLeft, ecMoveEditorLeft);
@@ -2888,6 +2947,10 @@ begin
   AddDefault(C, 'Copy to new window', srkmecCopyEditorNewWindow, ecCopyEditorNewWindow);
 
   AddDefault(C, 'Lock editor', srkmecLockEditor, ecLockEditor);
+
+  AddDefault(C, 'Zoom Reset', dlfMouseSimpleButtonZoomReset, ecZoomNorm);
+  AddDefault(C, 'Zoom In', srkmecZoomIn, ecZoomIn);
+  AddDefault(C, 'Zoom Out', srkmecZoomOut, ecZoomOut);
 
   // file menu
   C:=Categories[AddCategory('FileMenu',srkmCatFileMenu,nil)];
@@ -2951,6 +3014,7 @@ begin
   AddDefault(C, 'View Forms', lisHintViewForms, ecViewProjectForms);
   AddDefault(C, 'View project source', lisKMViewProjectSource, ecViewProjectSource);
   AddDefault(C, 'View project options', lisKMViewProjectOptions, ecProjectOptions);
+  AddDefault(C, 'Change build mode', lisChangeBuildMode, ecProjectChangeBuildMode);
 
   // run menu
   C:=Categories[AddCategory('RunMenu',srkmCatRunMenu,nil)];
@@ -3006,6 +3070,7 @@ begin
   AddDefault(C, 'Rescan FPC source directory', lisMenuRescanFPCSourceDirectory, ecRescanFPCSrcDir);
   AddDefault(C, 'Edit Code Templates', lisKMEditCodeTemplates, ecEditCodeTemplates);
   AddDefault(C, 'CodeTools defines editor', lisKMCodeToolsDefinesEditor, ecCodeToolsDefinesEd);
+  AddDefault(C, 'Manage desktops', dlgManageDesktops, ecManageDesktops);
 
   AddDefault(C, 'External Tools settings', lisKMExternalToolsSettings, ecExtToolSettings);
   AddDefault(C, 'Example Projects', lisKMExampleProjects, ecManageExamples);
@@ -3032,6 +3097,7 @@ begin
   AddDefault(C, 'Edit context sensitive help', lisKMEditContextSensitiveHelp, ecEditContextHelp);
   AddDefault(C, 'Reporting a bug', srkmecReportingBug, ecReportingBug);
   AddDefault(C, 'Focus hint', lisFocusHint, ecFocusHint);
+  AddDefault(C, 'Context sensitive smart hint', lisMenuShowSmartHint, ecSmartHint);
 
   // designer  - without menu items in the IDE bar (at least not directly)
   C:=Categories[AddCategory('Designer',lisKeyCatDesigner,IDECmdScopeDesignerOnly)];
@@ -3160,6 +3226,7 @@ begin
         if (ExtToolRelation.Command>=ecExtToolFirst)
         and (ExtToolRelation.Command<=ecExtToolLast) then begin
           fRelations.Remove(ExtToolRelation);
+          fCmdRelCache.Remove(ExtToolRelation);
           ExtToolCat.Delete(i);
           dec(fExtToolCount);
         end;
@@ -3528,8 +3595,10 @@ var
     // Ignore the second Ctrl key in sequential combos unless both variations are defined.
     // For example "Ctrl-X, Y" and "Ctrl-X, Ctrl-Y" are then treated the same.
     if (aKey.Key2<>VK_UNKNOWN) and (aKey.Shift=[ssCtrl]) and (aKey.Shift2-[ssCtrl]=[])
-    and not ShiftConflict(aKey) then
-      aKey.ShiftMask2:=[ssCtrl]
+    and not ShiftConflict(aKey) then begin
+      aKey.ShiftMask2:=[ssCtrl];
+      aKey.Shift2:=[];
+    end
     else
       aKey.ShiftMask2:=[];
   end;
@@ -3770,6 +3839,7 @@ end;
 procedure TKeyCommandRelationList.RemoveCommand(ACommand: TIDECommand);
 begin
   fRelations.Remove(ACommand);
+  fCmdRelCache.Remove(ACommand);
 end;
 
 function TKeyCommandRelationList.GetCategory(Index: integer): TIDECommandCategory;

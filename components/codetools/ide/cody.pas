@@ -4,13 +4,15 @@
 
 unit Cody;
 
+{$warn 5023 off : no warning about unused units}
 interface
 
 uses
   PPUListDlg, CodyStrConsts, AddAssignMethodDlg, CodyCtrls, CodyFrm, 
   CodyRegistration, DeclareVarDlg, CodyUtils, CodyNodeInfoDlg, 
   CodyCopyDeclaration, AddWithBlockDlg, CodyIdentifiersDlg, CodyMiscOptsFrame, 
-  CodyOpts, TemplateIDEDockableWindow, NewIDEWndDlg, LazarusPackageIntf;
+  CodyOpts, TemplateIDEDockableWindow, NewIDEWndDlg, CodyFindOverloads, 
+  LazarusPackageIntf;
 
 implementation
 

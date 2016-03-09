@@ -6,9 +6,9 @@ interface
 
 uses
   Classes, SysUtils, LCLProc, LazFileUtils, LazFileCache, Controls, Dialogs,
-  Graphics, Buttons, StdCtrls, LCLType, IDEOptionsIntf, MacroIntf, IDEDialogs,
+  Buttons, StdCtrls, LCLType, IDEOptionsIntf, MacroIntf, IDEDialogs,
   CompOptsIntf, Project, CompilerOptions, LazarusIDEStrConsts, PathEditorDlg,
-  IDEProcs, CheckCompilerOpts, ShowCompilerOpts, PackageDefs, ImExportCompilerOpts;
+  IDEProcs, CheckCompilerOpts, ShowCompilerOpts, ImExportCompilerOpts;
 
 type
 
@@ -73,7 +73,10 @@ implementation
 
 {$R *.lfm}
 
-function CheckSearchPath(const Context, ExpandedPath: string; Level: TCheckCompileOptionsMsgLvl): boolean;
+const
+  cBrowseBtnSize = 50;
+
+function CheckSearchPath(const Context, ExpandedPath: string; Level: TCheckCompileOptionsMsgLvl; Hint: string = ''): boolean;
 var
   CurPath: string;
   p: integer;
@@ -82,13 +85,15 @@ var
 begin
   Result := False;
 
+  if Hint<>'' then Hint:=#13#13+Hint;
+
   // check for *
   if Ord(Level) <= Ord(ccomlHints) then
   begin
     if System.Pos('*', ExpandedPath) > 0 then
     begin
       if IDEMessageDialog(lisHint, Format(
-        lisTheContainsAStarCharacterLazarusUsesThisAsNormalCh, [Context, LineEnding]),
+        lisTheContainsAStarCharacterLazarusUsesThisAsNormalCh, [Context, LineEnding])+Hint,
         mtWarning, [mbOK, mbCancel]) <> mrOk then
         exit;
     end;
@@ -107,7 +112,7 @@ begin
         if not DirPathExistsCached(CurPath) then
         begin
           if IDEMessageDialog(lisCCOWarningCaption, Format(
-            lisTheContainsANotExistingDirectory, [Context, LineEnding, CurPath]),
+            lisTheContainsANotExistingDirectory, [Context, LineEnding, CurPath])+Hint,
             mtWarning, [mbIgnore, mbCancel]) <> mrIgnore then
             Exit;
         end;
@@ -127,7 +132,7 @@ begin
         ErrorMsg := SpecialCharsToStr(HasChars);
       if ErrorMsg <> '' then
       begin
-        if IDEMessageDialog(lisCCOWarningCaption, Context + LineEnding + ErrorMsg,
+        if IDEMessageDialog(lisCCOWarningCaption, Context + LineEnding + ErrorMsg+Hint,
           mtWarning, [mbOK, mbCancel]) <> mrOk then
           exit;
       end;
@@ -159,7 +164,7 @@ var
     if NewParsedOutputDir<>'' then
       p:=RemoveSearchPaths(p,NewParsedOutputDir);
 
-    Result := CheckSearchPath(Context, p, Level);
+    Result := CheckSearchPath(Context, p, Level, lisHintClickOnShowOptionsToFindOutWhereInheritedPaths);
   end;
 
 var
@@ -356,7 +361,7 @@ var
   p: Integer;
   CurPath: String;
   Duplicates: TStringList;
-  i: PtrInt;
+  i: PtrUInt;
   OldUnparsedSrcPath: String;
   NewUnparsedSrcPath: String;
   j: Integer;
@@ -500,7 +505,7 @@ begin
     AnchorParallel(akTop, 0, OtherUnitsEdit);
     AnchorParallel(akBottom, 0, OtherUnitsEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     AssociatedEdit := OtherUnitsEdit;
     ContextCaption := OtherUnitsLabel.Caption;
     Templates:='$(LazarusDir)/lcl/units/$(TargetCPU)-$(TargetOS)' +
@@ -527,7 +532,7 @@ begin
     AnchorParallel(akTop, 0, IncludeFilesEdit);
     AnchorParallel(akBottom, 0, IncludeFilesEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     AssociatedEdit := IncludeFilesEdit;
     ContextCaption := IncludeFilesLabel.Caption;
     Templates := 'include;inc';
@@ -550,7 +555,7 @@ begin
     AnchorParallel(akTop, 0, OtherSourcesEdit);
     AnchorParallel(akBottom, 0, OtherSourcesEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     AssociatedEdit := OtherSourcesEdit;
     ContextCaption := OtherSourcesLabel.Caption;
     Templates := '$(LazarusDir)/lcl' +
@@ -576,7 +581,7 @@ begin
     AnchorParallel(akTop, 0, LibrariesEdit);
     AnchorParallel(akBottom, 0, LibrariesEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     AssociatedEdit := LibrariesEdit;
     ContextCaption := LibrariesLabel.Caption;
     Templates := '/usr/X11R6/lib;/sw/lib';
@@ -599,7 +604,7 @@ begin
     AnchorParallel(akTop, 0, UnitOutputDirEdit);
     AnchorParallel(akBottom, 0, UnitOutputDirEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     OnClick := @FileBrowseBtnClick;
   end;
   UnitOutputDirEdit.AnchorToNeighbour(akRight, 0, btnUnitOutputDir);
@@ -618,7 +623,7 @@ begin
     AnchorParallel(akTop, 0, DebugPathEdit);
     AnchorParallel(akBottom, 0, DebugPathEdit);
     AnchorParallel(akRight, 0, Self);
-    AutoSize := True;
+    Width := cBrowseBtnSize;
     AssociatedEdit := DebugPathEdit;
     ContextCaption := DebugPathLabel.Caption;
     Templates := '$(LazarusDir)/lcl/include' +
@@ -640,21 +645,23 @@ begin
   btnCheck.ModalResult := mrNone;
   btnCheck.OnClick  := @DoCheck;
   btnCheck.LoadGlyphFromStock(idButtonYes);
-  // Import
+
   ADialog.AddButtonSeparator;
-  btnLoadSave := CreateButton(lisImport);
-  btnLoadSave.OnClick  := @DoImport;
-  btnLoadSave.Hint := dlgCOLoadSaveHint;
-  btnLoadSave.LoadGlyphFromStock(idButtonOpen);
+
   // Export
   btnExport := CreateButton(lisExport);
   btnExport.OnClick  := @DoExport;
   btnExport.Hint := dlgCOLoadSaveHint;
   btnExport.LoadGlyphFromStock(idButtonSave);
-  ADialog.AddButtonSeparator;
-
+  // Import
+  btnLoadSave := CreateButton(lisImport);
+  btnLoadSave.OnClick  := @DoImport;
+  btnLoadSave.Hint := dlgCOLoadSaveHint;
+  btnLoadSave.LoadGlyphFromStock(idButtonOpen);
   if btnLoadSave.Glyph.Empty then
     btnLoadSave.LoadGlyphFromResourceName(HInstance, 'laz_save');
+
+  ADialog.AddButtonSeparator;
 
   chkUseAsDefault := TCheckBox(ADialog.AddControl(TCheckBox));
   chkUseAsDefault.Caption := dlgCOSetAsDefault;

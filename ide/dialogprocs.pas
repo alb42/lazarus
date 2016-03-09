@@ -38,7 +38,7 @@ interface
 uses
   Classes, SysUtils, LCLProc, LResources, Forms, Controls, Dialogs, ComCtrls,
   FileProcs, FileUtil, LazFileUtils, Laz2_XMLCfg, lazutf8classes, LazFileCache,
-  CodeToolsConfig, CodeCache, CodeToolManager, AVL_Tree, LazIDEIntf, IDEDialogs,
+  CodeToolsConfig, CodeCache, CodeToolManager, LazIDEIntf, IDEDialogs,
   IDEProcs, LazarusIDEStrConsts;
 
 type
@@ -101,8 +101,8 @@ function CheckExecutable(const OldFilename,
 function CheckDirPathExists(const Dir,
   ErrorCaption, ErrorMsg: string): TModalResult;
 function ChooseSymlink(var Filename: string; AskOnSymlink: boolean): TModalResult;
-function CreateSymlinkInteractive(const LinkFilename, TargetFilename: string;
-                                  ErrorButtons: TMsgDlgButtons = []): TModalResult;
+function CreateSymlinkInteractive(const {%H-}LinkFilename, {%H-}TargetFilename: string;
+                                  {%H-}ErrorButtons: TMsgDlgButtons = []): TModalResult;
 function ForceDirectoryInteractive(Directory: string;
                                    ErrorButtons: TMsgDlgButtons = []): TModalResult;
 function DeleteFileInteractive(const Filename: string;
@@ -140,7 +140,7 @@ begin
   if SrcFilename=DestFilename then
     exit(mrOk);
   repeat
-    if FileProcs.RenameFileUTF8(SrcFilename,DestFilename) then begin
+    if RenameFileUTF8(SrcFilename,DestFilename) then begin
       InvalidateFileStateCache(SrcFilename);
       InvalidateFileStateCache(DestFilename);
       break;
@@ -198,10 +198,9 @@ begin
     ACodeBuffer:=CodeToolBoss.LoadFile(AFilename,false,false);
     if ACodeBuffer<>nil then begin
       // file is in cache
-      if (not (lbfCheckIfText in Flags)) or ACodeBuffer.SourceIsText then begin
-        Result:=mrOk;
-        exit;
-      end;
+      if (not (lbfCheckIfText in Flags)) or ACodeBuffer.SourceIsText then
+        exit(mrOk);
+      ACodeBuffer:=nil;
     end;
   end;
   repeat
@@ -350,9 +349,9 @@ begin
         if (lbfQuiet in Flags) then begin
           Result:=mrCancel;
         end else begin
-          Result:=MessageDlg(lisXMLError,
+          Result:=IDEMessageDialog(lisXMLError,
             Format(lisXMLParserErrorInFileError, [Filename, LineEnding, E.Message]),
-              mtError, [mbCancel], 0);
+              mtError, [mbCancel]);
         end;
       end;
     end;
@@ -381,9 +380,9 @@ begin
       Config.WriteToStream(ms);
     except
       on E: Exception do begin
-        Result:=MessageDlg(lisXMLError,
+        Result:=IDEMessageDialog(lisXMLError,
           Format(lisUnableToWriteXmlStreamToError, [Filename, LineEnding, E.Message]),
-            mtError, [mbCancel], 0);
+            mtError, [mbCancel]);
       end;
     end;
     ms.Position:=0;

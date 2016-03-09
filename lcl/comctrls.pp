@@ -464,7 +464,7 @@ type
     property TabIndex: Integer read FPageIndex write SetPageIndex default -1;
     property TabWidth: Smallint read FTabWidth write FTabWidth default 0;
     property OnChange: TNotifyEvent read FOnPageChanged write FOnPageChanged;
-    property OnDrawTab: TDrawTabEvent read FOnDrawTab write FOnDrawTab;
+    property OnDrawTab: TDrawTabEvent read FOnDrawTab write FOnDrawTab; deprecated 'Will be deleted in Lazarus 1.8';
   public
     constructor Create(TheOwner: TComponent); override;
     destructor Destroy; override;
@@ -841,7 +841,7 @@ type
     property MultiSelect: Boolean read GetMultiSelect write SetMultiSelect default False;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property OnChanging;
-    property OnDrawTab;
+    property OnDrawTab; deprecated 'Will be removed in 1.8';
     property OnGetImageIndex;
     property OwnerDraw: Boolean read GetOwnerDraw write SetOwnerDraw default False;
     property RaggedRight: Boolean read GetRaggedRight write SetRaggedRight default False;
@@ -1484,7 +1484,6 @@ type
     procedure ImageChanged(Sender : TObject);
     procedure Loaded; override;
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
-    procedure Sort;
 
     function IsCustomDrawn(ATarget: TCustomDrawTarget; AStage: TCustomDrawStage): Boolean; virtual;
     function CustomDraw(const ARect: TRect; AStage: TCustomDrawStage): Boolean; virtual;                                                   // Return True if default drawing should be done
@@ -1548,11 +1547,13 @@ type
     destructor Destroy; override;
     procedure AddItem(Item: string; AObject: TObject);
     function AlphaSort: Boolean; // always sorts column 0 in sdAscending order
+    procedure Sort;
     procedure BeginUpdate;
     procedure Clear;
     procedure EndUpdate;
     procedure Repaint; override;
-    function FindCaption(StartIndex: Integer; Value: string; Partial, Inclusive, Wrap: Boolean; PartStart: Boolean = True): TListItem;
+    function FindCaption(StartIndex: Integer; Value: string;
+      Partial, Inclusive, Wrap: Boolean; PartStart: Boolean = True): TListItem;
     function FindData(StartIndex: Integer; Value: Pointer;  Inclusive, Wrap: Boolean): TListItem;
     function GetHitTestInfoAt(X, Y: Integer): THitTests;
     function GetItemAt(x,y: integer): TListItem;
@@ -1600,6 +1601,7 @@ type
     property RowSelect: Boolean index Ord(lvpRowSelect) read GetProperty write SetProperty default False;
     property SelCount: Integer read GetSelCount;
     property Selected: TListItem read GetSelection write SetSelection;
+    property LastSelected: TListItem read FSelected;
     property TabStop default true;
     property TopItem: TListItem read GetTopItem;
     property ViewOrigin: TPoint read GetViewOrigin write SetViewOrigin;
@@ -1824,6 +1826,7 @@ type
 
   { TCustomUpDown }
 
+
   TCustomUpDown = class(TCustomControl)
   private
     FAlignButton: TUDAlignButton;
@@ -1836,6 +1839,7 @@ type
     FMaxBtn: TControl; // TSpeedButton (TUpDownButton)
     FMin: SmallInt;
     FMinBtn: TControl; // TSpeedButton (TUpDownButton)
+    FMinRepeatInterval: Byte;  //Interval starts at 300 and this must be smaller always
     FMouseDownBounds : TRect;
     FMouseTimerEvent: TProcedureOfObject; // the Min/MaxBtn's Click method
     FOnChanging: TUDChangingEvent;
@@ -1853,6 +1857,7 @@ type
     procedure SetIncrement(Value: Integer);
     procedure SetMax(Value: SmallInt);
     procedure SetMin(Value: SmallInt);
+    procedure SetMinRepeatInterval(AValue: Byte);
     procedure SetOrientation(Value: TUDOrientation);
     procedure SetPosition(Value: SmallInt);
     procedure SetThousands(Value: Boolean);
@@ -1881,6 +1886,7 @@ type
     property Increment: Integer read FIncrement write SetIncrement default 1;
     property Max: SmallInt read FMax write SetMax default 100;
     property Min: SmallInt read FMin write SetMin;
+    property MinRepeatInterval: Byte read FMinRepeatInterval write SetMinRepeatInterval default 100;
     property OnChanging: TUDChangingEvent read FOnChanging write FOnChanging;
     property OnChangingEx: TUDChangingEventEx read FOnChangingEx write FOnChangingEx;
     property OnClick: TUDClickEvent read FOnClick write FOnClick;
@@ -1909,6 +1915,7 @@ type
     property Increment;
     property Max;
     property Min;
+    property MinRepeatInterval;
     property OnChanging;
     property OnChangingEx;
     property OnClick;
@@ -1948,13 +1955,15 @@ type
     tbsCheck,     // check item (click to toggle state, can be grouped)
     tbsDropDown,  // button with dropdown button to show a popup menu
     tbsSeparator, // space holder
-    tbsDivider    // space holder with line
+    tbsDivider,   // space holder with line
+    tbsButtonDrop // button with arrow (not separated from each other)
   );
     
   TToolButtonFlag =
   (
     tbfPressed,     // set while mouse is pressed on button
-    tbfArrowPressed // set while mouse is pressed on arrow button
+    tbfArrowPressed,// set while mouse is pressed on arrow button
+    tbfMouseInArrow // set while mouse is on arrow button
   );
   TToolButtonFlags = set of TToolButtonFlag;
 
@@ -1985,12 +1994,14 @@ type
     FMarked: Boolean;
     FMenuItem: TMenuItem;
     FMouseInControl: boolean;
+    FOnArrowClick: TNotifyEvent;
     FShowCaption: boolean;
     FStyle: TToolButtonStyle;
     FToolButtonFlags: TToolButtonFlags;
     FUpdateCount: Integer;
     FWrap: Boolean;
     FLastDropDownTick: QWord;
+    FLastDown: Boolean;
     procedure GetGroupBounds(var StartIndex, EndIndex: integer);
     function GetIndex: Integer;
     function GetTextSize: TSize;
@@ -2015,6 +2026,7 @@ type
   protected const
     cDefSeparatorWidth = 8;
     cDefDividerWidth = 5;
+    cDefButtonDropDecArrowWidth = 2;
   protected
     FToolBar: TToolBar;
     class procedure WSRegisterClass; override;
@@ -2024,6 +2036,7 @@ type
     procedure AssignTo(Dest: TPersistent); override;
     procedure BeginUpdate; virtual;
     procedure EndUpdate; virtual;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseEnter; override;
@@ -2050,12 +2063,15 @@ type
     constructor Create(TheOwner: TComponent); override;
     function CheckMenuDropdown: Boolean; virtual;
     procedure Click; override;
+    procedure ArrowClick; virtual;
     procedure GetCurrentIcon(var ImageList: TCustomImageList;
-                             var TheIndex: integer); virtual;
+                             var TheIndex: integer;
+                             var TheEffect: TGraphicsDrawEffect); virtual;
     procedure GetPreferredSize(var PreferredWidth, PreferredHeight: integer;
                                Raw: boolean = false;
                                WithThemeSpace: boolean = true); override;
     property Index: Integer read GetIndex;
+    function PointInArrow(const X, Y: Integer): Boolean;
   published
     property Action;
     property AllowAllUp: Boolean read FAllowAllUp write FAllowAllUp default False;
@@ -2073,6 +2089,7 @@ type
     property Indeterminate: Boolean read FIndeterminate write SetIndeterminate default False;
     property Marked: Boolean read FMarked write SetMarked default False;
     property MenuItem: TMenuItem read FMenuItem write SetMenuItem;
+    property OnArrowClick: TNotifyEvent read FOnArrowClick write FOnArrowClick;
     property OnClick;
     property OnContextPopup;
     property OnDragDrop;
@@ -2135,6 +2152,8 @@ type
     FDisabledImageChangeLink: TChangeLink;
     FDisabledImages: TCustomImageList;
     FDropDownWidth: integer;
+    FThemeDropDownWidth: integer;
+    FThemeButtonDropWidth: integer;
     FDropDownButton: TToolButton;
     FFlat: Boolean;
     FHotImageChangeLink: TChangeLink;
@@ -2160,6 +2179,7 @@ type
     procedure SetButtonHeight(const AValue: Integer);
     procedure SetButtonWidth(const AValue: Integer);
     procedure SetDisabledImages(const AValue: TCustomImageList);
+    procedure SetDropDownWidth(const aDropDownWidth: Integer);
     procedure SetFlat(const AValue: Boolean);
     procedure SetHotImages(const AValue: TCustomImageList);
     procedure SetImages(const AValue: TCustomImageList);
@@ -2179,6 +2199,7 @@ type
   protected const
     cDefButtonWidth = 23;
     cDefButtonHeight = 22;
+    cDropDownWidth = -1;
   protected
     FPrevVertical: Boolean;
     function IsVertical: Boolean; virtual;
@@ -2211,6 +2232,8 @@ type
     function GetEnumerator: TToolBarEnumerator;
     procedure SetButtonSize(NewButtonWidth, NewButtonHeight: integer);
     function CanFocus: Boolean; override;
+    function GetRealDropDownWidth: Integer;
+    function GetRealButtonDropWidth: Integer;
   public
     property ButtonCount: Integer read GetButtonCount;
     property Buttons[Index: Integer]: TToolButton read GetButton;
@@ -2233,6 +2256,7 @@ type
     property DragCursor;
     property DragKind;
     property DragMode;
+    property DropDownWidth: Integer read FDropDownWidth write SetDropDownWidth default cDropDownWidth;
     property EdgeBorders default [ebTop];
     property EdgeInner;
     property EdgeOuter;
@@ -3014,6 +3038,7 @@ type
   private
     FCount: integer;
     FSelection: TFPList;
+    FStartMultiSelected: TTreeNode; // node where user started multiselection
     FFirstMultiSelected: TTreeNode;
     FLastMultiSelected: TTreeNode;
     FKeepCollapsedNodes: boolean;
@@ -3094,6 +3119,7 @@ type
     procedure FreeAllNodeData;
     procedure SelectionsChanged(ANode: TTreeNode; const AIsSelected: Boolean);
     procedure SelectOnlyThis(Node: TTreeNode);
+    procedure MultiSelect(Node: TTreeNode; ClearWholeSelection: Boolean);
     procedure SortTopLevelNodes(SortProc: TTreeNodeCompare);
     procedure WriteDebugReport(const Prefix: string; AllNodes: boolean);
     property Count: Integer read GetCount;
@@ -3231,6 +3257,8 @@ type
     FScrolledLeft: integer; // horizontal scrolled pixels (hidden pixels at left)
     FScrolledTop: integer;  // vertical scrolled pixels (hidden pixels at top)
     FSelectedColor: TColor;
+    FSelectedFontColor: TColor;
+    FSelectedFontColorUsed: boolean;
     FSelectedNode: TTreeNode;
     FSelectionChangeEventLock: integer;
     fSeparatorColor: TColor;
@@ -3243,6 +3271,7 @@ type
     FTreeLinePenStyle: TPenStyle;
     FExpandSignColor : TColor;
     FTreeNodes: TTreeNodes;
+    FHintWnd: THintWindow;
     procedure CanvasChanged(Sender: TObject);
     function GetAutoExpand: boolean;
     function GetBottomItem: TTreeNode;
@@ -3287,6 +3316,7 @@ type
     procedure SetScrolledLeft(AValue: integer);
     procedure SetScrolledTop(AValue: integer);
     procedure SetSelectedColor(Value: TColor);
+    procedure SetSelectedFontColor(Value: TColor);
     procedure SetSelection(Value: TTreeNode);
     procedure SetSeparatorColor(const AValue: TColor);
     procedure SetShowButton(Value: Boolean);
@@ -3306,6 +3336,7 @@ type
     procedure UpdateMaxRight;
     procedure UpdateTopItem;
     procedure UpdateScrollbars;
+    procedure UpdateTooltip(X, Y: integer);
     procedure InternalSelectionChanged;
   protected
     FChangeTimer: TTimer;
@@ -3339,6 +3370,7 @@ type
     function IsNodeVisible(ANode: TTreeNode): Boolean;
     function IsNodeHeightFullVisible(ANode: TTreeNode): Boolean;
     function IsInsertMarkVisible: boolean; virtual;
+    procedure MoveSelection(ANewNode: TTreeNode; ASelect: Boolean);
     procedure Change(Node: TTreeNode); virtual;
     procedure Collapse(Node: TTreeNode); virtual;
     procedure CreateWnd; override;
@@ -3478,8 +3510,12 @@ type
     procedure ClearInvisibleSelection;
     function StoreCurrentSelection: TStringList;
     procedure ApplyStoredSelection(ASelection: TStringList; FreeList: boolean = True);
-    procedure MoveToNextNode;
-    procedure MoveToPrevNode;
+    procedure MoveToNextNode(ASelect: Boolean = False);
+    procedure MoveToPrevNode(ASelect: Boolean = False);
+    procedure MovePageDown(ASelect: Boolean = False);
+    procedure MovePageUp(ASelect: Boolean = False);
+    procedure MoveHome(ASelect: Boolean = False);
+    procedure MoveEnd(ASelect: Boolean = False);
   public
     property BackgroundColor: TColor read FBackgroundColor write SetBackgroundColor default clWindow;
     property BorderWidth default 0;
@@ -3498,6 +3534,8 @@ type
     property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default ssBoth;
     property Selected: TTreeNode read GetSelection write SetSelection;
     property SelectionColor: TColor read FSelectedColor write SetSelectedColor default clHighlight;
+    property SelectionFontColor: TColor read FSelectedFontColor write SetSelectedFontColor default clWhite;
+    property SelectionFontColorUsed: boolean read FSelectedFontColorUsed write FSelectedFontColorUsed default False;
     property SelectionCount: Cardinal read GetSelectionCount;
     property Selections[AIndex: Integer]: TTreeNode read GetSelections;
     property SeparatorColor: TColor read fSeparatorColor write SetSeparatorColor default clGray;
@@ -3548,6 +3586,9 @@ type
     property RowSelect;
     property ScrollBars;
     property SelectionColor;
+    property SelectionFontColor;
+    property SelectionFontColorUsed;
+    property SeparatorColor;
     property ShowButtons;
     property ShowHint;
     property ShowLines;

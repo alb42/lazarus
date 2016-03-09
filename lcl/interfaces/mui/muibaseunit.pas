@@ -1617,7 +1617,6 @@ begin
     end;
     MUIM_HANDLEEVENT: begin
       Result := 0;
-      //writeln(' HandleEvent');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) and Assigned(MUIB.PasObject) and Assigned(MUIB.Parent) then
       begin
@@ -1626,23 +1625,7 @@ begin
         ri := MUIRenderInfo(Obj);
         if Assigned(ri) then
           Win := ri^.mri_Window;
-        if Assigned(Win) then
-        begin
-          // Activate the RMBTrap if no menu -> we can use the Right mousekey
-          // get parent window
-          MUIParent := MUIB.GetParentWindow;
-          MUIWin := nil;
-          if MUIParent is TMuiWindow then
-            MUIWin := MUIParent as TMuiWindow;
-          if Assigned(MUIWin) then
-          begin
-            // if Window has a MainMenu do not catch Right MB
-            if MUIWin.HasMenu then
-              Win^.Flags := Win^.Flags and not WFLG_RMBTrap
-            else
-              Win^.Flags := Win^.Flags or WFLG_RMBTrap;
-          end;
-        end;
+
         // save Keystate for Winapi.GetKeyState
         KeyState := IMsg^.Qualifier;
         // Eat this Event if it is inside our border
@@ -1657,6 +1640,37 @@ begin
         begin
           if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
             EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
+        end;
+        if Assigned(Win) and EatEvent then
+        begin
+          // Activate the RMBTrap if no menu -> we can use the Right mousekey
+          // get parent window
+          MUIParent := MUIB.GetParentWindow;
+          MUIWin := nil;
+          if MUIParent is TMuiWindow then
+            MUIWin := MUIParent as TMuiWindow;
+          if Assigned(MUIWin) then
+          begin
+            // if Window has a MainMenu do not catch Right MB
+            //if (Win^.Flags and WFLG_RMBTrap) <> 0 then
+            //  writeln('before RMB TRAP ACTIVE');
+            if MUIWin.HasMenu then
+            begin
+              //writeln('NO RMB TRAP');
+              Win^.Flags := Win^.Flags and not WFLG_RMBTrap
+            end
+            else
+            begin
+              //writeln('YES RMB TRAP');
+              Win^.Flags := Win^.Flags or WFLG_RMBTrap;
+            end;
+            //if (Win^.Flags and WFLG_RMBTrap) <> 0 then
+           //   writeln('after RMB TRAP ACTIVE');
+            {if EatEvent then
+              writeln('EatEVent')
+            else
+              writeln('not EatEvent');}
+          end;
         end;
         if True then
         begin
@@ -1719,9 +1733,10 @@ begin
                 MIDDLEUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbMiddle, []);
                 // Right Mouse Down;
                 MENUDOWN: begin
-                    if not EatEvent then
-                      Exit;  // Mouse buttons only send if the mouse is inside the Widget
-                    LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
+                    //if not EatEvent then
+                    //  Exit;  // Mouse buttons only send if the mouse is inside the Widget
+                    if EatEvent then
+                      LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
                   end;
                 // Right Mouse Up
                 MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);

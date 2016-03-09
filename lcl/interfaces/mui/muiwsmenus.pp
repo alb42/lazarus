@@ -134,28 +134,36 @@ end;
 class function TMuiWSMenuItem.CreateHandle(const AMenuItem: TMenuItem): HMENU;
 var
   Menu: TMuiMenuItem;
+  Menu1: TMuiMenu;
   Tags: TATagList;
 begin
-  //write('->Create MenuItem..', AMenuItem.MenuIndex,' ', AMenuItem.Caption);
+  //write('->Create MenuItem..', AMenuItem.MenuIndex,' ', AMenuItem.Caption, ' ', AMenuItem.Count);
   case AMenuItem.MenuIndex of
     -1:begin
       Result := HMENU(AMenuItem.GetParentMenu.Handle);
     end;
     else
     begin
-      //AddTags(Tags, [
-        //LongInt(MUIA_Menuitem_CheckIt), LongInt(TRUE)
-        //,LongInt(MUIA_Menuitem_Checked), LongInt(TRUE)
-        //,LongInt(MUIA_Menuitem_Enabled), LongInt(TRUE)
-      //  ]);
-      Tags.Clear;
-      Menu := TMuiMenuItem.Create(Tags);
-      Menu.Title := AMenuItem.Caption;
-      Menu.CheckIt := AMenuItem.ShowAlwaysCheckable or AMenuItem.RadioItem;
-      Menu.Checked := AMenuItem.Checked;
-      Menu.Enabled := AMenuItem.Enabled;
-      Menu.PasObject := TControl(TObject(AMenuItem));
-      Result := HMENU(Menu);
+      if AMenuItem.Count > 0 then
+      begin
+        //write('..as menu');
+        Tags.Clear;
+        Menu1 := TMuiMenu.Create(Tags);
+        Menu1.Title := AMenuItem.Caption;
+        Menu1.PasObject := TControl(TObject(AMenuItem));
+        Result := HMENU(Menu1);
+      end else
+      begin
+        //write('..as menuitem');
+        Tags.Clear;
+        Menu := TMuiMenuItem.Create(Tags);
+        Menu.Title := AMenuItem.Caption;
+        Menu.CheckIt := AMenuItem.ShowAlwaysCheckable or AMenuItem.RadioItem;
+        Menu.Checked := AMenuItem.Checked;
+        Menu.Enabled := AMenuItem.Enabled;
+        Menu.PasObject := TControl(TObject(AMenuItem));
+        Result := HMENU(Menu);
+      end;
     end;
   end;
   //writeln('..done');

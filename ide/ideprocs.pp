@@ -64,17 +64,17 @@ type
     ceCreatingDirectory,
     ceCopyFileError
     );
-    
+
   TCopyErrorData = record
     Error: TCopyErrorType;
     Param1: string;
     Param2: string;
   end;
-      
+
   TOnCopyErrorMethod =
     procedure(const ErrorData: TCopyErrorData; var Handled: boolean;
       Data: TObject) of object;
-      
+
 // file operations
 function BackupFileForWrite(const Filename, BackupFilename: string): boolean;
 function ClearFile(const Filename: string; RaiseOnError: boolean): boolean;
@@ -203,7 +203,7 @@ procedure SaveStringToStringTree(XMLConfig: TXMLConfig;
                                  Tree: TStringToStringTree; const Path: string);
 procedure MakeXMLName(var Name: string);
 function LoadXMLConfigViaCodeBuffer(Filename: string): TXMLConfig;
-  
+
 
 // text conversion
 function TabsToSpaces(const s: string; TabWidth: integer; UseUTF8: boolean
@@ -268,12 +268,13 @@ function CheckGroupItemChecked(CheckGroup: TCheckGroup; const Caption: string): 
 
 implementation
 
-
+{$ifndef HASAMIGA}
 {$IfNdef MSWindows}
 // to get more detailed error messages consider the os
 uses
   Unix, BaseUnix;
 {$EndIf}
+{$endif}
 
 function AddToRecentList(const s: string; RecentList: TStrings; Max: integer;
   ListType: TRecentListType): boolean;
@@ -795,7 +796,7 @@ begin
     if DirEndPos=DirStartPos then DirEndPos:=DirStartPos+1;
   end;
   CurDirLen:=DirEndPos-DirStartPos;
-  
+
   // search in all search paths
   Result:=SearchPath.Count-1;
   while Result>=0 do begin
@@ -836,7 +837,7 @@ begin
       EndPos:=StartPos;
     end;
     while (EndPos<=length(Result)) and (Result[EndPos]<>';') do inc(EndPos);
-    
+
     CurPath:=copy(Result,StartPos,EndPos-StartPos);
 
     // cut macros
@@ -1292,7 +1293,7 @@ end;
 
 {-------------------------------------------------------------------------------
   procedure ReverseList(List: TList);
-  
+
   Reverse the order of a TList
 -------------------------------------------------------------------------------}
 procedure ReverseList(List: TList);
@@ -1350,7 +1351,7 @@ end;
 
 {-------------------------------------------------------------------------------
   function TrimSearchPath(const SearchPath, BaseDirectory: string): boolean;
-  
+
   - Removes empty paths.
   - Uses TrimFilename on every path.
   - If BaseDirectory<>'' then every relative Filename will be expanded.
@@ -1405,7 +1406,7 @@ end;
 
   Params: const Filename, BackupFilename: string
   Result: boolean
-  
+
   Rename Filename to Backupfilename and create empty Filename with same
   file attributes
 -------------------------------------------------------------------------------}
@@ -1431,7 +1432,7 @@ function BackupFileForWrite(const Filename, BackupFilename: string): boolean;
 var
   FHandle: THandle;
   Code: TCodeBuffer;
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(HASAMIGA)}
   OldAttr: Longint;
   {$ELSE}
   OldInfo: Stat;
@@ -1440,13 +1441,13 @@ begin
   Result := False;
 
   // store file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr := FileGetAttrUTF8(Filename);
   {$ELSE}
   if FpStat(Filename, OldInfo{%H-})<>0 then
     exit; // can't backup this file
   {$ENDIF}
-  
+
   // if not a symlink/hardlink or locked => rename old file (quick), create empty new file
   if not FileIsSymlink(Filename) and
      not FileIsHardLink(FileName) and
@@ -1464,7 +1465,7 @@ begin
   if not CopyFile(Filename, BackupFilename) then exit;
 
   // restore file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   FileSetAttrUTF8(FileName, OldAttr);
   {$ELSE}
   FpChmod(Filename, OldInfo.st_Mode and (STAT_IRWXO+STAT_IRWXG+STAT_IRWXU
@@ -1476,7 +1477,7 @@ end;
 
 {-------------------------------------------------------------------------------
   function ClearFile(const Filename: string; RaiseOnError: boolean): boolean;
-  
+
   Empty file if exists.
 -------------------------------------------------------------------------------}
 function ClearFile(const Filename: string; RaiseOnError: boolean): boolean;
@@ -1615,7 +1616,7 @@ function TabsToSpaces(const s: string; TabWidth: integer; UseUTF8: boolean): str
     end;
     Result:=DestPos-1;
   end;
-  
+
 var
   NewLen: LongInt;
 begin
@@ -2055,7 +2056,7 @@ function CommentLines(const s: string): string;
 var
   CurPos: integer;
   Dest: string;
-  
+
   procedure FindLineEnd;
   begin
     while (CurPos<=length(Dest))
@@ -2075,7 +2076,7 @@ begin
   // find code start in line
   while (CurPos<=length(Dest)) do begin
     case Dest[CurPos] of
-    
+
     ' ',#9:
       // skip space
       inc(CurPos);
@@ -2124,7 +2125,7 @@ function CommentText(const s: string; CommentType: TCommentType): string;
     LastLineEmpty: boolean;
   begin
     GetTextInfo(OldLen,LineCount,LastLineEmpty);
-    
+
     NewLen:=OldLen+length(FirstLineStart)
                   +(LineCount-1)*length(LineStart);
     if LastLineEmpty then
@@ -2187,7 +2188,7 @@ begin
   Result:=s;
   if CommentType=comtNone then exit;
   if CommentType=comtDefault then CommentType:=comtPascal;
-    
+
   case CommentType of
     comtPascal: DoCommentBlock('{ ','  ','}');
     comtDelphi: DoCommentBlock('// ','// ','');
@@ -2296,7 +2297,7 @@ var
       OnCopyError(ErrorData,Result,Data);
     end;
   end;
-  
+
   function CopyDir(const CurSrcDir, CurDestDir: string): boolean;
   // both dirs must end with PathDelim
   var
@@ -2315,10 +2316,10 @@ var
       Result:=true;
       exit;
     end;
-    
+
     if not ForceDirectory(CurDestDir)
     and not HandleError(ceCreatingDirectory,CurDestDir,'') then exit;
-    
+
     if FindFirstUTF8(CurSrcDir+GetAllFilesMask,faAnyFile,FileInfo)=0 then begin
       repeat
         // check if special file
@@ -2327,7 +2328,7 @@ var
         CurFilename:=CurSrcDir+FileInfo.Name;
         // check if src file
         if FilenameIsMatching(DestDirectory,CurFilename,false) then continue;
-        
+
         // check user filter
         if Assigned(OnCopyFile) then begin
           DoCopy:=true;
@@ -2351,10 +2352,10 @@ var
       until FindNextUTF8(FileInfo)<>0;
     end;
     FindCloseUTF8(FileInfo);
-    
+
     Result:=true;
   end;
-  
+
 begin
   Result:=true;
   SrcDir:=AppendPathDelim(TrimAndExpandDirectory(SrcDirectory));
@@ -2363,7 +2364,7 @@ begin
 
   if (not DirPathExists(SrcDir))
   and not HandleError(ceSrcDirDoesNotExists,SrcDir,'') then exit;
-  
+
   CopyDir(SrcDir,DestDirectory);
 end;
 
@@ -2395,7 +2396,7 @@ function CopyFileWithMethods(const SrcFilename, DestFilename: string;
   OnCopyError: TOnCopyErrorMethod; Data: TObject): boolean;
 var
   SrcFileStream, DestFileStream: TFileStreamUTF8;
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr: Longint;
   {$ELSE}
   OldInfo: Stat;
@@ -2403,14 +2404,14 @@ var
 begin
   Result:=false;
   if CompareFilenames(SrcFilename,DestFilename)=0 then exit;
-  
+
   // read file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   OldAttr:=FileGetAttrUTF8(SrcFilename);
   {$ELSE}
   FpStat(SrcFilename,OldInfo{%H-});
   {$ENDIF}
-  
+
   // copy file
   try
     SrcFileStream:=TFileStreamUTF8.Create(SrcFilename,fmOpenRead);
@@ -2428,9 +2429,9 @@ begin
   except
     exit;
   end;
-  
+
   // copy file attributes
-  {$IFdef MSWindows}
+  {$IF defined(MSWindows) or defined(AROS)}
   FileSetAttrUTF8(DestFileName,OldAttr);
   {$ELSE}
   FpChmod(DestFilename, OldInfo.st_Mode and (STAT_IRWXO+STAT_IRWXG+STAT_IRWXU

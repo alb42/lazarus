@@ -26,6 +26,8 @@ if LCLWidgetType+''='' then begin
       LCLWidgetType := 'wince'
     else if TargetOS='darwin' then
       LCLWidgetType := 'carbon'
+    else if TargetOS='aros' then
+      LCLWidgetType := 'mui'
     else
       LCLWidgetType:='gtk2';
   end;
@@ -104,6 +106,7 @@ end;"/>
             <Item9 Value="cocoa"/>
             <Item10 Value="customdrawn"/>
             <Item11 Value="gtk3"/>
+            <Item11 Value="mui"/>
           </Values>
           <ValueDescriptions Count="11"/>
         </Item1>

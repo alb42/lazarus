@@ -106,7 +106,7 @@ const
   VirtualTempDir='TEMPORARYDIRECTORY';
   
   // FPC operating systems and processor types
-  FPCOperatingSystemNames: array[1..34] of shortstring =(
+  FPCOperatingSystemNames: array[1..35] of shortstring =(
      'linux',
      'win32','win64','wince',
      'darwin','macos',
@@ -138,7 +138,7 @@ const
      'wdosx',
      'wii'
     );
-  FPCOperatingSystemCaptions: array[1..34] of shortstring =(
+  FPCOperatingSystemCaptions: array[1..35] of shortstring =(
      'AIX',
      'Amiga',
      'Android',

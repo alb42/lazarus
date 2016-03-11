@@ -642,6 +642,54 @@ begin
   end;
 end;
 
+function PanelLayoutFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): Longint;
+var
+  LMsg: pMUI_LayoutMsg;
+  i: LongInt;
+  MUIObj: TMuiObject;
+  PasWin: TWinControl;
+  Miw, Mih, Maw, Mah: Integer;
+begin
+  LMsg := Msg;
+  Result := LongInt(True);
+  MUIObj := TMuiObject(Hook^.h_Data);
+  case LMsg^.lm_type of
+    MUILM_MINMAX: begin
+      begin
+        Miw := 1;
+        Mih := 1;
+        Maw := 10000;
+        Mah := 10000;
+        if Assigned(MUIObj.PasObject) then
+        begin
+          PasWin := TWinControl(MUIObj.PasObject);
+          MiW := Max(PasWin.Constraints.MinWidth, 100);
+          MiH := Max(PasWin.Constraints.MinHeight, 20);
+          if PasWin.Constraints.MaxWidth > 0 then
+            MaW := Min(PasWin.Constraints.MaxWidth, 10000);
+          if PasWin.Constraints.MaxHeight > 0 then
+            MaH := Min(PasWin.Constraints.MaxHeight, 10000);
+          LMsg^.lm_MinMax.MinWidth := MiW;
+          LMsg^.lm_MinMax.MinHeight := MiH;
+          LMsg^.lm_MinMax.MaxWidth :=  MaW;
+          LMsg^.lm_MinMax.MaxHeight := MaH;
+        end;
+        LMsg^.lm_MinMax.DefWidth := MUIObj.Width;
+        LMsg^.lm_MinMax.DefHeight := MUIObj.Height;
+      end;
+      TWinControl(MUIObj.PasObject).Realign;
+    end;
+    MUILM_LAYOUT:
+    begin
+      for i:= 0 to MUIObj.FChilds.Count - 1 do
+      begin
+        if MUIObj.FChilds.Items[i] is TMUIObject then
+          TMuiObject(MUIObj.FChilds.Items[i]).SetOwnSize;
+      end;
+    end;
+  end;
+end;
+
 
 procedure TMUIObject.InstallHooks;
 begin
@@ -693,6 +741,8 @@ constructor TMUIObject.Create(AClassType: PIClass; const Tags: TATagList);
 begin
   inherited Create;
   BasicInitOnCreate();
+  SetHook(LayoutHook, @PanelLayoutFunc, self);
+  Tags.AddTag(MUIA_Group_LayoutHook, NativeUInt(@LayoutHook));
   //writeln(self.classname, 'create type');
   FObject := NewObjectA(AClassType, nil, Tags.GetTagPointer);
   if Assigned(FObject) then

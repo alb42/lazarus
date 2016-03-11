@@ -41,10 +41,13 @@ const
 
      (OldName: 'tahoma';
       NewName: 'Arial';),
-
+{$ifdef MorphOS}
+     (OldName: 'courier';
+      NewName: 'XCourier';),
+{$else}
      (OldName: 'courier';
       NewName: 'ttcourier';),
-
+{$endif}
      (OldName: 'courier new';
       NewName: 'ttcourier';)
       );

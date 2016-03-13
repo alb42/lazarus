@@ -117,6 +117,7 @@ type
     FBlocksize, FBlockMove: Boolean;
     function GetCaption: string;
     procedure SetCaption(const AValue: string);
+    function GetWindow: PWindow;
   protected
     function GetVisible: Boolean; override;
     procedure SetVisible(const AValue: Boolean); override;
@@ -144,6 +145,7 @@ type
     property HasMenu: Boolean read FHasMenu write FHasMenu;
     property Sizeable: Boolean read FSizeable write FSizeable;
     property FocusedControl: TMUIObject read FFocusedControl write SetFocusedControl;
+    property Window: PWindow read GetWindow;
   end;
 
   { TMuiGroup }
@@ -196,13 +198,8 @@ begin
         LMsg^.lm_MinMax.DefHeight := Win.Height;
       end else
       begin
-        {$ifdef MorphOS}
-        LMsg^.lm_MinMax.MinWidth := Win.Width - 8;
-        LMsg^.lm_MinMax.MinHeight := Win.Height - 26;
-        {$else}
         LMsg^.lm_MinMax.MinWidth := Win.Width;
         LMsg^.lm_MinMax.MinHeight := Win.Height;
-        {$endif}
         LMsg^.lm_MinMax.MaxWidth := Win.Width;
         LMsg^.lm_MinMax.MaxHeight := Win.Height;
         LMsg^.lm_MinMax.DefWidth := Win.Width;
@@ -585,19 +582,32 @@ begin
 end;
 
 function TMuiWindow.GetClientRect: TRect;
+var
+  win: PWindow;
 begin
   Result := inherited;
   Result.Left := 0;
   Result.Top := 0;
   Result.Right := Width;
   Result.Bottom := Height;
-  {$ifdef MorphOS}
-  Result.Right := Width - 8;
+  {$ifndef AROS}
+  Win := Self.Window;
+  if Assigned(Window) then
+  begin
+    Result.Width := Result.Width - (Win^.BorderLeft + Win^.BorderRight);
+    Result.Height := Result.Height - (Win^.BorderTop + Win^.BorderBottom);
+  end;
+  {Result.Right := Width - 8;
   if Sizeable then
     Result.Bottom := Height - 40
   else
-    Result.Bottom := Height - 20;
+    Result.Bottom := Height - 20;}
   {$endif}
+end;
+
+function TMuiWindow.GetWindow: PWindow;
+begin
+  Result := PWindow(GetAttribute(MUIA_Window_Window));
 end;
 
 function TMuiWindow.GetWindowOffset: TPoint;
@@ -655,6 +665,8 @@ end;
 procedure TMuiWindow.SetVisible(const AValue: Boolean);
 begin
   SetAttribute(MUIA_Window_Open, AValue);
+  if AValue then
+    TWinControl(PasObject).InvalidateClientRectCache(True);
 end;
 
 procedure TMuiWindow.AddChild(ChildObj: PObject_);

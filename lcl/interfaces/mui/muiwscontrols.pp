@@ -143,6 +143,9 @@ var
 begin
   //writeln(AWinControl.classname,' create');
   TagList.Clear;
+  TagList.AddTags([
+    MUIA_FillArea, NativeUInt(False)
+    ]);
   MuiPanel := TMuiArea.Create(LCLGroupClass, TagList);
   With MuiPanel do
   begin

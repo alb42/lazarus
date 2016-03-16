@@ -1413,6 +1413,7 @@ end;
 
 procedure TMuiCycle.ChangedItems(Sender: TObject);
 begin
+  //sysdebugln('recreate Cycle ' + HexStr(Self));
   // on change -> recreate the combobox (items only set on initialization in MUI)
   RecreateWnd(TWinControl(PasObject));
 end;
@@ -1430,14 +1431,26 @@ begin
   FEditable := AEditable;
   //
   FStrings := TMuiStrings.create;
-  SetLength(StringPtrs, AStrings.Count + 1);
-  for i:= 0 to AStrings.Count - 1 do
+  if AStrings.Count = 0 then
   begin
-    str := AStrings.strings[i] + #0;
+    SetLength(StringPtrs, 2);
+    str := ' ' + #0;
     FStrings.Add(str);
     Len := Length(Str);
-    StringPtrs[i] := System.AllocMem(Len + 1);
-    Move(Str[1], StringPtrs[i]^, Len);
+    StringPtrs[0] := System.AllocMem(Len + 1);
+    Move(Str[1], StringPtrs[0]^, Len);
+  end
+  else
+  begin
+    SetLength(StringPtrs, AStrings.Count + 1);
+    for i:= 0 to AStrings.Count - 1 do
+    begin
+      str := AStrings.strings[i] + #0;
+      FStrings.Add(str);
+      Len := Length(Str);
+      StringPtrs[i] := System.AllocMem(Len + 1);
+      Move(Str[1], StringPtrs[i]^, Len);
+    end;
   end;
   StringPtrs[High(StringPtrs)] := nil;
   if FEditable then
@@ -1758,6 +1771,9 @@ end;
 
 constructor TMUIGroupBox.Create(const Tags: TATagList);
 begin
+  Tags.AddTags([
+    MUIA_FillArea, LFalse
+    ]);
   inherited Create(LCLGroupClass, Tags);
   MUIDrawing := True;
   FText := nil;

@@ -44,12 +44,14 @@ const
 {$ifdef MorphOS}
      (OldName: 'courier';
       NewName: 'XCourier';),
+      (OldName: 'courier new';
+      NewName: 'XCourier';)
 {$else}
      (OldName: 'courier';
       NewName: 'ttcourier';),
-{$endif}
      (OldName: 'courier new';
       NewName: 'ttcourier';)
+{$endif}
       );
   ALLSTYLES = FSF_ITALIC or FSF_BOLD or FSF_UNDERLINED;
 
@@ -456,7 +458,7 @@ begin
     FHeight := 13;
   {$ifdef MorphOS}
   // nasty hack for the small MorphOS fonts :O
-  FHeight := FHeight + 5;
+  //FHeight := FHeight + 5;
   {$endif}
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;
@@ -478,10 +480,10 @@ begin
   FFontFace := LongFontName;
   FHeight := abs(AFontData.lfHeight);
   if FHeight = 0 then
-    FHeight := 13;
+    FHeight := 15;
   {$ifdef MorphOS}
   // nasty hack for the small MorphOS fonts :O
-  FHeight := FHeight + 5;
+  //FHeight := FHeight + 5;
   {$endif}
   FIsItalic := AFontData.lfItalic <> 0;
   FIsUnderlined := AFontData.lfUnderline <> 0;

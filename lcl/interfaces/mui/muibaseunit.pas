@@ -21,7 +21,7 @@ interface
 uses
   Classes, dos, SysUtils, Controls, Contnrs, Types, graphics, Math,
   {$ifdef HASAMIGA}
-  Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap, diskfont,
+  Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap, diskfont, layers,
   {$if defined(MorphOS) or defined(Amiga)}
   AmigaLib,
   {$endif}
@@ -635,10 +635,10 @@ procedure TMUIObject.RemoveChild(ChildObj: PObject_);
 begin
   if Assigned(ChildObj) then
   begin
-    //writeln('Remove Child: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
-    DoMethod([NativeUInt(MUIM_Group_InitChange)]);
+    //sysdebugln('Remove Child: ' + self.classname +' addr:' + HexStr(FObject));
+    //DoMethod([NativeUInt(MUIM_Group_InitChange)]);
     DoMethod([NativeUInt(OM_REMMEMBER), NativeUInt(ChildObj)]);
-    DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
+    //DoMethod([NativeUInt(MUIM_Group_ExitChange)]);
   end;
 end;
 
@@ -720,6 +720,7 @@ constructor TMUIObject.Create(ObjType: LongInt; const Params: TAParamList);
 begin
   inherited Create;
   BasicInitOnCreate;
+  //SysDebugln(self.classname + 'create Type '+  IntToStr(ObjType));
   //writeln(self.classname, 'create obj ', ObjType);
   FObject := MUI_MakeObjectA(ObjType, Params.GetParamPointer);
   //writeln('create obj: ',self.classname,' addr:', inttoHex(Cardinal(FObject),8));
@@ -743,6 +744,7 @@ begin
   BasicInitOnCreate();
   SetHook(LayoutHook, @PanelLayoutFunc, self);
   Tags.AddTag(MUIA_Group_LayoutHook, NativeUInt(@LayoutHook));
+  //SysDebugln(self.classname + 'create Class Type $' + HexStr(AClassType));
   //writeln(self.classname, 'create type');
   FObject := NewObjectA(AClassType, nil, Tags.GetTagPointer);
   if Assigned(FObject) then
@@ -1513,6 +1515,7 @@ var
   EatEvent: Boolean;
   Key: Char;
   i: Integer;
+  li: pLayer_Info;
 begin
   Result := 0;
   //write('Enter Dispatcher with: ', Msg^.MethodID);
@@ -1595,7 +1598,9 @@ begin
               //Result := DoSuperMethodA(cl, obj, msg);
             end else
             begin
+              {$ifndef MorphOS} // makes strong flicker on MorphOS
               Result := DoSuperMethodA(cl, obj, msg);
+              {$endif}
             end;
               //Result := DoSuperMethodA(cl, obj, msg);
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
@@ -1625,8 +1630,9 @@ begin
             begin
               MUIB.FMUICanvas.DrawRect := Rect(0, 0, PaintW, PaintH);
               MUIB.FMUICanvas.RastPort := CreateRastPort;
-              MUIB.FMUICanvas.RastPort^.Layer := nil;
+              li := NewLayerInfo();
               MUIB.FMUICanvas.RastPort^.Bitmap := AllocBitMap(PaintW, PaintH, rp^.Bitmap^.Depth, BMF_MINPLANES or BMF_DISPLAYABLE, rp^.Bitmap);
+              MUIB.FMUICanvas.RastPort^.Layer := CreateUpFrontHookLayer(li, MUIB.FMUICanvas.RastPort^.Bitmap, 0, 0, PaintW - 1, PaintH - 1, LAYERSIMPLE, nil, nil);
               ClipBlit(rp, PaintX, PaintY, MUIB.FMUICanvas.RastPort, 0, 0, PaintW, PaintH, $00C0);
             end else
             begin
@@ -1651,10 +1657,20 @@ begin
             if Buffered and Assigned(MUIB.FMUICanvas.RastPort) then
             begin
               ClipBlit(MUIB.FMUICanvas.RastPort, 0,0, rp, PaintX, PaintY, PaintW, PaintH, $00C0);
+              DeleteLayer(0, MUIB.FMUICanvas.RastPort^.layer);
+              DisposeLayerInfo(li);
+              MUIB.FMUICanvas.RastPort^.layer := nil;
               FreeBitmap(MUIB.FMUICanvas.RastPort^.Bitmap);
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;
             end;
+            {$ifdef MorphOS}
+            // MorphOS strange resize artifacts :O
+            if (MUIB is TMUIWindow) and ((PaintW <> Obj_Width(Obj)) or (PaintH <> Obj_Height(Obj))) then
+            begin
+              MuiApp.AddInvalidatedObject(MUIB);
+            end;
+            {$endif}
             //writeln('<--Draw ', muib.classname);
           end;
         finally

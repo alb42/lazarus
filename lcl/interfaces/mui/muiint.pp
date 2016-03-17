@@ -233,9 +233,9 @@ begin
         end;
       end;
     end;
-    Info.Free;
   except
   end;
+  Info.Free;
   ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   TagList.AddTags([

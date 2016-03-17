@@ -1219,6 +1219,7 @@ var
   Tags: TATagList;
   Col: LongWord;
   Hi: Integer;
+  AnsiStr: string;
 begin
   {if Assigned(MUIObject) then
   begin
@@ -1241,7 +1242,8 @@ begin
       RPTAG_FGColor, NativeUInt(col)
       ]);
     SetRPAttrsA(RastPort, Tags);
-    GfxText(RastPort, Txt, Count);
+    AnsiStr := UTF8ToAnsi(AnsiString(Txt));
+    GfxText(RastPort, PAnsiChar(AnsiStr), Length(AnsiStr));
     SetPenToRP;
   end;
 end;

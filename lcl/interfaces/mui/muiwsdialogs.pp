@@ -259,7 +259,11 @@ begin
     FileDialog.UserChoice := mrOK;
   end else
 {$else}
+  {$ifdef Amiga}
+  if AslRequest(MuiDialog, TagsList) then
+  {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
+  {$endif}
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.rf_Dir), string(MuiDialog^.rf_file));
     if MultiSelect then
@@ -506,7 +510,11 @@ begin
     ASLFO_DoFrontPen, TagFalse
     ]);
   //
+  {$ifdef Amiga}
+  if AslRequest(MuiDialog, TagsList) then
+  {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
+  {$endif}
   begin
     FontName := string(MuiDialog^.fo_Attr.ta_Name);
     FDialog.Font.Name := stringreplace(Fontname, '.font', '', [rfIgnoreCase, rfReplaceAll]);

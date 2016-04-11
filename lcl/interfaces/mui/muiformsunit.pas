@@ -127,6 +127,8 @@ type
     procedure SetTop(ATop: LongInt); override;
     function GetTop(): Integer; override;
     function GetLeft(): Integer; override;
+    function GetWidth(): Integer; override;
+    function GetHeight(): Integer; override;   
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
     procedure InstallHooks; override;
     procedure SetEnabled(const AEnabled: Boolean); override;
@@ -501,10 +503,10 @@ begin
     MUIA_Group_LayoutHook, NativeUInt(@LayoutHook),
     MUIA_Frame, MUIV_Frame_None,
     MUIA_FillArea, LFalse,
-    MUIA_InnerLeft, 1,
-    MUIA_InnerTop, 1,
-    MUIA_InnerRight, 1,
-    MUIA_InnerBottom, 1
+    MUIA_InnerLeft, 0,
+    MUIA_InnerTop, 0,
+    MUIA_InnerRight, 0,
+    MUIA_InnerBottom, 0
     ]);
   FGrpObj := NewObjectA(LCLGroupClass, nil, GrpTags);
   if Assigned(FGrpObj) then
@@ -554,8 +556,8 @@ begin
   //
   if not Sizeable then
   begin
-    Width := GetAttribute(MUIA_Window_Width) - 2;
-    Height := GetAttribute(MUIA_Window_Height) - 2;
+    Width := GetAttribute(MUIA_Window_Width);
+    Height := GetAttribute(MUIA_Window_Height);
   end else
   begin
     Width := GetAttribute(MUIA_Window_Width);
@@ -597,11 +599,6 @@ begin
     Result.Width := Result.Width - (Win^.BorderLeft + Win^.BorderRight);
     Result.Height := Result.Height - (Win^.BorderTop + Win^.BorderBottom);
   end;
-  {Result.Right := Width - 8;
-  if Sizeable then
-    Result.Bottom := Height - 40
-  else
-    Result.Bottom := Height - 20;}
   {$endif}
 end;
 
@@ -642,11 +639,27 @@ begin
   Result := GetAttribute(MUIA_Window_LeftEdge);
 end;
 
+function TMuiWindow.GetWidth(): Integer;
+begin
+  if Sizeable then
+    Result := GetAttribute(MUIA_Window_Width)
+  else
+    Result := PasObject.Width;
+end;
+    
+function TMuiWindow.GetHeight(): Integer;
+begin
+  if Sizeable then
+    Result := GetAttribute(MUIA_Window_Height)
+  else  
+    Result := PasObject.Height;
+end;
+
 function TMuiWindow.GetCaption: string;
 begin
   inherited;
   //Result := FCaption;
-  //Result := StrPas(PChar(GetAttribute(MUIA_Window_Title)));
+  Result := PChar(GetAttribute(MUIA_Window_Title));
 end;
 
 function TMuiWindow.GetVisible: Boolean;
@@ -710,7 +723,6 @@ end;
 
 procedure TMuiWindow.SetEnabled(const AEnabled: Boolean);
 begin
-
   //writeln('Enabled: ', AEnabled);
   //SetAttObj(FgrpObj, [MUIA_Disabled, ifthen(AEnabled, LFalse, LTrue)]);
 end;

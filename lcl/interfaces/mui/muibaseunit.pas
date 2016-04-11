@@ -497,9 +497,9 @@ begin
   if Assigned(VSCroll) and Assigned(VScroll) then
   begin
     if VScroll.Visible then
-      Result.Right:= Result.Right - 15;
+      Result.Right:= Result.Right - VScroll.Width;
     if HScroll.Visible then
-      Result.Bottom := Result.Bottom - 15;
+      Result.Bottom := Result.Bottom - HScroll.Height;
   end;
 end;
 
@@ -811,7 +811,7 @@ begin
     VScroll := TMUIScrollBar.Create(Tags1);
     VScroll.PasObject := Self.PasObject;
     VScroll.Parent := self;
-    VScroll.Visible := False;
+    VScroll.Visible := True;
   end;
   //
   if not Assigned(HScroll) then
@@ -821,7 +821,7 @@ begin
     HScroll := TMUIScrollBar.Create(Tags2);
     HScroll.PasObject := Self.PasObject;
     HScroll.Parent := Self;
-    HScroll.Visible := False;
+    HScroll.Visible := True;
   end;
   if PasObject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
@@ -832,14 +832,14 @@ procedure TMUIObject.SetScrollbarPos;
 begin
   if Assigned(VScroll) then
   begin
-    VScroll.Width := 18;
-    VScroll.Left := FWidth -  VScroll.Width;
+    VScroll.Width := 16;
+    VScroll.Left := FWidth - VScroll.Width;
     VScroll.Top := 0;
     VScroll.Height := FHeight;
   end;
   if Assigned(HScroll) then
   begin
-    HScroll.Height := 16;
+    HScroll.Height := 18;
     HScroll.Top := FHeight - HScroll.Height;
     HScroll.Left := 0;
     HScroll.Width := FWidth - 16;
@@ -1621,9 +1621,9 @@ begin
             if WithScrollbars then
             begin
               if MUIB.VScroll.Visible then
-                PaintW := PaintW - MUIB.VScroll.Width - 1;
+                PaintW := PaintW - MUIB.VScroll.Width;
               If MUIB.HScroll.Visible then
-                PaintH := PaintH - MUIB.HScroll.Height - 1;
+                PaintH := PaintH - MUIB.HScroll.Height;
               //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             end;
             if Buffered then

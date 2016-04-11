@@ -382,7 +382,8 @@ begin
   if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
   begin
     T := MUICanvas.GetOffset;
-    ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB);
+    if Assigned(CyberGfxBase) then
+      ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB);
   end;
 end;
 
@@ -1643,6 +1644,8 @@ procedure TMUICanvas.SetBKToRP(AsPen: Boolean = False);
 var
   Col: TMUIColor;
   Tags: TATagList;
+  r,g,b: LongWord;
+  BGPen: LongInt;
 begin
   //writeln('set BK Color $', HexStr(Pointer(BKColor)));
   if Assigned(RastPort) then
@@ -1656,10 +1659,16 @@ begin
       Col := TColorToMUIColor(BKColor);
     end;
     Tags.Clear;
+    {$ifdef Amiga}
+      b := (col and $00FF0000) shr 16;
+      g := (col and $0000FF00) shr 8;
+      r := (col and $000000FF);
+      BGPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, r shl 24,g shl 24,b shl 24, nil);
+    {$endif}
     if AsPen then
     begin
       {$ifdef Amiga}
-      SetAPen(RastPort, 0);
+      SetAPen(RastPort, BGPen);
       {$else}
       Tags.AddTags([
         RPTAG_PenMode, TagFalse,
@@ -1669,7 +1678,7 @@ begin
     end else
     begin
       {$ifdef Amiga}
-      SetBPen(RastPort, 0);
+      SetBPen(RastPort, BGPen);
       {$else}
       Tags.AddTags([
         RPTAG_PenMode, TagFalse,
@@ -1677,7 +1686,11 @@ begin
         ]);
       {$endif}
     end;
+    {$ifdef Amiga}
+    ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, BGPen);
+    {$else}
     SetRPAttrsA(RastPort, Tags);
+    {$endif}
   end;
 end;
 
@@ -1727,7 +1740,8 @@ begin
       FreeBitmap(RastPort^.Bitmap);
       RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
-      WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
+      if Assigned(CyberGfxBase) then
+        WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
     end;
   end;
 end;

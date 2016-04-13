@@ -374,7 +374,7 @@ end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
-  //writeln('setVis ', AValue);
+  //writeln(classname, ' setVis ', AValue);
   if not AValue then
     FirstPaint := True;
   SetAttribute(MUIA_ShowMe, AValue);
@@ -811,7 +811,11 @@ begin
     VScroll := TMUIScrollBar.Create(Tags1);
     VScroll.PasObject := Self.PasObject;
     VScroll.Parent := self;
+    {$ifdef Amiga}
     VScroll.Visible := True;
+    {$else}
+    VScroll.Visible := False;
+    {$endif}
   end;
   //
   if not Assigned(HScroll) then
@@ -821,7 +825,7 @@ begin
     HScroll := TMUIScrollBar.Create(Tags2);
     HScroll.PasObject := Self.PasObject;
     HScroll.Parent := Self;
-    HScroll.Visible := True;
+    HScroll.Visible := False;
   end;
   if PasObject is TWinControl then
     TWinControl(pasobject).InvalidateClientRectCache(True);
@@ -1542,11 +1546,8 @@ begin
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
-        {$if defined(MorphOS) or defined(Amiga)}
-        DoMethod(dword(WinObj),[MUIM_Window_AddEventHandler,NativeUInt(MUIB.EHNode)]);
-        {$else}
-        DoMethod(WinObj,MUIM_Window_AddEventHandler,[NativeUInt(MUIB.EHNode)]);
-        {$endif}
+        DoMethod(WinObj, [MUIM_Window_AddEventHandler, NativeUInt(MUIB.EHNode)]);
+
         MUIB.SetAttObj(Obj, [MUIA_FillArea, LFalse]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
@@ -1556,11 +1557,7 @@ begin
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
       if Assigned(MUIB) then
       begin
-        {$if defined(MorphOS) or defined(Amiga)}
-        DoMethod(DWord(OBJ_win(obj)),[MUIM_Window_RemEventHandler,NativeUInt(MUIB.EHNode)]);
-        {$else}
-        DoMethod(OBJ_win(obj),MUIM_Window_RemEventHandler,[NativeUInt(MUIB.EHNode)]);
-        {$endif}
+        DoMethod(OBJ_win(obj), [MUIM_Window_RemEventHandler, NativeUInt(MUIB.EHNode)]);
         Dispose(MUIB.EHNode);
         MUIB.EHNode := nil;
       end;
@@ -1599,7 +1596,7 @@ begin
             end else
             begin
               {$ifndef MorphOS} // makes strong flicker on MorphOS
-              Result := DoSuperMethodA(cl, obj, msg);
+              //Result := DoSuperMethodA(cl, obj, msg);
               {$endif}
             end;
               //Result := DoSuperMethodA(cl, obj, msg);

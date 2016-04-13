@@ -380,42 +380,25 @@ begin
   AppTags.AddTags([MUIA_Application_Window, NativeUInt(Win)]);
   LocalApp := MUI_NewObjectA(MUIC_Application, AppTags);
 
-{$if defined(MorphOS) or defined(Amiga)}
-  DoMethod(DWord(Win), [MUIM_Notify,
+  DoMethod(Win, [MUIM_Notify,
     PtrUInt(MUIA_Window_CloseRequest), TagTrue,
     PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
-  DoMethod(DWord(but2), [MUIM_Notify,
+  DoMethod(but2, [MUIM_Notify,
     PtrUInt(MUIA_Pressed), TagTrue,
     PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
-  DoMethod(DWord(but1), [MUIM_Notify,
+  DoMethod(but1, [MUIM_Notify,
     PtrUInt(MUIA_Pressed), TagTrue,
     PtrUInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), 42]);
-{$else}
-  DoMethod(Win, MUIM_Notify,
-    [PtrInt(MUIA_Window_CloseRequest), TagTrue,
-    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
 
-  DoMethod(but2, MUIM_Notify,
-    [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), PtrUInt(MUIV_Application_ReturnID_Quit)]);
-
-  DoMethod(but1, MUIM_Notify,
-    [PtrInt(MUIA_Pressed), TagTrue,
-    PtrInt(LocalApp), 2, PtrUInt(MUIM_Application_ReturnID), 42]);
-{$endif}
   SetTags.Clear;
   SetTags.AddTag(MUIA_Window_Open, TagTrue);
   SetAttrsA(Win, SetTags);
   Res := -1;
   while true  do
   begin
-    {$if defined(MorphOS) or defined(Amiga)}
     Res := Integer(DoMethod(LocalApp, [MUIM_Application_NewInput, PtrInt(@sigs)]));
-    {$else}
-    Res := Integer(DoMethod(LocalApp, MUIM_Application_NewInput, [PtrInt(@sigs)]));
-    {$endif}
     case Res of
       MUIV_Application_ReturnID_Quit: begin
         ACommonDialog.UserChoice := mrCancel;

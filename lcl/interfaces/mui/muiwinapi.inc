@@ -819,10 +819,11 @@ begin
   Result := 0;
   if Assigned(Widget) then
   begin
-    if BarKind = SB_VERT then
-      SC := TMUIScrollbar(Widget.VScroll);
-    if BarKind = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);
+    SC := nil;
+    case BarKind of
+      SB_VERT: SC := TMUIScrollbar(Widget.VScroll);
+      SB_Horz: SC := TMUIScrollbar(Widget.HScroll);
+    end;
     if not Assigned(SC) then
       Exit;
     //????  what it wants to know?
@@ -837,10 +838,11 @@ begin
   Result := False;
   if Assigned(Widget) then
   begin
-    if SBStyle = SB_VERT then
-      SC := TMUIScrollbar(Widget.VScroll);
-    if SBStyle = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);
+    SC := nil;
+    case SBStyle of
+      SB_VERT: SC := TMUIScrollbar(Widget.VScroll);
+      SB_Horz: SC := TMUIScrollbar(Widget.HScroll);
+    end;
     if not Assigned(SC) then
       Exit;
     Result := SC.Visible;
@@ -862,11 +864,21 @@ begin
       Exit;
     SC := nil;
     if TObject(Widget) is TMUIScrollbar then
-      SC := TMUIScrollbar(Widget);
-    if BarFlag = SB_VERT then
-      SC := TMUIScrollbar(Widget.VScroll);
-    if BarFlag = SB_Horz then
-      SC := TMUIScrollbar(Widget.HScroll);
+    begin
+      SC := TMUIScrollbar(Widget)
+    end
+    else
+    begin
+      if BarFlag = SB_VERT then
+      begin
+        SC := TMUIScrollbar(Widget.VScroll)
+      end
+      else
+      begin
+        if BarFlag = SB_Horz then
+          SC := TMUIScrollbar(Widget.HScroll);
+      end;
+    end;
     if not Assigned(SC) then
       Exit;
     ScrollInfo.nMin := SC.MinValue;
@@ -1501,7 +1513,7 @@ var
   Sc: TMUIScrollbar;
 begin
   Result := 0;
-  //writeln(' Set ScrollInfo ',SBStyle,' ', ScrollInfo.NMax, ' ', ScrollInfo.nPage);
+  //writeln(' Set ScrollInfo ',SBStyle,' m:', ScrollInfo.NMax, ' page:', ScrollInfo.nPage, ' pos:', ScrollInfo.nPos);
   if (ScrollInfo.NMax = 0) and (ScrollInfo.NPage = 0) and (ScrollInfo.NMin = 0) then
     Exit;
   if Assigned(Widget) then
@@ -1514,24 +1526,34 @@ begin
     if SBStyle = SB_Vert then
     begin
       SC := TMUIScrollbar(Widget.VScroll);
-      Widget.VScrollPos := ScrollInfo.nPos;
-    end;
-    if SBStyle = SB_HORZ then
+      if ((SIF_POS and ScrollInfo.fMask) <> 0) and (Widget.VScrollPos <> ScrollInfo.nPos) then
+        Widget.VScrollPos := ScrollInfo.nPos;
+    end
+    else
     begin
-      SC := TMUIScrollbar(Widget.HScroll);
-      Widget.HScrollPos := ScrollInfo.nPos;
+      if SBStyle = SB_HORZ then
+      begin
+        SC := TMUIScrollbar(Widget.HScroll);
+        if ((SIF_POS and ScrollInfo.fMask) <> 0) and (Widget.HScrollPos <> ScrollInfo.nPos) then
+          Widget.HScrollPos := ScrollInfo.nPos;
+      end;
     end;
     if not Assigned(SC) then
       Exit;
-    if SC.MinValue <> ScrollInfo.nMin then
-      SC.MinValue := ScrollInfo.nMin;
-    if SC.MaxValue <> (ScrollInfo.nMax) - ScrollInfo.nPage then
-      SC.MaxValue := (ScrollInfo.nMax) - ScrollInfo.nPage;
-    if SC.PageSize <> ScrollInfo.nPage then
+    //
+    if ((SIF_PAGE and ScrollInfo.fMask) <> 0) and (SC.PageSize <> ScrollInfo.nPage) then
       SC.PageSize := ScrollInfo.nPage;
-    if SC.Position <> ScrollInfo.nPos then
+    if (SIF_RANGE and ScrollInfo.fMask) <> 0 then
+    begin
+      if SC.MinValue <> ScrollInfo.nMin then
+        SC.MinValue := ScrollInfo.nMin;
+      if SC.MaxValue <> (ScrollInfo.nMax) - ScrollInfo.nPage then
+        SC.MaxValue := (ScrollInfo.nMax) - ScrollInfo.nPage;
+    end;
+    if ((SIF_POS and ScrollInfo.fMask) <> 0) and (SC.Position <> ScrollInfo.nPos) then
       SC.Position := ScrollInfo.nPos;
-    //SC.Visible := True;
+    if not SC.Visible then
+      SC.Visible := True;
     Result := SC.Position;
   end;
 end;
@@ -1586,6 +1608,7 @@ var
   ReDo: Boolean;
   Created: Boolean;
 begin
+  //writeln('Show ScrollBar ', HexStr(Widget),' ', wBar, ' Show: ', bShow);
   Result := False;
   ReDo := False;
   Created := False;
@@ -1599,7 +1622,7 @@ begin
     end;
     if wBar = SB_Vert then
     begin
-      if Assigned(Widget.VSCroll) then
+      if Assigned(Widget.VScroll) then
       begin
         if Widget.VScroll.Visible <> bShow then
         begin

@@ -317,7 +317,7 @@ var
   Pos: Integer;
 begin
   //debugln('set MaxValue ' + IntToStr(AValue));
-  if (AValue = FMaxValue) or (AValue <= FMinValue) then
+  if {(AValue = FMaxValue) or} (AValue <= FMinValue) then
     Exit;
   Pos := Position;
   FMaxValue := AValue;
@@ -329,8 +329,8 @@ procedure TMUIScrollBar.SetMinValue(AValue: Integer);
 var
   Pos: Integer;
 begin
-  if AValue = FMinValue then
-    Exit;
+  //if AValue = FMinValue then
+  //  Exit;
   //debugln('set MinValue ' + IntToStr(AValue));
   Pos := Position;
   FMinValue := AValue;
@@ -342,8 +342,8 @@ procedure TMUIScrollBar.SetPageSize(AValue: Integer);
 var
   Pos: Integer;
 begin
-  if PageSize = FPageSize then
-    Exit;
+  //if PageSize = FPageSize then
+  //  Exit;
   //debugln('set page size ' + IntToStr(AValue));
   Pos := Position;
   FPageSize := AValue;
@@ -394,14 +394,16 @@ begin
       ScrollMsg.Pos := TMUIScrollBar(MUIObject).Position;
       if (Parent.VScroll = MUIObject) then
       begin
+        ScrollMsg.Msg := LM_VScroll;
         if ScrollMsg.Pos <> Parent.VScrollPos then
         begin
-          Parent.VSCrollPos := Scrollmsg.Pos;
+          Parent.VScrollPos := Scrollmsg.Pos;
           SendMsg := True;
         end;
       end;
       if (Parent.HScroll = MUIObject) then
       begin
+        ScrollMsg.Msg := LM_HScroll;
         if ScrollMsg.Pos <> Parent.HScrollPos then
         begin
           Parent.HSCrollPos := Scrollmsg.Pos;

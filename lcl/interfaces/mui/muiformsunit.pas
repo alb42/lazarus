@@ -128,7 +128,7 @@ type
     function GetTop(): Integer; override;
     function GetLeft(): Integer; override;
     function GetWidth(): Integer; override;
-    function GetHeight(): Integer; override;   
+    function GetHeight(): Integer; override;
     procedure SetFocusedControl(AControl: TMUIObject); virtual;
     procedure InstallHooks; override;
     procedure SetEnabled(const AEnabled: Boolean); override;
@@ -598,6 +598,18 @@ begin
   begin
     Result.Width := Result.Width - (Win^.BorderLeft + Win^.BorderRight);
     Result.Height := Result.Height - (Win^.BorderTop + Win^.BorderBottom);
+  end else
+  begin
+    if Sizeable then
+    begin
+      Result.Width := Result.Width - 8;
+      Result.Height := Result.Height - 21
+    end
+    else
+    begin
+      Result.Width := Result.Width - 8;
+      Result.Height := Result.Height - 13
+    end;
   end;
   {$endif}
 end;
@@ -646,12 +658,12 @@ begin
   else
     Result := PasObject.Width;
 end;
-    
+
 function TMuiWindow.GetHeight(): Integer;
 begin
   if Sizeable then
     Result := GetAttribute(MUIA_Window_Height)
-  else  
+  else
     Result := PasObject.Height;
 end;
 

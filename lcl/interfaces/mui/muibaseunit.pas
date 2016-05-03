@@ -22,7 +22,7 @@ uses
   Classes, dos, SysUtils, Controls, Contnrs, Types, graphics, Math,
   {$ifdef HASAMIGA}
   Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap, diskfont, layers,
-  {$if defined(MorphOS) or defined(Amiga)}
+  {$if defined(MorphOS) or defined(Amiga) and not defined(AMIGAOS4)}
   AmigaLib,
   {$endif}
   {$endif}
@@ -658,17 +658,17 @@ begin
       begin
         Miw := 1;
         Mih := 1;
-        Maw := 10000;
-        Mah := 10000;
+        Maw := MUI_MAXMAX;
+        Mah := MUI_MAXMAX;
         if Assigned(MUIObj.PasObject) then
         begin
           PasWin := TWinControl(MUIObj.PasObject);
-          MiW := Max(PasWin.Constraints.MinWidth, 100);
-          MiH := Max(PasWin.Constraints.MinHeight, 20);
+          MiW := Max(PasWin.Constraints.MinWidth, 1);
+          MiH := Max(PasWin.Constraints.MinHeight, 1);
           if PasWin.Constraints.MaxWidth > 0 then
-            MaW := Min(PasWin.Constraints.MaxWidth, 10000);
+            MaW := Min(PasWin.Constraints.MaxWidth, MUI_MAXMAX);
           if PasWin.Constraints.MaxHeight > 0 then
-            MaH := Min(PasWin.Constraints.MaxHeight, 10000);
+            MaH := Min(PasWin.Constraints.MaxHeight, MUI_MAXMAX);
           LMsg^.lm_MinMax.MinWidth := MiW;
           LMsg^.lm_MinMax.MinHeight := MiH;
           LMsg^.lm_MinMax.MaxWidth :=  MaW;
@@ -762,6 +762,9 @@ begin
   {$ifdef CHECKOBJECTS}
   AllItems.Remove(Self);
   {$endif}
+  //writeln('destroy ', HexStr(PasObject));
+  if FocusWidget = HWnd(PasObject) then
+    FocusWidget := 0;
   BlockRedraw := True;
   BlockLayout := True;
   //writeln(self.classname, '--> destroy');
@@ -1548,7 +1551,7 @@ begin
         WinObj := ri^.mri_WindowObject;
         DoMethod(WinObj, [MUIM_Window_AddEventHandler, NativeUInt(MUIB.EHNode)]);
 
-        MUIB.SetAttObj(Obj, [MUIA_FillArea, LFalse]);
+        //MUIB.SetAttObj(Obj, [MUIA_FillArea, LFalse]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
@@ -1595,9 +1598,10 @@ begin
               //Result := DoSuperMethodA(cl, obj, msg);
             end else
             begin
-              {$ifndef MorphOS} // makes strong flicker on MorphOS
-              //Result := DoSuperMethodA(cl, obj, msg);
-              {$endif}
+              {.$ifndef MorphOS} // makes strong flicker on MorphOS
+              if MUIB is TMuiGroup then
+                Result := DoSuperMethodA(cl, obj, msg);
+              {.$endif}
             end;
               //Result := DoSuperMethodA(cl, obj, msg);
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);

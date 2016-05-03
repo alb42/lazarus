@@ -16,13 +16,17 @@
 unit MUIglobal;
 
 {$mode objfpc}{$H+}
-
+{$if defined(AROS) and defined(VER3_0)}
+  {$define FPC4AROS_VER3_FIXES}
+{$endif}
 interface
 
 uses
   Classes, SysUtils, exec, intuition, agraphics,
 {$if defined(CPU68) or defined(CPUPOWERPC)}
+  {$ifndef AMIGAOS4}
   amigalib,
+  {$endif}
 {$endif}
   utility, mui, tagsparamshelper;
 
@@ -31,6 +35,12 @@ const
   RPTAG_PenMode    = $80000080;
   RPTAG_FgColor    = $80000081;
   RPTAG_BgColor    = $80000082;
+{$endif}
+{$ifdef AmigaOS4}
+const
+  RPTAG_FGCOLOR = RPTAG_APENCOLOR;
+  RPTAG_BGCOLOR = RPTAG_BPENCOLOR;
+  RPTAG_PENMODE = TAG_IGNORE;
 {$endif}
 type
   THookFunc = function(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
@@ -44,14 +54,19 @@ function CreateRastPort: PRastPort;
 function CloneRastPort(Rp: PRastPort): PRastPort;
 procedure FreeRastPort(Rp: PRastPort);
 {$endif}
+{$ifdef FPC4AROS_VER3_FIXES}
+function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR;
+function GetAttr(AttrID: LongWord; Object_: PObject_; var Storage: IPTR): LongWord; overload syscall IntuitionBase 109;
+{$endif}
 {$ifdef MorphOS}
 function DoMethodA(obj : pObject_; msg1 : Pointer): longword; overload;
 {$endif}
 
-{$ifdef Amiga}
+{$ifdef Amiga68k}
 var
   IntuitionBase: PIntuitionBase;
-
+{$endif}
+{$ifdef Amiga}
 function DoMethod(obj: Pointer; params: array of DWord): LongWord; overload;
 function DoMethod(obj: LongWord; params: array of DWord): LongWord; overload;
 {$endif}
@@ -96,6 +111,7 @@ end;
 {$endif}
 
 {$ifdef CPUPOWERPC}
+{$ifdef MorphOS}
 {$define SetHook}
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 { This is MorphOS magic. Basically, CallHookPkt is designed to enter 68k code
@@ -109,6 +125,16 @@ begin
   Hook.h_SubEntry := Func;
   Hook.h_Data := Data;
 end;
+{$endif}
+{$ifdef AMIGAOS4}
+{$define SetHook}
+procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
+begin
+  Hook.h_Entry := Func;
+  Hook.h_SubEntry := Func;
+  Hook.h_Data := Data;
+end;
+{$endif}
 {$endif}
 
 {$ifndef SetHook}
@@ -159,6 +185,16 @@ begin
 end;
 {$endif}
 
+{$ifdef FPC4AROS_VER3_FIXES}
+function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR; inline;
+begin
+  DoMethod := 0;
+  if obj = nil then
+    Exit;
+  DoMethod := CALLHOOKPKT_(PHook(OCLASS(Obj)), Obj, @Args);
+end;
+{$endif}
+
 {$ifdef Amiga}
 function DoMethod(obj: Pointer; params: array of DWord): LongWord;
 begin
@@ -171,10 +207,8 @@ begin
 end;
 {$endif}
 
-
 initialization
-{$ifdef Amiga}
+{$ifdef Amiga68k}
   IntuitionBase := _IntuitionBase;
 {$endif}
 end.
-

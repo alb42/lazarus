@@ -27,7 +27,9 @@ uses
   ,Muiglobal
   // aros
   {$ifdef HASAMIGA}
-  ,agraphics, intuition, mui, diskfont, cybergraphics
+  ,agraphics, intuition, mui,
+  {$ifndef AMIGAOS4}cybergraphics,{$endif}
+  diskfont
   {$endif};
 
 const
@@ -382,8 +384,12 @@ begin
   if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
   begin
     T := MUICanvas.GetOffset;
+    {$ifdef AmigaOS4} // crashes
+    //ReadPixelarray(MUICanvas.RastPort, T.X, T.Y, FImage, 0, 0, FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, FWidth, FHeight);
+    {$else}
     if Assigned(CyberGfxBase) then
       ReadPixelarray(FImage, 0, 0, FWidth * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight, RECTFMT_ARGB);
+    {$endif}
   end;
 end;
 
@@ -1230,6 +1236,7 @@ var
     if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
     begin
       Checked[AX,AY] := True;
+      {$ifndef AmigaOS4}
       if ReadRGBPixel(RastPort, T.X + AX, T.Y + AY) = Col then
       begin
         if WriteRGBPixel(RastPort, T.X + AX, T.Y + AY, NewCol) = -1 then
@@ -1239,6 +1246,7 @@ var
         AddToCheck(AX + 1, AY);
         AddToCheck(AX, AY + 1);
       end;
+      {$endif}
     end;
   end;
 
@@ -1258,6 +1266,7 @@ begin
       end;
     //t2 := GetMsCount;
     NewCol := TColorToMUIColor(Color);
+    {$ifndef AmigaOS4}
     Col := ReadRGBPixel(RastPort, T.X + X, T.Y + Y);
     if NewCol <> Col then
     begin
@@ -1272,6 +1281,7 @@ begin
         CheckNeighbours(NX, NY);
       end;
     end;
+    {$endif}
     //t3 := GetMsCount;
     //writeln('Floodfill time: prep: ', t2-t1, ' Fill ', t3-t2, ' all: ', t3-t1);
   end;
@@ -1285,7 +1295,9 @@ begin
   begin
     Drawn := True;
     T := GetOffset;
+    {$ifndef AmigaOS4}
     WriteRGBPixel(RastPort, T.X + X, T.Y + Y, TColorToMUIColor(Color));
+    {$endif}
   end;
 end;
 
@@ -1297,7 +1309,9 @@ begin
   if Assigned(RastPort) then
   begin
     T := GetOffset;
+    {$ifndef AmigaOS4}
     Result := MUIColorToTColor(ReadRGBPixel(RastPort, T.X + X, T.Y + Y));
+    {$endif}
   end;
 end;
 
@@ -1305,6 +1319,7 @@ procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
 var
   Tags: TATagList;
   Col: LongWord;
+  AnsiStr: string;
   Hi: Integer;
 begin
   {if Assigned(MUIObject) then
@@ -1322,7 +1337,7 @@ begin
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
     Col := TColorToMUIColor(TextColor);
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     Col := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, Col shl 8,Col shl 16,Col shl 24, nil);
     SetAPen(RastPort, Col);
     {$else}
@@ -1333,8 +1348,9 @@ begin
       ]);
     SetRPAttrsA(RastPort, Tags);
     {$endif}
-    GfxText(RastPort, Txt, Count);
-    {$ifdef Amiga}
+    AnsiStr := UTF8ToAnsi(AnsiString(Txt));
+    GfxText(RastPort, PAnsiChar(AnsiStr), Length(AnsiStr));
+    {$ifdef Amiga68k}
     ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, Col);
     {$endif}
     SetPenToRP;
@@ -1491,7 +1507,7 @@ begin
     //SetDrPt(RastPort, $FFFF);
     //RastPort^.LinePtrn := OldPat;
     SetSoftStyle(RastPort, OldStyle, ALLSTYLES);
-    {$ifndef Amiga}
+    {$ifndef Amiga68k}
     Col := 0;
     Tags.Clear;
     Tags.AddTags([
@@ -1571,7 +1587,7 @@ begin
         SetAMUIPen(PenDesc);
       end else
       begin
-        {$ifdef Amiga}
+        {$ifdef Amiga68k}
         SetAPen(RastPort, FPen.FPen);
         {$else}
         Col := FPen.Color;
@@ -1611,7 +1627,7 @@ begin
         Col := FBrush.Color;
         if AsPen then
         begin
-          {$ifdef Amiga}
+          {$ifdef Amiga68k}
           SetAPen(RastPort, FBrush.FPen);
           {$else}
           Tags.AddTags([
@@ -1622,7 +1638,7 @@ begin
           SetDrMd(RastPort, JAM1);
         end else
         begin
-          {$ifdef Amiga}
+          {$ifdef Amiga68k}
           SetBPen(RastPort, FBrush.FPen);
           {$else}
           Tags.AddTags([
@@ -1632,7 +1648,7 @@ begin
           {$endif}
           SetDrMd(RastPort, FBrush.Style);
         end;
-        {$ifndef Amiga}
+        {$ifndef Amiga68k}
         SetRPAttrsA(RastPort, Tags);
         {$endif}
       end;
@@ -1667,7 +1683,7 @@ begin
     {$endif}
     if AsPen then
     begin
-      {$ifdef Amiga}
+      {$ifdef Amiga68k}
       SetAPen(RastPort, BGPen);
       {$else}
       Tags.AddTags([
@@ -1677,7 +1693,7 @@ begin
       {$endif}
     end else
     begin
-      {$ifdef Amiga}
+      {$ifdef Amiga68k}
       SetBPen(RastPort, BGPen);
       {$else}
       Tags.AddTags([
@@ -1686,7 +1702,7 @@ begin
         ]);
       {$endif}
     end;
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, BGPen);
     {$else}
     SetRPAttrsA(RastPort, Tags);
@@ -1740,8 +1756,12 @@ begin
       FreeBitmap(RastPort^.Bitmap);
       RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
+      {$ifdef AmigaOS4} // crashes
+      //WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight);
+      {$else}
       if Assigned(CyberGfxBase) then
         WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight, RECTFMT_ARGB);
+      {$endif}
     end;
   end;
 end;

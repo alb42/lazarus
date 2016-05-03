@@ -38,11 +38,9 @@ uses
   //Aroswinunit,
   MUIBaseUnit, MUIFormsUnit, muidrawing, tagsparamshelper, muiglobal,
   {$ifdef HASAMIGA}
-  exec, intuition, mui, utility, AmigaDos, cybergraphics,
+  exec, intuition, mui, utility, AmigaDos, icon,
+  {$ifndef AMIGAOS4}cybergraphics,{$endif}
   inputevent, Cliputils,
-  {$ifndef MorphOS}
-  icon,
-  {$endif}
   {$endif}
   // widgetset
   WSLCLClasses, LCLMessageGlue;
@@ -209,8 +207,8 @@ begin
   Dollar := '$';
   prgName := Application.title;
   AppTitle := Application.title;
+  Info := TVersionInfo.Create;
   try
-    Info := TVersionInfo.Create;
     Info.Load(HINSTANCE);
     Vers := PV2Str(Info.FixedInfo.FileVersion);
     for i := 0 to Info.StringFileInfo.Count - 1 do
@@ -236,12 +234,10 @@ begin
         end;
       end;
     end;
-    Info.Free;
   except
   end;
-  {$ifndef MorphOS}
+  Info.Free;
   ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
-  {$endif}
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   TagList.AddTags([
     //LongInt(MUIA_Application_Base), PChar(AppTitle),
@@ -270,9 +266,7 @@ end;
 
 procedure TMUIWidgetSet.AppTerminate;
 begin
-  {$ifndef MorphOS}
   FreeDiskObject(ThisAppDiskIcon);
-  {$endif}
 end;
 
 procedure TMUIWidgetSet.AppMinimize;
@@ -340,7 +334,6 @@ begin
     end;
   end;
   ES^.es_GadgetFormat := PChar(BtnText);
-  //TODO: This calculation is acutally wrong, Return Value is 1,2,3,...,N,0
   {$ifdef MorphOS}
   // App after MUI_RequestA is blocked
   Res := EasyRequestArgs(nil, ES, nil, nil);
@@ -580,7 +573,11 @@ begin
   ARawImage.DataSize := w * h * SizeOf(LongWord);
   ReAllocMem(ARawImage.Data, ARawImage.DataSize);
   T := MUICanvas.GetOffset;
+  {$ifdef AmigaOS4} // crashes
+  //ReadPixelarray(MUICanvas.RastPort, T.X, T.Y, ARawImage.Data, 0, 0, w * SizeOf(LongWord), PIXF_A8R8G8B8, w, h);
+  {$else}
   ReadPixelarray(ARawImage.Data, 0, 0, w * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, w, h, RECTFMT_ARGB);
+  {$endif}
   Result := True;
 end;
 

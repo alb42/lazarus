@@ -84,11 +84,15 @@ begin
       ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
     end else
     begin
-      {$ifndef AMIGA}
-      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+      {$ifdef AmigaOS4} // crashes
+      //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
       {$else}
-      if Assigned(CyberGfxBase) then
-        WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+        {$ifndef AMIGA}
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        {$else}
+        if Assigned(CyberGfxBase) then
+          WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+        {$endif}
       {$endif}
     end;
     //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
@@ -1695,11 +1699,15 @@ begin
       end else
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
-        {$ifndef AMIGA}
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+        {$ifdef AmigaOS4} // Crashes
+        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
-        if Assigned(CyberGfxBase) then
-          WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
+          {$ifndef AMIGA}
+          WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
+          {$else}
+          if Assigned(CyberGfxBase) then
+            WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
+          {$endif}
         {$endif}
       end;
     end else
@@ -1727,8 +1735,12 @@ begin
           Inc(DB);
         end;
       end;
+      {$ifdef AmigaOS4}  // crashes
+      //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
+      {$else}
       if Assigned(CyberGfxBase) then
         WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+      {$endif}
       System.FreeMem(NImage);
     end;
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
@@ -1775,11 +1787,15 @@ begin
       end else
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
-        {$ifndef AMIGA}
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        {$ifdef AmigaOS4} // crrashes
+        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
-        if Assigned(CyberGfxBase) then
-          WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+          {$ifndef AMIGA}
+          WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+          {$else}
+          if Assigned(CyberGfxBase) then
+            WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+          {$endif}
         {$endif}
       end;
     end else
@@ -1838,11 +1854,15 @@ begin
             Inc(DB);
           end;
         end;
-        {$ifndef AMIGA}
-        WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        {$ifdef AmigaOS4} // crashes
+        //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
-        if Assigned(CyberGfxBase) then
-          WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+          {$ifndef AMIGA}
+          WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+          {$else}
+          if Assigned(CyberGfxBase) then
+            WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+          {$endif}
         {$endif}
         System.FreeMem(NImage);
       end;

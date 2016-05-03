@@ -180,32 +180,32 @@ begin
       begin
         Miw := 100;
         Mih := 20;
-        Maw := 10000;
-        Mah := 10000;
+        Maw := MUI_MAXMAX;
+        Mah := MUI_MAXMAX;
         if Assigned(Win.PasObject) then
         begin
           PasWin := TWinControl(Win.PasObject);
           MiW := Max(PasWin.Constraints.MinWidth, 100);
           MiH := Max(PasWin.Constraints.MinHeight, 20);
           if PasWin.Constraints.MaxWidth > 0 then
-            MaW := Min(PasWin.Constraints.MaxWidth, 10000);
+            MaW := Min(PasWin.Constraints.MaxWidth, MUI_MAXMAX);
           if PasWin.Constraints.MaxHeight > 0 then
-            MaH := Min(PasWin.Constraints.MaxHeight, 10000);
+            MaH := Min(PasWin.Constraints.MaxHeight, MUI_MAXMAX);
           LMsg^.lm_MinMax.MinWidth := MiW;
           LMsg^.lm_MinMax.MinHeight := MiH;
           LMsg^.lm_MinMax.MaxWidth :=  MaW;
           LMsg^.lm_MinMax.MaxHeight := MaH;
         end;
-        LMsg^.lm_MinMax.DefWidth := Win.Width;
-        LMsg^.lm_MinMax.DefHeight := Win.Height;
+        LMsg^.lm_MinMax.DefWidth := Win.FWidth;
+        LMsg^.lm_MinMax.DefHeight := Win.FHeight;
       end else
       begin
-        LMsg^.lm_MinMax.MinWidth := Win.Width;
-        LMsg^.lm_MinMax.MinHeight := Win.Height;
-        LMsg^.lm_MinMax.MaxWidth := Win.Width;
-        LMsg^.lm_MinMax.MaxHeight := Win.Height;
-        LMsg^.lm_MinMax.DefWidth := Win.Width;
-        LMsg^.lm_MinMax.DefHeight := Win.Height;
+        LMsg^.lm_MinMax.MinWidth := Win.FWidth;
+        LMsg^.lm_MinMax.MinHeight := Win.FHeight;
+        LMsg^.lm_MinMax.MaxWidth := Win.FWidth;
+        LMsg^.lm_MinMax.MaxHeight := Win.FHeight;
+        LMsg^.lm_MinMax.DefWidth := Win.FWidth;
+        LMsg^.lm_MinMax.DefHeight := Win.FHeight;
       end;
       TWinControl(Win.PasObject).Realign;
     end;
@@ -502,7 +502,7 @@ begin
   GrpTags.AddTags([
     MUIA_Group_LayoutHook, NativeUInt(@LayoutHook),
     MUIA_Frame, MUIV_Frame_None,
-    MUIA_FillArea, LFalse,
+    //MUIA_FillArea, LFalse,
     MUIA_InnerLeft, 0,
     MUIA_InnerTop, 0,
     MUIA_InnerRight, 0,
@@ -590,9 +590,9 @@ begin
   Result := inherited;
   Result.Left := 0;
   Result.Top := 0;
-  Result.Right := Width;
-  Result.Bottom := Height;
-  {$ifndef AROS}
+  Result.Right := FWidth;
+  Result.Bottom := FHeight;
+  {$if defined(Amiga) or defined(MorphOS)}
   Win := Self.Window;
   if Assigned(Window) then
   begin

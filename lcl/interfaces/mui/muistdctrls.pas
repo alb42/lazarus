@@ -8,9 +8,12 @@ uses
   Classes, SysUtils, Controls, Contnrs, Exec, AmigaDos, Intuition, Utility, Mui, Forms,
   muidrawing, buttons, Math, Graphics,
   {$ifdef HASAMIGA}
-  cybergraphics, agraphics,
+  agraphics,
+  {$ifndef AMIGAOS4}
+  cybergraphics,
   {$ifdef MorphOS}
   amigalib,
+  {$endif}
   {$endif}
   {$endif}
   MuiBaseUnit, tagsparamshelper, muiglobal,
@@ -1773,9 +1776,9 @@ end;
 
 constructor TMUIGroupBox.Create(const Tags: TATagList);
 begin
-  Tags.AddTags([
-    MUIA_FillArea, LFalse
-    ]);
+  //Tags.AddTags([
+  //  MUIA_FillArea, LFalse
+  //  ]);
   inherited Create(LCLGroupClass, Tags);
   MUIDrawing := True;
   FText := nil;

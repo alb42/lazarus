@@ -490,7 +490,7 @@ var
 begin
   FBlockSize := False;
   FBlockMove := False;
-  FFocusedControl := Self;
+  FFocusedControl := nil;
   LT.Clear;
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;

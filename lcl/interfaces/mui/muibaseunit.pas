@@ -318,7 +318,9 @@ function TMUIObject.GetParentWindow: TMUIObject;
 begin
   Result := Self;
   while Assigned(Result) and (not (Result is TMUIWindow)) do
+  begin
     Result := Result.Parent;
+  end;
 end;
 
 // Object which should get the focus on Set Focus (for combined things)
@@ -1525,8 +1527,11 @@ var
   li: pLayer_Info;
 begin
   Result := 0;
+  MUIB := nil;
+  MUIWin := nil;
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
+// ################# Setup EVENT #######################################
     MUIM_SETUP: begin
       //writeln(' setup');
       Result := DoSuperMethodA(cl, obj, msg);
@@ -1555,6 +1560,7 @@ begin
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
+// ################# Cleanup EVENT #####################################
     MUIM_CLEANUP: begin
       //write(' cleanup');
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
@@ -1567,7 +1573,8 @@ begin
       Result := DoSuperMethodA(cl, obj, msg);
       //MUI_RejectIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;
-    MUIM_Draw:                 // ################# DRAW EVENT #########################
+// ################# DRAW EVENT ########################################
+    MUIM_Draw:
     begin
       //writeln(' DRAW');
 
@@ -1599,7 +1606,8 @@ begin
             end else
             begin
               {.$ifndef MorphOS} // makes strong flicker on MorphOS
-              if MUIB is TMuiGroup then
+              //if MUIB is TMuiGroup then
+              if MUIB.MUIDrawing then
                 Result := DoSuperMethodA(cl, obj, msg);
               {.$endif}
             end;
@@ -1682,17 +1690,18 @@ begin
       end;
       Result := 0;
     end;
+// ################# Handle EVENT ######################################
     MUIM_HANDLEEVENT: begin
       Result := 0;
       MUIB := TMUIObject(INST_DATA(cl, Pointer(obj))^);
+      Win := nil;
+      ri := MUIRenderInfo(Obj);
+      if Assigned(ri) then
+        Win := ri^.mri_Window;
       if Assigned(MUIB) and Assigned(MUIB.PasObject) and Assigned(MUIB.Parent) then
       begin
         HEMsg := Pointer(Msg);
         iMsg := HeMsg^.imsg;
-        ri := MUIRenderInfo(Obj);
-        if Assigned(ri) then
-          Win := ri^.mri_Window;
-
         // save Keystate for Winapi.GetKeyState
         KeyState := IMsg^.Qualifier;
         // Eat this Event if it is inside our border
@@ -1708,14 +1717,14 @@ begin
           if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
             EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
         end;
+        MUIParent := MUIB.GetParentWindow;
+        MUIWin := nil;
+        if MUIParent is TMuiWindow then
+          MUIWin := MUIParent as TMuiWindow;
         if Assigned(Win) and EatEvent then
         begin
           // Activate the RMBTrap if no menu -> we can use the Right mousekey
           // get parent window
-          MUIParent := MUIB.GetParentWindow;
-          MUIWin := nil;
-          if MUIParent is TMuiWindow then
-            MUIWin := MUIParent as TMuiWindow;
           if Assigned(MUIWin) then
           begin
             // if Window has a MainMenu do not catch Right MB
@@ -1733,10 +1742,6 @@ begin
             end;
             //if (Win^.Flags and WFLG_RMBTrap) <> 0 then
            //   writeln('after RMB TRAP ACTIVE');
-            {if EatEvent then
-              writeln('EatEVent')
-            else
-              writeln('not EatEvent');}
           end;
         end;
         if True then
@@ -1747,7 +1752,8 @@ begin
           RelY := Imsg^.MouseY - obj_Top(obj);
           // Check the EventClass
           case IMsg^.IClass of
-            IDCMP_MOUSEMOVE: begin     // Mouse MOVE  ############################################
+            // Mouse MOVE  #############################################
+            IDCMP_MOUSEMOVE: begin
               LCLSendMouseMoveMsg(MUIB.PasObject, RelX, RelY, []);
               if MUIB.LastClick > 0 then
                 if MUIB.NumMoves > 0 then
@@ -1755,8 +1761,8 @@ begin
                 else
                   MUIB.LastClick := -1;
             end;
-            IDCMP_MOUSEBUTTONS: begin  // MOUSE BUTTON ###########################################
-
+            // MOUSE BUTTON ############################################
+            IDCMP_MOUSEBUTTONS: begin
               // Check the Mouse Status
               case iMsg^.Code of
                 SELECTDOWN: begin  // Left Button down
@@ -1809,7 +1815,8 @@ begin
                 MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
               end;
             end;
-            IDCMP_RAWKEY: begin              // KEYS ###########################################
+            // KEYS ####################################################
+            IDCMP_RAWKEY: begin
               // Mouse scroll wheel produce a up/down message
               if (iMsg^.Code = $7A) or (iMsg^.Code = $7B) then
               begin

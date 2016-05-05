@@ -252,7 +252,15 @@ begin
   //Hook.h_Data := MuiDialog;
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}
 {$ifndef USE_OLD_ASL}
+  {$ifdef Amiga}
+    {$ifdef Amiga68k}
+    if AslRequest(MuiDialog, TagsList) then
+    {$else}
+    if AslRequestA(MuiDialog, TagsList) then
+    {$endif}
+  {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
+  {$endif}
   begin
     FileDialog.FileName := GetFilename(string(MuiDialog^.fr_Drawer), string(MuiDialog^.fr_file));
     if MultiSelect then
@@ -266,8 +274,12 @@ begin
     FileDialog.UserChoice := mrOK;
   end else
 {$else}
-  {$ifdef Amiga68K}
-  if AslRequest(MuiDialog, TagsList) then
+  {$ifdef Amiga}
+    {$ifdef Amiga68k}
+    if AslRequest(MuiDialog, TagsList) then
+    {$else}
+    if AslRequestA(MuiDialog, TagsList) then
+    {$endif}
   {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   {$endif}
@@ -500,8 +512,12 @@ begin
     ASLFO_DoFrontPen, TagFalse
     ]);
   //
-  {$ifdef Amiga68k}
-  if AslRequest(MuiDialog, TagsList) then
+  {$ifdef Amiga}
+    {$ifdef Amiga68k}
+    if AslRequest(MuiDialog, TagsList) then
+    {$else}
+    if AslRequestA(MuiDialog, TagsList) then
+    {$endif}
   {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   {$endif}

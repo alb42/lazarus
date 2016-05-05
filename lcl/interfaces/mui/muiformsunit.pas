@@ -168,12 +168,28 @@ var
   LMsg: pMUI_LayoutMsg;
   i: LongInt;
   Win: TMuiWindow;
+  AWin: PWindow;
   PasWin: TWinControl;
+  BW, BH: Integer;
   Miw, Mih, Maw, Mah: Integer;
 begin
   LMsg := Msg;
   Result := LongInt(True);
   Win := TMuiWindow(Hook^.h_Data);
+  BW := 0;
+  BH := 0;
+  {$if defined(Amiga) or defined(MorphOS)}
+  AWin := Win.Window;
+  if Assigned(AWin) then
+  begin
+    BW := AWin^.BorderLeft{ + AWin^.BorderRight};
+    BH := AWin^.BorderTop{ + AWin^.BorderBottom};
+    {$ifdef AmigaOS4}
+    BW := BW + AWin^.BorderRight;
+    BH := BH + AWin^.BorderBottom;
+    {$endif}
+  end;
+  {$endif}
   case LMsg^.lm_type of
     MUILM_MINMAX: begin
       if Win.Sizeable then
@@ -196,16 +212,16 @@ begin
           LMsg^.lm_MinMax.MaxWidth :=  MaW;
           LMsg^.lm_MinMax.MaxHeight := MaH;
         end;
-        LMsg^.lm_MinMax.DefWidth := Win.FWidth;
-        LMsg^.lm_MinMax.DefHeight := Win.FHeight;
+        LMsg^.lm_MinMax.DefWidth := Win.FWidth - BW;
+        LMsg^.lm_MinMax.DefHeight := Win.FHeight - BH;
       end else
       begin
-        LMsg^.lm_MinMax.MinWidth := Win.FWidth;
-        LMsg^.lm_MinMax.MinHeight := Win.FHeight;
-        LMsg^.lm_MinMax.MaxWidth := Win.FWidth;
-        LMsg^.lm_MinMax.MaxHeight := Win.FHeight;
-        LMsg^.lm_MinMax.DefWidth := Win.FWidth;
-        LMsg^.lm_MinMax.DefHeight := Win.FHeight;
+        LMsg^.lm_MinMax.MinWidth := Win.FWidth - BW;
+        LMsg^.lm_MinMax.MinHeight := Win.FHeight - BH;
+        LMsg^.lm_MinMax.MaxWidth := Win.FWidth - BW;
+        LMsg^.lm_MinMax.MaxHeight := Win.FHeight - BH;
+        LMsg^.lm_MinMax.DefWidth := Win.FWidth - BW;
+        LMsg^.lm_MinMax.DefHeight := Win.FHeight - BH;
       end;
       TWinControl(Win.PasObject).Realign;
     end;
@@ -551,17 +567,17 @@ end;
 
 procedure TMuiWindow.GetSizes;
 begin
-  Left := GetAttribute(MUIA_Window_LeftEdge);
-  Top := GetAttribute(MUIA_Window_TopEdge);
+  FLeft := GetAttribute(MUIA_Window_LeftEdge);
+  FTop := GetAttribute(MUIA_Window_TopEdge);
   //
   if not Sizeable then
   begin
-    Width := GetAttribute(MUIA_Window_Width);
-    Height := GetAttribute(MUIA_Window_Height);
+    FWidth := GetAttribute(MUIA_Window_Width);
+    FHeight := GetAttribute(MUIA_Window_Height);
   end else
   begin
-    Width := GetAttribute(MUIA_Window_Width);
-    Height := GetAttribute(MUIA_Window_Height);
+    FWidth := GetAttribute(MUIA_Window_Width);
+    FHeight := GetAttribute(MUIA_Window_Height);
   end;
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
 end;
@@ -588,6 +604,7 @@ var
   win: PWindow;
 begin
   Result := inherited;
+  GetSizes;
   Result.Left := 0;
   Result.Top := 0;
   Result.Right := FWidth;
@@ -691,7 +708,10 @@ procedure TMuiWindow.SetVisible(const AValue: Boolean);
 begin
   SetAttribute(MUIA_Window_Open, AValue);
   if AValue then
+  begin
+    GetSizes;
     TWinControl(PasObject).InvalidateClientRectCache(True);
+  end;
 end;
 
 procedure TMuiWindow.AddChild(ChildObj: PObject_);

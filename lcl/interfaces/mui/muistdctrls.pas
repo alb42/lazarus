@@ -855,6 +855,7 @@ begin
     inherited Create(ObjType, Params);
   Tags.Clear;
   CheckLabel := TMuiText.Create(Tags);
+  //CheckLabel.Visible := False;
 end;
 
 destructor TMuiCheckMark.Destroy;
@@ -882,7 +883,7 @@ begin
   if Assigned(CheckLabel) then
   begin
     CheckLabel.Caption := AValue;
-    CheckLabel.Visible := AValue <> '';
+    CheckLabel.Visible := (AValue <> '') and Visible;
   end;
 end;
 
@@ -1012,7 +1013,7 @@ function TextEditFunc(Hook: PHook; Obj: PObject_; Msg:Pointer): LongInt;
 //var
 //  MuiObject: TMuiObject;
 begin
-  writeln('edit text Event');
+  //writeln('edit text Event');
   Result := 0;
   if TObject(Hook^.h_Data) is TMuiObject then
   begin

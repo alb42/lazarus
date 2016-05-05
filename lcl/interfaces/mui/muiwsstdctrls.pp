@@ -786,7 +786,7 @@ var
   MUIRadioButton : TMuiRadioButton;
   Params: TAParamList;
 begin
-  //writeln('create CheckBox');
+  //writeln('create CheckBox ', AParams.Caption);
   Params.SetParams([NativeUInt(PChar(AParams.Caption))]);
   MUIRadioButton := TMuiRadioButton.Create(Params);
   With MUIRadioButton do
@@ -795,6 +795,7 @@ begin
     Top := AParams.Y;
     Width := AParams.Width;
     Height := AParams.Height;
+    Visible := False;
     PasObject := AWinControl;
   end;
 

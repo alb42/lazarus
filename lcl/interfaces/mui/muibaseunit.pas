@@ -376,7 +376,6 @@ end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
-  //writeln(classname, ' setVis ', AValue);
   if not AValue then
     FirstPaint := True;
   SetAttribute(MUIA_ShowMe, AValue);
@@ -480,7 +479,7 @@ end;
 
 procedure TMUIObject.DoMUIDraw();
 begin
-  if Assigned(FObject) and (not BlockRedraw) then
+  if Assigned(FObject) and (not BlockRedraw) and Visible then
   begin
     //MUI_Redraw(FObject, MADF_DRAWOBJECT);
     // Hacky, not documented feature :-P Let MUI redraw everything
@@ -1603,17 +1602,18 @@ begin
             begin
               //PMUIP_Draw(msg)^.Flags := MADF_DRAWOBJECT;
               //Result := DoSuperMethodA(cl, obj, msg);
+              if MUIB.MUIDrawing then
+                Result := DoSuperMethodA(cl, obj, msg);
             end else
             begin
               {.$ifndef MorphOS} // makes strong flicker on MorphOS
-              //if MUIB is TMuiGroup then
-              if MUIB.MUIDrawing then
+              if MUIB is TMuiGroup then
                 Result := DoSuperMethodA(cl, obj, msg);
               {.$endif}
             end;
               //Result := DoSuperMethodA(cl, obj, msg);
             WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
-            Buffered := True;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
+            Buffered := True; //not MUIB.MUIDrawing;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
             if MUIB is TMUIWindow then
             begin
               PaintX := Obj_Left(Obj);
@@ -1627,6 +1627,7 @@ begin
               PaintW := Obj_MWidth(Obj);
               PaintH := Obj_MHeight(Obj);
             end;
+
             if WithScrollbars then
             begin
               if MUIB.VScroll.Visible then

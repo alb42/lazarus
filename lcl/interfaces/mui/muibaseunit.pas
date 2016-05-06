@@ -22,7 +22,7 @@ uses
   Classes, dos, SysUtils, Controls, Contnrs, Types, graphics, Math,
   {$ifdef HASAMIGA}
   Exec, AmigaDos, agraphics, Intuition, Utility, Mui, inputevent, KeyMap, diskfont, layers,
-  {$if defined(MorphOS) or defined(Amiga) and not defined(AMIGAOS4)}
+  {$if defined(MorphOS) or defined(Amiga68k)}
   AmigaLib,
   {$endif}
   {$endif}
@@ -1575,8 +1575,7 @@ begin
 // ################# DRAW EVENT ########################################
     MUIM_Draw:
     begin
-      //writeln(' DRAW');
-
+      //sysdebugln('->>DRAW');
       //if (PMUIP_Draw(msg)^.Flags and MADF_DRAWOBJECT <> 0) then
       // Exit;
       rp := nil;
@@ -1769,7 +1768,10 @@ begin
               case iMsg^.Code of
                 SELECTDOWN: begin  // Left Button down
                   if not EatEvent then
+                  begin
+                    //writeln('handleevent Exit');
                     Exit;  // Mouse buttons only send if the mouse is inside the Widget
+                  end;
                   // Check if we have to switch the Focus to the clicked one
                   if MUIWin.FocusedControl <> MUIB then
                   begin

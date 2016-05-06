@@ -9,11 +9,9 @@ uses
   muidrawing, buttons, Math, Graphics,
   {$ifdef HASAMIGA}
   agraphics,
-  {$ifndef AMIGAOS4}
   cybergraphics,
   {$ifdef MorphOS}
   amigalib,
-  {$endif}
   {$endif}
   {$endif}
   MuiBaseUnit, tagsparamshelper, muiglobal,

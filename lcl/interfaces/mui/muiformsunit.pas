@@ -506,7 +506,7 @@ var
 begin
   FBlockSize := False;
   FBlockMove := False;
-  FFocusedControl := nil;
+  FFocusedControl := Self;
   LT.Clear;
   FMainMenu := TMuiMenuStrip.Create(LT);
   HasMenu := False;
@@ -611,7 +611,7 @@ begin
   Result.Bottom := FHeight;
   {$if defined(Amiga) or defined(MorphOS)}
   Win := Self.Window;
-  if Assigned(Window) then
+  if Assigned(Win) then
   begin
     Result.Width := Result.Width - (Win^.BorderLeft + Win^.BorderRight);
     Result.Height := Result.Height - (Win^.BorderTop + Win^.BorderBottom);

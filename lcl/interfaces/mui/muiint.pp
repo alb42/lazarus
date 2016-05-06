@@ -381,8 +381,9 @@ begin
   Bit := TMUIBitmap.Create(ARawImage.Description.Width, ARawImage.Description.Height, ARawImage.Description.Depth);
   //ARawImage.Description.GetRGBIndices(Ridx, GIdx, BIdx, AIdx);
   //writeln('R: ',Ridx, ' G: ', GIdx, ' B: ', BIdx, ' A: ', AIdx);
-  Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
-  PLongWord(Bit.FImage)^ := $FFFFFFFF;
+  if ARawImage.DataSize > 0 then
+    Move(ARawImage.Data^, Bit.FImage^, ARawImage.DataSize);
+  //PLongWord(Bit.FImage)^ := $FFFFFFFF;
   ABitmap := HBITMAP(Bit);
   AMask := 0;
   Result := True;

@@ -24,6 +24,18 @@
 
 {.$define VERBOSEAROS}
 
+
+const
+  {$ifdef AROS}
+  DEFALPHAVALUE = 255;
+  {$endif}
+  {$ifdef MorphOS}
+  DEFALPHAVALUE = $FFFFFFFF;
+  {$endif}
+  {$ifdef Amiga}
+  DEFALPHAVALUE = $FFFFFFFF;
+  {$endif}
+
 //##apiwiz##sps##   // Do not remove, no wizard declaration before this line
 
 {------------------------------------------------------------------------------
@@ -85,7 +97,7 @@ begin
     end else
     begin
       {$ifndef AMIGA68k}
-      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, DEFALPHAVALUE);
       {$else}
       if Assigned(CyberGfxBase) then
         Cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
@@ -1066,7 +1078,8 @@ var
   PrivateWidget: TMUIObject absolute aHandle;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('-->invalidate ', bErase);
+  writeln('-->invalidate ', bErase, ' ', HexStr(PrivateWidget));
+  writeln('  ', PrivateWidget.classname);
   if Assigned(Rect) then
   begin
     writeln('Rect: ', Rect^.Left, ', ', Rect^.Top, ' - ', Rect^.Right,', ', Rect^.Bottom);
@@ -1074,11 +1087,21 @@ begin
     writeln('Rect = nil;');
   {$endif}
   Result := False;
+  if (Rect^.Right - Rect^.Left = 0) or (Rect^.Bottom - Rect^.Top = 0) then
+  begin
+    {$ifdef VERBOSEAROS} 
+    writeln('<<<< Exit Invalidate');
+    {$endif}
+    Exit;
+  end;
   if Assigned(PrivateWidget) then
   begin
     MUIApp.AddInvalidatedObject(PrivateWidget);
     Result := True;
   end;
+  {$ifdef VERBOSEAROS}
+  writeln('<--invalidate ', bErase);
+  {$endif}
 end;
 
 procedure TMUIWidgetSet.InitializeCriticalSection(var CritSection: TCriticalSection);
@@ -1695,7 +1718,7 @@ begin
       end else
       begin
         {$ifndef AMIGA68k}
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $FFFFFFFF)
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, DEFALPHAVALUE)
         {$else}
         if Assigned(CyberGfxBase) then
           Cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
@@ -1752,12 +1775,12 @@ var
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
 begin
-  {.$ifdef VERBOSEAROS}
+  {$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
 
   writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
   writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
-  {.$endif}
+  {$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
     Dest.Drawn := True;
@@ -1775,7 +1798,7 @@ begin
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
         {$ifndef AMIGA68k}
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $FFFFFFFF);
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, DEFALPHAVALUE);
         {$else}
         if Assigned(CyberGfxBase) then
           cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
@@ -1838,7 +1861,7 @@ begin
           end;
         end;
         {$ifndef AMIGA68k}
-        WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
+        WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, DEFALPHAVALUE);
         {$else}
         if Assigned(CyberGfxBase) then
           Cybergraphics.WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
@@ -1851,6 +1874,7 @@ begin
     //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
   end;
   Result := True;
+  //writeln('end StretchMaskBlt');
 end;
 
 function TMUIWidgetSet.WindowFromPoint(Point: TPoint): HWND;

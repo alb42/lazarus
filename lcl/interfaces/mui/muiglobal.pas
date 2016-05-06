@@ -24,19 +24,21 @@ interface
 uses
   Classes, SysUtils, exec, intuition, agraphics,
 {$if defined(CPU68) or defined(CPUPOWERPC)}
-  {$ifndef AMIGAOS4}
+  {$if defined(AMIGA68k) or defined(MorphOS)}
   amigalib,
   {$endif}
 {$endif}
   utility, mui, tagsparamshelper;
 
 {$ifdef MorphOS}
+// Missing in the fpc units
 const
   RPTAG_PenMode    = $80000080;
   RPTAG_FgColor    = $80000081;
   RPTAG_BgColor    = $80000082;
 {$endif}
 {$ifdef AmigaOS4}
+// Colorsetting tags are different to AROS/MorphOS
 const
   RPTAG_FGCOLOR = RPTAG_APENCOLOR;
   RPTAG_BGCOLOR = RPTAG_BPENCOLOR;

@@ -39,11 +39,7 @@ uses
   MUIBaseUnit, MUIFormsUnit, muidrawing, tagsparamshelper, muiglobal,
   {$ifdef HASAMIGA}
   exec, intuition, mui, utility, AmigaDos, icon,
-  {$ifdef AMIGAOS4}
-  picasso96api,
-  {$else}
   cybergraphics,
-  {$endif}
   inputevent, Cliputils,
   {$endif}
   // widgetset
@@ -564,9 +560,6 @@ var
   W, H: Integer;
   MUICanvas: TMUICanvas absolute ADC;
   T: AGraphics.TPoint;
-  {$ifdef AmigaOS4}
-  ri: TRenderInfo;
-  {$endif}
 begin
   ARawImage.Init;
   w := ARect.Right;
@@ -580,16 +573,8 @@ begin
   ARawImage.DataSize := w * h * SizeOf(LongWord);
   ReAllocMem(ARawImage.Data, ARawImage.DataSize);
   T := MUICanvas.GetOffset;
-  {$ifdef AmigaOS4}
-  ri.Memory := ARawImage.Data;
-  ri.BytesPerRow := w * SizeOf(LongWord);
-  ri.Pad := 0;
-  ri.RGBFormat := RGBFB_A8R8G8B8;
-  p96ReadPixelArray(@ri, 0, 0, MUICanvas.RastPort, 0, 0, w, h);
-  //ReadPixelarray(MUICanvas.RastPort, T.X, T.Y, ARawImage.Data, 0, 0, w * SizeOf(LongWord), PIXF_A8R8G8B8, w, h);
-  {$else}
-  ReadPixelarray(ARawImage.Data, 0, 0, w * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, w, h, RECTFMT_ARGB);
-  {$endif}
+  if Assigned(CyberGfxBase) then
+    Cybergraphics.ReadPixelArray(ARawImage.Data, 0, 0, w * SizeOf(LongWord), MUICanvas.RastPort, T.X, T.Y, w, h, RECTFMT_ARGB);
   Result := True;
 end;
 

@@ -84,15 +84,11 @@ begin
       ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
     end else
     begin
-      {$ifdef AmigaOS4} // crashes
-      //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
+      {$ifndef AMIGA68k}
+      WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
       {$else}
-        {$ifndef AMIGA}
-        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
-        {$else}
-        if Assigned(CyberGfxBase) then
-          WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
-        {$endif}
+      if Assigned(CyberGfxBase) then
+        Cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
       {$endif}
     end;
     //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
@@ -1684,9 +1680,6 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
-  {$ifdef AmigaOS4}
-  ri: TRenderInfo;
-  {$endif}
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1701,21 +1694,11 @@ begin
         ClipBlit(Src.RastPort, xSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
       end else
       begin
-        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
-        {$ifdef AmigaOS4} // Crashes
-        ri.Memory := Src.Bitmap.FImage;
-        ri.BytesPerRow := Src.Bitmap.FWidth * SizeOf(LongWord);
-        ri.Pad := 0;
-        ri.RGBFormat := RGBFB_A8R8G8B8;
-        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
-        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
+        {$ifndef AMIGA68k}
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $FFFFFFFF)
         {$else}
-          {$ifndef AMIGA}
-          WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255)
-          {$else}
-          if Assigned(CyberGfxBase) then
-            WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
-          {$endif}
+        if Assigned(CyberGfxBase) then
+          Cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB)
         {$endif}
       end;
     end else
@@ -1743,17 +1726,8 @@ begin
           Inc(DB);
         end;
       end;
-      {$ifdef AmigaOS4}  // crashes
-      ri.Memory := NImage;
-      ri.BytesPerRow := Width * SizeOf(LongWord);
-      ri.Pad := 0;
-      ri.RGBFormat := RGBFB_A8R8G8B8;
-      p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
-      //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
-      {$else}
       if Assigned(CyberGfxBase) then
-        WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
-      {$endif}
+        Cybergraphics.WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
       System.FreeMem(NImage);
     end;
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
@@ -1777,16 +1751,13 @@ var
   //Sptr, Dptr: PByte;
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
-  {$ifdef AmigaOS4}
-  ri: TRenderInfo;
-  {$endif}
 begin
-  {$ifdef VERBOSEAROS}
+  {.$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
 
   writeln('   SRC  ', Assigned(Src),',',Assigned(Src.Bitmap),',',Assigned(Src.RastPort),',',assigned(Src.MUIObject));
   writeln('   DEST ', Assigned(Dest),',',Assigned(Dest.Bitmap),',',Assigned(Dest.RastPort),',',assigned(Dest.MUIObject));
-  {$endif}
+  {.$endif}
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
     Dest.Drawn := True;
@@ -1803,20 +1774,11 @@ begin
       end else
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
-        {$ifdef AmigaOS4} // crrashes
-        ri.Memory := Src.Bitmap.FImage;
-        ri.BytesPerRow := Src.Bitmap.FWidth * SizeOf(LongWord);
-        ri.Pad := 0;
-        ri.RGBFormat := RGBFB_A8R8G8B8;
-        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
-        //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
+        {$ifndef AMIGA68k}
+        WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $FFFFFFFF);
         {$else}
-          {$ifndef AMIGA}
-          WritePixelArrayAlpha(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
-          {$else}
-          if Assigned(CyberGfxBase) then
-            WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
-          {$endif}
+        if Assigned(CyberGfxBase) then
+          cybergraphics.WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
         {$endif}
       end;
     end else
@@ -1875,20 +1837,11 @@ begin
             Inc(DB);
           end;
         end;
-        {$ifdef AmigaOS4} // crashes
-        ri.Memory := NImage;
-        ri.BytesPerRow := Width * SizeOf(LongWord);
-        ri.Pad := 0;
-        ri.RGBFormat := RGBFB_A8R8G8B8;
-        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
-        //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
+        {$ifndef AMIGA68k}
+        WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
         {$else}
-          {$ifndef AMIGA}
-          WritePixelArrayAlpha(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, 255);
-          {$else}
-          if Assigned(CyberGfxBase) then
-            WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
-          {$endif}
+        if Assigned(CyberGfxBase) then
+          Cybergraphics.WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
         {$endif}
         System.FreeMem(NImage);
       end;

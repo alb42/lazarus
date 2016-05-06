@@ -28,7 +28,11 @@ uses
   // aros
   {$ifdef HASAMIGA}
   ,agraphics, intuition, mui,
-  {$ifndef AMIGAOS4}cybergraphics,{$endif}
+  {$ifdef AMIGAOS4}
+  picasso96api,
+  {$else}
+  cybergraphics,
+  {$endif}
   diskfont
   {$endif};
 
@@ -380,11 +384,19 @@ end;
 procedure TMUIBitmap.GetFromCanvas;
 var
   T: TPoint;
+{$ifdef AmigaOS4}
+  ri: TRenderInfo;
+{$endif}
 begin
   if Assigned(MUICanvas) and Assigned(FImage) and Assigned(MUICanvas.RastPort) then
   begin
     T := MUICanvas.GetOffset;
-    {$ifdef AmigaOS4} // crashes
+    {$ifdef AmigaOS4}
+    ri.Memory := FImage;
+    ri.BytesPerRow := FWidth * SizeOf(LongWord);
+    ri.Pad := 0;
+    ri.RGBFormat := RGBFB_A8R8G8B8;
+    p96ReadPixelarray(@ri, 0, 0, MUICanvas.RastPort, T.X, T.Y, FWidth, FHeight);
     //ReadPixelarray(MUICanvas.RastPort, T.X, T.Y, FImage, 0, 0, FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, FWidth, FHeight);
     {$else}
     if Assigned(CyberGfxBase) then
@@ -1236,7 +1248,6 @@ var
     if (AX >= 0) and (AY >= 0) and (AX < Width) and (AY < Height) then
     begin
       Checked[AX,AY] := True;
-      {$ifndef AmigaOS4}
       if ReadRGBPixel(RastPort, T.X + AX, T.Y + AY) = Col then
       begin
         if WriteRGBPixel(RastPort, T.X + AX, T.Y + AY, NewCol) = -1 then
@@ -1246,7 +1257,6 @@ var
         AddToCheck(AX + 1, AY);
         AddToCheck(AX, AY + 1);
       end;
-      {$endif}
     end;
   end;
 
@@ -1266,7 +1276,6 @@ begin
       end;
     //t2 := GetMsCount;
     NewCol := TColorToMUIColor(Color);
-    {$ifndef AmigaOS4}
     Col := ReadRGBPixel(RastPort, T.X + X, T.Y + Y);
     if NewCol <> Col then
     begin
@@ -1281,7 +1290,6 @@ begin
         CheckNeighbours(NX, NY);
       end;
     end;
-    {$endif}
     //t3 := GetMsCount;
     //writeln('Floodfill time: prep: ', t2-t1, ' Fill ', t3-t2, ' all: ', t3-t1);
   end;
@@ -1295,9 +1303,7 @@ begin
   begin
     Drawn := True;
     T := GetOffset;
-    {$ifndef AmigaOS4}
     WriteRGBPixel(RastPort, T.X + X, T.Y + Y, TColorToMUIColor(Color));
-    {$endif}
   end;
 end;
 
@@ -1309,9 +1315,7 @@ begin
   if Assigned(RastPort) then
   begin
     T := GetOffset;
-    {$ifndef AmigaOS4}
     Result := MUIColorToTColor(ReadRGBPixel(RastPort, T.X + X, T.Y + Y));
-    {$endif}
   end;
 end;
 
@@ -1711,6 +1715,10 @@ begin
 end;
 
 function TMUICanvas.SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
+{$ifdef AmigaOS4}
+var
+  ri: TRenderInfo;
+{$endif}
 begin
   Result := nil;
   if not Assigned(NewObj) then
@@ -1756,7 +1764,12 @@ begin
       FreeBitmap(RastPort^.Bitmap);
       RastPort^.Bitmap := AllocBitMap(Bitmap.FWidth, Bitmap.FHeight, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       DrawRect := Rect(0, 0, Bitmap.FWidth, Bitmap.FHeight);
-      {$ifdef AmigaOS4} // crashes
+      {$ifdef AmigaOS4}
+      ri.Memory := Bitmap.FImage;
+      ri.BytesPerRow := Bitmap.FWidth * SizeOf(LongWord);
+      ri.Pad := 0;
+      ri.RGBFormat := RGBFB_A8R8G8B8;
+      p96WritePixelArray(@ri, 0, 0, RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight);
       //WritePixelArray(Bitmap.FImage, 0, 0, Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, RastPort, 0, 0, Bitmap.FWidth, Bitmap.FHeight);
       {$else}
       if Assigned(CyberGfxBase) then

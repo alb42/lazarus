@@ -1684,6 +1684,9 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
+  {$ifdef AmigaOS4}
+  ri: TRenderInfo;
+  {$endif}
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1700,6 +1703,11 @@ begin
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
         {$ifdef AmigaOS4} // Crashes
+        ri.Memory := Src.Bitmap.FImage;
+        ri.BytesPerRow := Src.Bitmap.FWidth * SizeOf(LongWord);
+        ri.Pad := 0;
+        ri.RGBFormat := RGBFB_A8R8G8B8;
+        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
           {$ifndef AMIGA}
@@ -1736,6 +1744,11 @@ begin
         end;
       end;
       {$ifdef AmigaOS4}  // crashes
+      ri.Memory := NImage;
+      ri.BytesPerRow := Width * SizeOf(LongWord);
+      ri.Pad := 0;
+      ri.RGBFormat := RGBFB_A8R8G8B8;
+      p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
       //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
       {$else}
       if Assigned(CyberGfxBase) then
@@ -1764,6 +1777,9 @@ var
   //Sptr, Dptr: PByte;
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
+  {$ifdef AmigaOS4}
+  ri: TRenderInfo;
+  {$endif}
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1788,6 +1804,11 @@ begin
       begin
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_ARGB32);
         {$ifdef AmigaOS4} // crrashes
+        ri.Memory := Src.Bitmap.FImage;
+        ri.BytesPerRow := Src.Bitmap.FWidth * SizeOf(LongWord);
+        ri.Pad := 0;
+        ri.RGBFormat := RGBFB_A8R8G8B8;
+        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
         //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
           {$ifndef AMIGA}
@@ -1855,6 +1876,11 @@ begin
           end;
         end;
         {$ifdef AmigaOS4} // crashes
+        ri.Memory := NImage;
+        ri.BytesPerRow := Width * SizeOf(LongWord);
+        ri.Pad := 0;
+        ri.RGBFormat := RGBFB_A8R8G8B8;
+        p96WritePixelArray(@ri, XSrc, YSrc, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, Width, Height);
         //WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), PIXF_A8R8G8B8, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height);
         {$else}
           {$ifndef AMIGA}

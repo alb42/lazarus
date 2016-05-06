@@ -23,6 +23,9 @@ interface
 
 uses
   Classes, SysUtils, exec, intuition, agraphics,
+  {$ifdef AmigaOS4}
+  picasso96api,
+  {$endif}
 {$if defined(CPU68) or defined(CPUPOWERPC)}
   {$ifndef AMIGAOS4}
   amigalib,
@@ -69,6 +72,10 @@ var
 {$ifdef Amiga}
 function DoMethod(obj: Pointer; params: array of DWord): LongWord; overload;
 function DoMethod(obj: LongWord; params: array of DWord): LongWord; overload;
+{$endif}
+{$ifdef AmigaOS4}
+function ReadRGBPixel(Rp: PRastPort; X, Y: LongWord): LongWord; inline;
+function WriteRGBPixel(Rp: PRastPort; X, Y, Color: LongWord): LongInt; inline;
 {$endif}
 
 implementation
@@ -204,6 +211,18 @@ end;
 function DoMethod(obj: LongWord; params: array of DWord): LongWord;
 begin
   Result := DoMethodA(Pointer(obj), @params);
+end;
+{$endif}
+
+{$ifdef AmigaOS4}
+function ReadRGBPixel(Rp: PRastPort; X, Y: LongWord): LongWord;
+begin
+  Result := p96ReadPixel(Rp, X, Y);
+end;
+
+function WriteRGBPixel(Rp: PRastPort; X, Y, Color: LongWord): LongInt;
+begin
+  Result := p96WritePixel(Rp, X, Y, Color);
 end;
 {$endif}
 

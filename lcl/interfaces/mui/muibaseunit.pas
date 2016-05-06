@@ -1598,6 +1598,8 @@ begin
             end;
             //writeln('-->Draw ', muib.classname, ' ', HexStr(MUIB.FMUICanvas));
             //if MUIB.MUIDrawing then
+            WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
+            //
             if (MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars) then
             begin
               //PMUIP_Draw(msg)^.Flags := MADF_DRAWOBJECT;
@@ -1612,7 +1614,6 @@ begin
               {.$endif}
             end;
               //Result := DoSuperMethodA(cl, obj, msg);
-            WithScrollbars := Assigned(MUIB.VScroll) and Assigned(MUIB.HScroll);
             Buffered := True; //not MUIB.MUIDrawing;//(MUIB.FChilds.Count = 0) or ((MUIB.FChilds.Count = 2) and WithScrollbars);
             if MUIB is TMUIWindow then
             begin

@@ -1089,7 +1089,7 @@ begin
   Result := False;
   if (Rect^.Right - Rect^.Left = 0) or (Rect^.Bottom - Rect^.Top = 0) then
   begin
-    {$ifdef VERBOSEAROS} 
+    {$ifdef VERBOSEAROS}
     writeln('<<<< Exit Invalidate');
     {$endif}
     Exit;
@@ -1703,6 +1703,9 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
+  {$ifdef Amiga68k}
+  Alpha: Byte;
+  {$endif}
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1710,7 +1713,11 @@ begin
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) then
   begin
     Dest.Drawn := True;
+    {$ifdef Amiga68k}
+    if False then
+    {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
+    {$endif}
     begin
       if Src.Drawn then // means something was drawn on -> no alpha anymore :(
       begin
@@ -1745,7 +1752,19 @@ begin
           NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
           SB := LineStart;
           Inc(SB, NX);
+          {$ifdef Amiga68k}
+          Alpha := (SB^ shr 24) and $ff;
+          if Alpha < 128 then
+          begin
+            DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
+          end
+          else
+          begin
+            DB^ := SB^;
+          end;
+          {$else}
           DB^ := SB^;
+          {$endif}
           Inc(DB);
         end;
       end;
@@ -1774,6 +1793,9 @@ var
   //Sptr, Dptr: PByte;
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
+  {$ifdef Amiga68k}
+  Alpha: Byte;
+  {$endif}
 begin
   {$ifdef VERBOSEAROS}
   writeln('StretchMaskBlt $', HexStr(Pointer(DestDC)), ', $',HexStr(Pointer(SrcDC)),', $',HexStr(Pointer(Mask)));
@@ -1784,7 +1806,11 @@ begin
   if Assigned(Dest) and Assigned(Src) and Assigned(Src.Bitmap) and Assigned(Dest.RastPort) and assigned(Src.Bitmap.FImage) then
   begin
     Dest.Drawn := True;
+    {$ifdef Amiga68k}
+    if False then
+    {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
+    {$endif}
     begin
       //WritePixelArray(Src.Bitmap.FImage, XSrc, YSrc, Src.Bitmap.FWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, PIXFMT_0RGB32);
       {$ifdef VERBOSEAROS}
@@ -1836,7 +1862,7 @@ begin
         FreeBitmap(ScaledBitmap);
       end else
       begin
-        //writeln('Width: ', Width, ' Hegiht: ', Height);
+        //writeln('Width: ', Width, ' Height: ', Height);
         NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
         DB := NImage;
         FX := 1;
@@ -1845,7 +1871,7 @@ begin
           FX := SrcWidth/Width;
         if SrcHeight > 0 then
           FY := SrcHeight/Height;
-        for ys := 0 to Height - 5 do
+        for ys := 0 to Height - 1 do
         begin
           NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
           i := NY * SrcWidth;
@@ -1856,7 +1882,19 @@ begin
             NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
             SB := LineStart;
             Inc(SB, NX);
+            {$ifdef Amiga68k}
+            Alpha := (SB^ shr 24) and $ff;
+            if Alpha < 128 then
+            begin
+              DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
+            end
+            else
+            begin
+              DB^ := SB^;
+            end;
+            {$else}
             DB^ := SB^;
+            {$endif}
             Inc(DB);
           end;
         end;

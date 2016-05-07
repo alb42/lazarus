@@ -182,12 +182,8 @@ begin
   AWin := Win.Window;
   if Assigned(AWin) then
   begin
-    BW := AWin^.BorderLeft{ + AWin^.BorderRight};
-    BH := AWin^.BorderTop{ + AWin^.BorderBottom};
-    {$ifdef AmigaOS4}
-    BW := BW + AWin^.BorderRight;
-    BH := BH + AWin^.BorderBottom;
-    {$endif}
+    BW := AWin^.BorderLeft + AWin^.BorderRight;
+    BH := AWin^.BorderTop + AWin^.BorderBottom;
   end;
   {$endif}
   case LMsg^.lm_type of
@@ -567,17 +563,17 @@ end;
 
 procedure TMuiWindow.GetSizes;
 begin
-  FLeft := GetAttribute(MUIA_Window_LeftEdge);
-  FTop := GetAttribute(MUIA_Window_TopEdge);
+  Left := GetAttribute(MUIA_Window_LeftEdge);
+  Top := GetAttribute(MUIA_Window_TopEdge);
   //
   if not Sizeable then
   begin
-    FWidth := GetAttribute(MUIA_Window_Width);
-    FHeight := GetAttribute(MUIA_Window_Height);
+    Width := GetAttribute(MUIA_Window_Width);
+    Height := GetAttribute(MUIA_Window_Height);
   end else
   begin
-    FWidth := GetAttribute(MUIA_Window_Width);
-    FHeight := GetAttribute(MUIA_Window_Height);
+    Width := GetAttribute(MUIA_Window_Width);
+    Height := GetAttribute(MUIA_Window_Height);
   end;
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
 end;
@@ -604,11 +600,10 @@ var
   win: PWindow;
 begin
   Result := inherited;
-  GetSizes;
   Result.Left := 0;
   Result.Top := 0;
-  Result.Right := FWidth;
-  Result.Bottom := FHeight;
+  Result.Right := Width;
+  Result.Bottom := Height;
   {$if defined(Amiga) or defined(MorphOS)}
   Win := Self.Window;
   if Assigned(Win) then

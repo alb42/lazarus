@@ -648,8 +648,7 @@ var
   LMsg: pMUI_LayoutMsg;
   i: LongInt;
   MUIObj: TMuiObject;
-  PasWin: TWinControl;
-  Miw, Mih, Maw, Mah: Integer;
+  Miw, Mih: Integer;
 begin
   LMsg := Msg;
   Result := LongInt(True);
@@ -657,26 +656,14 @@ begin
   case LMsg^.lm_type of
     MUILM_MINMAX: begin
       begin
-        Miw := 1;
-        Mih := 1;
-        Maw := MUI_MAXMAX;
-        Mah := MUI_MAXMAX;
-        if Assigned(MUIObj.PasObject) then
-        begin
-          PasWin := TWinControl(MUIObj.PasObject);
-          MiW := Max(PasWin.Constraints.MinWidth, 1);
-          MiH := Max(PasWin.Constraints.MinHeight, 1);
-          if PasWin.Constraints.MaxWidth > 0 then
-            MaW := Min(PasWin.Constraints.MaxWidth, MUI_MAXMAX);
-          if PasWin.Constraints.MaxHeight > 0 then
-            MaH := Min(PasWin.Constraints.MaxHeight, MUI_MAXMAX);
-          LMsg^.lm_MinMax.MinWidth := MiW;
-          LMsg^.lm_MinMax.MinHeight := MiH;
-          LMsg^.lm_MinMax.MaxWidth :=  MaW;
-          LMsg^.lm_MinMax.MaxHeight := MaH;
-        end;
-        LMsg^.lm_MinMax.DefWidth := MUIObj.Width;
-        LMsg^.lm_MinMax.DefHeight := MUIObj.Height;
+        MiW := MUIObj.Width;
+        MiH := MUIObj.Height;
+        LMsg^.lm_MinMax.MinWidth := MiW;
+        LMsg^.lm_MinMax.MinHeight := MiH;
+        LMsg^.lm_MinMax.MaxWidth :=  MiW;
+        LMsg^.lm_MinMax.MaxHeight := MiH;
+        LMsg^.lm_MinMax.DefWidth := MiW;
+        LMsg^.lm_MinMax.DefHeight := MiH;
       end;
       TWinControl(MUIObj.PasObject).Realign;
     end;

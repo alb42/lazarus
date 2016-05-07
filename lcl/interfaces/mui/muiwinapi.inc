@@ -1691,6 +1691,15 @@ begin
   Widget.Visible := True;
 end;
 
+type
+  PARGBColor = ^TARGBColor;
+  TARGBColor = packed record
+    A: Byte;
+    R: Byte;
+    G: Byte;
+    B: Byte;
+  end;
+
 function TMUIWidgetSet.StretchBlt(DestDC: HDC; X, Y, Width, Height: Integer;
   SrcDC: HDC; XSrc, YSrc, SrcWidth, SrcHeight: Integer; ROp: Cardinal
   ): Boolean;
@@ -1704,7 +1713,8 @@ var
   NX, NY: Integer;
   LineStart: PLongWord;
   {$ifdef Amiga68k}
-  Alpha: Byte;
+  OldCol: LongWord;
+  a1, a2: Single;
   {$endif}
 begin
   {$ifdef VERBOSEAROS}
@@ -1753,14 +1763,26 @@ begin
           SB := LineStart;
           Inc(SB, NX);
           {$ifdef Amiga68k}
-          Alpha := (SB^ shr 24) and $ff;
-          if Alpha < 128 then
+          if PARGBColor(SB)^.A = 0 then
           begin
             DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
           end
           else
           begin
-            DB^ := SB^;
+            if PARGBColor(SB)^.A = 255 then
+            begin
+              DB^ := SB^;
+            end
+            else
+            begin
+              OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
+              a1 := PARGBColor(SB)^.A / 255;
+              a2 := 1 - a1;
+              PARGBColor(DB)^.A := 255;
+              PARGBColor(DB)^.R := Min(255, Round((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)));
+              PARGBColor(DB)^.G := Min(255, Round((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)));
+              PARGBColor(DB)^.B := Min(255, Round((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)));
+            end;
           end;
           {$else}
           DB^ := SB^;
@@ -1794,7 +1816,8 @@ var
   ScaledBitmap: AGraphics.PBitmap;
   Bsa: TBitScaleArgs;
   {$ifdef Amiga68k}
-  Alpha: Byte;
+  OldCol: LongWord;
+  a1, a2: Single;
   {$endif}
 begin
   {$ifdef VERBOSEAROS}
@@ -1883,14 +1906,26 @@ begin
             SB := LineStart;
             Inc(SB, NX);
             {$ifdef Amiga68k}
-            Alpha := (SB^ shr 24) and $ff;
-            if Alpha < 128 then
+            if PARGBColor(SB)^.A = 0 then
             begin
               DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
             end
             else
             begin
-              DB^ := SB^;
+              if PARGBColor(SB)^.A = 255 then
+              begin
+                DB^ := SB^;
+              end
+              else
+              begin
+                OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
+                a1 := PARGBColor(SB)^.A / 255;
+                a2 := 1 - a1;
+                PARGBColor(DB)^.A := 255;
+                PARGBColor(DB)^.R := Min(255, Round((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)));
+                PARGBColor(DB)^.G := Min(255, Round((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)));
+                PARGBColor(DB)^.B := Min(255, Round((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)));
+              end;
             end;
             {$else}
             DB^ := SB^;

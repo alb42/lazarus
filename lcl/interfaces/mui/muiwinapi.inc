@@ -1714,7 +1714,7 @@ var
   LineStart: PLongWord;
   {$ifdef Amiga68k}
   OldCol: LongWord;
-  a1, a2: Single;
+  a1, a2: LongInt;
   {$endif}
 begin
   {$ifdef VERBOSEAROS}
@@ -1776,12 +1776,12 @@ begin
             else
             begin
               OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
-              a1 := PARGBColor(SB)^.A / 255;
-              a2 := 1 - a1;
+              a1 := PARGBColor(SB)^.A;
+              a2 := 255 - a1;
               PARGBColor(DB)^.A := 255;
-              PARGBColor(DB)^.R := Min(255, Round((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)));
-              PARGBColor(DB)^.G := Min(255, Round((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)));
-              PARGBColor(DB)^.B := Min(255, Round((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)));
+              PARGBColor(DB)^.R := Min(255, ((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)) div 255);
+              PARGBColor(DB)^.G := Min(255, ((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)) div 255);
+              PARGBColor(DB)^.B := Min(255, ((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)) div 255);
             end;
           end;
           {$else}
@@ -1817,7 +1817,7 @@ var
   Bsa: TBitScaleArgs;
   {$ifdef Amiga68k}
   OldCol: LongWord;
-  a1, a2: Single;
+  a1, a2: LongInt;
   {$endif}
 begin
   {$ifdef VERBOSEAROS}
@@ -1919,12 +1919,12 @@ begin
               else
               begin
                 OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
-                a1 := PARGBColor(SB)^.A / 255;
-                a2 := 1 - a1;
+                a1 := PARGBColor(SB)^.A;
+                a2 := 255 - a1;
                 PARGBColor(DB)^.A := 255;
-                PARGBColor(DB)^.R := Min(255, Round((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)));
-                PARGBColor(DB)^.G := Min(255, Round((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)));
-                PARGBColor(DB)^.B := Min(255, Round((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)));
+                PARGBColor(DB)^.R := Min(255, ((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)) div 255);
+                PARGBColor(DB)^.G := Min(255, ((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)) div 255);
+                PARGBColor(DB)^.B := Min(255, ((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)) div 255);
               end;
             end;
             {$else}

@@ -220,12 +220,14 @@ end;
 procedure TMUIGroup.SetActivePage(AValue: Integer);
 var
   i: Integer;
+  Res: NativeUInt;
 begin
   for i := 0 to FChilds.Count - 1 do
   begin
     TMUIObject(FChilds[i]).Visible := i = AValue;
   end;
   SetAttribute(MUIA_Group_ActivePage, AValue);
+  MuiApp.AddInvalidatedObject(GetParentWindow);
 end;
 
 procedure TMUIGroup.BasicInitOnCreate();
@@ -247,6 +249,10 @@ begin
     Exit;
   if BlockRedraw or BlockLayout then
     Exit;
+  w := Min(FWidth, OBJ_MaxWidth(FObject));
+  w := Max(w, OBJ_MinWidth(FObject));
+  h := Min(FHeight, OBJ_MaxHeight(FObject));
+  h := Max(h, OBJ_MinHeight(FObject));
   //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
   MUI_Layout(FObject, FLeft, FTop, w, h, 0);
   //writeln(self.classname, '  setsize done');
@@ -278,8 +284,11 @@ begin
   Tags.AddTags([
     MUIA_InnerTop, 0,
     MUIA_InnerLeft, 0,
-    MUIA_InnerBottom, 4,
-    MUIA_InnerRight, 4,
+    MUIA_InnerBottom, 0,
+    MUIA_InnerRight, 0,
+    {$ifndef AROS} // buggy in AROS, without also works (make not visible in TMUIRegister)
+    MUIA_Group_PageMode, AsTag(True),
+    {$endif}
     MUIA_Frame, MUIV_Frame_Group
     ]);
   inherited Create(AClassName, Tags);

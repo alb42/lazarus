@@ -55,6 +55,7 @@ type
     //Position
     FLeft, FTop, FWidth, FHeight: longint;
     //
+    FVisible: Boolean;
     LayoutHook: THook;
 
     FGrpObj: pObject_;
@@ -371,7 +372,12 @@ end;
 function TMUIObject.GetVisible: boolean;
 begin
   //writeln('getvis');
+  // Seems ShowMe is Buggy, always returns true
+  {$ifdef AROS}
   Result := boolean(GetAttribute(MUIA_ShowMe));
+  {$else}
+  Result := FVisible;
+  {$endif}
 end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
@@ -379,6 +385,7 @@ begin
   if not AValue then
     FirstPaint := True;
   SetAttribute(MUIA_ShowMe, AValue);
+  FVisible := AValue;
 end;
 
 procedure TMUIObject.SetLeft(ALeft: integer);
@@ -846,7 +853,7 @@ var
   i: longint;
   w,h: LongInt;
 begin
-  //writeln(self.classname, '-->setownsize');
+  //writeln(self.classname, '-->setownsize ', pasobject.classname);
   if not Assigned(FObject) then
     Exit;
   if BlockRedraw or BlockLayout then
@@ -855,7 +862,7 @@ begin
   w := Max(w, OBJ_MinWidth(FObject));
   h := Min(FHeight, OBJ_MaxHeight(FObject));
   h := Max(h, OBJ_MinHeight(FObject));
-  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', HexStr(FObject));
+  //writeln(self.classname,' setsize ', FLeft, ', ', FTop, ' - ', FWidth, ', ', FHeight,' count: ', Fchilds.Count, ' obj ', pasobject.classname);
   MUI_Layout(FObject, FLeft, FTop, w, h, 0);
   //writeln(self.classname, '  setsize done');
   for i := 0 to FChilds.Count - 1 do
@@ -1695,14 +1702,16 @@ begin
         // Eat this Event if it is inside our border
         // but not inside of any of my Childs
         EatEvent := OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj);
-        if EatEvent and not MUIB.Enabled then
+        if EatEvent and (not MUIB.Enabled and not MUIB.Visible)then
         begin
           Result := MUI_EventHandlerRC_Eat;
           Exit;
         end;
+        //writeln('Imsg^.MouseX: ', Imsg^.MouseX, ' Imsg^.MouseY: ', Imsg^.MouseY, ' Name:', MUIB.pasobject.classname, ' ', MUIB.Visible);
         for i := 0 to MUIB.FChilds.Count - 1 do
         begin
-          if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) then
+          //writeln(i, '. child ', obj_left(TMUIObject(MUIB.FCHilds[i]).Obj), ',', obj_top(TMUIObject(MUIB.FCHilds[i]).Obj), ' name ', TMUIObject(MUIB.FCHilds[i]).pasobject.classname, ' visible ', TMUIObject(MUIB.FCHilds[i]).Visible);
+          if OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, TMUIObject(MUIB.FCHilds[i]).Obj) and TMUIObject(MUIB.FCHilds[i]).Visible then
             EatEvent := False;  // the mouse is inside of one of my Childs! so do not eat it
         end;
         MUIParent := MUIB.GetParentWindow;

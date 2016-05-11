@@ -951,7 +951,12 @@ begin
   bp:=get_caller_frame(get_frame);
   while bp<>nil do begin
     addr:=get_caller_addr(bp);
+    {$ifdef AROS}
+    DumpAddr(addr);
+    Result := Result + CurAddress +LineEnding;
+    {$else}
     CurAddress:=GetLineInfo(addr,UseCache);
+    {$endif}
     //DebugLn('GetStackTrace ',CurAddress);
     Result:=Result+CurAddress+LineEnding;
     oldbp:=bp;
@@ -3216,6 +3221,11 @@ finalization
   DebugLCLComponents.Free;
   DebugLCLComponents:=nil;
   {$ENDIF}
+  {$ifdef AROS}
+    {$ifndef defined(VER3_0)}
+    EnableBackTraceStr;
+    {$endif}
+  {$endif}
   FreeLineInfoCache;
   {$IFDEF WithOldDebugln}
   FinalizeDebugOutput;

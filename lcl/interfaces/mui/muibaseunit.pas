@@ -658,10 +658,10 @@ begin
       begin
         MiW := MUIObj.Width;
         MiH := MUIObj.Height;
-        LMsg^.lm_MinMax.MinWidth := MiW;
-        LMsg^.lm_MinMax.MinHeight := MiH;
-        LMsg^.lm_MinMax.MaxWidth :=  MiW;
-        LMsg^.lm_MinMax.MaxHeight := MiH;
+        LMsg^.lm_MinMax.MinWidth := 1;
+        LMsg^.lm_MinMax.MinHeight := 1;
+        LMsg^.lm_MinMax.MaxWidth :=  MUI_MAXMAX;
+        LMsg^.lm_MinMax.MaxHeight := MUI_MAXMAX;
         LMsg^.lm_MinMax.DefWidth := MiW;
         LMsg^.lm_MinMax.DefHeight := MiH;
       end;

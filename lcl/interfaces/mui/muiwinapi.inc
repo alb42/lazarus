@@ -1712,6 +1712,8 @@ var
   FX,FY: Double;
   NX, NY: Integer;
   LineStart: PLongWord;
+  ScaledBitmap: AGraphics.PBitmap;
+  Bsa: TBitScaleArgs;
   {$ifdef Amiga68k}
   OldCol: LongWord;
   a1, a2: LongInt;
@@ -1724,7 +1726,7 @@ begin
   begin
     Dest.Drawn := True;
     {$ifdef Amiga68k}
-    if False then
+    if (SrcWidth = Width) and (SrcHeight = height) and Src.Drawn then
     {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
     {$endif}
@@ -1743,56 +1745,87 @@ begin
       end;
     end else
     begin
-      NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
-      DB := NImage;
-      FX := 1;
-      FY := 1;
-      if SrcWidth > 0 then
-        FX := SrcWidth/Width;
-      if SrcHeight > 0 then
-        FY := SrcHeight/Height;
-      for ys := 0 to Height - 5 do
+      if Src.Drawn then
       begin
-        NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
-        i := NY * SrcWidth;
-        LineStart := Src.Bitmap.FImage;
-        Inc(LineStart, i);
-        for xs := 0 to Width - 1 do
+        ScaledBitmap := AllocBitMap(Width, Height, 32, BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
+        with bsa do
         begin
-          NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
-          SB := LineStart;
-          Inc(SB, NX);
-          {$ifdef Amiga68k}
-          if PARGBColor(SB)^.A = 0 then
+          bsa_SrcX := XSrc;
+          bsa_SrcY := YSrc;
+          bsa_SrcWidth := SrcWidth;
+          bsa_SrcHeight := SrcHeight;
+          bsa_XSrcFactor := SrcWidth;
+          bsa_YSrcFactor := SrcHeight;
+          bsa_DestX := 0;
+          bsa_DestY := 0;
+          bsa_DestWidth := Width;
+          bsa_DestHeight := Height;
+          bsa_XDestFactor := Width;
+          bsa_YDestFactor := Height;
+          bsa_SrcBitmap := Src.RastPort^.Bitmap;
+          bsa_DestBitmap := ScaledBitmap;
+          bsa_Flags := 0;
+          bsa_XDDA := 0;
+          bsa_YDDA := 0;
+          bsa_Reserved1 := 0;
+          bsa_Reserved2 := 0;
+        end;
+        BitmapScale(@bsa);
+        BltBitMapRastPort(ScaledBitmap, 0, 0, Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, $c0);
+        FreeBitmap(ScaledBitmap);
+      end else
+      begin
+        NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
+        DB := NImage;
+        FX := 1;
+        FY := 1;
+        if SrcWidth > 0 then
+          FX := SrcWidth/Width;
+        if SrcHeight > 0 then
+          FY := SrcHeight/Height;
+        for ys := 0 to Height - 1 do
+        begin
+          NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
+          i := NY * SrcWidth;
+          LineStart := Src.Bitmap.FImage;
+          Inc(LineStart, i);
+          for xs := 0 to Width - 1 do
           begin
-            DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
-          end
-          else
-          begin
-            if PARGBColor(SB)^.A = 255 then
+            NX := Min(Src.Bitmap.FWidth - 1, Round(xs * FX));
+            SB := LineStart;
+            Inc(SB, NX);
+            {$ifdef Amiga68k}
+            if PARGBColor(SB)^.A = 0 then
             begin
-              DB^ := SB^;
+              DB^ := ReadRGBPixel(Dest.RastPort, NX, NY);
             end
             else
             begin
-              OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
-              a1 := PARGBColor(SB)^.A;
-              a2 := 255 - a1;
-              PARGBColor(DB)^.A := 255;
-              PARGBColor(DB)^.R := Min(255, ((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)) div 255);
-              PARGBColor(DB)^.G := Min(255, ((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)) div 255);
-              PARGBColor(DB)^.B := Min(255, ((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)) div 255);
+              if PARGBColor(SB)^.A = 255 then
+              begin
+                DB^ := SB^;
+              end
+              else
+              begin
+                OldCol := ReadRGBPixel(Dest.RastPort, NX, NY);
+                a1 := PARGBColor(SB)^.A;
+                a2 := 255 - a1;
+                PARGBColor(DB)^.A := 255;
+                PARGBColor(DB)^.R := Min(255, ((TARGBColor(OldCol).R * a2) + (PARGBColor(SB)^.R * a1)) div 255);
+                PARGBColor(DB)^.G := Min(255, ((TARGBColor(OldCol).G * a2) + (PARGBColor(SB)^.G * a1)) div 255);
+                PARGBColor(DB)^.B := Min(255, ((TARGBColor(OldCol).B * a2) + (PARGBColor(SB)^.B * a1)) div 255);
+              end;
             end;
+            {$else}
+            DB^ := SB^;
+            {$endif}
+            Inc(DB);
           end;
-          {$else}
-          DB^ := SB^;
-          {$endif}
-          Inc(DB);
         end;
+        if Assigned(CyberGfxBase) then
+          Cybergraphics.WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
+        System.FreeMem(NImage);
       end;
-      if Assigned(CyberGfxBase) then
-        Cybergraphics.WritePixelArray(NImage, XSrc, YSrc, Width * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_ARGB);
-      System.FreeMem(NImage);
     end;
     //ScalePixelArray(Src.Bitmap.FImage, SrcWidth, SrcHeight, SrcWidth * SizeOf(LongWord), Dest.RastPort, Dest.GetOffset.X + x, Dest.GetOffset.Y + y, width, height, RECTFMT_RGBA);
     //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
@@ -1830,7 +1863,7 @@ begin
   begin
     Dest.Drawn := True;
     {$ifdef Amiga68k}
-    if False then
+    if (SrcWidth = Width) and (SrcHeight = height) and Src.Drawn then
     {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
     {$endif}

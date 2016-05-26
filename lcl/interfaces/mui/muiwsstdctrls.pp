@@ -643,8 +643,11 @@ end;
  ------------------------------------------------------------------------------}
 class procedure TMUIWSButton.SetText(const AWinControl: TWinControl;
   const AText: String);
+var
+  t: string;
 begin
-  TMuiButton(AWinControl.Handle).Caption := AText;
+  t := stringreplace(AText, '&', '', [rfReplaceAll]);
+  TMuiButton(AWinControl.Handle).Caption := t;
 end;
 
 {------------------------------------------------------------------------------

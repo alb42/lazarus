@@ -38,17 +38,24 @@ const
     NewName: string;
   end =
     (
+{$ifdef MorphOS}
+     (OldName: 'default';
+      NewName: 'Lux';),
+
+     (OldName: 'tahoma';
+      NewName: 'Lux';),
+
+     (OldName: 'courier';
+      NewName: 'XCourier';),
+     (OldName: 'courier new';
+      NewName: 'XCourier';)
+{$else}
      (OldName: 'default';
       NewName: 'Arial';),
 
      (OldName: 'tahoma';
       NewName: 'Arial';),
-{$ifdef MorphOS}
-     (OldName: 'courier';
-      NewName: 'XCourier';),
-      (OldName: 'courier new';
-      NewName: 'XCourier';)
-{$else}
+
      (OldName: 'courier';
       NewName: 'ttcourier';),
      (OldName: 'courier new';

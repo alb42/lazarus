@@ -109,6 +109,8 @@ type
 
   TMuiWindow = class(TMUIObject)
   private
+    FInitWindow: Boolean; // SetVisible
+    FBlockSizeMsg: Boolean;// disable resize loopback in layout -> GetSizes
     FMainMenu: TMuiMenuStrip;
     FSizeable: Boolean;
     FHasMenu: Boolean;
@@ -563,6 +565,7 @@ end;
 
 procedure TMuiWindow.GetSizes;
 begin
+  FBlockSizeMsg := not FInitWindow;
   Left := GetAttribute(MUIA_Window_LeftEdge);
   Top := GetAttribute(MUIA_Window_TopEdge);
   //
@@ -576,6 +579,7 @@ begin
     Height := GetAttribute(MUIA_Window_Height);
   end;
   TWinControl(PasObject).SetBounds(Left, Top, Width, Height);
+  FBlockSizeMsg := False;
 end;
 
 procedure TMuiWindow.Redraw;
@@ -639,6 +643,8 @@ end;
 
 procedure TMuiWindow.SetLeft(ALeft: LongInt);
 begin
+  if FBlockSizeMsg then
+    Exit;
   FBlockMove := True;
   inherited;
   SetAttribute(MUIA_Window_LeftEdge, ALeft);
@@ -647,6 +653,8 @@ end;
 
 procedure TMuiWindow.SetTop(ATop: LongInt);
 begin
+  if FBlockSizeMsg then
+    Exit;
   FBlockMove := True;
   inherited;
   SetAttribute(MUIA_Window_TopEdge, ATop);
@@ -701,12 +709,14 @@ end;
 
 procedure TMuiWindow.SetVisible(const AValue: Boolean);
 begin
+  FInitWindow := True;
   SetAttribute(MUIA_Window_Open, AValue);
   if AValue then
   begin
     GetSizes;
     TWinControl(PasObject).InvalidateClientRectCache(True);
   end;
+  FInitWindow := False;
 end;
 
 procedure TMuiWindow.AddChild(ChildObj: PObject_);

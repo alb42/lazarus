@@ -1702,9 +1702,9 @@ begin
         // Eat this Event if it is inside our border
         // but not inside of any of my Childs
         EatEvent := OBJ_IsInObject(Imsg^.MouseX, Imsg^.MouseY, obj);
-        if EatEvent and (not MUIB.Enabled and not MUIB.Visible)then
+        if EatEvent and (not MUIB.Enabled or not MUIB.pasobject.Visible)then
         begin
-          Result := MUI_EventHandlerRC_Eat;
+          Result := 0;//MUI_EventHandlerRC_Eat;
           Exit;
         end;
         //writeln('Imsg^.MouseX: ', Imsg^.MouseX, ' Imsg^.MouseY: ', Imsg^.MouseY, ' Name:', MUIB.pasobject.classname, ' ', MUIB.Visible);

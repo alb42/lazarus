@@ -762,16 +762,21 @@ end;
 procedure TMuiListView.SetActive(const AValue: LongInt);
 var
   Res: LongInt;
+  Res1: NativeUInt;
   TagList: TATagList;
 begin
   if AValue = -1 then
     Res := MUIV_List_Active_Off
   else
     Res := AValue;
-  TagList.AddTags([
-    MUIA_List_Active, Res
-    ]);
-  SetAttrsA(StrObj, TagList);
+  GetAttr(NativeUInt(MUIA_List_Active), StrObj, Res1);
+  if LongInt(Res1) <> Res then
+  begin
+    TagList.AddTags([
+      MUIA_List_Active, Res
+      ]);
+    SetAttrsA(StrObj, TagList);
+  end;
 end;
 
 procedure TMuiListView.SetOwnSize;
@@ -1211,7 +1216,8 @@ begin
     MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
     MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
     MUIA_Group_Spacing, 0,
-    MUIA_Group_Horiz, NativeUInt(False)
+    MUIA_Group_Horiz, NativeUInt(LTrue)
+    //MUIA_Group_Horiz, NativeUInt(False)
     ]);
 
   UpDownPanel := MUI_NewObjectA(MUIC_Group, BtnGroupTags.GetTagPointer);

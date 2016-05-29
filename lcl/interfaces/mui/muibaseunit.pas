@@ -1518,6 +1518,9 @@ var
   Key: Char;
   i: Integer;
   li: pLayer_Info;
+  {$ifdef AmigaOS4}
+  data: PIntuiWheelData;
+  {$endif}
 begin
   Result := 0;
   MUIB := nil;
@@ -1544,6 +1547,9 @@ begin
         MUIB.EHNode^.ehn_Object := obj;
         MUIB.EHNode^.ehn_Class := cl;
         MUIB.EHNode^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
+        {$ifdef AmigaOS4}
+        MUIB.EHNode^.ehn_Events := MUIB.EHNode^.ehn_Events or IDCMP_EXTENDEDMOUSE;
+        {$endif}
         winObj := OBJ_win(obj);
         ri := MUIRenderInfo(Obj);
         WinObj := ri^.mri_WindowObject;
@@ -1815,6 +1821,23 @@ begin
                 MENUUP: LCLSendMouseUpMsg(MUIB.PasObject, RelX, RelY, mbRight, []);
               end;
             end;
+            {$ifdef AmigaOS4}
+            IDCMP_EXTENDEDMOUSE: begin
+              if iMsg^.Code = IMSGCODE_INTUIWHEELDATA then
+              begin
+                data := PIntuiWheelData(IMsg^.IAddress);
+                if not EatEvent then
+                  Exit;
+                RelX := Imsg^.MouseX - obj_Left(obj);
+                RelY := Imsg^.MouseY - obj_Top(obj);
+                // Mouse wheel with Value 120 (from the other interfaces)
+                if Data^.WheelY = 1 then
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, -120, []);
+                if Data^.WheelY = -1 then
+                  LCLSendMouseWheelMsg(MUIB.PasObject, RelX, RelY, +120, [])
+              end;
+            end;
+            {$endif}
             // KEYS ####################################################
             IDCMP_RAWKEY: begin
               // Mouse scroll wheel produce a up/down message

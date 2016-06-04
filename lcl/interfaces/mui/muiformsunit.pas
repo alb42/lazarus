@@ -109,6 +109,7 @@ type
 
   TMuiWindow = class(TMUIObject)
   private
+    FCaption: string;
     FInitWindow: Boolean; // SetVisible
     FBlockSizeMsg: Boolean;// disable resize loopback in layout -> GetSizes
     FMainMenu: TMuiMenuStrip;
@@ -703,7 +704,8 @@ procedure TMuiWindow.SetCaption(const AValue: string);
 var
   PC: PChar;
 begin
-  PC := PChar(AValue);
+  FCaption := AValue;
+  PC := PChar(FCaption);
   SetAttribute(MUIA_Window_Title, PC);
 end;
 

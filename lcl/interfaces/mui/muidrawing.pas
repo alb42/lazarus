@@ -49,7 +49,32 @@ const
       NewName: 'XCourier';),
      (OldName: 'courier new';
       NewName: 'XCourier';)
-{$else}
+{$endif}
+{$ifdef AmigaOS4}
+     (OldName: 'default';
+      NewName: 'DejaVu Sans';),
+
+     (OldName: 'tahoma';
+      NewName: 'DejaVu Sans';),
+
+     (OldName: 'courier';
+      NewName: 'courier';),
+     (OldName: 'courier new';
+      NewName: 'courier';)
+{$endif}
+{$ifdef Amiga68k}
+     (OldName: 'default';
+      NewName: 'Arial';),
+
+     (OldName: 'tahoma';
+      NewName: 'Arial';),
+
+     (OldName: 'courier';
+      NewName: 'ttcourier';),
+     (OldName: 'courier new';
+      NewName: 'ttcourier';)
+{$endif}
+{$ifdef AROS}
      (OldName: 'default';
       NewName: 'Arial';),
 

@@ -194,8 +194,11 @@ type
 
   { TMuiApplication }
 
+  TRexxMsgEvent = function(Msg: string; out ReturnMsg: string): LongInt of object;
+
   TMuiApplication = class(TMUIObject)
   private
+    FOnRexxMsg: TRexxMsgEvent;
     FThreadID: TThreadID;
     FTerminated: boolean;
     FSignals: longword;
@@ -204,9 +207,11 @@ type
     FInvalidatedObjects: TObjectList;
     FInsidePaint: Boolean;
     InRedrawList: Boolean;
+    FRexxHook: THook;
     function GetIconified: boolean;
     procedure SetIconified(const AValue: boolean);
     procedure CheckTimer;
+    function GotRexxMsg(Param: string; out ReturnText: string): LongInt;
   protected
     procedure AddChild(ChildObj: PObject_); override;
     procedure RemoveChild(ChildObj: PObject_); override;
@@ -227,6 +232,7 @@ type
     property Terminated: boolean read FTerminated write FTerminated;
     property Iconified: boolean read GetIconified write SetIconified;
     property InsidePaint: Boolean read FInsidePaint write FInsidePaint;
+    property OnRexxMsg: TRexxMsgEvent read FOnRexxMsg write FOnRexxMsg;
   end;
 
 function TColorToImageSpec(ACol: TColor): string;
@@ -301,7 +307,7 @@ var
   t: Int64;
 begin
   Result := False;
-  t := GetMsCount;
+  t := GetLCLTime;
   if t - StartTime >= Interval then
   begin
     if Assigned(Func) then
@@ -938,8 +944,60 @@ begin
   end;
 end;
 
+type
+  TRexxMsg = record
+    rm_Node: TMessage;
+    rm_TaskBlock: APTR;
+    rm_LibBase: APTR;
+    rm_Action: LongInt;
+    rm_Result1: LongInt;
+    rm_Result2: PtrInt;
+    rm_Args: array[0..15] of STRPTR;
+    rm_MsgPort: PMsgPort;
+    rm_CommAddr: STRPTR;
+    rm_FileExt: STRPTR;
+    rm_Stdin: BPTR;
+    rm_Stdout: BPTR;
+    rm_Avail: LongInt;
+  end;
+  PRexxMsg = ^TRexxMsg;
+
+function RexxHookEvent(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
+var
+  RexxMsg: PRexxMsg;
+  i: Integer;
+  Txt: string;
+begin
+  Result := 20;
+  if Assigned(Msg) then
+  begin
+    RexxMsg := Msg;
+    Txt := '';
+    Result := MuiApp.GotRexxMsg(RexxMsg^.rm_Args[i], Txt);
+    if Txt <> '' then
+    begin
+      Txt := Txt + #13#10;
+      doswrite(RexxMsg^.rm_Stdout, PChar(Txt), Length(Txt));
+    end;
+  end;
+end;
+
+function TMuiApplication.GotRexxMsg(Param: string; out ReturnText: string): LongInt;
+begin
+  Result := 20;
+  ReturnText := 'Rexx not supported';
+  if Assigned(FOnRexxMsg) then
+  begin
+    ReturnText := '';
+    Result := FOnRexxMsg(Param, ReturnText);
+  end;
+end;
+
+
 procedure TMuiApplication.InstallHooks;
 begin
+  SetHook(FRexxHook, @RexxHookEvent, Self);
+  SetAttribute(MUIA_Application_RexxHook, AsTag(@FRexxHook));
 end;
 
 constructor TMuiApplication.Create(const Tags: TATagList);
@@ -1019,7 +1077,7 @@ var
   NewTimer: TMUITimer;
 begin
   NewTimer := TMUITimer.create;
-  NewTimer.StartTime := GetmsCount;
+  NewTimer.StartTime := GetLCLTime;
   NewTimer.Interval := Interval;
   NewTimer.Func := TimerFunc;
   NewTimer.Handle := THandle(NewTimer);
@@ -1627,7 +1685,10 @@ begin
               PaintW := Obj_MWidth(Obj);
               PaintH := Obj_MHeight(Obj);
             end;
-
+            // make sure we stay inside the window (MOS/Amiga need this)
+            PaintW := Min(PaintW, (ri^.mri_Window^.Width - PaintX) - ri^.mri_Window^.BorderRight);
+            PaintH := Min(PaintH, (ri^.mri_Window^.Height - PaintY) - ri^.mri_Window^.BorderBottom);
+            //
             if WithScrollbars then
             begin
               if MUIB.VScroll.Visible then
@@ -1674,13 +1735,6 @@ begin
               FreeRastPort(MUIB.FMUICanvas.RastPort);
               MUIB.FMUICanvas.RastPort := nil;
             end;
-            {$ifdef MorphOS}
-            // MorphOS strange resize artifacts :O
-            if (MUIB is TMUIWindow) and ((PaintW <> Obj_Width(Obj)) or (PaintH <> Obj_Height(Obj))) then
-            begin
-              MuiApp.AddInvalidatedObject(MUIB);
-            end;
-            {$endif}
             //writeln('<--Draw ', muib.classname);
           end;
         finally
@@ -1785,7 +1839,7 @@ begin
                   MUIWin.FocusedControl := MUIB;
                   LCLSendMouseDownMsg(MUIB.PasObject, RelX, RelY, mbLeft, []);
                   // Check if it is an Double click < 250 ms and less than 3 move events between
-                  CurTime := GetMsCount;
+                  CurTime := GetLCLTime;
                   //sysdebugln('mouse down Moved:' + IntToStr(MUIB.NumMoves));
                   if (CurTime - MUIB.LastClick <= 750) and (MUIB.NumMoves > 0) then
                   begin
@@ -1924,7 +1978,7 @@ begin
     end
     else
     begin
-      //writeln(Dos.GetMsCount, ' unknown messageID $', HexStr(Pointer(Msg^.MethodID)));
+      //writeln(Dos.GetLCLTime, ' unknown messageID $', HexStr(Pointer(Msg^.MethodID)));
       Result := DoSuperMethodA(cl, obj, msg);
     end;
   end;

@@ -33,6 +33,18 @@ uses
   {$endif};
 
 const
+  {$ifdef Amiga68k}
+  DEFAULTSIZE = 11;
+  {$endif}
+  {$ifdef MorphOS}
+  DEFAULTSIZE = 15;
+  {$endif}
+  {$ifdef AROS}
+  DEFAULTSIZE = 13;
+  {$endif}
+  {$ifdef AmigaOS4}
+  DEFAULTSIZE = 13;
+  {$endif}
   FONTREPLACEMENTS: array[0..3] of record
     OldName: string;
     NewName: string;
@@ -64,10 +76,10 @@ const
 {$endif}
 {$ifdef Amiga68k}
      (OldName: 'default';
-      NewName: 'Arial';),
+      NewName: 'Xen';),
 
      (OldName: 'tahoma';
-      NewName: 'Arial';),
+      NewName: 'Xen';),
 
      (OldName: 'courier';
       NewName: 'ttcourier';),
@@ -88,6 +100,7 @@ const
 {$endif}
       );
   ALLSTYLES = FSF_ITALIC or FSF_BOLD or FSF_UNDERLINED;
+
 
 type
   TMUICanvas = class;
@@ -170,7 +183,7 @@ type
     FWidth: Integer;
     Style: LongWord;
   public
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     FPen: LongWord;
     {$endif}
     constructor Create(const APenData: TLogPen);
@@ -183,7 +196,7 @@ type
   private
     FStyle: LongWord;
   public
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     FPen: LongWord;
     {$endif}
     constructor Create(const ABrushData: TLogBrush);
@@ -375,6 +388,10 @@ begin
     Result := WidgetSet.GetSysColor(c and $000000FF)
   else
     Result := r or g or b;
+  // At OS4 the ober byte is the Alpha Value, set to full
+  {$ifdef AmigaOS4}
+    Result := $FF000000 or Result;
+  {$endif}
 end;
 
 function MUIColorToTColor(col: TMuiColor): TColor;
@@ -490,7 +507,7 @@ begin
   FFontFace := AFontData.lfFaceName;
   FHeight := abs(AFontData.lfHeight);
   if FHeight <= 1 then
-    FHeight := 13;
+    FHeight := DEFAULTSIZE;
   {$ifdef MorphOS}
   // nasty hack for the small MorphOS fonts :O
   //FHeight := FHeight + 5;
@@ -515,7 +532,7 @@ begin
   FFontFace := LongFontName;
   FHeight := abs(AFontData.lfHeight);
   if FHeight = 0 then
-    FHeight := 15;
+    FHeight := DEFAULTSIZE;
   {$ifdef MorphOS}
   // nasty hack for the small MorphOS fonts :O
   //FHeight := FHeight + 5;
@@ -542,7 +559,7 @@ end;
 { TMUIBrushObj }
 
 constructor TMUIBrushObj.Create(const ABrushData: TLogBrush);
-{$ifdef Amiga}
+{$ifdef Amiga68k}
 var
   r,g,b: Byte;
 {$endif}
@@ -557,7 +574,7 @@ begin
     else
       FStyle := JAM1;
   end;
-  {$ifdef Amiga}
+  {$ifdef Amiga68k}
     if not IsSystemColor then
     begin
       b := (FLCLColor and $00FF0000) shr 16;
@@ -573,7 +590,7 @@ destructor TMUIBrushObj.Destroy;
 begin
   if not IsSystemColor then
   begin
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, FPen);
     {$endif}
   end;
@@ -583,7 +600,7 @@ end;
 { TMUIPenObj }
 
 constructor TMUIPenObj.Create(const APenData: TLogPen);
-{$ifdef Amiga}
+{$ifdef Amiga68k}
 var
   r,g,b: LongWord;
 {$endif}
@@ -593,7 +610,7 @@ begin
   Style := APenData.lopnStyle;
   FWidth := APenData.lopnWidth.X;
   //writeln('pen created: $', HexStr(Pointer(FLCLColor)), ' Style ', Style);
-  {$ifdef Amiga}
+  {$ifdef Amiga68k}
     if not IsSystemColor then
     begin
       b := (FLCLColor and $00FF0000) shr 16;
@@ -608,7 +625,7 @@ destructor TMUIPenObj.Destroy;
 begin
   if not IsSystemColor then
   begin
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
     ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, FPen);
     {$endif}
   end;
@@ -1680,8 +1697,10 @@ procedure TMUICanvas.SetBKToRP(AsPen: Boolean = False);
 var
   Col: TMUIColor;
   Tags: TATagList;
+  {$ifdef Amiga68k}
   r,g,b: LongWord;
   BGPen: LongInt;
+  {$endif}
 begin
   //writeln('set BK Color $', HexStr(Pointer(BKColor)));
   if Assigned(RastPort) then
@@ -1695,7 +1714,7 @@ begin
       Col := TColorToMUIColor(BKColor);
     end;
     Tags.Clear;
-    {$ifdef Amiga}
+    {$ifdef Amiga68k}
       b := (col and $00FF0000) shr 16;
       g := (col and $0000FF00) shr 8;
       r := (col and $000000FF);

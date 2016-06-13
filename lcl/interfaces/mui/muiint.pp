@@ -207,6 +207,8 @@ begin
   Dollar := '$';
   prgName := Application.title;
   AppTitle := Application.title;
+  if AppTitle = '' then
+    AppTitle := ExtractFilename(ParamStr(0));
   Info := TVersionInfo.Create;
   try
     Info.Load(HINSTANCE);
@@ -240,7 +242,7 @@ begin
   ThisAppDiskIcon := GetDiskObject(PChar(ParamStr(0)));
   FinalVers := Dollar + 'VER: ' + PrgName + ' ' + Vers + '('+{$I %DATE%}+')';
   TagList.AddTags([
-    //LongInt(MUIA_Application_Base), PChar(AppTitle),
+    LongInt(MUIA_Application_Base), NativeUInt(PChar(AppTitle)),
     MUIA_Application_DiskObject, NativeUInt(ThisAppDiskIcon),
     MUIA_Application_Title, NativeUInt(PChar(AppTitle)),
     MUIA_Application_Version, NativeUInt(PChar(FinalVers)),

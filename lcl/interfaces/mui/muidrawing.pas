@@ -1294,7 +1294,7 @@ var
   end;
 
 begin
-  if Assigned(RastPort) then
+  if Assigned(RastPort) {$ifdef Amiga68k}and Assigned(CyberGfxBase){$endif} then
   begin
     //t1 := GetMsCount;
     Drawn := True;
@@ -1332,7 +1332,7 @@ procedure TMUICanvas.SetPixel(X, Y: Integer; Color: TColor);
 var
   T: TPoint;
 begin
-  if Assigned(RastPort) then
+  if Assigned(RastPort) {$ifdef Amiga68k}and Assigned(CyberGfxBase){$endif} then
   begin
     Drawn := True;
     T := GetOffset;
@@ -1345,7 +1345,7 @@ var
   T: TPoint;
 begin
   Result := 0;
-  if Assigned(RastPort) then
+  if Assigned(RastPort) {$ifdef Amiga68k}and Assigned(CyberGfxBase){$endif} then
   begin
     T := GetOffset;
     Result := MUIColorToTColor(ReadRGBPixel(RastPort, T.X + X, T.Y + Y));
@@ -1455,8 +1455,8 @@ begin
   APenData.lopnColor := clBlack;
   APenData.lopnWidth := Point(1,1);
   APenData.lopnStyle := PS_SOLID;
-  AFontData.lfFaceName := 'Arial';
-  AFontData.lfHeight := 13;
+  AFontData.lfFaceName := 'default';
+  AFontData.lfHeight := 0;
   FDefaultBrush := TMUIBrushObj.Create(ABrushData);
   FDefaultPen := TMUIPenObj.Create(APenData);
   FDefaultFont := TMUIFontObj.Create(AFontData);

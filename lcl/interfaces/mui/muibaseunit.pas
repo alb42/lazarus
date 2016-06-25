@@ -208,6 +208,7 @@ type
     FInsidePaint: Boolean;
     InRedrawList: Boolean;
     FRexxHook: THook;
+    FObjectsToDestroy: Classes.TList;
     function GetIconified: boolean;
     procedure SetIconified(const AValue: boolean);
     procedure CheckTimer;
@@ -228,6 +229,9 @@ type
     procedure AddInvalidatedObject(AObj: TMUIObject);
     procedure RemInvalidatedObject(AObj: TMUIObject);
     procedure RedrawList;
+    procedure AddDestroyObj(DestroyObj: PObject_);
+    procedure DestroyPendingObjs;
+    //
     property MainWin: pObject_ read FMainWin;
     property Terminated: boolean read FTerminated write FTerminated;
     property Iconified: boolean read GetIconified write SetIconified;
@@ -239,6 +243,7 @@ function TColorToImageSpec(ACol: TColor): string;
 
 var
   MUIApp: TMuiApplication;
+  UseAmigaAlpha: Boolean = True;
   LCLGroupClass: PIClass;
   LCLClass: PMUI_CustomClass;
   KeyState: Integer = 0;
@@ -785,8 +790,10 @@ begin
     OldParent.RemoveChild(DestroyObj);
   SetParent(nil);
   //writeln(self.classname , ' 2 --- Destroy object ', HexStr(DestroyObj));
-  if Assigned(DestroyObj) then
-    MUI_DisposeObject(DestroyObj);
+  MuiApp.AddDestroyObj(DestroyObj);
+  DestroyObj := nil;
+  //if Assigned(DestroyObj) then
+  //  MUI_DisposeObject(DestroyObj);
   //writeln(self.classname, ' 3 ');
   FChilds.Free;
   FMUICanvas.Free;
@@ -965,7 +972,6 @@ type
 function RexxHookEvent(Hook: PHook; Obj: PObject_; Msg: Pointer): LongInt;
 var
   RexxMsg: PRexxMsg;
-  i: Integer;
   Txt: string;
 begin
   Result := 20;
@@ -973,7 +979,7 @@ begin
   begin
     RexxMsg := Msg;
     Txt := '';
-    Result := MuiApp.GotRexxMsg(RexxMsg^.rm_Args[i], Txt);
+    Result := MuiApp.GotRexxMsg(RexxMsg^.rm_Args[0], Txt);
     if Txt <> '' then
     begin
       Txt := Txt + #13#10;
@@ -1002,6 +1008,8 @@ end;
 
 constructor TMuiApplication.Create(const Tags: TATagList);
 begin
+  FObjectsToDestroy := Classes.TList.Create;
+  //
   inherited Create(MUIC_Application, Tags);
   FThreadID := GetThreadId;
   FSignals := 0;
@@ -1017,6 +1025,23 @@ begin
   FTimers.Free;
   FInvalidatedObjects.Free;
   inherited Destroy;
+  FObjectsToDestroy.Free;
+end;
+
+procedure TMuiApplication.DestroyPendingObjs;
+var
+  i: Integer;
+begin
+  for i := 0 to FObjectsToDestroy.Count - 1 do
+  begin
+    MUI_DisposeObject(FObjectsToDestroy[i]);
+  end;
+end;
+
+procedure TMuiApplication.AddDestroyObj(DestroyObj: PObject_);
+begin
+  if Assigned(DestroyObj) then
+    FObjectsToDestroy.Add(DestroyObj);
 end;
 
 function TMuiApplication.NewInput(Signals: PLongword): longword;

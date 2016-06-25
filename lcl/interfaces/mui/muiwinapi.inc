@@ -1726,7 +1726,7 @@ begin
   begin
     Dest.Drawn := True;
     {$ifdef Amiga68k}
-    if (SrcWidth = Width) and (SrcHeight = height) and Src.Drawn then
+    if (SrcWidth = Width) and (SrcHeight = height) and (Src.Drawn and UseAmigaAlpha) then
     {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
     {$endif}
@@ -1775,6 +1775,7 @@ begin
         FreeBitmap(ScaledBitmap);
       end else
       begin
+        //writeln('StretchBlt Width: ', Width, ' Height: ', Height);
         NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
         DB := NImage;
         FX := 1;
@@ -1863,7 +1864,7 @@ begin
   begin
     Dest.Drawn := True;
     {$ifdef Amiga68k}
-    if (SrcWidth = Width) and (SrcHeight = height) and Src.Drawn then
+    if (SrcWidth = Width) and (SrcHeight = height) and (Src.Drawn and UseAmigaAlpha) then
     {$else}
     if (SrcWidth = Width) and (SrcHeight = height) then
     {$endif}
@@ -1918,7 +1919,7 @@ begin
         FreeBitmap(ScaledBitmap);
       end else
       begin
-        //writeln('Width: ', Width, ' Height: ', Height);
+        //writeln('StretchMaskBlt Width: ', Width, ' Height: ', Height);
         NImage := System.AllocMem(Width * (Height + 10) * SizeOf(LongWord));
         DB := NImage;
         FX := 1;

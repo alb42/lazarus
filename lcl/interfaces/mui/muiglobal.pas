@@ -77,141 +77,143 @@ function DoMethod(obj: LongWord; params: array of DWord): LongWord; overload;
 
 implementation
 
+// *****************************************************
+// Use local GetMsCount with fixed timer.device, faster
+// because it's polled very often (CheckTimer)
+// But its not threadsafe!
+// can be removed if a threadvar version is implemented in RTL
 var
   Tr: PTimeRequest = nil;
 
-
 procedure NewList (list: pList);
 begin
-  with list^ do begin
-    lh_Head     := pNode(@lh_Tail);
-    lh_Tail     := NIL;
-    lh_TailPred := pNode(@lh_Head)
+  with list^ do
+  begin
+    lh_Head := PNode(@lh_Tail);
+    lh_Tail := nil;
+    lh_TailPred := PNode(@lh_Head)
   end;
 end;
 
-function CreateExtIO (port: pMsgPort; size: Longint): pIORequest;
-var
-   IOReq: pIORequest;
+function CreateExtIO(Port: PMsgPort; Size: LongInt): PIORequest;
 begin
-    IOReq := NIL;
-    if port <> NIL then
+  Result := nil;
+  if Port <> nil then
+  begin
+    Result := ExecAllocMem(Size, MEMF_CLEAR);
+    if Result <> nil then
     begin
-        IOReq := execAllocMem(size, MEMF_CLEAR);
-        if IOReq <> NIL then
-        begin
-            IOReq^.io_Message.mn_Node.ln_Type   := 7;
-            IOReq^.io_Message.mn_Length    := size;
-            IOReq^.io_Message.mn_ReplyPort := port;
-        end;
+      Result^.io_Message.mn_Node.ln_Type := 7;
+      Result^.io_Message.mn_Length := Size;
+      Result^.io_Message.mn_ReplyPort := Port;
     end;
-    CreateExtIO := IOReq;
+  end;
 end;
 
-procedure DeleteExtIO (ioReq: pIORequest);
+procedure DeleteExtIO (IoReq: PIORequest);
 begin
-    if ioReq <> NIL then
-    begin
-        ioReq^.io_Message.mn_Node.ln_Type := $FF;
-        ioReq^.io_Message.mn_ReplyPort    := pMsgPort(-1);
-        ioReq^.io_Device                  := pDevice(-1);
-        execFreeMem(ioReq, ioReq^.io_Message.mn_Length);
-    end
+  if IoReq <> nil then
+  begin
+    IoReq^.io_Message.mn_Node.ln_Type := $FF;
+    IoReq^.io_Message.mn_ReplyPort := PMsgPort(-1);
+    IoReq^.io_Device := PDevice(-1);
+    ExecFreeMem(IoReq, IoReq^.io_Message.mn_Length);
+  end
 end;
 
-function Createport(name : PChar; pri : longint): pMsgPort;
+function Createport(Name: PChar; Pri: LongInt): PMsgPort;
 var
-   sigbit : ShortInt;
-   port    : pMsgPort;
+  sigbit: ShortInt;
 begin
-   sigbit := AllocSignal(-1);
-   if sigbit = -1 then CreatePort := nil;
-   port := execAllocMem(sizeof(tMsgPort),MEMF_CLEAR);
-   if port = nil then begin
-      FreeSignal(sigbit);
-      CreatePort := nil;
-   end;
-   with port^ do begin
-       if assigned(name) then
-       mp_Node.ln_Name := name
-       else mp_Node.ln_Name := nil;
-       mp_Node.ln_Pri := pri;
-       mp_Node.ln_Type := 4;
-       mp_Flags := 0;
-       mp_SigBit := sigbit;
-       mp_SigTask := FindTask(nil);
-   end;
-   if assigned(name) then AddPort(port)
-   else NewList(addr(port^.mp_MsgList));
-   CreatePort := port;
+  Result := nil;
+  SigBit := AllocSignal(-1);
+  if SigBit = -1 then
+   Exit;
+  Result := ExecAllocMem(SizeOf(TMsgPort), MEMF_CLEAR);
+  if Result = nil then
+  begin
+    FreeSignal(SigBit);
+    Exit;
+  end;
+  with Result^ do
+  begin
+    if Assigned(Name) then
+      mp_Node.ln_Name := Name
+    else
+      mp_Node.ln_Name := nil;
+    mp_Node.ln_Pri := Pri;
+    mp_Node.ln_Type := 4;
+    mp_Flags := 0;
+    mp_SigBit := SigBit;
+    mp_SigTask := FindTask(nil);
+  end;
+  if Assigned(Name) then
+    AddPort(Result)
+  else
+    NewList(Addr(Result^.mp_MsgList));
 end;
 
-procedure DeletePort (port: pMsgPort);
+procedure DeletePort(Port: PMsgPort);
 begin
-    if port <> NIL then
-    begin
-        if port^.mp_Node.ln_Name <> NIL then
-            RemPort(port);
-
-        port^.mp_Node.ln_Type     := $FF;
-        port^.mp_MsgList.lh_Head  := pNode(-1);
-        FreeSignal(port^.mp_SigBit);
-        execFreeMem(port, sizeof(tMsgPort));
-    end;
+  if Port <> nil then
+  begin
+    if Port^.mp_Node.ln_Name <> nil then
+      RemPort(Port);
+    port^.mp_Node.ln_Type := $FF;
+    port^.mp_MsgList.lh_Head := PNode(-1);
+    FreeSignal(Port^.mp_SigBit);
+    ExecFreeMem(Port, SizeOf(TMsgPort));
+  end;
 end;
 
-function Create_Timer(theUnit : longint) : pTimeRequest;
+function Create_Timer(TheUnit: LongInt): PTimeRequest;
 var
-  Error : longint;
-  TimerPort : pMsgPort;
-  TimeReq : pTimeRequest;
+  TimerPort: PMsgPort;
 begin
-  TimerPort := CreatePort(Nil, 0);
-  if TimerPort = Nil then
-    Create_Timer := Nil;
-  TimeReq := pTimeRequest(CreateExtIO(TimerPort,sizeof(tTimeRequest)));
-  if TimeReq = Nil then begin
+  Result := nil;
+  TimerPort := CreatePort(nil, 0);
+  if TimerPort = nil then
+    Exit;
+  Result := PTimeRequest(CreateExtIO(TimerPort, SizeOf(TTimeRequest)));
+  if Result = Nil then
+  begin
     DeletePort(TimerPort);
-    Create_Timer := Nil;
+    Exit;
   end;
-  Error := OpenDevice(TIMERNAME, theUnit, pIORequest(TimeReq), 0);
-  if Error <> 0 then begin
-    DeleteExtIO(pIORequest(TimeReq));
+  if OpenDevice(TIMERNAME, TheUnit, PIORequest(Result), 0) <> 0 then
+  begin
+    DeleteExtIO(pIORequest(Result));
     DeletePort(TimerPort);
-    Create_Timer := Nil;
+    Result := nil;
   end;
-  //LCLTimerBase := pointer(TimeReq^.tr_Node.io_Device);
-  Create_Timer := pTimeRequest(TimeReq);
 end;
 
-Procedure Delete_Timer(WhichTimer : pTimeRequest);
+Procedure Delete_Timer(WhichTimer: PTimeRequest);
 var
-    WhichPort : pMsgPort;
+  WhichPort: PMsgPort;
 begin
-
-    WhichPort := WhichTimer^.tr_Node.io_Message.mn_ReplyPort;
-    if assigned(WhichTimer) then begin
-        CloseDevice(pIORequest(WhichTimer));
-        DeleteExtIO(pIORequest(WhichTimer));
-    end;
-    if assigned(WhichPort) then
-        DeletePort(WhichPort);
+  WhichPort := WhichTimer^.tr_Node.io_Message.mn_ReplyPort;
+  if assigned(WhichTimer) then
+  begin
+    CloseDevice(PIORequest(WhichTimer));
+    DeleteExtIO(PIORequest(WhichTimer));
+  end;
+  if Assigned(WhichPort) then
+    DeletePort(WhichPort);
 end;
 
-function get_sys_time(tv : ptimeval): longint;
+function get_sys_time(tv: PTimeVal): LongInt;
 begin
+  Result := -1;
   if not Assigned(Tr) then
-    Tr := create_timer(UNIT_MICROHZ);
-  { non zero return says error }
+    Tr := Create_Timer(UNIT_MICROHZ);
+  // non zero return says error
   if tr = nil then
-    Result := -1;
-
+    Exit;
   tr^.tr_node.io_Command := TR_GETSYSTIME;
-  DoIO(pIORequest(tr));
-
-  { structure assignment }
+  DoIO(PIORequest(tr));
+  // structure assignment
   tv^ := tr^.tr_time;
-
   Result := 0;
 end;
 
@@ -220,8 +222,10 @@ var
   TV: TTimeVal;
 begin
   Get_Sys_Time(@TV);
-  Result := int64 (TV.TV_Secs) * 1000 + TV.TV_Micro div 1000;
+  Result := Int64(TV.TV_Secs) * 1000 + TV.TV_Micro div 1000;
 end;
+// End of LCLs own GetMsCount
+//**************************************
 
 {$ifdef MorphOS}
 function DoMethodA(obj : pObject_; msg1 : Pointer): longword;

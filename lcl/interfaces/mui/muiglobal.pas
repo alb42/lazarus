@@ -240,7 +240,11 @@ end;
 {$define SetHook}
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 begin
+  {$if defined(VER3_0)}
   Hook.h_Entry := @HookEntry; { is defined in AmigaLib unit now }
+  {$else}
+  Hook.h_Entry := @HookEntryPas; { is defined in AmigaLib unit now }
+  {$endif}
   Hook.h_SubEntry := Func;
   Hook.h_Data := Data;
 end;

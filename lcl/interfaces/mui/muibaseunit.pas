@@ -1025,6 +1025,7 @@ begin
   FTimers.Free;
   FInvalidatedObjects.Free;
   inherited Destroy;
+  DestroyPendingObjs;
   FObjectsToDestroy.Free;
 end;
 
@@ -1036,6 +1037,7 @@ begin
   begin
     MUI_DisposeObject(FObjectsToDestroy[i]);
   end;
+  FObjectsToDestroy.Clear;
 end;
 
 procedure TMuiApplication.AddDestroyObj(DestroyObj: PObject_);

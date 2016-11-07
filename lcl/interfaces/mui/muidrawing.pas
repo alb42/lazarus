@@ -477,6 +477,13 @@ begin
     TextAttr.ta_Flags := FPF_DISKFONT;
     FontHandle := OpenDiskFont(@TextAttr);
   end;
+  if FontHandle = nil then
+  begin
+    TextAttr.ta_Name := PChar('topaz.font');
+    TextAttr.ta_YSize := 8;
+    TextAttr.ta_Flags := FPF_ROMFONT;
+    FontHandle := OpenDiskFont(@TextAttr);
+  end;
 
   //writeln('Create Font ', FFontFace,' -> ', FontFile, ' Res = ', Assigned(FontHandle), ' Height: ' , FHeight);
   //writeln('  Bold:', FIsBold, ' Italic:', FIsItalic, ' underlined:', FIsUnderlined);
@@ -537,8 +544,8 @@ begin
   // nasty hack for the small MorphOS fonts :O
   //FHeight := FHeight + 5;
   {$endif}
-  FIsItalic := AFontData.lfItalic <> 0;
-  FIsUnderlined := AFontData.lfUnderline <> 0;
+  FIsItalic := AFontData.lfItalic  <> 0;
+  FIsUnderlined := AFontData.lfUnderline  <> 0;
   FIsBold := False;
   case AFontData.lfWeight of
     FW_SEMIBOLD, FW_BOLD: FIsBold := True;

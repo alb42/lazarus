@@ -370,7 +370,6 @@ end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
-  //writeln('setVis ', AValue);
   if not AValue then
     FirstPaint := True;
   SetAttribute(MUIA_ShowMe, AValue);
@@ -474,7 +473,8 @@ end;
 procedure TMUIObject.DoMUIDraw();
 begin
   if Assigned(FObject) and (not BlockRedraw) then
-    MUI_Redraw(FObject, MADF_DRAWOBJECT);
+    MUI_Redraw(FObject, $805);
+    //MUI_Redraw(FObject, MADF_DRAWOBJECT);
 end;
 
 function TMUIObject.GetClientRect: TRect;
@@ -643,8 +643,14 @@ begin
   Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
-  FMUICanvas := TMUICanvas.Create;
-  FMUICanvas.MUIObject := self;
+  if Self is TMUIApplication then
+  begin
+    FMUICanvas := nil;
+  end else
+  begin
+    FMUICanvas := TMUICanvas.Create;
+    FMUICanvas.MUIObject := self;
+  end;
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;
@@ -1416,7 +1422,7 @@ begin
   //writeln('ShiftState AROS: ', HexStr(Pointer(State)), ' and ', HexStr(Pointer(IEQUALIFIER_LALT)),' -> ', HexStr(Pointer(Result)));
 end;
 
-function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
+function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; {$ifdef CPU86}cdecl;{$endif}
 var
   ri: PMUI_RenderInfo;
   rp: PRastPort;
@@ -1446,6 +1452,7 @@ var
   Key: Char;
   i: Integer;
 begin
+
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
@@ -1467,10 +1474,8 @@ begin
         MUIB.EHNode^.ehn_Object := obj;
         MUIB.EHNode^.ehn_Class := cl;
         MUIB.EHNode^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
-        winObj := OBJ_win(obj);
-        ri := MUIRenderInfo(Obj);
-        WinObj := ri^.mri_WindowObject;
-        DoMethod(WinObj, [MUIM_Window_AddEventHandler, PtrUInt(MUIB.EHNode)]);
+
+        DoMethod(OBJ_win(obj), [MUIM_Window_AddEventHandler, PtrUInt(MUIB.EHNode)]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;

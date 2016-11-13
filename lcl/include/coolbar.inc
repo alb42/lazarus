@@ -1162,6 +1162,9 @@ var k, x, aCountM1, aLeft, aTop: Integer;
     aFlags: Cardinal;
 begin
   inherited Paint;
+  {$ifdef HASAMIGA}
+  Exit;
+  {$endif}
   //DebugLn('TCoolBar.Paint');
   //draw Bitmap Background
   if FBitmap.Width > 0 then

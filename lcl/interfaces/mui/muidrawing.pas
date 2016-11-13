@@ -16,6 +16,7 @@
 unit muidrawing;
 
 {$mode objfpc}{$H+}
+{$RANGECHECKS OFF}
 
 interface
 
@@ -254,7 +255,7 @@ type
     Bitmap: TMUIBitmap;
     //Clipping: TMuiBasicRegion;
     Offset: types.TPoint;
-    TextColor: LongWord;
+    TextColor: TColor;
     MUIObject: TObject;
     BKColor: TColor;
     BKMode: Integer;
@@ -291,7 +292,8 @@ type
   end;
 
   //function muiGetDesktopDC(): TmuiDeviceContext;
-  function TColorToMUIColor(col: TColor): TMuiColor;
+  function TColorToMUIColor(col: TColor): TMuiColor; overload;
+  function TColorToMUIColor(col: TColorRef): TMuiColor; overload;
   function MUIColorToTColor(col: TMuiColor): TColor;
 
 implementation
@@ -318,7 +320,9 @@ var
   b: LongWord;
   i: LongWord;
 begin
-  c := col;
+  {$R-}
+  c := LongWord(col);
+  {$R+}
   i := (c and $FF000000) shr 24;
   b := (c and $00FF0000) shr 16;
   g := (c and $0000FF00);
@@ -329,6 +333,11 @@ begin
     Result := r or g or b;
 end;
 
+function TColorToMUIColor(col: TColorRef): TMuiColor;
+begin
+  Result := TColorToMUIColor(TColor(Col));
+end;
+
 function MUIColorToTColor(col: TMuiColor): TColor;
 var
   c: LongWord;
@@ -336,11 +345,13 @@ var
   g: LongWord;
   b: LongWord;
 begin
+  {$R-}
   c := Col;
+  {$R+}
   r := (c and $00FF0000) shr 16;
   g := (c and $0000FF00);
   b := (c and $000000FF) shl 16;
-  Result := r or g or b;
+  Result := TColor(r or g or b);
 end;
 
 { TMUIBitmap }
@@ -489,7 +500,9 @@ begin
   inherited Create;
   //writeln(' Create Brush: ', HexStr(Pointer(ABrushData.lbColor)), ' Style: ', ABrushData.lbStyle, ' ', HexStr(Self));
   //writeln('Solid: ', BS_SOLID, ' Hatched: ', BS_HATCHED, ' Hollow: ', BS_HOLLOW);
-  FLCLColor := ABrushData.lbColor;
+  {$R-}
+  FLCLColor := TColor(ABrushData.lbColor);
+  {$R+}
   case ABrushData.lbStyle of
     BS_SOLID, BS_HATCHED: FStyle := JAM2;
     BS_HOLLOW: FStyle := JAM1;
@@ -504,7 +517,7 @@ end;
 constructor TMUIPenObj.Create(const APenData: TLogPen);
 begin
   inherited Create;
-  FLCLColor := APenData.lopnColor;
+  FLCLColor := TColor(APenData.lopnColor);
   Style := APenData.lopnStyle;
   FWidth := APenData.lopnWidth.X;
   //writeln('pen created: $', HexStr(Pointer(FLCLColor)), ' Style ', Style);
@@ -1217,7 +1230,7 @@ end;
 procedure TMUICanvas.WriteText(Txt: PChar; Count: integer);
 var
   Tags: TATagList;
-  Col: LongWord;
+  Col: TMuiColor;
   Hi: Integer;
   AnsiStr: string;
 begin
@@ -1235,7 +1248,7 @@ begin
     Drawn := True;
     Hi := TextHeight('|', 1);
     MoveTo(Position.X, Position.Y + (Hi div 2) + (Hi div 4));
-    Col := TColorToMUIColor(TextColor);
+    Col := TMuiColor(TColorToMUIColor(TextColor));
     Tags.Clear;
     Tags.AddTags([
       RPTAG_PenMode, TagFalse,
@@ -1299,15 +1312,21 @@ var
   AFontData: TLogFont;
 begin
   //writeln('-->TCanvas.create ', HexStr(Self));
+  inherited Create;
   Bitmap := nil;
   MUIObject := nil;
+  RastPort := nil;
   ABrushData.lbColor := LongWord(clBtnFace);
   APenData.lopnColor := clBlack;
   APenData.lopnWidth := Point(1,1);
   APenData.lopnStyle := PS_SOLID;
   AFontData.lfFaceName := 'Arial';
   AFontData.lfHeight := 13;
+  try
   FDefaultBrush := TMUIBrushObj.Create(ABrushData);
+  except;
+    writeln('Error');
+  end;
   FDefaultPen := TMUIPenObj.Create(APenData);
   FDefaultFont := TMUIFontObj.Create(AFontData);
   FBrush := FDefaultBrush;
@@ -1323,7 +1342,7 @@ end;
 destructor TMUICanvas.Destroy;
 begin
   //writeln('-->TCanvas.destroy ', HexStr(Self));
-  if not Assigned(MUIObject) then
+  if not Assigned(MUIObject) and Assigned(RastPort) then
   begin
     FreeBitmap(RastPort^.Bitmap);
     FreeRastPort(RastPort);

@@ -658,7 +658,7 @@ var
   i: Integer;
   CurControl: TControl;
   BestValue: integer;
-  
+
   procedure FindNearerControl(CurValue, Limit: integer);
   begin
     if (CurValue <= Limit) and ((Result = nil) or (BestValue < CurValue)) then
@@ -667,7 +667,7 @@ var
       Result := CurControl;
     end;
   end;
-  
+
 begin
   Result := nil;
   BestValue:=0;
@@ -928,7 +928,7 @@ procedure TCustomSplitter.MouseLeave;
 begin
   inherited MouseLeave;
   if csDesigning in ComponentState then exit;
-  
+
   if FMouseInControl then
   begin
     FMouseInControl := False;
@@ -954,7 +954,7 @@ begin
 end;
 
 procedure TCustomSplitter.AnchorSplitter(Kind: TAnchorKind; AControl: TControl);
-  
+
   procedure AnchorSplitterSides(
     ResizeSide,// the side of the Splitter, where AControl is touched and moved
     OppositeResizeSide, // opposite of ResizeSide
@@ -968,7 +968,7 @@ procedure TCustomSplitter.AnchorSplitter(Kind: TAnchorKind; AControl: TControl);
     AnchorParallel(FixedSide1,0,AControl);
     AnchorParallel(FixedSide2,0,AControl);
   end;
-  
+
 var
   OldResizeAnchor: TAnchorKind;
   OldWidth: LongInt;

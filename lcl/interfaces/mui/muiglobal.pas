@@ -250,7 +250,7 @@ begin
 end;
 {$endif}
 
-{$ifdef CPU86}
+{$if defined(CPU86) or defined(CPUARM))}
 {$define SetHook}
 procedure HookEntry(h: PHook; obj: PObject_; Msg: Pointer); cdecl;
 var

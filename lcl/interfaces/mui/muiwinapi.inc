@@ -1445,9 +1445,13 @@ var
   GDI: TMUIWinAPIObject absolute GDIObj;
 begin
   {$ifdef VERBOSEAROS}
-  writeln('select object ', HexStr(Pointer(GDIObj)), ' ', GDI.classname,' DC ' , HexStr(MyDC));
+  writeln('  select object ', HexStr(Pointer(GDIObj)), ' ', GDI.classname,' DC ' , HexStr(MyDC));
   {$endif}
   Result := 0;
+  if not Assigned(WinObjList) then
+    Exit;
+  if WinObjList.IndexOf(GDI) < 0 then
+    Exit;
   if Assigned(MyDC) and Assigned(GDI) and (GDIObj > $100) then
   begin
     if (TObject(GDIObj) is TMUIWinAPIObject) then

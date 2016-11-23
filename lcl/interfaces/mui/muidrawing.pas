@@ -110,7 +110,11 @@ type
 
   TMUIWinAPIElement = class(TObject);
 
-  TMUIWinAPIObject = class(TMUIWinAPIElement);
+  TMUIWinAPIObject = class(TMUIWinAPIElement)
+  public
+    constructor Create; virtual;
+    destructor Destroy; override;
+  end;
 
   TMUIColor = longword;
 
@@ -355,6 +359,9 @@ type
   function TColorToMUIColor(col: TColor): TMuiColor;
   function MUIColorToTColor(col: TMuiColor): TColor;
 
+var
+  WinObjList: Classes.TList = nil;
+
 implementation
 uses
   muibaseunit, interfacebase;
@@ -408,10 +415,24 @@ begin
   Result := r or g or b;
 end;
 
+constructor TMUIWinAPIObject.Create;
+begin
+  if Assigned(WinObjList) then
+    WinObjList.Add(Self);
+end;
+
+destructor TMUIWinAPIObject.Destroy;
+begin
+  if Assigned(WinObjList) then
+    WinObjList.Remove(Self);
+end;
+
 { TMUIBitmap }
 
 constructor TMUIBitmap.Create(Width, Height, Depth: Integer);
 begin
+  inherited Create;
+  //writeln('Create TMUIBitmap ', HexStr(Self));
   FWidth := Width;
   FHeight := Height;
   FDepth := Depth;
@@ -505,6 +526,7 @@ var NumFonts: Integer = 0;
 
 constructor TMUIFontObj.Create(const AFontData: TLogFont);
 begin
+  //writeln('Create TMUIFontObj ', HexStr(Self));
   {$ifdef COUNTFONTS}
   writeln('create font ', HexStr(self),' ', NumFonts);
   Inc(NumFonts);
@@ -530,6 +552,7 @@ end;
 
 constructor TMUIFontObj.Create(const AFontData: TLogFont; const LongFontName: string);
 begin
+  //writeln('Create TMUIBitmap ', HexStr(Self));
   {$ifdef COUNTFONTS}
   writeln('create font ', HexStr(self),' ', NumFonts);
   Inc(NumFonts);
@@ -571,6 +594,7 @@ var
   r,g,b: Byte;
 {$endif}
 begin
+  //writeln('Create TMUIBrushObj ', HexStr(Self));
   inherited Create;
   //writeln(' Create Brush: ', HexStr(Pointer(ABrushData.lbColor)), ' Style: ', ABrushData.lbStyle, ' ', HexStr(Self));
   //writeln('Solid: ', BS_SOLID, ' Hatched: ', BS_HATCHED, ' Hollow: ', BS_HOLLOW);
@@ -595,6 +619,7 @@ end;
 
 destructor TMUIBrushObj.Destroy;
 begin
+  //writeln('Destroy TMUIVrushObj $', HexStr(Self));
   if not IsSystemColor then
   begin
     {$ifdef Amiga68k}
@@ -612,6 +637,7 @@ var
   r,g,b: LongWord;
 {$endif}
 begin
+  //writeln('Create TMUIPenObj ', HexStr(Self));
   inherited Create;
   FLCLColor := APenData.lopnColor;
   Style := APenData.lopnStyle;
@@ -1759,7 +1785,9 @@ end;
 function TMUICanvas.SelectObject(NewObj: TMUIWinAPIElement): TMUIWinAPIElement;
 begin
   Result := nil;
-  if not Assigned(NewObj) then
+  if (not Assigned(NewObj)) or (not Assigned(WinObjList)) then
+    Exit;
+  if WinObjList.IndexOf(NewObj) < 0 then
     Exit;
   //writeln('Select: ', NewObj.classname, ' self: ', HexStr(Self));
   if NewObj is TMUIPenObj then
@@ -1816,10 +1844,10 @@ begin
 end;
 
 initialization
-
-
-
+  WinObjList := Classes.TList.Create;
 finalization
+  WinObjList.Free;
+  WinObjList := nil;
 
 end.
 

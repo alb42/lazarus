@@ -22,7 +22,7 @@
 
   Abstract:
     TCodeCache is an AVL Tree of TCodeBuffer. It can load and save files.
-    
+
     TCodeBuffer is a descendent of TSourceLog and manages a single file.
 }
 unit CodeCache;
@@ -44,7 +44,7 @@ const
   IncludeLinksFileVersion = 2;
 type
   TCodeCache = class;
-  
+
   { TCodeBuffer }
 
   TCodeBuffer = class(TSourceLog)
@@ -114,7 +114,7 @@ type
     property Scanner: TLinkScanner read FScanner write SetScanner;
     property ReferenceCount: integer read FReferenceCount;
   end;
-  
+
   { TIncludedByLink }
 
   TIncludedByLink = class
@@ -745,7 +745,7 @@ begin
   Result.MemEncoding:=Result.DiskEncoding;
 end;
 
-function TCodeCache.SaveBufferAs(OldBuffer: TCodeBuffer; 
+function TCodeCache.SaveBufferAs(OldBuffer: TCodeBuffer;
   const AFilename: string; out NewBuffer: TCodeBuffer): boolean;
 begin
   //DebugLn('[TCodeCache.SaveBufferAs] ',OldBuffer.Filename,' ',AFilename);
@@ -1171,10 +1171,12 @@ procedure TCodeCache.ConsistencyCheck;
 var ANode: TAVLTreeNode;
   CurResult: LongInt;
 begin
-  CurResult:=FItems.ConsistencyCheck;
+  CurResult:=0;
+  FItems.ConsistencyCheck;
   if CurResult<>0 then
     RaiseCatchableException(IntToStr(CurResult));
-  CurResult:=FIncludeLinks.ConsistencyCheck;
+  CurResult:=0;
+  FIncludeLinks.ConsistencyCheck;
   if CurResult<>0 then
     RaiseCatchableException(IntToStr(CurResult));
   ANode:=FItems.FindLowest;
@@ -1729,4 +1731,4 @@ begin
 end;
 
 end.
- 
+

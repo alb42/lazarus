@@ -206,7 +206,7 @@ type
 
     constructor Create;
     destructor Destroy; override;
-    
+
     procedure Init(Config: TCodeToolsOptions);
     procedure SimpleInit(const ConfigFilename: string);
 
@@ -318,7 +318,7 @@ type
                          read FOnBeforeApplyChanges write FOnBeforeApplyChanges;
     property OnAfterApplyChanges: TOnAfterApplyCTChanges
                            read FOnAfterApplyChanges write FOnAfterApplyChanges;
-          
+
     // defines
     function SetGlobalValue(const VariableName, VariableValue: string): boolean;
     function GetUnitPathForDirectory(const Directory: string;
@@ -363,7 +363,7 @@ type
           DestTree: TAVLTree; ClearList, CreateCopies: boolean);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    
+
     // code exploring
     function Explore(Code: TCodeBuffer; out ACodeTool: TCodeTool;
           WithStatements: boolean; OnlyInterface: boolean = false): boolean;
@@ -725,11 +725,11 @@ type
     // register proc
     function HasInterfaceRegisterProc(Code: TCodeBuffer;
           out HasRegisterProc: boolean): boolean;
-          
+
     // Delphi to Lazarus conversion
     function ConvertDelphiToLazarusSource(Code: TCodeBuffer;
           AddLRSCode: boolean): boolean;
-          
+
     // Application.Createform(ClassName,VarName) statements in program source
     function FindCreateFormStatement(Code: TCodeBuffer; StartPos: integer;
           const AClassName, AVarName: string;
@@ -743,9 +743,9 @@ type
           const NewClassName, NewVarName: string;
           OnlyIfExists: boolean): boolean;
     function ListAllCreateFormStatements(Code: TCodeBuffer): TStrings;
-    function SetAllCreateFromStatements(Code: TCodeBuffer; 
+    function SetAllCreateFromStatements(Code: TCodeBuffer;
           List: TStrings): boolean;
-          
+
     // Application.Title:= statements in program source
     function GetApplicationTitleStatement(Code: TCodeBuffer;
           var Title: string): boolean;
@@ -829,7 +829,7 @@ type
           const Filter: TOnIDEDirectiveFilter = nil): boolean;
     function SetIDEDirectives(Code: TCodeBuffer; DirectiveList: TStrings;
           const Filter: TOnIDEDirectiveFilter = nil): boolean;
-          
+
     // linker jumping
     function JumpToLinkerIdentifier(Code: TCodeBuffer;
           const SourceFilename: string; SourceLine: integer;
@@ -1257,7 +1257,7 @@ begin
       // compare current extension with filename-extension
       if ExtLen=CurExtEnd-CurExtStart then begin
         i:=0;
-        while (i<ExtLen) 
+        while (i<ExtLen)
         and (UpChars[AFilename[i+ExtStart]]
             =UpChars[FSourceExtensions[CurExtStart+i]]) do
           inc(i);
@@ -1307,11 +1307,11 @@ begin
   Result:=false;
   ListOfCodeBuffer:=nil;
   if Code=nil then exit;
-  
+
   Result:=true;
   ListOfCodeBuffer:=TFPList.Create;
   ListOfCodeBuffer.Add(Code);
-  
+
   // if this is an include file, find the top level source
   while (Code.LastIncludedByFile<>'') do begin
     NewCode:=SourceCache.LoadFile(Code.LastIncludedByFile);
@@ -1638,7 +1638,7 @@ var
     end;
     Result:=StartPos<p;
   end;
-  
+
 begin
   FPCVersion:=0;
   FPCRelease:=0;
@@ -3318,7 +3318,7 @@ end;
 
 function TCodeToolManager.FixIncludeFilenames(Code: TCodeBuffer;
   Recursive: boolean; out MissingIncludeFilesCodeXYPos: TFPList): boolean;
-  
+
   procedure CreateErrorForMissingIncludeFile;
   var
     CodePos: PCodeXYPosition;
@@ -3330,7 +3330,7 @@ function TCodeToolManager.FixIncludeFilenames(Code: TCodeBuffer;
     fErrorColumn:=CodePos^.X;
     FErrorMsg:='missing include file';
   end;
-  
+
 var
   FoundIncludeFiles: TStrings;
   i: Integer;
@@ -5331,7 +5331,7 @@ begin
   end;
 end;
 
-function TCodeToolManager.SetAllCreateFromStatements(Code: TCodeBuffer; 
+function TCodeToolManager.SetAllCreateFromStatements(Code: TCodeBuffer;
   List: TStrings): boolean;
 begin
   Result:=false;
@@ -5825,7 +5825,7 @@ begin
   // clear all codetrees of changed buffers
   if FCurCodeTool<>nil then
     FCurCodeTool.Clear;
-    
+
   // user callback
   if Assigned(FOnAfterApplyChanges) then
     FOnAfterApplyChanges(Self);
@@ -6081,7 +6081,7 @@ begin
   Result:=nil;
   if ANode=nil then exit;
   RootCodeTreeNode:=ANode.GetRoot;
-  
+
   // search in codetools
   AToolNode:=FPascalTools.FindLowest;
   while (AToolNode<>nil) do begin
@@ -6092,7 +6092,7 @@ begin
     end;
     AToolNode:=FPascalTools.FindSuccessor(AToolNode);
   end;
-  
+
   // search in directivestools
   AToolNode:=FDirectivesTools.FindLowest;
   while (AToolNode<>nil) do begin
@@ -6240,10 +6240,12 @@ begin
   SourceCache.ConsistencyCheck;
   GlobalValues.ConsistencyCheck;
   SourceChangeCache.ConsistencyCheck;
-  CurResult:=FPascalTools.ConsistencyCheck;
+  CurResult:=0;
+  FPascalTools.ConsistencyCheck;
   if CurResult<>0 then
     RaiseCatchableException(IntToStr(CurResult));
-  CurResult:=FDirectivesTools.ConsistencyCheck;
+  CurResult:=0;
+  FDirectivesTools.ConsistencyCheck;
   if CurResult<>0 then
     RaiseCatchableException(IntToStr(CurResult));
 end;

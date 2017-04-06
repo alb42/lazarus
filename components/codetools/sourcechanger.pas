@@ -28,7 +28,7 @@
     at once. It also supports gaps. A gap can be none, a space char, a new line
     or two new lines.
     The TBeautifyCodeOptions can beautify procedure heads and single statements.
-    
+
   ToDo:
     - BeautifyStatement: support for line ends in dirty code
     - Beautify whole unit/ program
@@ -44,21 +44,21 @@ interface
 uses
   Classes, SysUtils, FileProcs, CodeToolsStrConsts, CodeCache, BasicCodeTools,
   typinfo, LinkScanner, AVL_Tree, KeywordFuncLists, LazDbgLog;
-  
+
 type
   // Insert policy types for class parts (properties, variables, method defs)
   TClassPartInsertPolicy = (
     cpipAlphabetically,
     cpipLast            // as last sibling
     );
-    
+
   // Insert policy for method bodies (begin..end of methods, not procs)
   TMethodInsertPolicy = (
     mipAlphabetically,
     mipLast,           // behind all existing methods of the same class
     mipClassOrder      // try to copy the order of the class
     );
-    
+
   //where to add created methods from event assignment: "OnClick := @MyNewProc;"
   TInsertClassSection = (
     icsPrivate,
@@ -95,7 +95,7 @@ type
                atSpace, atCommentStart, atDirectiveStart, atCommentEnd,
                atSymbol, atBracket, atCaret);
   TAtomTypes = set of TAtomType;
-  
+
   TBeautifyCodeFlag = (
     bcfNoIndentOnBreakLine,
     bcfDoNotIndentFirstLine,
@@ -192,7 +192,7 @@ type
     UsesSectionPreferInterface: boolean;
 
     CurFlags: TBeautifyCodeFlags;
-    
+
     NestedComments: boolean;
 
     function GetRealEventMethodSection(out Section: TInsertClassSectionResult): Boolean; //in case of imsPrompt show a dialog and return a "normal" section; returns true if OK, false if canceled
@@ -253,7 +253,7 @@ type
     function IsAtSamePos(AnEntry: TSourceChangeCacheEntry): boolean;
     function CalcMemSize: PtrUint;
   end;
-  
+
   //----------------------------------------------------------------------------
   TOnBeforeApplyChanges = procedure(var Abort: boolean) of object;
   TOnAfterApplyChanges = procedure of object;
@@ -311,9 +311,9 @@ type
     procedure WriteDebugReport;
     procedure CalcMemSize(Stats: TCTMemStats);
   end;
-  
+
   { ESourceChangeCacheError }
-  
+
   ESourceChangeCacheError = class(Exception)
   public
     Sender: TSourceChangeCache;
@@ -350,7 +350,7 @@ const
   ClassPartInsertPolicyNames: array[TClassPartInsertPolicy] of shortstring = (
       'Alphabetically', 'Last'
     );
-    
+
   MethodInsertPolicyNames: array[TMethodInsertPolicy] of shortstring = (
       'Alphabetically', 'Last', 'ClassOrder'
     );
@@ -369,7 +369,7 @@ const
       'InFrontOfMethods',
       'BehindMethods'
     );
-    
+
   UsesInsertPolicyNames: array[TUsesInsertPolicy] of shortstring = (
       'First',
       'InFrontOfRelated',
@@ -693,7 +693,7 @@ function TSourceChangeCache.ReplaceEx(FrontGap, AfterGap: TGapTyp;
   FromPos, ToPos: integer;
   DirectCode: TCodeBuffer; FromDirectPos, ToDirectPos: integer;
   const Text: string): boolean;
-  
+
   procedure RaiseDataInvalid;
   begin
     if (MainScanner=nil) then
@@ -705,23 +705,23 @@ function TSourceChangeCache.ReplaceEx(FrontGap, AfterGap: TGapTyp;
     if (MainScanner<>nil) and (ToPos>MainScanner.CleanedLen+1) then
       RaiseException('TSourceChangeCache.ReplaceEx ToPos>MainScanner.CleanedLen+1');
   end;
-  
+
   procedure RaiseIntersectionFound;
   begin
     RaiseException('TSourceChangeCache.ReplaceEx '
       +'IGNORED, because intersection found');
   end;
-  
+
   procedure RaiseCodeReadOnly(Buffer: TCodeBuffer);
   begin
     RaiseException(ctsfileIsReadOnly+' '+Buffer.Filename);
   end;
-  
+
   procedure RaiseNotInCleanCode;
   begin
     RaiseException('TSourceChangeCache.ReplaceEx not in clean code');
   end;
-  
+
 var
   NewEntry: TSourceChangeCacheEntry;
   p: pointer;
@@ -928,7 +928,8 @@ procedure TSourceChangeCache.ConsistencyCheck;
 var
   CurResult: LongInt;
 begin
-  CurResult:=FEntries.ConsistencyCheck;
+  CurResult:=0;
+  FEntries.ConsistencyCheck;
   if CurResult<>0 then
     RaiseCatchableException(IntToStr(CurResult));
   BeautifyCodeOptions.ConsistencyCheck;
@@ -1024,7 +1025,7 @@ var
         InsertText:=InsertText+GetIndentStr(NeededIndent);
     end;
   end;
-  
+
   procedure AddFrontGap(AnEntry: TSourceChangeCacheEntry);
   var
     NeededLineEnds: integer;
@@ -1081,7 +1082,7 @@ var
       do dec(FromPosAdjustment);
     end;
   end;
-  
+
 var
   CurNode, PrecNode: TAVLTreeNode;
   CurEntry, PrecEntry, FirstEntry: TSourceChangeCacheEntry;
@@ -1232,7 +1233,7 @@ begin
   if (FUpdateLock<=0) then
     Result:=Apply;
 end;
-    
+
 procedure TSourceChangeCache.SetMainScanner(NewScanner: TLinkScanner);
 begin
   if NewScanner=FMainScanner then exit;
@@ -1333,7 +1334,7 @@ begin
   PropertyStoredIdentPostfix:='IsStored';
   PrivateVariablePrefix:='f';
   UsesInsertPolicy:=DefaultUsesInsertPolicy;
-  
+
   NestedComments:=true;
 end;
 
@@ -1360,7 +1361,7 @@ begin
     else
       NewAtom:=BeautifyWord(NewAtom,IdentifierPolicy);
   end;
-  
+
   // indent existing line break
   if bcfIndentExistingLineBreaks in CurFlags then begin
     BreakPos:=1;
@@ -1386,7 +1387,7 @@ begin
     NewAtom:=SplitStringConstant(NewAtom,LineLength-CurLineLen,LineLength,
                                  Indent+GetLineIndent(CurCode,LastSrcLineStart),
                                  LineEnd);
-  
+
   // find last line end in atom
   LastLineEndInAtom:=length(NewAtom);
   while (LastLineEndInAtom>=1) do begin
@@ -1885,7 +1886,7 @@ begin
           +' Last='+dbgs(LastAtomType in DoInsertSpaceAfter)
           +' ..."'+copy(Result,length(Result)-10,10)+'"');}
       end;
-      
+
       if (not (CurAtomType in DoNotSplitLineInFront))
       and (not (LastAtomType in DoNotSplitLineAfter+[atNewLine]))
       and (CommentLvl=0) then

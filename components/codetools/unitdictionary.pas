@@ -486,7 +486,7 @@ begin
       e('group '+Group.Name+' without filename');
     if AVLFindPointer(FUnitGroupsByFilename,Group)=nil then
       e('group '+Group.Name+' in FUnitGroupsByName not in FUnitGroupsByFilename');
-    Group.Units.ConsistencyCheck
+    Group.Units.ConsistencyCheck;
     //if Group.Units.ConsistencyCheck<>0 then
     //  e('group '+Group.Name+' Group.Units.ConsistencyCheck<>0');
     if (LastGroup<>nil)

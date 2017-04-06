@@ -396,6 +396,11 @@ begin
   if UnitsByFilename.Count<>UnitsByName.Count then
     e('UnitsByFilename.Count<>UnitsByName.Count');
 
+  UnitGroupsByFilename.ConsistencyCheck;
+  UnitGroupsByName.ConsistencyCheck;
+  UnitsByName.ConsistencyCheck;
+  UnitsByFilename.ConsistencyCheck;
+  {
   if UnitGroupsByFilename.ConsistencyCheck<>0 then
     e('UnitGroupsByFilename.ConsistencyCheck<>0');
   if UnitGroupsByName.ConsistencyCheck<>0 then
@@ -403,7 +408,7 @@ begin
   if UnitsByName.ConsistencyCheck<>0 then
     e('UnitsByName.ConsistencyCheck<>0');
   if UnitsByFilename.ConsistencyCheck<>0 then
-    e('UnitsByFilename.ConsistencyCheck<>0');
+    e('UnitsByFilename.ConsistencyCheck<>0');}
   IdentifiersCount:=0;
 
   // check UnitsByName

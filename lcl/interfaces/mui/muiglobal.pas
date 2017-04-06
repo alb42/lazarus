@@ -61,9 +61,9 @@ begin
 end;
 {$endif}
 
-{$ifdef CPU86}
+{$if defined(CPU86) or defined(CPUARM)}
 {$define SetHook}
-procedure HookEntry(h: PHook; obj: PObject_; Msg: Pointer); cdecl;
+procedure HookEntry(h: PHook; obj: PObject_; Msg: Pointer); {$ifdef CPU86}cdecl;{$endif}
 var
   Proc: THookFunc;
 begin
@@ -131,7 +131,7 @@ end;
 function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR; inline;
 begin
   DoMethod := 0;
-  if obj = nil then 
+  if obj = nil then
     Exit;
   DoMethod := CALLHOOKPKT_(PHook(OCLASS(Obj)), Obj, @Args);
 end;

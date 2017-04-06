@@ -1422,7 +1422,7 @@ begin
   //writeln('ShiftState AROS: ', HexStr(Pointer(State)), ' and ', HexStr(Pointer(IEQUALIFIER_LALT)),' -> ', HexStr(Pointer(Result)));
 end;
 
-function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; cdecl;
+function Dispatcher(cl: PIClass; Obj: PObject_; Msg: intuition.PMsg): longword; {$ifdef CPU86}cdecl;{$endif}
 var
   ri: PMUI_RenderInfo;
   rp: PRastPort;
@@ -1452,6 +1452,7 @@ var
   Key: Char;
   i: Integer;
 begin
+
   //write('Enter Dispatcher with: ', Msg^.MethodID);
   case Msg^.MethodID of
     MUIM_SETUP: begin
@@ -1473,10 +1474,8 @@ begin
         MUIB.EHNode^.ehn_Object := obj;
         MUIB.EHNode^.ehn_Class := cl;
         MUIB.EHNode^.ehn_Events := IDCMP_MOUSEBUTTONS or IDCMP_MOUSEMOVE or IDCMP_RAWKEY;
-        winObj := OBJ_win(obj);
-        ri := MUIRenderInfo(Obj);
-        WinObj := ri^.mri_WindowObject;
-        DoMethod(WinObj, [MUIM_Window_AddEventHandler, PtrUInt(MUIB.EHNode)]);
+
+        DoMethod(OBJ_win(obj), [MUIM_Window_AddEventHandler, PtrUInt(MUIB.EHNode)]);
       end;
       //MUI_RequestIDCMP(Obj, IDCMP_MOUSEBUTTONS);
     end;

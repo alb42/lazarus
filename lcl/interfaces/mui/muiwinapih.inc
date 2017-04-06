@@ -185,8 +185,8 @@ function StretchMaskBlt(DestDC: HDC; X, Y, Width, Height: Integer;
   XMask, YMask: Integer; Rop: DWORD): Boolean; override;
 {function SystemParametersInfo(uiAction: DWord; uiParam: DWord; pvParam: Pointer; fWinIni: DWord): LongBool; override;
 
-function TextOut(DC: HDC; X,Y : Integer; Str : Pchar; Count: Integer) : Boolean; override;
-function UpdateWindow(Handle: HWND): Boolean; override;}
+function TextOut(DC: HDC; X,Y : Integer; Str : Pchar; Count: Integer) : Boolean; override;}
+function UpdateWindow(Handle: HWND): Boolean; override;
 function WindowFromPoint(Point: TPoint): HWND; override;
 
 //##apiwiz##eps##   // Do not remove, no wizard declaration after this line

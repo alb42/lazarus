@@ -1422,8 +1422,8 @@ begin
   Result := 0;
   if Assigned(ADC) then
   begin
-    Result := ADC.BKColor;
-    ADC.BKColor := Color;
+    Result := TColorRef(ADC.BKColor);
+    ADC.BKColor := TColor(Color);
   end;
 end;
 
@@ -1446,7 +1446,7 @@ begin
   Result := HWND(CaptureObj);
   CaptureObj := Widget;
   if CaptureObj<>nil then
-    SendMessage(HWnd({%H-}PtrUInt(CaptureObj.PasObject)), LM_CAPTURECHANGED, 0, Result);
+    SendMessage(HWnd({%H-}PtrUInt(CaptureObj.PasObject)), LM_CAPTURECHANGED, 0, PtrInt(Result));
 end;
 
 function TMUIWidgetSet.SetFocus(hWnd: HWND): HWND;
@@ -1537,8 +1537,8 @@ var
 begin
   if Assigned(ADC) then
   begin
-    Result := ADC.TextColor;
-    ADC.TextColor := Color;
+    Result := TColorRef(ADC.TextColor);
+    ADC.TextColor := TColor(Color);
   end;
 end;
 
@@ -1679,7 +1679,7 @@ begin
         FX := SrcWidth/Width;
       if SrcHeight > 0 then
         FY := SrcHeight/Height;
-      for ys := 0 to Height - 5 do
+      for ys := 0 to Height - 1 do
       begin
         NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
         i := NY * SrcWidth;
@@ -1782,7 +1782,7 @@ begin
           FX := SrcWidth/Width;
         if SrcHeight > 0 then
           FY := SrcHeight/Height;
-        for ys := 0 to Height - 5 do
+        for ys := 0 to Height - 1 do
         begin
           NY := Min(Src.Bitmap.FHeight - 1, Round(ys * FY));
           i := NY * SrcWidth;
@@ -1806,6 +1806,14 @@ begin
     //writeln('wrote: ', i, ', ', Dest.GetOffset.X + x, ', ', Dest.GetOffset.Y + Y, ', ', Width, ', ', Height,' - ', SrcWidth,',', SrcHeight);
   end;
   Result := True;
+end;
+
+function TMUIWidgetSet.UpdateWindow(Handle: HWND): Boolean;
+var
+  Widget: TMUIObject absolute Handle;
+begin
+  if (Handle <> 0) and (TObject(Handle) is TMUIObject) then
+    Widget.ReDraw;
 end;
 
 function TMUIWidgetSet.WindowFromPoint(Point: TPoint): HWND;

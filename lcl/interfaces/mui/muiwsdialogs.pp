@@ -367,11 +367,11 @@ begin
 
   DoMethod(Win, [MUIM_Notify,
     MUIA_Window_CloseRequest, TagTrue,
-    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, AsTag(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(but2, [MUIM_Notify,
     MUIA_Pressed, TagTrue,
-    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit]);
+    PtrUInt(LocalApp), 2, MUIM_Application_ReturnID, AsTag(MUIV_Application_ReturnID_Quit)]);
 
   DoMethod(but1, [MUIM_Notify,
     MUIA_Pressed, TagTrue,

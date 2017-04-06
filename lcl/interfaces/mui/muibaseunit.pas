@@ -370,7 +370,6 @@ end;
 
 procedure TMUIObject.SetVisible(const AValue: boolean);
 begin
-  //writeln('setVis ', AValue);
   if not AValue then
     FirstPaint := True;
   SetAttribute(MUIA_ShowMe, AValue);
@@ -474,7 +473,8 @@ end;
 procedure TMUIObject.DoMUIDraw();
 begin
   if Assigned(FObject) and (not BlockRedraw) then
-    MUI_Redraw(FObject, MADF_DRAWOBJECT);
+    MUI_Redraw(FObject, $805);
+    //MUI_Redraw(FObject, MADF_DRAWOBJECT);
 end;
 
 function TMUIObject.GetClientRect: TRect;
@@ -643,8 +643,14 @@ begin
   Caret := nil;
   EHNode := nil;
   MUIDrawing := False;
-  FMUICanvas := TMUICanvas.Create;
-  FMUICanvas.MUIObject := self;
+  if Self is TMUIApplication then
+  begin
+    FMUICanvas := nil;
+  end else
+  begin
+    FMUICanvas := TMUICanvas.Create;
+    FMUICanvas.MUIObject := self;
+  end;
   BlockRedraw := False;
   FChilds := TObjectList.Create(False);
   FParent := nil;

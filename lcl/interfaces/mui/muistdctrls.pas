@@ -198,12 +198,17 @@ type
     FTextObj: pObject_;
     procedure SetReadOnly(AReadOnly: Boolean);
     function GetReadOnly: Boolean;
+    procedure SetHasChanged(AHasChanged: Boolean);
+    function GetHasChanged: Boolean;
+  protected
+    procedure InstallHooks; override;
   public
     constructor Create(AStrings: TStrings; const Tags: TATagList); overload; reintroduce; virtual;
     Destructor Destroy; override;
     property Strings: TFlowString read FStrings write FStrings;
     property TextObj: pObject_ read FTextObj write FTextObj;
     property ReadOnly: Boolean read GetReadOnly write SetReadOnly;
+    property HasChanged: Boolean read GetHasChanged write SetHasChanged;
   end;
 
   { TMuiListView }
@@ -338,9 +343,10 @@ procedure TMUIScrollBar.SetPageSize(AValue: Integer);
 var
   Pos: Integer;
 begin
-  if PageSize = FPageSize then
+  if AValue = FPageSize then
     Exit;
-  //debugln('set page size ' + IntToStr(AValue));
+  //debugln('FMin ' + IntToStr(FMinValue) + ' FMax ' + IntToStr(FMaxValue));
+  //debugln('set page size ' + IntToStr(AValue) + ' Entries: ' + IntToStr((FMaxValue - FMinValue) + AValue));
   Pos := Position;
   FPageSize := AValue;
   SetAttribute(MUIA_Prop_Entries, (FMaxValue - FMinValue) + AValue);
@@ -753,16 +759,21 @@ end;
 procedure TMuiListView.SetActive(const AValue: LongInt);
 var
   Res: LongInt;
+  Res1: NativeUInt;
   TagList: TATagList;
 begin
   if AValue = -1 then
     Res := MUIV_List_Active_Off
   else
     Res := AValue;
-  TagList.AddTags([
-    MUIA_List_Active, Res
-    ]);
-  SetAttrsA(StrObj, TagList);
+  GetAttr(NativeUInt(MUIA_List_Active), StrObj, Res1);
+  if LongInt(Res1) <> Res then
+  begin
+    TagList.AddTags([
+      MUIA_List_Active, Res
+      ]);
+    SetAttrsA(StrObj, TagList);
+  end;
 end;
 
 procedure TMuiListView.SetOwnSize;
@@ -993,7 +1004,8 @@ begin
   if TObject(Hook^.h_Data) is TMuiObject then
   begin
     MuiObject := TMuiObject(Hook^.h_Data);
-    SendSimpleMessage(MuiObject.PasObject, CM_TEXTCHANGED);
+    if Assigned(MuiObject.PasObject) then
+      SendSimpleMessage(MuiObject.PasObject, CM_TEXTCHANGED);
   end;
 end;
 
@@ -1200,7 +1212,8 @@ begin
     MUIA_InnerLeft, 0, MUIA_InnerRight, 0,
     MUIA_InnerTop, 0, MUIA_InnerBottom, 0,
     MUIA_Group_Spacing, 0,
-    MUIA_Group_Horiz, NativeUInt(False)
+    MUIA_Group_Horiz, NativeUInt(LTrue)
+    //MUIA_Group_Horiz, NativeUInt(False)
     ]);
 
   UpDownPanel := MUI_NewObjectA(MUIC_Group, BtnGroupTags.GetTagPointer);
@@ -1485,6 +1498,26 @@ end;
 
 { TMuiTextEdit }
 
+
+const
+  TextEditor_Dummy = $ad000000;
+  MUIA_TextEditor_Contents = TextEditor_Dummy + $2;
+  MUIA_TextEditor_CursorX = TextEditor_Dummy + $4;
+  MUIA_TextEditor_CursorY = TextEditor_Dummy + $5;
+  MUIA_TextEditor_HasChanged = TextEditor_Dummy + $0c;
+  MUIA_TextEditor_ReadOnly = TextEditor_Dummy + $19;
+  MUIA_TextEditor_Slider = TextEditor_Dummy + $1a;
+  MUIM_TextEditor_ClearText = TextEditor_Dummy + $24;
+  MUIM_TextEditor_ExportText = TextEditor_Dummy + $25;
+  MUIM_TextEditor_InsertText = TextEditor_Dummy + $26;
+  MUIM_TextEditor_KeyUpFocus = TextEditor_Dummy + $36;
+
+
+  MUIV_TextEditor_InsertText_Cursor = 0;
+  MUIV_TextEditor_InsertText_Top = 1;
+  MUIV_TextEditor_InsertText_Bottom = 2;
+
+
 constructor TMuiTextEdit.Create(AStrings: TStrings; const Tags: TATagList);
 var
   Scroll: PObject_;
@@ -1504,10 +1537,10 @@ begin
     MUIA_Group_Child, NativeUInt(Scroll)
     ]);
   inherited Create(MUIC_Group, CreateTags);
-  SetAttObj(FTextObj, [$ad00001a, NativeUInt(scroll)]);
+  SetAttObj(FTextObj, [MUIA_TextEditor_Slider, NativeUInt(scroll)]);
   //Create(PChar('TextEditor.mcc'), Tags);
   FText := AStrings.GetText;
-  SetAttribute($ad000002, NativeUInt(FText));
+  SetAttribute(MUIA_TextEditor_Contents, NativeUInt(FText));
 end;
 
 Destructor TMuiTextEdit.Destroy;
@@ -1516,9 +1549,11 @@ begin;
   FStrings.Free;
 end;
 
-const
-  TextEditor_Dummy = $ad000000;
-  MUIA_TextEditor_ReadOnly = TextEditor_Dummy + $19;
+procedure TMuiTextEdit.InstallHooks;
+begin
+  ConnectHookObject(FTextObj,MUIA_TextEditor_HasChanged, LongWord(1), @TextChangedFunc);
+  inherited;
+end;
 
 procedure TMuiTextEdit.SetReadOnly(AReadOnly: Boolean);
 begin
@@ -1529,6 +1564,18 @@ function TMuiTextEdit.GetReadOnly: Boolean;
 begin
   Result := Boolean(GetAttribute(MUIA_TextEditor_ReadOnly));
 end;
+
+procedure TMuiTextEdit.SetHasChanged(AHasChanged: Boolean);
+begin
+  if HasChanged <> AHasChanged then
+    SetAttObj(FTextObj, [MUIA_TextEditor_HasChanged, AsTag(AHasChanged)]);
+end;
+
+function TMuiTextEdit.GetHasChanged: Boolean;
+begin
+  Result := Boolean(GetAttObj(FTextObj, MUIA_TextEditor_HasChanged));
+end;
+
 
 { TFlowString }
 
@@ -1551,10 +1598,11 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     Result := SL.Count;
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1565,12 +1613,13 @@ begin
   if Assigned(FMuiObject) then
   begin
     SL.BeginUpdate;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     Result := SL.Add(S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1580,8 +1629,10 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    DoMethod(FMuiObject.FTextObj, [$ad000024]);
+    DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ClearText]);
+    TMUITextEdit(FMuiObject).HasChanged := False;
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1593,12 +1644,13 @@ begin
   begin;
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     SL.Delete(Index);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1610,12 +1662,13 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     SL.Exchange(Index1, Index2);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1627,10 +1680,11 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     Result := SL.strings[Index];
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1643,12 +1697,13 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     SL.strings[Index] := S;
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1660,12 +1715,13 @@ begin
   begin
     SL.BeginUpdate;
     SL.Clear;
-    PC := PChar(DoMethod(FMuiObject.FTextObj, [$ad000025]));
+    PC := PChar(DoMethod(FMuiObject.FTextObj, [MUIM_TextEditor_ExportText]));
     SL.SetText(PC);
     SL.Insert(Index, S);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 
@@ -1679,8 +1735,9 @@ begin
     SL.Clear;
     SL.LoadFromFile(FileName);
     PC := SL.GetText;
-    FMuiObject.SetAttObj(FMuiObject.FTextObj,[$ad000002, NativeUInt(PC)]);
+    FMuiObject.SetAttObj(FMuiObject.FTextObj,[MUIA_TextEditor_Contents, NativeUInt(PC)]);
     SL.EndUpdate;
+    FMuiObject.HasChanged := TCustomEdit(FMuiObject.PasObject).Modified;
   end;
 end;
 

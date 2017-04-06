@@ -424,8 +424,9 @@ begin
       e('unit '+CurUnit.Name+' in FUnitsByName not in FUnitsByFilename');
     if CurUnit.Groups.Count=0 then
       e('unit '+CurUnit.Name+' has not group');
-    if CurUnit.Groups.ConsistencyCheck<>0 then
-      e('unit '+CurUnit.Name+' UnitGroups.ConsistencyCheck<>0');
+    CurUnit.Groups.ConsistencyCheck;
+    //if CurUnit.Groups.ConsistencyCheck<>0 then
+    //  e('unit '+CurUnit.Name+' UnitGroups.ConsistencyCheck<>0');
     if (LastUnit<>nil)
     and (CompareFilenames(LastUnit.Filename,CurUnit.Filename)=0) then
       e('unit '+CurUnit.Name+' exists twice: '+CurUnit.Filename);
@@ -485,8 +486,9 @@ begin
       e('group '+Group.Name+' without filename');
     if AVLFindPointer(FUnitGroupsByFilename,Group)=nil then
       e('group '+Group.Name+' in FUnitGroupsByName not in FUnitGroupsByFilename');
-    if Group.Units.ConsistencyCheck<>0 then
-      e('group '+Group.Name+' Group.Units.ConsistencyCheck<>0');
+    Group.Units.ConsistencyCheck
+    //if Group.Units.ConsistencyCheck<>0 then
+    //  e('group '+Group.Name+' Group.Units.ConsistencyCheck<>0');
     if (LastGroup<>nil)
     and (CompareFilenames(LastGroup.Filename,Group.Filename)=0) then
       e('group '+Group.Name+' exists twice: '+Group.Filename);

@@ -23,7 +23,7 @@
   Abstract:
     An arbitrary graph for TCodeTreeNode.
 }
-unit CodeGraph; 
+unit CodeGraph;
 
 {$mode objfpc}{$H+}
 
@@ -31,7 +31,7 @@ interface
 
 uses
   Classes, SysUtils, CodeTree, FileProcs, AVL_Tree;
-  
+
 type
 
   { TCodeGraphNode }
@@ -49,7 +49,7 @@ type
     function InTreeCount: integer;
   end;
   TCodeGraphNodeClass = class of TCodeGraphNode;
-  
+
   PCodeGraphEdgeKey = ^TCodeGraphEdgeKey;
   TCodeGraphEdgeKey = record
     FromNode: TCodeTreeNode;
@@ -118,13 +118,13 @@ type
     function FindAVLNodeOfFromNode(OutTree: TAVLTree; FromNode: TCodeTreeNode
                                    ): TAVLTreeNode;
     function FindAVLNodeOfEdge(FromNode, ToNode: TCodeTreeNode): TAVLTreeNode;
-    
+
     property NodeClass: TCodeGraphNodeClass read FNodeClass;
     property EdgeClass: TCodeGraphEdgeClass read FEdgeClass;
 
     procedure ConsistencyCheck;
   end;
-  
+
 function CompareGraphNodeByNode(GraphNode1, GraphNode2: Pointer): integer;
 function CompareNodeWithGraphNodeNode(p, GraphNode: Pointer): integer;
 
@@ -627,10 +627,10 @@ function TCodeGraph.GetTopologicalSortedList(out ListOfGraphNodes: TFPList;
   ListOfTGraphNodes are all those GraphNodes, that could be sorted topologically
   if InEdgeDirection=true then the list starts with the nodes without in-edges
   else the list start with the nodes without out-edges
-  
+
   if SetTopologicalLvl=true then the GraphNode.Flags will be set to the
     topological level, starting at 0 for nodes with no in edges.
-  
+
   if SortForStartPos=true the nodes will be sorted for Node.StartPos
     as secondary order, keeping the topologically order
 }
@@ -638,14 +638,14 @@ var
   NodeQueue: array of TCodeGraphNode;
   QueueStart: Integer;
   QueueEnd: Integer;
-  
+
   procedure AddNode(GraphNode: TCodeGraphNode);
   begin
     //DebugLn(['AddNode ',GraphNode.Node.DescAsString]);
     NodeQueue[QueueEnd]:=GraphNode;
     inc(QueueEnd);
   end;
-  
+
 var
   AVLNode: TAVLTreeNode;
   GraphNode: TCodeGraphNode;
@@ -684,7 +684,7 @@ begin
       end;
       AVLNode:=Nodes.FindSuccessor(AVLNode);
     end;
-    
+
     // add all nodes without incoming edges from the queue into the list
     while QueueStart<>QueueEnd do begin
       GraphNode:=NodeQueue[QueueStart];
@@ -711,7 +711,7 @@ begin
         end;
       end;
     end;
-    
+
     if ListOfGraphNodes.Count<Nodes.Count then begin
       // there is a circle
       // find a node of a circle
@@ -803,7 +803,7 @@ procedure TCodeGraph.GetMaximumCircle(StartNode: TCodeGraphNode; out
     ANode.FInternalFlags:=2;
     ListOfGraphNodes.Add(ANode);
   end;
-  
+
   procedure MarkReachableNodes(Node: TCodeGraphNode);
   var
     AVLNode: TAVLTreeNode;
@@ -819,7 +819,7 @@ procedure TCodeGraph.GetMaximumCircle(StartNode: TCodeGraphNode; out
       AVLNode:=Node.OutTree.FindSuccessor(AVLNode);
     end;
   end;
-  
+
   procedure AddCircleNodes(Node: TCodeGraphNode);
   var
     AVLNode: TAVLTreeNode;
@@ -835,7 +835,7 @@ procedure TCodeGraph.GetMaximumCircle(StartNode: TCodeGraphNode; out
       AVLNode:=Node.InTree.FindSuccessor(AVLNode);
     end;
   end;
-  
+
 begin
   ListOfGraphNodes:=TFPList.Create;
   ClearNodeFlags;
@@ -921,10 +921,12 @@ begin
     e('');
   if Edges=nil then
     e('');
-  if Nodes.ConsistencyCheck<>0 then
-    e('');
-  if Edges.ConsistencyCheck<>0 then
-    e('');
+  Nodes.ConsistencyCheck;
+  //if Nodes.ConsistencyCheck<>0 then
+  //  e('');
+  Edges.ConsistencyCheck;
+  //if Edges.ConsistencyCheck<>0 then
+  //  e('');
   if AVLTreeHasDoubles(Nodes)<>nil then
     e('');
   if AVLTreeHasDoubles(Edges)<>nil then
@@ -934,8 +936,9 @@ begin
   while AVLNode<>nil do begin
     GraphNode:=TCodeGraphNode(AVLNode.Data);
     if GraphNode.InTree<>nil then begin
-      if GraphNode.InTree.ConsistencyCheck<>0 then
-        e('');
+      GraphNode.InTree.ConsistencyCheck;
+      //if GraphNode.InTree.ConsistencyCheck<>0 then
+      //  e('');
       if AVLTreeHasDoubles(GraphNode.InTree)<>nil then
         e('');
       EdgeAVLNode:=GraphNode.InTree.FindLowest;
@@ -949,8 +952,9 @@ begin
       end;
     end;
     if GraphNode.OutTree<>nil then begin
-      if GraphNode.OutTree.ConsistencyCheck<>0 then
-        e('');
+      GraphNode.OutTree.ConsistencyCheck;
+      //if GraphNode.OutTree.ConsistencyCheck<>0 then
+      //  e('');
       if AVLTreeHasDoubles(GraphNode.OutTree)<>nil then
         e('');
       EdgeAVLNode:=GraphNode.OutTree.FindLowest;
@@ -965,7 +969,7 @@ begin
     end;
     AVLNode:=Nodes.FindSuccessor(AVLNode);
   end;
-  
+
   AVLNode:=Edges.FindLowest;
   while AVLNode<>nil do begin
     Edge:=TCodeGraphEdge(AVLNode.Data);

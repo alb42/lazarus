@@ -87,7 +87,7 @@ type
     2. code tree node cache:
       Some nodes (class, proc, record) contain a node cache. A node cache caches
       search results of searched identifiers for child nodes.
-      
+
       Every entry in the node cache describes the following relationship:
         Identifier+Range -> Source Position
       and can be interpreted as:
@@ -100,18 +100,18 @@ type
 
       Every node that defines local identifiers contains a node cache.
       These are: class, interface, proc, record, withstatement
-      
+
       Because node caches can store information of used units, the cache must be
       deleted every time a used unit is changed.
   }
 const
   AllNodeCacheDescs =
     AllClasses+[ctnProcedure, ctnWithVariable];
-  
+
 type
   TNodeCacheEntryFlag = (ncefSearchedInParents, ncefSearchedInAncestors);
   TNodeCacheEntryFlags = set of TNodeCacheEntryFlag;
-  
+
   PCodeTreeNodeCacheEntry = ^TCodeTreeNodeCacheEntry;
   TCodeTreeNodeCacheEntry = record
     Identifier: PChar;
@@ -158,17 +158,17 @@ type
     procedure ConsistencyCheck;
     function CalcMemSize: PtrUInt;
   end;
-  
+
   {
     3. Base type node cache
-    
+
     All nodes, that are aliases, has this type of cache.
     For example a variable 'i: integer' creates several basetype nodes:
       1. i variable node points to its type node 'integer'.
       2. 'integer' node points to type definition node 'integer'.
       3. 'integer' identifier node points to its base type 'longint'.
       4. 'longint' identifier node points points to its range.
-      
+
       FindBaseTypeOfNode will search this chain, and on success will create
       TBaseTypeCache(s). The All four nodes will point directly to the range.
 
@@ -489,8 +489,9 @@ var
   Entry: PInterfaceIdentCacheEntry;
 begin
   if FItems<>nil then begin
-    if FItems.ConsistencyCheck<>0 then
-      RaiseCatchableException('');
+    FItems.ConsistencyCheck;
+    //if FItems.ConsistencyCheck<>0 then
+    //  RaiseCatchableException('');
     Node:=FItems.FindLowest;
     while Node<>nil do begin
       Entry:=PInterfaceIdentCacheEntry(Node.Data);
@@ -804,7 +805,7 @@ procedure TCodeTreeNodeCache.Add(Identifier: PChar;
     NewEntry^.Flags:=Flags;
     FItems.Add(NewEntry);
   end;
-  
+
 var
   OldEntry: PCodeTreeNodeCacheEntry;
   OldNode: TAVLTreeNode;
@@ -855,7 +856,7 @@ var
     end;
     Result:=s;
   end;
-  
+
   procedure RaiseConflictException(const Msg: string);
   var
     s: string;
@@ -880,7 +881,7 @@ begin
     if not NewTool.Tree.ContainsNode(NewNode) then
       RaiseConflictException('NewNode is not a node of NewTool');
   end;
-  
+
   {if CompareIdentifiers(Identifier,'FillRect')=0 then begin
     DebugLn('[[[[======================================================');
     DebugLn(['[TCodeTreeNodeCache.Add] Ident=',GetIdentifier(Identifier),
@@ -1051,8 +1052,9 @@ end;
 procedure TCodeTreeNodeCache.ConsistencyCheck;
 begin
   if (FItems<>nil) then begin
-    if FItems.ConsistencyCheck<>0 then
-      raise Exception.Create('');
+    FItems.ConsistencyCheck;
+    //if FItems.ConsistencyCheck<>0 then
+    //  raise Exception.Create('');
   end;
   if Owner<>nil then begin
     if Owner.Cache<>Self then

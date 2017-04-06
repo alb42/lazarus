@@ -53,11 +53,11 @@ procedure ConnectHookFunction(MUIField: PtrUInt; TriggerValue: PtrUInt; Obj: POb
 procedure SetHook(var Hook: THook; Func: THookFunc; Data: Pointer);
 {$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
-//function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
-function CreateRastPort: PRastPort;
-function CloneRastPort(Rp: PRastPort): PRastPort;
-procedure FreeRastPort(Rp: PRastPort);
 {$endif}
+function CreateRastPortA: PRastPort; inline;
+function CloneRastPortA(Rp: PRastPort): PRastPort; inline;
+procedure FreeRastPortA(Rp: PRastPort); inline;
+
 {$ifdef FPC4AROS_VER3_FIXES}
 function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR;
 function GetAttr(AttrID: LongWord; Object_: PObject_; var Storage: IPTR): LongWord; overload syscall IntuitionBase 109;
@@ -250,7 +250,7 @@ begin
 end;
 {$endif}
 
-{$if defined(CPU86) or defined(CPUARM))}
+{$if defined(CPU86) or defined(CPUARM) or defined(CPU64)}
 {$define SetHook}
 procedure HookEntry(h: PHook; obj: PObject_; Msg: Pointer); cdecl;
 var
@@ -314,34 +314,39 @@ begin
   DoMethodA(Obj, Para);
 end;
 
-{$ifndef AROS}
 function CallHook(h: PHook; obj: APTR; params: array of NativeUInt): LongWord;
 begin
   Result := CallHookPkt(h, obj, @Params[0]);
 end;
 
-//function DoMethodA(obj : Pointer; msg1 : Pointer): longword;
-//begin
-//  DoMethodA := amigalib.DoMethodA(DWord(obj), msg1);
-//end;
-
-function CreateRastPort: PRastPort;
+function CreateRastPortA: PRastPort;
 begin
+  {$if (not defined(AROS)) or defined(CPU64)}
   Result := AllocMem(SizeOf(TRastPort));
   InitRastPort(Result);
+  {$else}
+  Result := CreateRastPort;
+  {$endif}
 end;
 
-function CloneRastPort(Rp: PRastPort): PRastPort;
+function CloneRastPortA(Rp: PRastPort): PRastPort;
 begin
+  {$if (not defined(AROS)) or defined(CPU64)}
   Result := AllocMem(SizeOf(TRastPort));
   Move(Rp^, Result^, SizeOf(TRastPort));
+  {$else}
+  Result := CloneRastPort(Rp);
+  {$endif}
 end;
 
-procedure FreeRastPort(Rp: PRastPort);
+procedure FreeRastPortA(Rp: PRastPort);
 begin
+  {$if (not defined(AROS)) or defined(CPU64)}
   FreeMem(Rp);
+  {$else}
+  FreeRastPort(Rp);
+  {$endif}
 end;
-{$endif}
 
 {$ifdef FPC4AROS_VER3_FIXES}
 function DoMethod(Obj: PObject_; const Args: array of PtrUInt): IPTR; inline;

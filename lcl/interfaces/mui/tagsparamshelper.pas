@@ -28,7 +28,7 @@ uses
 {$ifndef HASAMIGA}
 type
   TTagItem = record
-    ti_Tag: LongWord;
+    ti_Tag: NativeUInt;
     ti_Data: NativeUInt;
   end;
   PTagItem = ^TTagItem;
@@ -92,6 +92,7 @@ begin
     Result := nil;
 end;
 
+
 operator := (APList: TAParamList): Pointer;
 begin
   Result := APList.GetParamPointer;
@@ -113,6 +114,7 @@ end;
 
 function TATagList.GetTagPointer: PTagItem;
 begin
+  DebugPrint;
   Result := @(List[0]);
 end;
 

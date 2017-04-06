@@ -236,11 +236,11 @@ begin
     NewDC.RastPort := nil;
     if ADC <> nil then
     begin
-      NewDC.RastPort := CloneRastPort(ADC.RastPort);
+      NewDC.RastPort := CloneRastPortA(ADC.RastPort);
       NewDC.DrawRect := ADC.DrawRect;
     end else
     begin
-      NewDC.RastPort := CreateRastPort;
+      NewDC.RastPort := CreateRastPortA;
       NewDC.RastPort^.Layer := nil;
       NewDC.RastPort^.Bitmap := AllocBitMap(IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height, 32, BMF_CLEAR or BMF_MINPLANES or BMF_DISPLAYABLE, IntuitionBase^.ActiveScreen^.RastPort.Bitmap);
       NewDC.DrawRect := Rect(0, 0, IntuitionBase^.ActiveScreen^.Width, IntuitionBase^.ActiveScreen^.Height);

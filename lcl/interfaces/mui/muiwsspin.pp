@@ -79,7 +79,6 @@ class function TMUIWSCustomFloatSpinEdit.GetValue(
 var
   Edit: TMuiSpinEdit;
 begin
-  Result := 0;
   if (ACustomFloatSpinEdit.Handle <> 0) and (TMUIObject(ACustomFloatSpinEdit.Handle) is TMUISpinEdit) then
   begin
     Edit := TMUISpinEdit(ACustomFloatSpinEdit.Handle);
@@ -144,8 +143,7 @@ begin
     MaxValue := CEdit.MaxValue;
     Increment := CEdit.Increment;
   end;
-
-  if AWinControl.Parent <> NIL then
+  if AWinControl.Parent <> nil then
   begin
     MuiEdit.Parent := TMuiObject(AWinControl.Parent.Handle);
   end;

@@ -136,7 +136,7 @@ type
     FHeight: Integer;
     FDepth: Integer;
     MUICanvas: TMUICanvas;
-    constructor Create(Width, Height, Depth: Integer);
+    constructor Create(Width, Height, Depth: Integer); virtual; overload;
     destructor Destroy; override;
 
     procedure GetFromCanvas;
@@ -1512,7 +1512,7 @@ begin
     begin
       if Assigned(RastPort^.Bitmap) then
         FreeBitmap(RastPort^.Bitmap);
-      FreeRastPort(RastPort);
+      FreeRastPortA(RastPort);
     end;
   end;
   FDefaultBrush.Free;

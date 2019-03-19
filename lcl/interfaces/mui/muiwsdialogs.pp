@@ -253,11 +253,7 @@ begin
   //TagsList.AddTags([ASLFR_UserData, NativeUInt(MUIApp), ASLFR_IntuiMsgFunc, NativeUInt(@Hook)]);//}
 {$ifndef USE_OLD_ASL}
   {$ifdef Amiga}
-    {$ifdef Amiga68k}
-    if AslRequest(MuiDialog, TagsList) then
-    {$else}
-    if AslRequestA(MuiDialog, TagsList) then
-    {$endif}
+  if AslRequest(MuiDialog, TagsList) then
   {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   {$endif}
@@ -275,11 +271,7 @@ begin
   end else
 {$else}
   {$ifdef Amiga}
-    {$ifdef Amiga68k}
-    if AslRequest(MuiDialog, TagsList) then
-    {$else}
-    if AslRequestA(MuiDialog, TagsList) then
-    {$endif}
+  if AslRequest(MuiDialog, TagsList) then
   {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   {$endif}
@@ -451,7 +443,7 @@ class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
 var
   MuiDialog: PFontRequester;
 begin
-  {$if defined(MorphOS) or defined(Amiga68k)}
+  {$if defined(MorphOS) or defined(Amiga)}
   MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, nil));
   {$else}
   MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, [TAG_DONE, 0]));
@@ -513,11 +505,7 @@ begin
     ]);
   //
   {$ifdef Amiga}
-    {$ifdef Amiga68k}
-    if AslRequest(MuiDialog, TagsList) then
-    {$else}
-    if AslRequestA(MuiDialog, TagsList) then
-    {$endif}
+  if AslRequest(MuiDialog, TagsList) then
   {$else}
   if MUI_AslRequest(MuiDialog, TagsList) then
   {$endif}

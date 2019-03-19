@@ -416,7 +416,7 @@ class function TMuiWSFontDialog.CreateHandle(const ACommonDialog: TCommonDialog
 var
   MuiDialog: PFontRequester;
 begin
-  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, nil);
+  MuiDialog := PFontRequester(AllocAslRequest(ASL_FontRequest, nil));
   Result := THandle(MuiDialog);
 end;
 
